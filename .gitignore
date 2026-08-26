@@ -1,0 +1,45 @@
+# --- 內部規劃文件（不進 repo）---
+docs/IMPLEMENTATION_PLAN.md
+
+# --- Java / Maven ---
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+*.war
+*.jsa
+hs_err_pid*
+replay_pid*
+
+# --- Node / Vite ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+
+# --- 環境變數與憑證 ---
+.env
+.env.*
+!.env.example
+*-service-account*.json
+serviceAccountKey.json
+gcp-key.json
+
+# --- IDE ---
+.idea/
+*.iml
+.vscode/
+!.vscode/extensions.json
+.settings/
+.project
+.classpath
+nbproject/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+npm-debug.log*

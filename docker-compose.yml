@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: online-santa-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: online_santa
+      POSTGRES_USER: santa
+      POSTGRES_PASSWORD: santa
+      # 與 Neon 的行為對齊：一律使用 UTC
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U santa -d online_santa"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:

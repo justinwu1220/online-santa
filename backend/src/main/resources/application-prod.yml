@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    # Neon 的 pooled endpoint（PgBouncer transaction mode）
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      # Cloud Run 每個實例只需少量連線；Neon 免費方案的連線數有限
+      maximum-pool-size: 5
+      minimum-idle: 0
+      # 容忍 Neon 從 scale-to-zero 冷喚醒的數百毫秒
+      connection-timeout: 10000
+      idle-timeout: 30000
+      max-lifetime: 600000
+
+logging:
+  level:
+    root: INFO
+    com.onlinesanta: INFO

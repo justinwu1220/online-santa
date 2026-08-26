@@ -1,0 +1,13 @@
+# 一律以 LF 存入 repo，工作區依平台自動轉換。
+# 避免 Windows 開發、Linux CI 之間出現整檔換行差異。
+* text=auto eol=lf
+
+# 二進位檔不得轉換
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.jar binary

@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: online-santa-api
+  profiles:
+    default: local
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate          # schema 一律由 Flyway 管理
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+        order_inserts: true
+        order_updates: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+  threads:
+    virtual:
+      enabled: true              # Java 21 虛擬執行緒，提升搶領尖峰的吞吐
+
+server:
+  port: 8080
+  shutdown: graceful             # Cloud Run 縮容時不中斷處理中的請求
+  error:
+    include-message: never
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true            # 提供 /actuator/health/liveness | readiness
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+app:
+  claim:
+    # 供給小於需求時的公平性機制：每位民眾同時進行中的認領上限
+    max-active-per-donor: 3
+    # 機構選 AUTO 政策時的預設寬限天數（機構可自行調整）
+    default-release-after-days: 7
+  admin:
+    # 白名單內的 email 首次登入即取得 ADMIN 角色
+    emails: ${APP_ADMIN_EMAILS:}

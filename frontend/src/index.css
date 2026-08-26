@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@theme {
+  /* 聖誕主色：以深綠為底、紅為強調，避開過於刺眼的正紅 */
+  --color-santa-50: #f0f9f4;
+  --color-santa-100: #dbf0e3;
+  --color-santa-500: #1f7a4c;
+  --color-santa-600: #17603c;
+  --color-santa-700: #114a2e;
+  --color-berry-500: #c8384a;
+  --color-berry-600: #a72c3c;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-santa-50 text-slate-800 antialiased;
+}

@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/online_santa}
+    username: ${DB_USERNAME:santa}
+    password: ${DB_PASSWORD:santa}
+    hikari:
+      maximum-pool-size: 10
+
+logging:
+  level:
+    com.onlinesanta: DEBUG
+    org.hibernate.SQL: DEBUG
