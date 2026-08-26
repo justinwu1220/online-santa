@@ -1,6 +1,7 @@
 name: CI · frontend
 
 on:
+  workflow_dispatch:        # 允許手動觸發，方便驗證流水線
   push:
     branches: [main]
     paths: ['frontend/**', '.github/workflows/ci-frontend.yml']

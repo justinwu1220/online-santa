@@ -43,6 +43,26 @@ cd frontend && npm install && npm run dev
 健康檢查：`curl http://localhost:8080/actuator/health`
 API 文件：<http://localhost:8080/swagger-ui.html>
 
+## 本地開發的身分模擬
+
+Firebase Authentication 要到 M3 才接上。在那之前，後端以 `X-Dev-User-Email`
+標頭辨識操作者，第一次出現的 email 會自動建立為 `DONOR` 帳號：
+
+```bash
+curl http://localhost:8080/api/organizations/me -H "X-Dev-User-Email: org@example.org"
+```
+
+這個機制由 `DevPrincipalFilter` 提供，以 `@Profile("!prod")` 排除於正式環境之外。
+
+機構審核端點同樣要到 M3 才有，因此本地要讓機構能上架願望，得手動核准：
+
+```bash
+docker exec online-santa-db psql -U santa -d online_santa   -c "UPDATE organizations SET status='APPROVED' WHERE name='你的機構名稱'"
+```
+
+> **Windows 使用者注意**：Git Bash 把命令列參數傳給 `curl.exe` 時會破壞 UTF-8，
+> 含中文的 JSON 請寫成檔案再以 `--data-binary @body.json` 送出。
+
 ## 專案結構
 
 ```
