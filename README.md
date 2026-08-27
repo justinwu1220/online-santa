@@ -43,6 +43,20 @@ cd frontend && npm install && npm run dev
 健康檢查：`curl http://localhost:8080/actuator/health`
 API 文件：<http://localhost:8080/swagger-ui.html>
 
+## 前端
+
+React 19 + TypeScript + Vite + Tailwind v4，涵蓋願望牆、認領流程、機構後台與審核後台。
+
+身分驗證有兩種模式，依 Firebase 設定是否齊全**自動選擇**，與後端的 `dev-auth` 對稱：
+
+| 模式 | 啟用條件 | 請求標頭 |
+|---|---|---|
+| Firebase | 設定了 `VITE_FIREBASE_API_KEY` 與 `VITE_FIREBASE_PROJECT_ID` | `Authorization: Bearer <ID token>` |
+| 開發 | 未設定 Firebase | `X-Dev-User-Email` |
+
+開發模式讓整個專案不需要任何雲端資源就能跑起來——`npm run dev` 後在右上角輸入
+任意 email 即可切換身分。Firebase SDK 以動態 import 載入，沒設定時不會進入打包結果。
+
 ## 本地開發的身分模擬
 
 正式環境以 Firebase ID token 認證。本機開發啟用 `dev-auth` profile（由
