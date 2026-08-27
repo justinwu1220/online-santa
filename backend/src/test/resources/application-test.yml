@@ -5,6 +5,13 @@ spring:
   flyway:
     enabled: true
 
+app:
+  auth:
+    # 測試用的 Firebase 專案 ID，須與 TestJwtSupport 簽出的 token 一致
+    firebase-project-id: online-santa-test
+    admin-emails: platform-admin@example.com
+    allowed-origins: http://localhost:5173
+
 logging:
   level:
     org.testcontainers: WARN

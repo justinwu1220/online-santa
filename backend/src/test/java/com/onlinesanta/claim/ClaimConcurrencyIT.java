@@ -19,12 +19,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.support.PostgresIntegrationTest;
+import com.onlinesanta.support.TestSecurityConfig;
+import com.onlinesanta.support.TestJwtSupport;
 import com.onlinesanta.user.User;
 import com.onlinesanta.user.UserRepository;
 import com.onlinesanta.wish.AgeRange;
@@ -41,6 +44,7 @@ import com.onlinesanta.wish.WishRepository;
  * 因此改為手動清理資料。
  */
 @AutoConfigureMockMvc
+@Import(TestSecurityConfig.class)
 @DisplayName("搶領的併發控制")
 class ClaimConcurrencyIT extends PostgresIntegrationTest {
 
@@ -83,7 +87,7 @@ class ClaimConcurrencyIT extends PostgresIntegrationTest {
                 .mapToObj(i -> "donor%02d@example.com".formatted(i))
                 .toList();
         donorEmails.forEach(email ->
-                users.save(User.newDonor("dev-" + email, email, email)));
+                users.save(User.newDonor(TestJwtSupport.uidFor(email), email, email)));
     }
 
     @AfterEach
@@ -114,7 +118,7 @@ class ClaimConcurrencyIT extends PostgresIntegrationTest {
                     .map(email -> pool.submit((Callable<Integer>) () -> {
                         startGate.await();
                         return mvc.perform(post("/api/wishes/{id}/claim", wishId)
-                                        .header("X-Dev-User-Email", email))
+                                        .header("Authorization", "Bearer " + TestJwtSupport.tokenFor(email)))
                                 .andReturn().getResponse().getStatus();
                     }))
                     .toList();
@@ -149,7 +153,7 @@ class ClaimConcurrencyIT extends PostgresIntegrationTest {
                     .map(email -> pool.submit((Callable<Integer>) () -> {
                         startGate.await();
                         return mvc.perform(post("/api/wishes/{id}/claim", wishId)
-                                        .header("X-Dev-User-Email", email))
+                                        .header("Authorization", "Bearer " + TestJwtSupport.tokenFor(email)))
                                 .andReturn().getResponse().getStatus();
                     }))
                     .toList();
@@ -185,7 +189,7 @@ class ClaimConcurrencyIT extends PostgresIntegrationTest {
     @DisplayName("資料庫層的部分唯一索引擋得住繞過服務層的寫入")
     void partialUniqueIndexRejectsASecondActiveClaimWrittenDirectly() throws Exception {
         mvc.perform(post("/api/wishes/{id}/claim", wishId)
-                        .header("X-Dev-User-Email", donorEmails.get(0)))
+                        .header("Authorization", "Bearer " + TestJwtSupport.tokenFor(donorEmails.get(0))))
                 .andReturn();
 
         UUID otherDonor = users.findByEmailIgnoreCase(donorEmails.get(1)).orElseThrow().getId();

@@ -45,23 +45,42 @@ API 文件：<http://localhost:8080/swagger-ui.html>
 
 ## 本地開發的身分模擬
 
-Firebase Authentication 要到 M3 才接上。在那之前，後端以 `X-Dev-User-Email`
-標頭辨識操作者，第一次出現的 email 會自動建立為 `DONOR` 帳號：
+正式環境以 Firebase ID token 認證。本機開發啟用 `dev-auth` profile（由
+`spring.profiles.group` 在 `local` 時自動帶出），可用 `X-Dev-User-Email` 標頭
+指定身分，免去每次 curl 都要先跑完瀏覽器登入流程：
 
 ```bash
-curl http://localhost:8080/api/organizations/me -H "X-Dev-User-Email: org@example.org"
+curl http://localhost:8080/api/me -H "X-Dev-User-Email: org@example.org"
 ```
 
-這個機制由 `DevPrincipalFilter` 提供，以 `@Profile("!prod")` 排除於正式環境之外。
+第一次出現的 email 會自動建立為 `DONOR` 帳號。帶了 `Authorization` 標頭的請求
+會跳過這個機制，真實 token 永遠優先。
 
-機構審核端點同樣要到 M3 才有，因此本地要讓機構能上架願望，得手動核准：
+`dev-auth` 與 `prod` 不可同時啟用，`AuthConfigurationGuard` 會在啟動時檢查，
+組合錯誤就讓應用程式起不來。
+
+### 成為管理員
+
+把 email 加進白名單，下次登入即取得 `ADMIN` 角色：
 
 ```bash
-docker exec online-santa-db psql -U santa -d online_santa   -c "UPDATE organizations SET status='APPROVED' WHERE name='你的機構名稱'"
+APP_ADMIN_EMAILS=you@example.com ./mvnw spring-boot:run
 ```
+
+管理員可在 `/api/admin/organizations` 審核機構註冊。已隸屬機構的帳號不會被提升，
+避免同一人既能上架願望又能審核自己的機構。
 
 > **Windows 使用者注意**：Git Bash 把命令列參數傳給 `curl.exe` 時會破壞 UTF-8，
 > 含中文的 JSON 請寫成檔案再以 `--data-binary @body.json` 送出。
+
+## 正式環境設定
+
+| 環境變數 | 說明 |
+|---|---|
+| `FIREBASE_PROJECT_ID` | Firebase 專案 ID，用於推導 ID token 的 issuer 與 audience |
+| `APP_ADMIN_EMAILS` | 管理員白名單，逗號分隔 |
+| `APP_ALLOWED_ORIGINS` | 允許跨來源請求的前端網域 |
+| `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | Neon PostgreSQL 連線資訊 |
 
 ## 專案結構
 

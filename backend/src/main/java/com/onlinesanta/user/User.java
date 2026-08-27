@@ -21,7 +21,7 @@ import jakarta.persistence.Table;
 @Table(name = "users")
 public class User extends BaseEntity {
 
-    @Column(name = "firebase_uid", nullable = false, updatable = false, length = 128)
+    @Column(name = "firebase_uid", nullable = false, length = 128)
     private String firebaseUid;
 
     @Column(nullable = false, length = 255)
@@ -63,6 +63,22 @@ public class User extends BaseEntity {
 
     public static User newAdmin(String firebaseUid, String email, String displayName) {
         return new User(firebaseUid, email, displayName, UserRole.ADMIN);
+    }
+
+    /**
+     * 改綁 Firebase uid。
+     *
+     * <p>用於 Firebase 端帳號被刪除後、以同一信箱重新註冊的情況：本地的認領紀錄
+     * 應該延續給同一個人，而不是產生一個孤立的新帳號。
+     */
+    public void linkFirebaseUid(String firebaseUid) {
+        this.firebaseUid = firebaseUid;
+    }
+
+    /** 設定檔白名單內的 email 於登入時取得管理員權限。 */
+    public void promoteToAdmin() {
+        this.role = UserRole.ADMIN;
+        this.organizationId = null;
     }
 
     /** 註冊機構後，本人成為該機構的成員。 */

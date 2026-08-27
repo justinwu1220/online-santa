@@ -3,6 +3,11 @@ spring:
     name: online-santa-api
   profiles:
     default: local
+    # 啟用 local 時一併啟用 dev-auth：本機可用 X-Dev-User-Email 標頭模擬身分，
+    # 免去每次 curl 都得先跑完瀏覽器登入流程取得真實 ID token。
+    # prod 不在這個群組裡，AuthConfigurationGuard 啟動時還會再檢查一次。
+    group:
+      local: dev-auth
   jpa:
     open-in-view: false
     hibernate:
@@ -50,6 +55,10 @@ app:
     max-active-per-donor: 3
     # 機構選 AUTO 政策時的預設寬限天數（機構可自行調整）
     default-release-after-days: 7
-  admin:
-    # 白名單內的 email 首次登入即取得 ADMIN 角色
-    emails: ${APP_ADMIN_EMAILS:}
+  auth:
+    # Firebase 專案 ID。ID token 的 issuer 與 audience 都由它推導，
+    # 少了 audience 檢查，任何 Firebase 專案簽出的 token 都會被接受。
+    firebase-project-id: ${FIREBASE_PROJECT_ID:}
+    # 白名單內的 email 於登入時取得 ADMIN 角色
+    admin-emails: ${APP_ADMIN_EMAILS:}
+    allowed-origins: ${APP_ALLOWED_ORIGINS:http://localhost:5173}

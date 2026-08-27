@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.support.ApiIntegrationTest;
+import com.onlinesanta.support.TestJwtSupport;
 import com.onlinesanta.user.User;
 import com.onlinesanta.user.UserRepository;
 import com.onlinesanta.wish.dto.WishRequest;
@@ -47,7 +48,7 @@ class WishApiIT extends ApiIntegrationTest {
         organization.approve(null, "測試資料");
         organizations.save(organization);
 
-        User member = User.newDonor("dev-" + memberEmail, memberEmail, memberEmail);
+        User member = User.newDonor(TestJwtSupport.uidFor(memberEmail), memberEmail, memberEmail);
         member.joinOrganization(organization.getId());
         users.save(member);
     }
@@ -130,7 +131,7 @@ class WishApiIT extends ApiIntegrationTest {
     void deniesWishCreationToUnapprovedOrganization() throws Exception {
         Organization pending = organizations.save(
                 Organization.register("待審核之家", "pending@example.org", null, null, null));
-        User member = User.newDonor("dev-pending@example.org", "pending@example.org", "待審核");
+        User member = User.newDonor(TestJwtSupport.uidFor("pending@example.org"), "pending@example.org", "待審核");
         member.joinOrganization(pending.getId());
         users.save(member);
 
