@@ -31,9 +31,15 @@ public record WishPublicView(
         WishStatus status,
         Instant publishedAt,
         UUID organizationId,
-        String organizationName) {
+        String organizationName,
+        String imageUrl) {
 
     public static WishPublicView from(Wish wish) {
+        return from(wish, null);
+    }
+
+    /** @param imageUrl 禮物示意圖網址，沒有圖時為 null */
+    public static WishPublicView from(Wish wish, String imageUrl) {
         return new WishPublicView(
                 wish.getId(),
                 wish.getTitle(),
@@ -49,6 +55,7 @@ public record WishPublicView(
                 wish.getStatus(),
                 wish.getPublishedAt(),
                 wish.getOrganization().getId(),
-                wish.getOrganization().getName());
+                wish.getOrganization().getName(),
+                imageUrl);
     }
 }

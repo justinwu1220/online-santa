@@ -8,6 +8,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 
 import com.onlinesanta.auth.AuthProperties;
 import com.onlinesanta.auth.SecurityConfig;
+import com.onlinesanta.storage.ObjectStorage;
 
 /**
  * 測試環境的 JWT 解碼器：改用本地金鑰，不連 Google 的 JWKS 端點。
@@ -18,6 +19,17 @@ import com.onlinesanta.auth.SecurityConfig;
  */
 @TestConfiguration
 public class TestSecurityConfig {
+
+    /**
+     * 測試用的儲存空間，取代 GCS。
+     *
+     * <p>整合測試不該依賴外部服務——需要網路、需要憑證、還會留下垃圾檔案。
+     */
+    @Bean
+    @Primary
+    ObjectStorage testObjectStorage() {
+        return new InMemoryObjectStorage();
+    }
 
     @Bean
     @Primary

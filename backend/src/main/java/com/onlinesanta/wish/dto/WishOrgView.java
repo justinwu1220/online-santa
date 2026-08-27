@@ -25,9 +25,14 @@ public record WishOrgView(
         long version,
         Instant publishedAt,
         Instant createdAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        String imageUrl) {
 
     public static WishOrgView from(Wish wish) {
+        return from(wish, null);
+    }
+
+    public static WishOrgView from(Wish wish, String imageUrl) {
         return new WishOrgView(
                 wish.getId(),
                 wish.getTitle(),
@@ -43,6 +48,7 @@ public record WishOrgView(
                 wish.getVersion(),
                 wish.getPublishedAt(),
                 wish.getCreatedAt(),
-                wish.getUpdatedAt());
+                wish.getUpdatedAt(),
+                imageUrl);
     }
 }

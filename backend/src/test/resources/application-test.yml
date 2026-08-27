@@ -6,6 +6,17 @@ spring:
     enabled: true
 
 app:
+  storage:
+    public-bucket: test-public
+    private-bucket: test-private
+    upload-url-ttl: 15m
+    download-url-ttl: 10m
+    max-upload-bytes: 5242880
+    allowed-content-types:
+      - image/jpeg
+      - image/png
+      - image/webp
+    local-storage-dir: ./target/test-storage
   auth:
     # 測試用的 Firebase 專案 ID，須與 TestJwtSupport 簽出的 token 一致
     firebase-project-id: online-santa-test

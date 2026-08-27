@@ -7,7 +7,9 @@ spring:
     # 免去每次 curl 都得先跑完瀏覽器登入流程取得真實 ID token。
     # prod 不在這個群組裡，AuthConfigurationGuard 啟動時還會再檢查一次。
     group:
-      local: dev-auth
+      # 本機一併啟用開發用的身分模擬與本地檔案儲存，
+      # 讓沒有 Firebase 與 GCP 專案的人也能把整個流程跑起來。
+      local: dev-auth,dev-storage
   jpa:
     open-in-view: false
     hibernate:
@@ -55,6 +57,20 @@ app:
     max-active-per-donor: 3
     # 機構選 AUTO 政策時的預設寬限天數（機構可自行調整）
     default-release-after-days: 7
+  storage:
+    # 依敏感度分成兩個 bucket：示意圖公開可讀（願望牆流量大，省下每張圖的簽章往返），
+    # 寄送證明與回饋照片一律需要限時簽章才能讀取。
+    public-bucket: ${GCS_PUBLIC_BUCKET:online-santa-public}
+    private-bucket: ${GCS_PRIVATE_BUCKET:online-santa-private}
+    upload-url-ttl: 15m
+    download-url-ttl: 10m
+    max-upload-bytes: 5242880          # 5 MB
+    allowed-content-types:
+      - image/jpeg
+      - image/png
+      - image/webp
+    # 僅 dev-storage profile 使用
+    local-storage-dir: ${LOCAL_STORAGE_DIR:./.local-storage}
   auth:
     # Firebase 專案 ID。ID token 的 issuer 與 audience 都由它推導，
     # 少了 audience 檢查，任何 Firebase 專案簽出的 token 都會被接受。

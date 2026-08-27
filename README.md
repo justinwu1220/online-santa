@@ -73,6 +73,28 @@ APP_ADMIN_EMAILS=you@example.com ./mvnw spring-boot:run
 > **Windows 使用者注意**：Git Bash 把命令列參數傳給 `curl.exe` 時會破壞 UTF-8，
 > 含中文的 JSON 請寫成檔案再以 `--data-binary @body.json` 送出。
 
+## 圖片上傳
+
+依敏感度分成兩個 bucket：
+
+| Bucket | 內容 | 存取方式 |
+|---|---|---|
+| 公開 | 禮物示意圖 | 固定網址，無需簽章 |
+| 私密 | 寄送證明、送禮回饋照片 | 限時簽章網址（10 分鐘） |
+
+上傳走三步驟，檔案不經過 API：
+
+```
+POST /api/uploads/signed-url   → 取得限時直傳網址
+PUT  <該網址>                   → 前端直接傳到儲存端
+POST /api/attachments/{id}/confirm → 後端向儲存端查證後標記完成
+```
+
+本機開發啟用 `dev-storage` profile（隨 `local` 自動帶出），檔案存在
+`backend/.local-storage/`，不需要 GCP 專案就能跑完整個流程。
+
+隱私規範見 [docs/PRIVACY.md](docs/PRIVACY.md)。
+
 ## 正式環境設定
 
 | 環境變數 | 說明 |
@@ -81,6 +103,15 @@ APP_ADMIN_EMAILS=you@example.com ./mvnw spring-boot:run
 | `APP_ADMIN_EMAILS` | 管理員白名單，逗號分隔 |
 | `APP_ALLOWED_ORIGINS` | 允許跨來源請求的前端網域 |
 | `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | Neon PostgreSQL 連線資訊 |
+| `GCS_PUBLIC_BUCKET` | 公開 bucket 名稱（禮物示意圖） |
+| `GCS_PRIVATE_BUCKET` | 私密 bucket 名稱（寄送證明、回饋照片） |
+
+> **Cloud Run 上簽章的必要設定**：執行環境的服務帳號沒有私鑰檔，簽章會改走 IAM
+> `signBlob` API，因此該服務帳號必須擁有**自己**的
+> `roles/iam.serviceAccountTokenCreator`。少了這個權限，程式在本機（有金鑰檔）
+> 正常，一上 Cloud Run 就會失敗。
+>
+> 私密 bucket 還需設定 CORS，允許前端網域的 `PUT`，否則瀏覽器直傳會被擋。
 
 ## 專案結構
 

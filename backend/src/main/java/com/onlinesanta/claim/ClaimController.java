@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.onlinesanta.attachment.AttachmentService;
+import com.onlinesanta.attachment.dto.AttachmentView;
 import com.onlinesanta.claim.dto.ClaimDonorView;
 import com.onlinesanta.claim.dto.ClaimEventView;
 import com.onlinesanta.claim.dto.ClaimRequest;
@@ -32,9 +34,11 @@ import jakarta.validation.Valid;
 public class ClaimController {
 
     private final ClaimService claims;
+    private final AttachmentService attachments;
 
-    public ClaimController(ClaimService claims) {
+    public ClaimController(ClaimService claims, AttachmentService attachments) {
         this.claims = claims;
+        this.attachments = attachments;
     }
 
     @PostMapping("/wishes/{wishId}/claim")
@@ -64,6 +68,15 @@ public class ClaimController {
     @Operation(summary = "認領歷程")
     public List<ClaimEventView> timeline(@PathVariable UUID id) {
         return claims.timelineOf(id).stream().map(ClaimEventView::from).toList();
+    }
+
+    @GetMapping("/claims/{id}/attachments")
+    @Operation(summary = "認領的附件",
+            description = "寄送證明與送禮回饋照片。網址為限時簽章，僅該筆認領的捐贈者與願望所屬機構可取得")
+    public List<AttachmentView> attachments(@PathVariable UUID id) {
+        // 先做權限檢查再取檔案——這些檔案含捐贈者個資與孩童影像
+        claims.getVisibleById(id);
+        return attachments.claimAttachments(id);
     }
 
     @PostMapping("/claims/{id}/ship")

@@ -26,6 +26,9 @@ dist-ssr/
 serviceAccountKey.json
 gcp-key.json
 
+# --- 本機開發用的檔案儲存（dev-storage profile）---
+.local-storage/
+
 # --- IDE ---
 .idea/
 *.iml

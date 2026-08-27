@@ -68,6 +68,9 @@ public class SecurityConfig {
                                 "/actuator/info").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**",
                                 "/v3/api-docs/**").permitAll()
+                        // 本機開發用的假 Cloud Storage：只在 dev-storage profile 存在，
+                        // 由 URL 簽章保護而非登入狀態——與正式環境的 GCS 行為一致
+                        .requestMatchers("/dev-storage/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2

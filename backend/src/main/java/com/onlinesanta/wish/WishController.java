@@ -1,7 +1,9 @@
 package com.onlinesanta.wish;
 
+import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.onlinesanta.attachment.AttachmentService;
 import com.onlinesanta.common.PageResponse;
 import com.onlinesanta.wish.dto.WishFilterOptions;
 import com.onlinesanta.wish.dto.WishOrgView;
@@ -38,9 +41,11 @@ import jakarta.validation.Valid;
 public class WishController {
 
     private final WishService wishes;
+    private final AttachmentService attachments;
 
-    public WishController(WishService wishes) {
+    public WishController(WishService wishes, AttachmentService attachments) {
         this.wishes = wishes;
+        this.attachments = attachments;
     }
 
     // ---------------------------------------------------------------- 公開瀏覽
@@ -52,9 +57,14 @@ public class WishController {
             @RequestParam(required = false) AgeRange ageRange,
             @RequestParam(required = false) PriceRange priceRange,
             @PageableDefault(size = 20, sort = "publishedAt") Pageable pageable) {
-        return PageResponse.of(
-                wishes.browse(category, ageRange, priceRange, pageable),
-                WishPublicView::from);
+        Page<Wish> page = wishes.browse(category, ageRange, priceRange, pageable);
+
+        // 一次撈完整頁的示意圖網址，不要逐筆查詢——這是願望牆的熱門路徑
+        Map<UUID, String> imageUrls = attachments.wishImageUrls(
+                page.getContent().stream().map(Wish::getId).toList());
+
+        return PageResponse.of(page,
+                wish -> WishPublicView.from(wish, imageUrls.get(wish.getId())));
     }
 
     @GetMapping("/options")
@@ -66,7 +76,7 @@ public class WishController {
     @GetMapping("/{id}")
     @Operation(summary = "願望詳情")
     public WishPublicView getOne(@PathVariable UUID id) {
-        return WishPublicView.from(wishes.getPublicById(id));
+        return WishPublicView.from(wishes.getPublicById(id), attachments.wishImageUrl(id));
     }
 
     // ---------------------------------------------------------------- 機構操作
@@ -81,19 +91,19 @@ public class WishController {
     @PatchMapping("/{id}")
     @Operation(summary = "修改願望內容")
     public WishOrgView update(@PathVariable UUID id, @Valid @RequestBody WishRequest request) {
-        return WishOrgView.from(wishes.update(id, request));
+        return WishOrgView.from(wishes.update(id, request), attachments.wishImageUrl(id));
     }
 
     @PostMapping("/{id}/publish")
     @Operation(summary = "上架願望")
     public WishOrgView publish(@PathVariable UUID id) {
-        return WishOrgView.from(wishes.publish(id));
+        return WishOrgView.from(wishes.publish(id), attachments.wishImageUrl(id));
     }
 
     @PostMapping("/{id}/unpublish")
     @Operation(summary = "下架願望", description = "已被認領的願望無法下架")
     public WishOrgView unpublish(@PathVariable UUID id) {
-        return WishOrgView.from(wishes.unpublish(id));
+        return WishOrgView.from(wishes.unpublish(id), attachments.wishImageUrl(id));
     }
 
     @DeleteMapping("/{id}")
