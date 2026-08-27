@@ -95,6 +95,25 @@ POST /api/attachments/{id}/confirm → 後端向儲存端查證後標記完成
 
 隱私規範見 [docs/PRIVACY.md](docs/PRIVACY.md)。
 
+## 逾期認領的處理
+
+去年願望供不應求，認領後遲遲未寄送會讓孩子的願望一直卡著。是否收回由**機構自己
+決定**，設定在 `PATCH /api/organizations/me`：
+
+| 政策 | 逾期時的行為 |
+|---|---|
+| `MANUAL` | 只列入機構後台的逾期清單（`GET /api/organizations/me/claims/overdue`），由機構聯繫後自行決定 |
+| `AUTO` | 自動釋回，願望重新上架 |
+
+判斷依據是**認領當下的政策快照**，不是機構現在的設定 —— 已經在準備禮物的人不該
+因為機構臨時改設定而被無預警收回。
+
+Cloud Run 是 scale-to-zero 的，沒有常駐行程，`@Scheduled` 不會可靠觸發。改由
+**Cloud Scheduler 每日呼叫** `POST /internal/jobs/release-expired-claims`，順帶把
+實例喚醒。該端點走獨立的安全鏈，只接受指定服務帳號的 Google OIDC token。
+
+管理員也可隨時手動觸發：`POST /api/admin/jobs/release-expired-claims`。
+
 ## 正式環境設定
 
 | 環境變數 | 說明 |
@@ -105,6 +124,8 @@ POST /api/attachments/{id}/confirm → 後端向儲存端查證後標記完成
 | `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | Neon PostgreSQL 連線資訊 |
 | `GCS_PUBLIC_BUCKET` | 公開 bucket 名稱（禮物示意圖） |
 | `GCS_PRIVATE_BUCKET` | 私密 bucket 名稱（寄送證明、回饋照片） |
+| `INTERNAL_JOB_AUDIENCE` | Cloud Scheduler OIDC token 的 audience，設為本服務網址 |
+| `SCHEDULER_SERVICE_ACCOUNT` | 允許觸發排程的服務帳號 email |
 
 > **Cloud Run 上簽章的必要設定**：執行環境的服務帳號沒有私鑰檔，簽章會改走 IAM
 > `signBlob` API，因此該服務帳號必須擁有**自己**的

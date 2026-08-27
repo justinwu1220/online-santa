@@ -28,9 +28,14 @@ public record ClaimDonorView(
         String trackingCarrier,
         String trackingNumber,
         String donorMessage,
-        String releaseReason) {
+        String releaseReason,
+        long unreadMessageCount) {
 
     public static ClaimDonorView from(Claim claim) {
+        return from(claim, 0);
+    }
+
+    public static ClaimDonorView from(Claim claim, long unreadMessageCount) {
         Wish wish = claim.getWish();
         return new ClaimDonorView(
                 claim.getId(),
@@ -48,6 +53,7 @@ public record ClaimDonorView(
                 claim.getTrackingCarrier(),
                 claim.getTrackingNumber(),
                 claim.getDonorMessage(),
-                claim.getReleaseReason());
+                claim.getReleaseReason(),
+                unreadMessageCount);
     }
 }

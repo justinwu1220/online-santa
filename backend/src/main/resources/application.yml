@@ -71,6 +71,11 @@ app:
       - image/webp
     # 僅 dev-storage profile 使用
     local-storage-dir: ${LOCAL_STORAGE_DIR:./.local-storage}
+  internal-jobs:
+    # Cloud Scheduler 的 OIDC token 必須以本服務網址為 audience，
+    # 且由指定的服務帳號簽發，兩者缺一不可。
+    audience: ${INTERNAL_JOB_AUDIENCE:http://localhost:8080}
+    scheduler-service-account: ${SCHEDULER_SERVICE_ACCOUNT:scheduler@example.iam.gserviceaccount.com}
   auth:
     # Firebase 專案 ID。ID token 的 issuer 與 audience 都由它推導，
     # 少了 audience 檢查，任何 Firebase 專案簽出的 token 都會被接受。

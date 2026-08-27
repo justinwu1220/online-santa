@@ -1,8 +1,10 @@
 package com.onlinesanta.claim;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -15,6 +17,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.onlinesanta.attachment.AttachmentService;
+import com.onlinesanta.auth.CurrentUserService;
+import com.onlinesanta.message.MessageService;
 import com.onlinesanta.attachment.dto.AttachmentView;
 import com.onlinesanta.claim.dto.ClaimDonorView;
 import com.onlinesanta.claim.dto.ClaimEventView;
@@ -35,10 +39,17 @@ public class ClaimController {
 
     private final ClaimService claims;
     private final AttachmentService attachments;
+    private final MessageService messages;
+    private final CurrentUserService currentUser;
 
-    public ClaimController(ClaimService claims, AttachmentService attachments) {
+    public ClaimController(ClaimService claims,
+                           AttachmentService attachments,
+                           MessageService messages,
+                           CurrentUserService currentUser) {
         this.claims = claims;
         this.attachments = attachments;
+        this.messages = messages;
+        this.currentUser = currentUser;
     }
 
     @PostMapping("/wishes/{wishId}/claim")
@@ -55,13 +66,20 @@ public class ClaimController {
     @Operation(summary = "我的認領清單")
     public PageResponse<ClaimDonorView> listMine(
             @PageableDefault(size = 20) Pageable pageable) {
-        return PageResponse.of(claims.listMine(pageable), ClaimDonorView::from);
+        Page<Claim> page = claims.listMine(pageable);
+        // 一次算出整頁的未讀數，不要逐筆查
+        Map<UUID, Long> unread = messages.unreadCounts(
+                page.getContent().stream().map(Claim::getId).toList(),
+                currentUser.require().userId());
+
+        return PageResponse.of(page,
+                claim -> ClaimDonorView.from(claim, unread.getOrDefault(claim.getId(), 0L)));
     }
 
     @GetMapping("/claims/{id}")
     @Operation(summary = "認領詳情", description = "僅該筆認領的捐贈者與願望所屬機構可見")
     public ClaimDonorView getOne(@PathVariable UUID id) {
-        return ClaimDonorView.from(claims.getVisibleById(id));
+        return ClaimDonorView.from(claims.getVisibleById(id), messages.unreadCount(id));
     }
 
     @GetMapping("/claims/{id}/timeline")

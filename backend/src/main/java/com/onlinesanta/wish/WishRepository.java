@@ -1,5 +1,6 @@
 package com.onlinesanta.wish;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -80,6 +81,24 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
              where id = :wishId and status = 'CLAIMED'
             """, nativeQuery = true)
     int markAvailableAgain(@Param("wishId") UUID wishId);
+
+    /**
+     * 批次釋回：一次把多個願望放回願望牆。
+     *
+     * <p>逾期釋回的排程掃出一批認領後，若對每筆各呼叫一次
+     * {@link #markAvailableAgain}，第一次的 {@code clearAutomatically} 就會清空
+     * 持久化脈絡，讓迴圈裡還沒處理的 Claim 全部變成分離狀態、後續變更再也不會寫回。
+     * 因此改成所有 Claim 都改完之後，用一句 UPDATE 收尾。
+     *
+     * @return 實際被改動的願望數
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+            update wishes
+               set status = 'AVAILABLE', version = version + 1, updated_at = now()
+             where id in (:wishIds) and status = 'CLAIMED'
+            """, nativeQuery = true)
+    int markAvailableAgainAll(@Param("wishIds") Collection<UUID> wishIds);
 
     /** 送禮流程全部完成。 */
     @Modifying(clearAutomatically = true, flushAutomatically = true)

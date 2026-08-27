@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -41,8 +42,14 @@ public class SecurityConfig {
         this.properties = properties;
     }
 
+    /**
+     * 一般 API 的安全鏈。{@code @Order(2)} 排在 {@code /internal/**} 那條之後——
+     * 排程端點走的是 Google OIDC，與這裡的 Firebase 驗證是兩套完全不同的規則。
+     */
     @Bean
+    @Order(2)
     SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                            JwtDecoder decoder,
                                             FirebaseAuthenticationConverter converter,
                                             ApiAuthenticationEntryPoint entryPoint,
                                             ApiAccessDeniedHandler accessDeniedHandler,
@@ -74,7 +81,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(converter))
+                        .jwt(jwt -> jwt.decoder(decoder)
+                                .jwtAuthenticationConverter(converter))
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .exceptionHandling(handling -> handling
@@ -91,7 +99,7 @@ public class SecurityConfig {
      * 簽章金鑰，少了這一步，別的 Firebase 專案簽出的 token 也會被我們接受。
      */
     @Bean
-    JwtDecoder jwtDecoder() {
+    JwtDecoder firebaseJwtDecoder() {
         NimbusJwtDecoder decoder = NimbusJwtDecoder
                 .withJwkSetUri(properties.jwkSetUri())
                 .build();

@@ -204,6 +204,18 @@ public class ClaimService {
         return claim;
     }
 
+    /**
+     * 本機構逾期未寄送的認領。
+     *
+     * <p>手動釋回政策的機構靠這份清單自行決定要不要收回；自動政策的機構理論上
+     * 排程已經處理掉，這裡會是空的（除非排程還沒跑）。
+     */
+    @Transactional(readOnly = true)
+    public Page<Claim> listOverdueForMyOrganization(Pageable pageable) {
+        return claims.findOverdueByOrganizationId(
+                currentUser.requireOrganizationId(), Instant.now(), pageable);
+    }
+
     @Transactional(readOnly = true)
     public Page<Claim> listForMyOrganization(ClaimStatus status, Pageable pageable) {
         UUID organizationId = currentUser.requireOrganizationId();

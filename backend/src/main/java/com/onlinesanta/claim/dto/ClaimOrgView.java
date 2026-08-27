@@ -31,9 +31,14 @@ public record ClaimOrgView(
         String trackingCarrier,
         String trackingNumber,
         String donorMessage,
-        String releaseReason) {
+        String releaseReason,
+        long unreadMessageCount) {
 
     public static ClaimOrgView from(Claim claim) {
+        return from(claim, 0);
+    }
+
+    public static ClaimOrgView from(Claim claim, long unreadMessageCount) {
         return new ClaimOrgView(
                 claim.getId(),
                 claim.getStatus(),
@@ -52,6 +57,7 @@ public record ClaimOrgView(
                 claim.getTrackingCarrier(),
                 claim.getTrackingNumber(),
                 claim.getDonorMessage(),
-                claim.getReleaseReason());
+                claim.getReleaseReason(),
+                unreadMessageCount);
     }
 }
