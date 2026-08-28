@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -37,9 +38,11 @@ import org.springframework.security.oauth2.jwt.Jwt;
 public class SecurityConfig {
 
     private final AuthProperties properties;
+    private final Environment environment;
 
-    public SecurityConfig(AuthProperties properties) {
+    public SecurityConfig(AuthProperties properties, Environment environment) {
         this.properties = properties;
+        this.environment = environment;
     }
 
     /**
@@ -114,16 +117,47 @@ public class SecurityConfig {
                         aud -> aud != null && aud.contains(properties.firebaseProjectId())));
     }
 
+    /**
+     * 跨來源規則。
+     *
+     * <p>正式環境只有 API 需要——檔案是直傳到 Cloud Storage，那邊的 CORS 由
+     * bucket 自己的設定負責（見 {@code docs/DEPLOY.md}）。
+     */
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", apiCors());
+
+        // 本機的假 Cloud Storage 是同一個 Spring 應用程式，因此它的 CORS 也得由我們
+        // 出。正式環境對應的是 bucket 上的 CORS 設定——漏了這一段，本機的直傳會在
+        // 瀏覽器的預檢就被擋下（curl 測不出來，因為 curl 沒有同源政策）
+        if (environment.matchesProfiles("dev-storage")) {
+            source.registerCorsConfiguration("/dev-storage/**", devStorageCors());
+        }
+        return source;
+    }
+
+    private CorsConfiguration apiCors() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(properties.allowedOrigins());
         config.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setMaxAge(3600L);
+        return config;
+    }
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", config);
-        return source;
+    /**
+     * 對齊 {@code docs/DEPLOY.md} 裡給 bucket 的 CORS：直傳用 PUT，讀取用 GET。
+     *
+     * <p>不放 Authorization——直傳的授權完全來自網址上的簽章，帶 token 過去反而
+     * 是把憑證交給儲存端，正式環境的 GCS 也不吃。
+     */
+    private CorsConfiguration devStorageCors() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(properties.allowedOrigins());
+        config.setAllowedMethods(List.of("GET", "PUT", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Content-Type"));
+        config.setMaxAge(3600L);
+        return config;
     }
 }
