@@ -102,12 +102,25 @@ jdbc:postgresql://ep-xxx-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=requ
 
 ## 三、Google Cloud
 
+> **這一節的指令是 bash 語法，Windows 請用 Git Bash 或 Cloud Shell 執行，不要用
+> PowerShell。** 行尾的 `\` 換行接續、heredoc（`<<'JSON'`）、`for` 迴圈、
+> `$(...)` 與 `/tmp` 在 PowerShell 都不成立，逐條翻譯的過程很容易把服務帳號名稱
+> 或角色改錯。Cloud Shell（GCP Console 右上角的 `>_`）連 gcloud 都不用裝。
+
 以下指令用 `gcloud`。先安裝並登入：
 
 ```bash
 gcloud auth login
 gcloud config set project <PROJECT_ID>
 ```
+
+> Git Bash 找不到 `gcloud` 的話，是安裝程式只把路徑加進了 PowerShell。用 `$HOME`
+> 補上（不要用 `$LOCALAPPDATA`——它在 Git Bash 裡仍是 `C:\Users\...` 這種反斜線
+> 格式，放進 `PATH` 一樣找不到）：
+>
+> ```bash
+> export PATH="$PATH:$HOME/AppData/Local/Google/Cloud SDK/google-cloud-sdk/bin"
+> ```
 
 ### 3.1 啟用 API
 
