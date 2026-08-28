@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../lib/authContext'
-import { useCurrentUser } from '../../lib/useCurrentUser'
+import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
 import { AuthPanel } from '../../components/auth/AuthPanel'
-import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
+import { WrongAccountPanel } from '../../components/auth/WrongAccountPanel'
+import { ErrorBanner, Spinner } from '../../components/Feedback'
 
 /**
  * 監控中心的登入頁。
@@ -28,15 +29,13 @@ export function AdminLogin() {
     if (me.isError) {
       return <Shell><ErrorBanner error={me.error} onRetry={() => void me.refetch()} /></Shell>
     }
-    if (me.data?.role === 'ADMIN') {
+    if (effectiveRoleOf(me.data) === 'ADMIN') {
       return <Navigate to={searchParams.get('next') ?? '/admin'} replace />
     }
+    // 這裡是 RequireRole 的另一端：停下來，不要導回 next，否則會無限重導
     return (
       <Shell>
-        <Notice tone="warning">
-          <p className="font-medium">此帳號沒有存取權限</p>
-          <p className="mt-1">請以平台管理員的帳號登入。</p>
-        </Notice>
+        <WrongAccountPanel expected="ADMIN" reason="請以平台管理員的帳號登入。" />
       </Shell>
     )
   }

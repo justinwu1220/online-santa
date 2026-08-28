@@ -1,6 +1,6 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth, usingFirebase } from '../../lib/authContext'
-import { useCurrentUser } from '../../lib/useCurrentUser'
+import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
 import { EmailVerificationBanner } from '../EmailVerificationBanner'
 import { Button } from '../Form'
 
@@ -70,8 +70,9 @@ function AuthControls() {
   if (email) {
     return (
       <div className="flex items-center gap-3">
-        {/* 機構成員誤入主網站時，給他一條回後台的路 */}
-        {me.data?.role === 'ORG_MEMBER' && (
+        {/* 機構成員誤入主網站時，給他一條回後台的路。用生效角色判斷——
+            信箱還沒驗證的人進不了後台，這時給連結只會把他彈回登入頁 */}
+        {effectiveRoleOf(me.data) === 'ORG_MEMBER' && (
           <Link to="/org" className="text-sm text-santa-700 hover:underline">機構後台</Link>
         )}
         <span className="max-w-[14rem] truncate text-sm text-slate-500" title={email}>

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/authContext'
-import { useCurrentUser } from '../lib/useCurrentUser'
+import { effectiveRoleOf, useCurrentUser } from '../lib/useCurrentUser'
 import type { UserRole } from '../lib/types'
 import { ErrorBanner, Notice, Spinner } from './Feedback'
 
@@ -12,10 +12,14 @@ import { ErrorBanner, Notice, Spinner } from './Feedback'
  * 不能先閃一次「無權限」；查不到身分（後端掛了）要說出來，不能靜靜地擋住。
  *
  * @param loginPath 未登入時導向哪個登入頁。三個區域各有自己的入口
+ * @param wrongRole 角色不符時的行為。後台用 `redirect` 把人擋回自己的登入頁，
+ *                  主網站用預設的 `explain`——機構成員來看自己的認領頁並沒有走錯
+ *                  入口，把他彈到登入頁只會莫名其妙
  */
-export function RequireRole({ role, loginPath, children }: {
+export function RequireRole({ role, loginPath, wrongRole = 'explain', children }: {
   role: UserRole
   loginPath: string
+  wrongRole?: 'explain' | 'redirect'
   children: ReactNode
 }) {
   const { email } = useAuth()
@@ -40,8 +44,16 @@ export function RequireRole({ role, loginPath, children }: {
     )
   }
 
-  if (me.data?.role !== role) {
-    return <WrongRole actual={me.data?.role} expected={role} />
+  // 以實際生效的角色判斷，與後端的 AppPrincipal.effectiveRole() 對齊
+  const actual = effectiveRoleOf(me.data)
+
+  if (actual !== role) {
+    if (wrongRole === 'redirect') {
+      // 登入頁必須自己也懂角色，否則兩邊會互相導向形成無限重導
+      const next = encodeURIComponent(location.pathname + location.search)
+      return <Navigate to={`${loginPath}?next=${next}`} replace />
+    }
+    return <WrongRole actual={actual} expected={role} />
   }
 
   return <>{children}</>

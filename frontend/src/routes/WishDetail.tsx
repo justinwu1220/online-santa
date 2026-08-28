@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError, api } from '../lib/api'
 import { useAuth } from '../lib/authContext'
 import type { ClaimDonorView, WishPublicView } from '../lib/types'
-import { useCurrentUser } from '../lib/useCurrentUser'
+import { effectiveRoleOf, useCurrentUser } from '../lib/useCurrentUser'
 import { ErrorBanner, Notice, Spinner } from '../components/Feedback'
 import { Button, TextArea } from '../components/Form'
 import { WishStatusBadge } from '../components/StatusBadge'
@@ -58,7 +58,7 @@ export function WishDetail() {
 
   const data = wish.data!
   const available = data.status === 'AVAILABLE'
-  const isDonor = me.data?.role === 'DONOR'
+  const isDonor = effectiveRoleOf(me.data) === 'DONOR'
 
   return (
     <article className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">

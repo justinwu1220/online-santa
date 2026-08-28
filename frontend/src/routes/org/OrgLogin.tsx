@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../lib/authContext'
-import { useCurrentUser } from '../../lib/useCurrentUser'
+import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
 import { AuthPanel } from '../../components/auth/AuthPanel'
-import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
+import { WrongAccountPanel } from '../../components/auth/WrongAccountPanel'
+import { ErrorBanner, Spinner } from '../../components/Feedback'
 
 /**
  * 機構入口。
@@ -36,21 +37,24 @@ export function OrgLogin() {
       </div>
     }
 
+    const role = effectiveRoleOf(me.data)
+
     // 已是機構成員：直接進後台
-    if (me.data?.role === 'ORG_MEMBER') {
+    if (role === 'ORG_MEMBER') {
       return <Navigate to={next ?? '/org'} replace />
     }
-    // 一般民眾：引導去申請
-    if (me.data?.role === 'DONOR') {
+    // 一般民眾：引導去申請。信箱未驗證的人會落在這裡，
+    // 申請頁本來就會擋下並要求先驗證，所以不必在這一層重複
+    if (role === 'DONOR') {
       return <Navigate to="/org/register" replace />
     }
     // 管理員不能兼任機構
     return (
       <Shell>
-        <Notice tone="warning">
-          <p className="font-medium">平台管理員無法註冊或管理機構</p>
-          <p className="mt-1">這是為了避免球員兼裁判。請改用其他帳號登入。</p>
-        </Notice>
+        <WrongAccountPanel
+          expected="ORG_MEMBER"
+          reason="平台管理員無法註冊或管理機構，這是為了避免球員兼裁判。"
+        />
       </Shell>
     )
   }

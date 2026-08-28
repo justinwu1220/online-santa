@@ -10,8 +10,10 @@ export type UserRole = 'DONOR' | 'ORG_MEMBER' | 'ADMIN'
 export interface CurrentUser {
   userId: string
   email: string
+  /** 資料庫裡的角色。實際生效的角色請用 effectiveRoleOf()——未驗證的信箱會被降級 */
   role: UserRole
   organizationId?: string
+  emailVerified: boolean
 }
 
 export interface PageResponse<T> {

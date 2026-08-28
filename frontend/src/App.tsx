@@ -55,7 +55,9 @@ export default function App() {
         <RequireRole role="DONOR" loginPath="/org/login"><OrgRegister /></RequireRole>} />
 
       <Route path="org" element={
-        <RequireRole role="ORG_MEMBER" loginPath="/org/login"><OrgLayout /></RequireRole>}>
+        <RequireRole role="ORG_MEMBER" loginPath="/org/login" wrongRole="redirect">
+          <OrgLayout />
+        </RequireRole>}>
         <Route index element={<OrgDashboard />} />
         <Route path="wishes" element={<OrgWishes />} />
         <Route path="claims" element={<OrgClaims />} />
@@ -67,7 +69,9 @@ export default function App() {
       <Route path="admin/login" element={<AdminLogin />} />
 
       <Route path="admin" element={
-        <RequireRole role="ADMIN" loginPath="/admin/login"><AdminLayout /></RequireRole>}>
+        <RequireRole role="ADMIN" loginPath="/admin/login" wrongRole="redirect">
+          <AdminLayout />
+        </RequireRole>}>
         <Route index element={<AdminDashboard />} />
         <Route path="organizations" element={<AdminOrganizations />} />
         <Route path="wishes" element={<AdminWishes />} />
