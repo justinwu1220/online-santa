@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -34,7 +35,7 @@ public class GcsObjectStorage implements ObjectStorage {
     private final Storage storage;
     private final StorageProperties properties;
 
-    public GcsObjectStorage(Storage storage, StorageProperties properties) {
+    public GcsObjectStorage(@Lazy Storage storage, StorageProperties properties) {
         this.storage = storage;
         this.properties = properties;
     }

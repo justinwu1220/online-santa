@@ -1,0 +1,9 @@
+target/
+.local-storage/
+.idea/
+*.iml
+.mvn/
+mvnw
+mvnw.cmd
+Dockerfile
+.dockerignore

@@ -1,3 +1,7 @@
+# 建置映像檔時的 CDS training run 專用。
+#
+# 目的只是讓應用程式啟動到 context refresh，把啟動路徑上的類別載入一次並寫進
+# 共用封存檔。因此所有對外連線一律關掉——這個 profile 不會出現在正式環境。
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/cds_training
@@ -13,5 +17,15 @@ spring:
       ddl-auto: none
     properties:
       hibernate:
+        # 不連資料庫也要能建出 SessionFactory，因此明確指定方言
         temp.use_jdbc_metadata_defaults: false
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
+app:
+  auth:
+    # AuthConfigurationGuard 要求正式環境必須設定，training run 給個假的即可
+    firebase-project-id: cds-training
+
+logging:
+  level:
+    root: WARN

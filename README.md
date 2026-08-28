@@ -152,6 +152,26 @@ Cloud Run 是 scale-to-zero 的，沒有常駐行程，`@Scheduled` 不會可靠
 
 管理員也可隨時手動觸發：`POST /api/admin/jobs/release-expired-claims`。
 
+## 部署
+
+推到 `main` 就會自動部署（`.github/workflows/deploy.yml`）：測試 → 建置映像檔 →
+Cloud Run → Firebase Hosting。認證走 Workload Identity Federation，不使用 JSON 金鑰。
+
+雲端資源的手動前置步驟見 **[docs/DEPLOY.md](docs/DEPLOY.md)**。
+
+### 冷啟動
+
+Cloud Run 是 scale-to-zero 的，映像檔用 AppCDS 把啟動路徑上的類別預先封存：
+
+| | 啟動時間 |
+|---|---|
+| 不帶 CDS | 8.4–9.0 秒 |
+| 帶 CDS | **5.2–5.3 秒** |
+
+> CDS 有個沒有錯誤訊息的坑：封存檔會記下 classpath，**訓練與執行的工作目錄
+> 必須一致**，否則封存檔作廢，而預設的 `-Xshare:auto` 會靜靜地退回一般啟動——
+> 看起來一切正常，實際上什麼都沒省到。要驗證只能用 `-Xshare:on`（用不了就直接失敗）。
+
 ## 正式環境設定
 
 | 環境變數 | 說明 |
