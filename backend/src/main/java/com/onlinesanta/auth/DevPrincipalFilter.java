@@ -37,6 +37,8 @@ public class DevPrincipalFilter extends OncePerRequestFilter {
 
     public static final String EMAIL_HEADER = "X-Dev-User-Email";
     public static final String NAME_HEADER = "X-Dev-User-Name";
+    /** 預設視為已驗證；傳 false 可以在本機測試未驗證信箱被擋下的路徑。 */
+    public static final String VERIFIED_HEADER = "X-Dev-Email-Verified";
 
     private final UserProvisioningService provisioning;
 
@@ -55,8 +57,9 @@ public class DevPrincipalFilter extends OncePerRequestFilter {
         String email = request.getHeader(EMAIL_HEADER);
 
         if (StringUtils.hasText(email) && !StringUtils.hasText(request.getHeader("Authorization"))) {
+            boolean verified = !"false".equalsIgnoreCase(request.getHeader(VERIFIED_HEADER));
             AppPrincipal principal = provisioning.resolve(
-                    "dev-" + email.trim(), email.trim(), request.getHeader(NAME_HEADER));
+                    "dev-" + email.trim(), email.trim(), verified, request.getHeader(NAME_HEADER));
             SecurityContextHolder.getContext()
                     .setAuthentication(new AppAuthentication(null, principal));
         }

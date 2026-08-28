@@ -9,6 +9,7 @@ import { AdminLogin } from './routes/admin/AdminLogin'
 import { AdminOrganizations } from './routes/admin/AdminOrganizations'
 import { AdminSystem } from './routes/admin/AdminSystem'
 import { ClaimDetail } from './routes/ClaimDetail'
+import { LoginPage } from './routes/LoginPage'
 import { MyClaims } from './routes/MyClaims'
 import { NotFound } from './routes/NotFound'
 import { OrgClaims } from './routes/org/OrgClaims'
@@ -34,15 +35,18 @@ import { WishWall } from './routes/WishWall'
 export default function App() {
   return (
     <Routes>
+      {/* 登入頁在 layout 之外：全螢幕版面，而且不該有導覽列 */}
+      <Route path="login" element={<LoginPage />} />
+
       {/* ---------------------------------------------------------- 主網站 */}
       <Route element={<PublicLayout />}>
         <Route index element={<WishWall />} />
         <Route path="wishes/:id" element={<WishDetail />} />
 
         <Route path="me/claims" element={
-          <RequireRole role="DONOR" loginPath="/"><MyClaims /></RequireRole>} />
+          <RequireRole role="DONOR" loginPath="/login"><MyClaims /></RequireRole>} />
         <Route path="me/claims/:id" element={
-          <RequireRole role="DONOR" loginPath="/"><ClaimDetail /></RequireRole>} />
+          <RequireRole role="DONOR" loginPath="/login"><ClaimDetail /></RequireRole>} />
       </Route>
 
       {/* ---------------------------------------------------------- 機構後台 */}

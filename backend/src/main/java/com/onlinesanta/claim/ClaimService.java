@@ -74,7 +74,8 @@ public class ClaimService {
      */
     @Transactional
     public Claim claim(UUID wishId, ClaimRequest request) {
-        AppPrincipal principal = currentUser.require();
+        // 機構要靠這個信箱聯繫捐贈者，寄送出問題時也只有這條路——必須是真的
+        AppPrincipal principal = currentUser.requireVerifiedEmail();
 
         // 認領前先把需要的資料讀出來——UPDATE 之後持久化脈絡會被清空
         Wish wish = wishes.findWithOrganizationById(wishId)

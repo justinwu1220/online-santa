@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
-import { useAuth, usingFirebase } from '../../lib/authContext'
+import { useAuth } from '../../lib/authContext'
 import { useCurrentUser } from '../../lib/useCurrentUser'
-import { Button, Field, TextInput } from '../../components/Form'
+import { AuthPanel } from '../../components/auth/AuthPanel'
 import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
 
 /**
@@ -12,10 +12,9 @@ import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
  * 頁面本身刻意不透露任何系統資訊。
  */
 export function AdminLogin() {
-  const { email, loading, signIn } = useAuth()
+  const { email, loading } = useAuth()
   const me = useCurrentUser()
   const [searchParams] = useSearchParams()
-  const [draft, setDraft] = useState('')
 
   useEffect(() => {
     document.title = '監控中心'
@@ -44,22 +43,7 @@ export function AdminLogin() {
 
   return (
     <Shell>
-      {usingFirebase ? (
-        <Button className="w-full py-3" onClick={() => void signIn()}>
-          使用 Google 登入
-        </Button>
-      ) : (
-        <form
-          className="space-y-3"
-          onSubmit={(event) => { event.preventDefault(); void signIn(draft) }}
-        >
-          <Field label="管理員帳號" required>
-            <TextInput type="email" required value={draft}
-              onChange={(event) => setDraft(event.target.value)} />
-          </Field>
-          <Button type="submit" className="w-full py-2.5">登入</Button>
-        </form>
-      )}
+      <AuthPanel />
     </Shell>
   )
 }
@@ -67,7 +51,7 @@ export function AdminLogin() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4">
-      <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-lg">
+      <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
         <h1 className="mb-6 text-xl font-bold text-slate-800">監控中心</h1>
         {children}
       </div>

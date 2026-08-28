@@ -15,10 +15,16 @@ public record CurrentUserView(
         UUID userId,
         String email,
         UserRole role,
-        UUID organizationId) {
+        UUID organizationId,
+        /**
+         * 信箱未驗證時，實際權限會降為一般民眾——前端要知道這件事，
+         * 才能說明「管理功能為什麼不見了」而不是讓人以為系統壞了。
+         */
+        boolean emailVerified) {
 
     public static CurrentUserView from(AppPrincipal principal) {
         return new CurrentUserView(
-                principal.userId(), principal.email(), principal.role(), principal.organizationId());
+                principal.userId(), principal.email(), principal.role(),
+                principal.organizationId(), principal.emailVerified());
     }
 }

@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth, usingFirebase } from '../../lib/authContext'
 import { useCurrentUser } from '../../lib/useCurrentUser'
-import { Button, TextInput } from '../Form'
+import { EmailVerificationBanner } from '../EmailVerificationBanner'
+import { Button } from '../Form'
 
 /**
  * 主網站。
@@ -34,6 +34,7 @@ export function PublicLayout() {
       </header>
 
       {!usingFirebase && <DevModeBanner />}
+      <EmailVerificationBanner />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         <Outlet />
@@ -58,11 +59,9 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   }`
 
 function AuthControls() {
-  const { email, loading, signIn, signOut } = useAuth()
+  const { email, loading, signOut } = useAuth()
   const me = useCurrentUser()
   const location = useLocation()
-  const [searchParams] = useSearchParams()
-  const [draft, setDraft] = useState('')
 
   if (loading) {
     return <span className="text-sm text-slate-400">載入中…</span>
@@ -83,33 +82,17 @@ function AuthControls() {
     )
   }
 
-  // 登入後回到原本的位置——分享出去的願望連結點進來時特別重要
-  const next = searchParams.get('next') ?? location.pathname + location.search
-
-  if (usingFirebase) {
-    return <Button onClick={() => void signIn()}>使用 Google 登入</Button>
-  }
+  // 帶上目前位置，登入後回得來——分享出去的願望連結點進來時特別重要
+  const next = encodeURIComponent(location.pathname + location.search)
 
   return (
-    <form
-      className="flex items-center gap-2"
-      onSubmit={(event) => {
-        event.preventDefault()
-        void signIn(draft).then(() => {
-          if (next && next !== '/') window.history.replaceState(null, '', next)
-        })
-      }}
+    <Link
+      to={`/login?next=${next}`}
+      className="rounded-lg bg-santa-600 px-4 py-2 text-sm font-medium text-white
+        transition-colors hover:bg-santa-700"
     >
-      <TextInput
-        type="email"
-        required
-        value={draft}
-        placeholder="you@example.com"
-        onChange={(event) => setDraft(event.target.value)}
-        className="w-52"
-      />
-      <Button type="submit">登入</Button>
-    </form>
+      登入 / 註冊
+    </Link>
   )
 }
 

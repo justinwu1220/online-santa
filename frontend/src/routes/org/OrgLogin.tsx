@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
-import { useAuth, usingFirebase } from '../../lib/authContext'
+import { useAuth } from '../../lib/authContext'
 import { useCurrentUser } from '../../lib/useCurrentUser'
-import { Button, Field, TextInput } from '../../components/Form'
+import { AuthPanel } from '../../components/auth/AuthPanel'
 import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
 
 /**
@@ -15,10 +15,9 @@ import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
  * 誤以為這是獨立的帳號體系。
  */
 export function OrgLogin() {
-  const { email, loading, signIn } = useAuth()
+  const { email, loading } = useAuth()
   const me = useCurrentUser()
   const [searchParams] = useSearchParams()
-  const [draft, setDraft] = useState('')
 
   const next = searchParams.get('next')
 
@@ -58,30 +57,15 @@ export function OrgLogin() {
 
   return (
     <Shell>
-      <p className="text-slate-600">
-        登入後即可上架孩子的願望、管理認領與寄送進度。
-        <br />
-        還沒有合作機構帳號？登入後就能直接提出申請。
+      <p className="mb-4 text-sm text-slate-600">
+        還沒有合作機構帳號？註冊並登入之後就能直接提出申請。
       </p>
 
       <div className="mt-6">
-        {usingFirebase ? (
-          <Button className="w-full py-3" onClick={() => void signIn()}>
-            使用 Google 登入
-          </Button>
-        ) : (
-          <form
-            className="space-y-3"
-            onSubmit={(event) => { event.preventDefault(); void signIn(draft) }}
-          >
-            <Field label="機構聯絡信箱" required>
-              <TextInput type="email" required value={draft}
-                placeholder="contact@your-org.org"
-                onChange={(event) => setDraft(event.target.value)} />
-            </Field>
-            <Button type="submit" className="w-full py-2.5">登入</Button>
-          </form>
-        )}
+        <AuthPanel
+          hint="登入後即可上架孩子的願望、管理認領與寄送進度。"
+          registerHint="建立帳號之後，下一步就能提出合作機構的申請。"
+        />
       </div>
 
       <p className="mt-6 text-center text-sm text-slate-500">

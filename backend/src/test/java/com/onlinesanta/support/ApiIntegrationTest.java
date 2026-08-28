@@ -35,6 +35,13 @@ public abstract class ApiIntegrationTest extends PostgresIntegrationTest {
         return builder.header("Authorization", "Bearer " + TestJwtSupport.tokenFor(email));
     }
 
+    /** 以「信箱尚未驗證」的身分發送請求——對應密碼註冊但還沒點驗證信的使用者。 */
+    protected MockHttpServletRequestBuilder asUnverified(
+            MockHttpServletRequestBuilder builder, String email) {
+        return builder.header("Authorization",
+                "Bearer " + TestJwtSupport.unverifiedTokenFor(email));
+    }
+
     protected MockHttpServletRequestBuilder withBody(MockHttpServletRequestBuilder builder,
                                                      Object body) {
         try {

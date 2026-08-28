@@ -1,12 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { ApiError, api } from '../../lib/api'
+import { useAuth } from '../../lib/authContext'
 import type { OrganizationView } from '../../lib/types'
 import { ErrorBanner, Notice } from '../../components/Feedback'
 import { Button, Field, TextArea, TextInput } from '../../components/Form'
 
 /** 機構自助註冊。送出後為待審核，須經平台管理員核准才能上架願望。 */
 export function OrgRegister() {
+  const { emailVerified } = useAuth()
   const queryClient = useQueryClient()
   const [form, setForm] = useState({
     name: '', contactEmail: '', contactPhone: '', address: '', description: '',
@@ -35,6 +37,16 @@ export function OrgRegister() {
           註冊後平台會審核你的機構資料，核准後即可上架孩子的願望。
         </p>
       </div>
+
+      {!emailVerified && (
+        <Notice tone="warning">
+          <p className="font-medium">請先完成信箱驗證</p>
+          <p className="mt-1">
+            機構申請通過後就能上架孩童資料，門檻不能只是「填了一個信箱」。
+            上方的橫幅可以重新寄送驗證信。
+          </p>
+        </Notice>
+      )}
 
       <Notice tone="warning">
         <p className="font-medium">送出前請先確認這個帳號的用途</p>
@@ -75,7 +87,7 @@ export function OrgRegister() {
 
         {register.isError && <ErrorBanner error={register.error} />}
 
-        <Button type="submit" disabled={register.isPending}>
+        <Button type="submit" disabled={register.isPending || !emailVerified}>
           {register.isPending ? '送出中…' : '送出註冊申請'}
         </Button>
       </form>

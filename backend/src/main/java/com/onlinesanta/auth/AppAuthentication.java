@@ -8,11 +8,15 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 
+
 /**
  * 通過驗證的請求身分。
  *
  * <p>權限來自本地 {@code users} 表而非 token 裡的 claims，因此 Admin 核准機構後，
  * 該機構成員的下一個請求就立刻生效，不必等 ID token 過期重簽。
+ *
+ * <p>權限一律取 {@link AppPrincipal#effectiveRole()}——未驗證的信箱只有一般民眾的
+ * 權限，理由見該方法的說明。
  */
 public class AppAuthentication extends AbstractAuthenticationToken {
 
@@ -27,7 +31,7 @@ public class AppAuthentication extends AbstractAuthenticationToken {
     }
 
     private static Collection<GrantedAuthority> authoritiesOf(AppPrincipal principal) {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + principal.role().name()));
+        return List.of(new SimpleGrantedAuthority("ROLE_" + principal.effectiveRole().name()));
     }
 
     @Override

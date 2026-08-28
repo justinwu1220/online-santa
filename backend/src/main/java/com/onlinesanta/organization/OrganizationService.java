@@ -37,7 +37,8 @@ public class OrganizationService {
      */
     @Transactional
     public Organization register(OrganizationRegistrationRequest request) {
-        AppPrincipal principal = currentUser.require();
+        // 申請通過後就能上架孩童資料，門檻不能只是「填了一個信箱」
+        AppPrincipal principal = currentUser.requireVerifiedEmail();
 
         if (principal.organizationId() != null) {
             throw new BusinessRuleException("ALREADY_IN_ORGANIZATION", "你已隸屬於其他機構");

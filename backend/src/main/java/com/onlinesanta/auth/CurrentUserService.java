@@ -31,6 +31,25 @@ public class CurrentUserService {
         return find().orElseThrow(UnauthenticatedException::new);
     }
 
+    /**
+     * 確認操作者的信箱已驗證。
+     *
+     * <p>用在會產生實質後果、或會與他人建立關係的操作：認領（機構要靠這個信箱聯繫
+     * 捐贈者）、申請機構（會取得上架孩童資料的權限）。單純瀏覽不需要。
+     *
+     * <p>Google 登入的使用者永遠通過；只有密碼註冊且尚未點驗證信的人會被擋下。
+     */
+    public AppPrincipal requireVerifiedEmail() {
+        AppPrincipal principal = require();
+        if (!principal.emailVerified()) {
+            throw new ForbiddenException("EMAIL_NOT_VERIFIED",
+                    "請先完成信箱驗證。我們寄了一封驗證信到 %s，"
+                            .formatted(principal.email())
+                            + "點擊信中的連結之後就能繼續（記得檢查垃圾郵件匣）");
+        }
+        return principal;
+    }
+
     /** 取得目前操作者，並確認其為機構成員；回傳所屬機構 id。 */
     public UUID requireOrganizationId() {
         AppPrincipal principal = require();

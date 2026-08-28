@@ -78,6 +78,21 @@ React 19 + TypeScript + Vite + Tailwind v4，涵蓋願望牆、認領流程、�
 | Firebase | 設定了 `VITE_FIREBASE_API_KEY` 與 `VITE_FIREBASE_PROJECT_ID` | `Authorization: Bearer <ID token>` |
 | 開發 | 未設定 Firebase | `X-Dev-User-Email` |
 
+登入方式有 email/密碼與 Google 兩種，三個入口都適用。
+
+### 信箱驗證
+
+密碼註冊的信箱在使用者點驗證信之前是未驗證的——Firebase 不會檢查註冊者是否真的
+擁有那個信箱。系統因此有兩條規則：
+
+- **未驗證可以登入、可以瀏覽**，但不能認領、不能申請機構
+- **未驗證的 token 只有一般民眾的權限**（`AppPrincipal.effectiveRole()`）
+
+第二條是必要的：角色提升需要驗證過的信箱，但提升是單向的，資料庫的角色不會因為
+信箱狀態改變而降級。信箱有可能從已驗證變回未驗證（使用者更換了信箱），那時舊有的
+管理員或機構權限不該還能使用。授權一律看 `effectiveRole()`，不看資料庫的 `role`
+——有兩套認定就遲早會有一套漏掉。
+
 開發模式讓整個專案不需要任何雲端資源就能跑起來——`npm run dev` 後在右上角輸入
 任意 email 即可切換身分。Firebase SDK 以動態 import 載入，沒設定時不會進入打包結果。
 

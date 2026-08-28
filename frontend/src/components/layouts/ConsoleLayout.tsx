@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../../lib/authContext'
+import { EmailVerificationBanner } from '../EmailVerificationBanner'
 import { Button } from '../Form'
 
 export interface ConsoleNavItem {
@@ -56,6 +57,8 @@ export function ConsoleLayout({ title, subtitle, accent, items, homePath, childr
           </div>
         </div>
       </header>
+
+      <EmailVerificationBanner />
 
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-6 md:flex-row">
         <nav className="md:w-52 md:shrink-0">

@@ -29,12 +29,35 @@ Firebase 專案與 GCP 專案其實是**同一個專案**的兩個面向——�
 
 ### 1.2 開啟登入方式
 
-Authentication → Sign-in method → 啟用 **Google**。
+Authentication → Sign-in method → 啟用這兩項：
 
-> 只開 Google 登入就夠了。開 Email/密碼會讓你多承擔密碼重設、暴力破解防護等
-> 責任，而這個平台沒有必須自管密碼的理由。
+- **Google**
+- **電子郵件/密碼**（Email/Password）
 
-### 1.3 取得網頁設定
+> 為什麼兩種都開：Google 帳號不限 Gmail（任何信箱都能註冊），但那仍是一道門檻。
+> 機構的公務信箱通常沒有對應的 Google 帳號，只給 Google 登入會擋掉一部分人。
+
+### 1.3 確認「每個電子郵件地址一個帳戶」是開啟的
+
+Authentication → Settings → User account linking → **Link accounts that use the
+same email**（預設就是開啟）。
+
+> **不要關掉。** 關掉之後同一個信箱會產生多個 Firebase uid，而我們的資料庫有
+> `uq_users_email`（一個信箱一筆使用者）——會直接違反唯一索引。開啟時 Firebase 會把
+> 同信箱的密碼登入與 Google 登入連結到同一個 uid，我們這邊完全不受影響。
+
+### 1.4 驗證信的範本
+
+Authentication → Templates → 電子郵件地址驗證：
+
+- 語言改成**繁體中文**
+- 寄件人名稱改成「線上聖誕老公公」
+
+> 沒有自訂網域之前，寄件人是 `noreply@<專案>.firebaseapp.com`。Gmail 與 Outlook
+> 通常收得到，但 hinet 與機構自架的公務信箱可能過濾掉。前端的驗證橫幅已經提示
+> 使用者檢查垃圾郵件並提供重寄按鈕；要根治需要自己的網域加上 SPF / DKIM 記錄。
+
+### 1.5 取得網頁設定
 
 專案設定 → 一般 → 你的應用程式 → 新增網頁應用程式。複製這三個值：
 
@@ -45,7 +68,7 @@ Authentication → Sign-in method → 啟用 **Google**。
 > 這三個值會出現在瀏覽器裡，**不是秘密**。真正的保護是 Firebase 的安全規則與
 > 後端對 ID token 的簽章 / issuer / audience 驗證。
 
-### 1.4 授權網域
+### 1.6 授權網域
 
 Authentication → Settings → Authorized domains，確認 `<PROJECT_ID>.web.app` 在清單裡
 （通常會自動加入）。
@@ -243,8 +266,8 @@ gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
 | `GCS_PRIVATE_BUCKET` | `<PROJECT_ID>-private` |
 | `APP_ADMIN_EMAILS` | 你的管理員信箱，逗號分隔 |
 | `APP_ALLOWED_ORIGINS` | `https://<PROJECT_ID>.web.app` |
-| `VITE_FIREBASE_API_KEY` | 1.3 取得的 apiKey |
-| `VITE_FIREBASE_AUTH_DOMAIN` | 1.3 取得的 authDomain |
+| `VITE_FIREBASE_API_KEY` | 1.5 取得的 apiKey |
+| `VITE_FIREBASE_AUTH_DOMAIN` | 1.5 取得的 authDomain |
 | `INTERNAL_JOB_AUDIENCE` | `https://online-santa/internal-jobs`（見下方說明） |
 | `SCHEDULER_SERVICE_ACCOUNT` | `online-santa-scheduler@<PROJECT_ID>.iam.gserviceaccount.com` |
 
@@ -351,3 +374,6 @@ gcloud run services update online-santa-api --region=asia-east1 --min-instances=
 | 排程回 401 | audience 或服務帳號 email 與後端設定不一致 |
 | 啟動時 Flyway 失敗 | Neon 專案在冷啟動，重試即可；或連線字串有誤 |
 | 登入後一直是 DONOR | `APP_ADMIN_EMAILS` 沒設或拼錯，改完要重新部署 |
+| 明明是管理員卻被擋在監控中心外 | 信箱未驗證。未驗證的 token 只有一般民眾的權限，去收驗證信 |
+| 收不到驗證信 | 檢查垃圾郵件匣；機構的公務信箱過濾較嚴，可先用 Google 登入 |
+| 註冊時說信箱已被使用 | 那個信箱先前用另一種方式註冊過，改用原本的方式登入 |

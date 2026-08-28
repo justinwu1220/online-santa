@@ -13,7 +13,7 @@ export function WishDetail() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { email } = useAuth()
+  const { email, emailVerified } = useAuth()
   const me = useCurrentUser()
   const [message, setMessage] = useState('')
 
@@ -102,8 +102,15 @@ export function WishDetail() {
             </Notice>
           ) : !email ? (
             <Notice>
-              請先在右上角登入，就能認領這個願望。
-              登入後會回到這一頁，不會把你丟回首頁。
+              <Link to={`/login?next=${encodeURIComponent(`/wishes/${id}`)}`}
+                className="font-medium underline">登入或註冊</Link>
+              　之後就能認領這個願望。登入後會回到這一頁。
+            </Notice>
+          ) : !emailVerified ? (
+            // 機構要靠這個信箱聯繫捐贈者——後端也會擋，這裡先說清楚原因
+            <Notice tone="warning">
+              請先完成信箱驗證才能認領。上方的橫幅可以重新寄送驗證信，
+              驗證完點「我已經驗證好了」即可。
             </Notice>
           ) : !isDonor ? (
             <Notice tone="warning">

@@ -83,6 +83,56 @@ public final class TestJwtSupport {
         }
     }
 
+    /**
+     * 簽出一個信箱「未驗證」的 token——對應密碼註冊但還沒點驗證信的使用者。
+     *
+     * <p>Google 登入永遠是已驗證，只有密碼註冊會出現這個狀態。
+     */
+    public static String unverifiedTokenFor(String email) {
+        try {
+            JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                    .subject(uidFor(email))
+                    .issuer(ISSUER)
+                    .audience(PROJECT_ID)
+                    .claim("email", email)
+                    .claim("email_verified", false)
+                    .claim("name", email)
+                    .issueTime(Date.from(Instant.now().minus(1, ChronoUnit.MINUTES)))
+                    .expirationTime(Date.from(Instant.now().plus(1, ChronoUnit.HOURS)))
+                    .build();
+
+            SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.RS256), claims);
+            jwt.sign(new RSASSASigner((RSAPrivateKey) KEY_PAIR.getPrivate()));
+            return jwt.serialize();
+        } catch (Exception e) {
+            throw new IllegalStateException("無法簽出測試用的 token", e);
+        }
+    }
+
+    /**
+     * 同一個信箱、不同的 Firebase uid，且未驗證。
+     *
+     * <p>用來模擬「拿別人的信箱去註冊密碼帳號」的接管攻擊。
+     */
+    public static String unverifiedTokenWithForeignUid(String email) {
+        try {
+            JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                    .subject("attacker-uid-" + email)
+                    .issuer(ISSUER)
+                    .audience(PROJECT_ID)
+                    .claim("email", email)
+                    .claim("email_verified", false)
+                    .expirationTime(Date.from(Instant.now().plus(1, ChronoUnit.HOURS)))
+                    .build();
+
+            SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.RS256), claims);
+            jwt.sign(new RSASSASigner((RSAPrivateKey) KEY_PAIR.getPrivate()));
+            return jwt.serialize();
+        } catch (Exception e) {
+            throw new IllegalStateException("無法簽出測試用的 token", e);
+        }
+    }
+
     /** 用另一組金鑰簽出的 token，用來驗證簽章不符會被拒絕。 */
     public static String tokenSignedByStranger(String email) {
         try {
