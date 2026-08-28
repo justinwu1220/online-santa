@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api, withQuery } from '../../lib/api'
 import { daysUntil, formatDate } from '../../lib/format'
 import type { AttachmentView, ClaimOrgView, ClaimStatus, PageResponse } from '../../lib/types'
@@ -23,7 +24,8 @@ const STATUS_FILTERS: { value: ClaimStatus | ''; label: string }[] = [
 /** 機構的認領管理。`overdueOnly` 時改看逾期清單。 */
 export function OrgClaims({ overdueOnly = false }: { overdueOnly?: boolean }) {
   const queryClient = useQueryClient()
-  const [status, setStatus] = useState<ClaimStatus | ''>('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const status = (searchParams.get('status') ?? '') as ClaimStatus | ''
   const [page, setPage] = useState(0)
 
   const path = overdueOnly
@@ -50,7 +52,10 @@ export function OrgClaims({ overdueOnly = false }: { overdueOnly?: boolean }) {
         </Notice>
       ) : (
         <Select className="w-40" value={status}
-          onChange={(event) => { setStatus(event.target.value as ClaimStatus | ''); setPage(0) }}>
+          onChange={(event) => {
+            setSearchParams(event.target.value ? { status: event.target.value } : {})
+            setPage(0)
+          }}>
           {STATUS_FILTERS.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}

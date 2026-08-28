@@ -25,15 +25,21 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public class AdminJobController {
 
     private final ClaimReleaseService releases;
+    private final AdminAuditService audit;
 
-    public AdminJobController(ClaimReleaseService releases) {
+    public AdminJobController(ClaimReleaseService releases, AdminAuditService audit) {
         this.releases = releases;
+        this.audit = audit;
     }
 
     @PostMapping("/release-expired-claims")
     @Operation(summary = "立即執行逾期認領掃描",
             description = "AUTO 政策的機構會自動釋回；MANUAL 政策只列入後台的逾期清單")
     public ReleaseSweepResult releaseExpiredClaims() {
-        return releases.sweep();
+        ReleaseSweepResult result = releases.sweep();
+        audit.record(AdminAuditAction.RUN_RELEASE_SWEEP, null,
+                "逾期 %d 筆，自動釋回 %d 筆".formatted(
+                        result.overdueFound(), result.autoReleased()));
+        return result;
     }
 }

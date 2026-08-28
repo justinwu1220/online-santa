@@ -28,13 +28,22 @@ export function OrgRegister() {
   const fieldErrors = register.error instanceof ApiError ? register.error.fieldErrors : undefined
 
   return (
-    <section className="mx-auto max-w-2xl space-y-6">
+    <section className="mx-auto max-w-2xl space-y-6 px-4 py-10">
       <div>
         <h1 className="text-3xl font-bold text-santa-700">機構註冊</h1>
         <p className="mt-2 text-slate-600">
           註冊後平台會審核你的機構資料，核准後即可上架孩子的願望。
         </p>
       </div>
+
+      <Notice tone="warning">
+        <p className="font-medium">送出前請先確認這個帳號的用途</p>
+        <p className="mt-1">
+          成為機構成員後，<strong>這個帳號將無法再以個人身分認領願望</strong>——
+          一個帳號只能有一種身分。如果你也想以個人身分參與，建議機構改用另一個
+          聯絡信箱註冊。
+        </p>
+      </Notice>
 
       <Notice>
         審核是必要的把關——上架的是孩童資料，不能讓任何人自稱機構就能發布。

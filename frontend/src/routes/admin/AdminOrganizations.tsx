@@ -3,10 +3,10 @@ import { useState } from 'react'
 import { api, withQuery } from '../../lib/api'
 import { formatDate, formatDateTime } from '../../lib/format'
 import type {
-  OrganizationReviewView, OrganizationStatus, PageResponse, ReleaseSweepResult,
+  OrganizationReviewView, OrganizationStatus, PageResponse,
 } from '../../lib/types'
-import { useCurrentUser } from '../../lib/useCurrentUser'
-import { EmptyState, ErrorBanner, Notice, Spinner } from '../../components/Feedback'
+import { ConsolePanel } from '../../components/layouts/ConsoleLayout'
+import { EmptyState, ErrorBanner, Spinner } from '../../components/Feedback'
 import { Button, Field, Select, TextArea } from '../../components/Form'
 import { Pagination } from '../../components/Pagination'
 import { OrganizationStatusBadge } from '../../components/StatusBadge'
@@ -20,7 +20,6 @@ const STATUS_FILTERS: { value: OrganizationStatus | ''; label: string }[] = [
 ]
 
 export function AdminOrganizations() {
-  const me = useCurrentUser()
   const [status, setStatus] = useState<OrganizationStatus | ''>('PENDING')
   const [page, setPage] = useState(0)
 
@@ -28,27 +27,13 @@ export function AdminOrganizations() {
     queryKey: ['admin-organizations', status, page],
     queryFn: () => api.get<PageResponse<OrganizationReviewView>>(
       withQuery('/api/admin/organizations', { status, page, size: 10 })),
-    enabled: me.data?.role === 'ADMIN',
   })
 
-  if (me.isLoading) return <Spinner />
-  if (me.data?.role !== 'ADMIN') {
-    return <Notice tone="warning">這個頁面僅限平台管理員。</Notice>
-  }
-
   return (
-    <section className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold text-santa-700">審核後台</h1>
-        <p className="mt-2 text-slate-600">
-          機構上架的是孩童資料，核准前請確認對方確實是合法的兒少服務單位。
-        </p>
-      </header>
-
-      <ReleaseSweepPanel />
-
-      <div className="flex items-center gap-3">
-        <Select className="w-40" value={status}
+    <ConsolePanel
+      title="機構審核"
+      action={
+        <Select className="w-32" value={status}
           onChange={(event) => {
             setStatus(event.target.value as OrganizationStatus | '')
             setPage(0)
@@ -57,7 +42,12 @@ export function AdminOrganizations() {
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </Select>
-      </div>
+      }
+    >
+      <p className="mb-4 text-sm text-slate-600">
+        機構上架的是孩童資料，核准前請確認對方確實是合法的兒少服務單位。
+        審核決定會寫入稽核紀錄。
+      </p>
 
       {organizations.isLoading && <Spinner label="載入機構" />}
       {organizations.isError && (
@@ -75,7 +65,7 @@ export function AdminOrganizations() {
       </div>
 
       {organizations.data && <Pagination page={organizations.data} onChange={setPage} />}
-    </section>
+    </ConsolePanel>
   )
 }
 
@@ -98,7 +88,7 @@ function OrganizationCard({ organization }: { organization: OrganizationReviewVi
   const pending = organization.status === 'PENDING'
 
   return (
-    <div className="rounded-xl bg-white p-5 ring-1 ring-santa-100">
+    <div className="rounded-lg border border-slate-200 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold text-slate-800">{organization.name}</h2>
@@ -182,40 +172,3 @@ function Row({ label, value }: { label: string; value?: string }) {
   )
 }
 
-/**
- * 手動觸發逾期掃描。
- *
- * 正式環境由 Cloud Scheduler 每天自動執行；這個按鈕是給活動期間需要立刻跑一次的情況。
- */
-function ReleaseSweepPanel() {
-  const sweep = useMutation({
-    mutationFn: () => api.post<ReleaseSweepResult>('/api/admin/jobs/release-expired-claims'),
-  })
-
-  return (
-    <div className="rounded-xl bg-white p-5 ring-1 ring-santa-100">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-semibold text-slate-800">逾期認領掃描</h2>
-          <p className="mt-0.5 text-sm text-slate-500">
-            正式環境每日自動執行。自動政策的機構會直接收回，手動政策的只列入提醒。
-          </p>
-        </div>
-        <Button variant="secondary" disabled={sweep.isPending} onClick={() => sweep.mutate()}>
-          {sweep.isPending ? '掃描中…' : '立即執行'}
-        </Button>
-      </div>
-
-      {sweep.isError && <div className="mt-3"><ErrorBanner error={sweep.error} /></div>}
-      {sweep.data && (
-        <div className="mt-3">
-          <Notice tone="success">
-            掃到 {sweep.data.overdueFound} 筆逾期：自動收回 {sweep.data.autoReleased} 筆
-            （{sweep.data.wishesReturnedToWall} 個願望回到願望牆），
-            待機構處理 {sweep.data.flaggedForOrganization} 筆。
-          </Notice>
-        </div>
-      )}
-    </div>
-  )
-}

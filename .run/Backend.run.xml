@@ -1,0 +1,21 @@
+<component name="ProjectRunConfigurationManager">
+  <!--
+    IntelliJ 的 Spring Boot 執行設定。放在 .run/ 而非 .idea/ 是為了能進版控，
+    讓每個人（包含面試的 reviewer）打開專案就有一致的啟動方式。
+  -->
+  <configuration default="false" name="Backend (dev)"
+                 type="SpringBootApplicationConfigurationType"
+                 factoryName="Spring Boot">
+    <module name="online-santa-api" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.onlinesanta.OnlineSantaApplication" />
+    <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
+    <!-- 預設 profile 為 local，會自動帶出 dev-auth 與 dev-storage -->
+    <envs>
+      <env name="APP_ADMIN_EMAILS" value="admin@onlinesanta.local" />
+    </envs>
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/backend" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

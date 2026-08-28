@@ -192,3 +192,72 @@ export interface ReleaseSweepResult {
   wishesReturnedToWall: number
   flaggedForOrganization: number
 }
+
+// ---------------------------------------------------------------- 監控中心
+
+/**
+ * 全站統計。
+ *
+ * 狀態分佈用 map 而非固定欄位——後端補齊了所有可能的狀態（沒資料的補 0），
+ * 因此前端可以直接逐項渲染，不必處理「這個狀態這次不見了」。
+ */
+export interface PlatformStats {
+  organizations: Record<string, number>
+  wishes: Record<string, number>
+  claims: Record<string, number>
+  users: Record<string, number>
+  overdueClaims: number
+  pendingOrganizations: number
+  availableWishes: number
+  generatedAt: string
+}
+
+export interface AdminWishView {
+  id: string
+  title: string
+  childAlias: string
+  ageRange: string
+  category: string
+  priceRange: string
+  status: WishStatus
+  organizationId: string
+  organizationName: string
+  publishedAt?: string
+  createdAt: string
+}
+
+export interface AdminClaimView {
+  id: string
+  status: ClaimStatus
+  wishId: string
+  wishTitle: string
+  childAlias: string
+  organizationId: string
+  organizationName: string
+  donorName?: string
+  donorEmail: string
+  claimedAt: string
+  shipDeadlineAt?: string
+  overdue: boolean
+  releasePolicySnapshot: ReleasePolicy
+  shippedAt?: string
+  receivedAt?: string
+  completedAt?: string
+  trackingCarrier?: string
+  trackingNumber?: string
+  releaseReason?: string
+}
+
+export type AdminAuditAction =
+  | 'VIEW_CLAIM_DETAIL' | 'VIEW_CLAIM_ATTACHMENTS'
+  | 'APPROVE_ORGANIZATION' | 'REJECT_ORGANIZATION' | 'RUN_RELEASE_SWEEP'
+
+export interface AuditLogView {
+  id: number
+  adminEmail?: string
+  action: AdminAuditAction
+  targetType: 'CLAIM' | 'ORGANIZATION' | 'SYSTEM'
+  targetId?: string
+  detail?: string
+  occurredAt: string
+}

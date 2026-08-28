@@ -2,6 +2,7 @@ package com.onlinesanta.wish;
 
 import java.util.Collection;
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -37,6 +38,17 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
 
     @EntityGraph(attributePaths = "organization")
     Optional<Wish> findWithOrganizationById(UUID id);
+
+    /** 監控中心的跨機構檢視。 */
+    @EntityGraph(attributePaths = "organization")
+    Page<Wish> findByStatus(WishStatus status, Pageable pageable);
+
+    @EntityGraph(attributePaths = "organization")
+    Page<Wish> findAllBy(Pageable pageable);
+
+    /** 依狀態分組計數，供監控中心的統計使用。 */
+    @Query("select w.status, count(w) from Wish w group by w.status")
+    List<Object[]> countByStatus();
 
     @EntityGraph(attributePaths = "organization")
     Page<Wish> findByOrganizationId(UUID organizationId, Pageable pageable);

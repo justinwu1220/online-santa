@@ -27,13 +27,16 @@ public class OrganizationReviewService {
     private final OrganizationRepository organizations;
     private final OrganizationService organizationService;
     private final CurrentUserService currentUser;
+    private final AdminAuditService audit;
 
     public OrganizationReviewService(OrganizationRepository organizations,
                                      OrganizationService organizationService,
-                                     CurrentUserService currentUser) {
+                                     CurrentUserService currentUser,
+                                     AdminAuditService audit) {
         this.organizations = organizations;
         this.organizationService = organizationService;
         this.currentUser = currentUser;
+        this.audit = audit;
     }
 
     @Transactional(readOnly = true)
@@ -50,6 +53,7 @@ public class OrganizationReviewService {
 
         requireAwaitingDecision(organization);
         organization.approve(admin.userId(), request.note());
+        audit.record(AdminAuditAction.APPROVE_ORGANIZATION, organizationId, organization.getName());
         return organization;
     }
 
@@ -60,6 +64,7 @@ public class OrganizationReviewService {
 
         requireAwaitingDecision(organization);
         organization.reject(admin.userId(), request.note());
+        audit.record(AdminAuditAction.REJECT_ORGANIZATION, organizationId, organization.getName());
         return organization;
     }
 

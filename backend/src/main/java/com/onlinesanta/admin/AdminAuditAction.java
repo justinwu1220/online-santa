@@ -1,0 +1,30 @@
+package com.onlinesanta.admin;
+
+/**
+ * 需要留下紀錄的管理員動作。對應 admin_audit_logs.action 的 CHECK 約束。
+ *
+ * <p>只記錄「針對特定個人的存取」與「改變狀態的決定」。清單頁不記——它只顯示彙總與
+ * 狀態，量又大，會把真正重要的紀錄淹沒。
+ */
+public enum AdminAuditAction {
+
+    /** 打開了某一筆認領的詳情，看到捐贈者的姓名與聯絡方式。 */
+    VIEW_CLAIM_DETAIL,
+
+    /** 看了某一筆認領的附件——可能包含寄送證明與含孩童影像的回饋照片。 */
+    VIEW_CLAIM_ATTACHMENTS,
+
+    APPROVE_ORGANIZATION,
+    REJECT_ORGANIZATION,
+
+    /** 手動觸發逾期釋回掃描。 */
+    RUN_RELEASE_SWEEP;
+
+    public AdminAuditTargetType targetType() {
+        return switch (this) {
+            case VIEW_CLAIM_DETAIL, VIEW_CLAIM_ATTACHMENTS -> AdminAuditTargetType.CLAIM;
+            case APPROVE_ORGANIZATION, REJECT_ORGANIZATION -> AdminAuditTargetType.ORGANIZATION;
+            case RUN_RELEASE_SWEEP -> AdminAuditTargetType.SYSTEM;
+        };
+    }
+}

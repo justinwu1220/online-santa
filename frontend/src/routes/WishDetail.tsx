@@ -101,7 +101,10 @@ export function WishDetail() {
               這個願望已經被認領了。<Link to="/" className="underline">看看其他願望</Link>
             </Notice>
           ) : !email ? (
-            <Notice>請先在右上角登入，就能認領這個願望。</Notice>
+            <Notice>
+              請先在右上角登入，就能認領這個願望。
+              登入後會回到這一頁，不會把你丟回首頁。
+            </Notice>
           ) : !isDonor ? (
             <Notice tone="warning">
               機構成員與管理員無法認領願望，請改用一般民眾的帳號。

@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // 在 VS Code 內對 React 元件下中斷點。啟動前會自動跑起 Vite dev server。
+      "name": "前端 (Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/frontend/src",
+      "sourceMapPathOverrides": {
+        "/@fs/*": "/*",
+        "/src/*": "${workspaceFolder}/frontend/src/*"
+      },
+      "preLaunchTask": "vite: dev"
+    },
+    {
+      // 已經自己開好 npm run dev 時用這個，不會重複啟動
+      "name": "前端 (附加到已啟動的 Vite)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/frontend/src"
+    }
+  ]
+}

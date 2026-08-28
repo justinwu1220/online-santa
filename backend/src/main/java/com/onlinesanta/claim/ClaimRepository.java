@@ -21,6 +21,36 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID> {
     @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
     Optional<Claim> findWithDetailsById(UUID id);
 
+    /** 監控中心的跨機構檢視。 */
+    @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
+    Page<Claim> findAllBy(Pageable pageable);
+
+    @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
+    Page<Claim> findByStatus(ClaimStatus status, Pageable pageable);
+
+    /** 監控中心的逾期清單（跨機構）。 */
+    @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
+    @Query("""
+            select c from Claim c
+            where c.status = com.onlinesanta.claim.ClaimStatus.CLAIMED
+              and c.shipDeadlineAt is not null
+              and c.shipDeadlineAt < :now
+            """)
+    Page<Claim> findAllOverdue(@Param("now") Instant now, Pageable pageable);
+
+    /** 依狀態分組計數，供監控中心的統計使用。 */
+    @Query("select c.status, count(c) from Claim c group by c.status")
+    List<Object[]> countByStatus();
+
+    /** 逾期未寄送的筆數。條件與 findOverdue 一致，但不把資料撈出來。 */
+    @Query("""
+            select count(c) from Claim c
+            where c.status = com.onlinesanta.claim.ClaimStatus.CLAIMED
+              and c.shipDeadlineAt is not null
+              and c.shipDeadlineAt < :now
+            """)
+    long countOverdue(@Param("now") Instant now);
+
     @EntityGraph(attributePaths = {"wish", "wish.organization"})
     Page<Claim> findByDonorIdOrderByClaimedAtDesc(UUID donorId, Pageable pageable);
 

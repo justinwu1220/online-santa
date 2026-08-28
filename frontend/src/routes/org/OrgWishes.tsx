@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api, withQuery } from '../../lib/api'
 import { formatDate } from '../../lib/format'
 import type {
@@ -24,7 +25,9 @@ const STATUS_FILTERS: { value: WishStatus | ''; label: string }[] = [
 export function OrgWishes() {
   const { organization } = useOrgContext()
   const queryClient = useQueryClient()
-  const [status, setStatus] = useState<WishStatus | ''>('')
+  // 從網址讀篩選條件，讓總覽頁的「草稿 3」之類的連結點得進來
+  const [searchParams, setSearchParams] = useSearchParams()
+  const status = (searchParams.get('status') ?? '') as WishStatus | ''
   const [page, setPage] = useState(0)
   const [editing, setEditing] = useState<WishOrgView | 'new' | null>(null)
 
@@ -55,7 +58,10 @@ export function OrgWishes() {
         <Select
           className="w-40"
           value={status}
-          onChange={(event) => { setStatus(event.target.value as WishStatus | ''); setPage(0) }}
+          onChange={(event) => {
+            setSearchParams(event.target.value ? { status: event.target.value } : {})
+            setPage(0)
+          }}
         >
           {STATUS_FILTERS.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
@@ -69,6 +75,8 @@ export function OrgWishes() {
           機構尚未通過審核，可以先建立草稿，核准後再上架。
         </Notice>
       )}
+
+
 
       {wishes.isLoading && <Spinner label="載入願望" />}
       {wishes.isError && <ErrorBanner error={wishes.error} onRetry={() => void wishes.refetch()} />}
