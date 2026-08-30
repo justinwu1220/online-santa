@@ -318,7 +318,7 @@ gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
 | `FIREBASE_PROJECT_ID` | `<PROJECT_ID>` |
 | `GCS_PUBLIC_BUCKET` | 先不用設——啟用示意圖時才需要，見第九節 |
 | `GCS_PRIVATE_BUCKET` | `<PROJECT_ID>-private` |
-| `APP_ADMIN_EMAILS` | 你的管理員信箱，逗號分隔 |
+| `APP_ADMIN_EMAILS` | **不要設**——見第五節之後的「管理員的升降級」。首次部署想省事的話可以填你的信箱，登入一次取得管理員身分後再刪掉 |
 | `APP_ALLOWED_ORIGINS` | `https://<PROJECT_ID>.web.app` |
 | `VITE_FIREBASE_API_KEY` | 1.5 取得的 apiKey |
 | `VITE_FIREBASE_AUTH_DOMAIN` | 1.5 取得的 authDomain |
@@ -343,6 +343,58 @@ git push
 完成後：
 - API：`https://online-santa-api-xxxxx-de.a.run.app`（Actions 記錄裡有）
 - 前端：`https://<PROJECT_ID>.web.app`
+
+---
+
+## 五之二、管理員的升降級
+
+**管理員身分存在資料庫的 `users.role`，不在設定檔裡。** 授權鏈是
+`requireAdmin()` → `isAdmin()` → `effectiveRole()`，讀的一路都是資料庫；
+`APP_ADMIN_EMAILS` 完全不參與授權。
+
+那白名單是做什麼的？解「開機」問題：migration 不會塞任何使用者，`users` 表初始
+是空的，使用者是第一次登入時才建立。所以剛部署完的系統裡一個管理員都沒有，而要
+透過監控中心指派管理員又得先有一個管理員——雞生蛋。白名單讓第一個管理員能靠設定
+產生，不必對正式資料庫下 SQL。
+
+**取得第一個管理員之後就把變數刪掉**，之後一律用資料庫管理。留著沒有壞處，但也沒
+有用處，反而多一個會與資料庫不一致的來源。
+
+### 日常操作
+
+到 Neon Console → SQL Editor。**一律先 `SELECT` 看清楚會動到哪幾筆再 `UPDATE`。**
+
+```sql
+-- 目前有哪些管理員
+SELECT email, role, organization_id, last_login_at FROM users WHERE role = 'ADMIN';
+
+-- 提升（那個人必須先登入過一次，資料庫裡才有這筆資料）
+UPDATE users SET role = 'ADMIN', updated_at = now()
+WHERE email = '要提升的信箱' AND role = 'DONOR' AND organization_id IS NULL;
+
+-- 降級
+UPDATE users SET role = 'DONOR', updated_at = now()
+WHERE email = '要降級的信箱' AND role = 'ADMIN';
+```
+
+每個請求都會重讀資料庫，所以**改完下一個請求就生效**，不必登出或等 token 過期。
+
+> `organization_id IS NULL` 那個條件不是裝飾：`ck_users_org_membership` 要求
+> 非 ORG_MEMBER 的人不能隸屬機構，而且機構成員兼任管理員等於球員兼裁判。
+
+### 救援：一個管理員都不剩時
+
+帳號被刪、被誤降級、或換了一個全新的資料庫，都會落到這個狀態。兩條路：
+
+1. 直接在 Neon 跑上面的 `UPDATE`（最快）
+2. 設回 `APP_ADMIN_EMAILS` 並重新部署，該信箱**下次登入**時自動取得 ADMIN
+
+第二條的前提是信箱已驗證——用 Google 登入天生滿足，密碼註冊要先點驗證信。
+
+### 已知的不對稱
+
+**把信箱從白名單拿掉不會降級任何人。** 提升是單向的，這是刻意的設計（`AppPrincipal`
+的註解有寫），但很容易誤會。撤銷管理員一律走資料庫，不要以為改設定就夠了。
 
 ---
 
@@ -490,7 +542,8 @@ Settings → Secrets and variables → Actions → Variables：
 | 間歇性 `prepared statement does not exist` | JDBC 連線字串少了 `prepareThreshold=0` |
 | 排程回 401 | audience 或服務帳號 email 與後端設定不一致 |
 | 啟動時 Flyway 失敗 | Neon 專案在冷啟動，重試即可；或連線字串有誤 |
-| 登入後一直是 DONOR | `APP_ADMIN_EMAILS` 沒設或拼錯，改完要重新部署 |
+| 登入後一直是 DONOR | 資料庫裡那筆使用者的 `role` 不是 ADMIN。用白名單救援時記得信箱要完全相符，改完要重新部署 |
+| 把信箱從 `APP_ADMIN_EMAILS` 拿掉，那個人還是管理員 | 提升是單向的，白名單不會降級。要改資料庫，見「管理員的升降級」 |
 | 明明是管理員卻被擋在監控中心外 | 信箱未驗證。未驗證的 token 只有一般民眾的權限，去收驗證信 |
 | 收不到驗證信 | 檢查垃圾郵件匣；機構的公務信箱過濾較嚴，可先用 Google 登入 |
 | 註冊時說信箱已被使用 | 那個信箱先前用另一種方式註冊過，改用原本的方式登入 |
