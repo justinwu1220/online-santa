@@ -6,6 +6,7 @@ import type { PageResponse, WishFilterOptions, WishPublicView } from '../lib/typ
 import { EmptyState, ErrorBanner, Spinner } from '../components/Feedback'
 import { Select } from '../components/Form'
 import { Pagination } from '../components/Pagination'
+import { wishIcon } from '../lib/wishIcon'
 
 interface Filters {
   category: string
@@ -120,7 +121,9 @@ function WishCard({ wish }: { wish: WishPublicView }) {
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-5xl">🎁</div>
+          <div className="flex h-full items-center justify-center text-5xl">
+            {wishIcon(wish.category)}
+          </div>
         )}
       </div>
 

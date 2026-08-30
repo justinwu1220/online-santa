@@ -88,6 +88,7 @@ jobs:
           image: ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
           flags: >-
             --allow-unauthenticated
+            --service-account=online-santa-run@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com
             --cpu=1
             --memory=512Mi
             --concurrency=80
@@ -101,6 +102,7 @@ jobs:
             APP_ADMIN_EMAILS=${{ vars.APP_ADMIN_EMAILS }}
             APP_ALLOWED_ORIGINS=${{ vars.APP_ALLOWED_ORIGINS }}
             GCS_PUBLIC_BUCKET=${{ vars.GCS_PUBLIC_BUCKET }}
+            WISH_IMAGE_ENABLED=${{ vars.WISH_IMAGE_ENABLED || 'false' }}
             GCS_PRIVATE_BUCKET=${{ vars.GCS_PRIVATE_BUCKET }}
             INTERNAL_JOB_AUDIENCE=${{ vars.INTERNAL_JOB_AUDIENCE }}
             SCHEDULER_SERVICE_ACCOUNT=${{ vars.SCHEDULER_SERVICE_ACCOUNT }}
@@ -150,6 +152,8 @@ jobs:
           VITE_FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
           # 前端與 API 不同網域，必須指定完整位址
           VITE_API_BASE_URL: ${{ needs.backend.outputs.url }}
+          # 與後端的 WISH_IMAGE_ENABLED 一起開關。沒設就是關閉——願望牆改用分類圖示
+          VITE_WISH_IMAGE_ENABLED: ${{ vars.WISH_IMAGE_ENABLED }}
         run: |
           npm ci
           npm run build

@@ -8,6 +8,7 @@ import { effectiveRoleOf, useCurrentUser } from '../lib/useCurrentUser'
 import { ErrorBanner, Notice, Spinner } from '../components/Feedback'
 import { Button, TextArea } from '../components/Form'
 import { WishStatusBadge } from '../components/StatusBadge'
+import { wishIcon } from '../lib/wishIcon'
 
 export function WishDetail() {
   const { id = '' } = useParams()
@@ -66,7 +67,9 @@ export function WishDetail() {
         {data.imageUrl ? (
           <img src={data.imageUrl} alt="" className="aspect-[4/3] w-full object-cover" />
         ) : (
-          <div className="flex aspect-[4/3] items-center justify-center text-7xl">🎁</div>
+          <div className="flex aspect-[4/3] items-center justify-center text-7xl">
+            {wishIcon(data.category)}
+          </div>
         )}
       </div>
 

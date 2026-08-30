@@ -27,6 +27,14 @@ Firebase 專案與 GCP 專案其實是**同一個專案**的兩個面向——�
 <https://console.firebase.google.com> → 新增專案。專案 ID 記下來，後面到處會用到
 （以下用 `<PROJECT_ID>` 代表）。
 
+> **專案 ID 一旦建立就永久保留，把專案刪掉也拿不回來。** 想在另一個帳號重建就必須
+> 換一個新的 ID。Firebase 還常在你輸入的名稱後面自動加上亂數後綴（例如
+> `onlinesanta2026-7d653`）——以實際產生的那一個為準，它會滲透到正式網址
+> `https://<PROJECT_ID>.web.app`、bucket 名稱、CORS 設定與服務帳號位址。
+>
+> 後綴不好看也不必為它重建專案：Firebase Hosting 可以在同一個專案下另外加一個
+> site，換一個乾淨的 `xxx.web.app` 網址，這件事隨時能做。
+
 ### 1.2 開啟登入方式
 
 Authentication → Sign-in method → 啟用這兩項：
@@ -122,6 +130,37 @@ gcloud config set project <PROJECT_ID>
 > export PATH="$PATH:$HOME/AppData/Local/Google/Cloud SDK/google-cloud-sdk/bin"
 > ```
 
+### 3.0 帳單帳戶
+
+**新的 Google 帳號沒有帳單帳戶，下一步會直接失敗：**
+
+```
+FAILED_PRECONDITION: Billing account for project '...' is not found.
+```
+
+Cloud Run、Artifact Registry、Secret Manager、Cloud Scheduler 都要求專案已連結到有效
+的帳單帳戶。**建立帳單帳戶只能在網頁做**，`gcloud` 沒有對應的指令：
+
+<https://console.cloud.google.com/billing> → 建立帳戶 → 國家台灣、幣別 TWD
+（**建立後不能改**）→ 綁信用卡（會扣一筆小額驗證後退回）。新帳號可拿到 $300 / 90 天
+的試用額度。
+
+過程中會問台灣稅務資訊。沒有統一編號的個人選**未登記稅籍**——Google 開二聯式發票，
+5% 營業稅含在你付的金額裡。選「已登記稅籍」卻填不出有效統編會驗證失敗。
+
+建好之後回到終端機把專案綁上去：
+
+```bash
+# 取得 XXXXXX-XXXXXX-XXXXXX 格式的 ACCOUNT_ID
+gcloud billing accounts list
+
+gcloud billing projects link <PROJECT_ID> --billing-account=<BILLING_ACCOUNT_ID>
+```
+
+> **帳單帳戶存在不等於專案綁到它。** `accounts list` 看得到帳戶、`services enable`
+> 卻仍然失敗，就是漏了 `projects link` 這一行。這個 ACCOUNT_ID 第七節的預算警示還會
+> 再用一次。
+
 ### 3.1 啟用 API
 
 ```bash
@@ -130,8 +169,15 @@ gcloud services enable \
   artifactregistry.googleapis.com \
   secretmanager.googleapis.com \
   cloudscheduler.googleapis.com \
-  iamcredentials.googleapis.com
+  iam.googleapis.com \
+  iamcredentials.googleapis.com \
+  sts.googleapis.com
 ```
+
+> **`iam.googleapis.com` 不在新專案的預設啟用清單裡**，而 3.5 的
+> `gcloud iam service-accounts create` 與 3.6 的 workload identity pool 都要它。
+> 漏掉的話前面幾步都順利，偏偏卡在建立服務帳號。`sts.googleapis.com` 則是 WIF
+> 拿 OIDC token 換取短效憑證的那一步會用到。
 
 ### 3.2 Artifact Registry
 
@@ -142,18 +188,13 @@ gcloud artifacts repositories create online-santa \
   --description="線上聖誕老公公的容器映像檔"
 ```
 
-### 3.3 兩個儲存空間
+### 3.3 儲存空間
 
-依敏感度分開，**這是隱私設計的一部分**，不要合成一個：
+程式碼支援兩個 bucket——公開的放禮物示意圖、私密的放寄送證明與回饋照片。**目前只
+需要建私密的那一個**：願望示意圖預設是關閉的（`app.storage.wish-image-enabled`），
+願望牆改用分類圖示，公開 bucket 因此不必存在。要開啟見第九節。
 
 ```bash
-# 公開：只放禮物示意圖。不含孩童影像，公開沒有隱私風險，
-# 而且願望牆流量最大，公開網址省下每張圖的簽章往返
-gcloud storage buckets create gs://<PROJECT_ID>-public \
-  --location=asia-east1 --uniform-bucket-level-access
-gcloud storage buckets add-iam-policy-binding gs://<PROJECT_ID>-public \
-  --member=allUsers --role=roles/storage.objectViewer
-
 # 私密：寄送證明（含捐贈者姓名地址）與回饋照片（可能含孩童影像）。
 # 一律要限時簽章才讀得到，絕不可設為公開
 gcloud storage buckets create gs://<PROJECT_ID>-private \
@@ -172,8 +213,10 @@ cat > /tmp/cors.json <<'JSON'
 }]
 JSON
 gcloud storage buckets update gs://<PROJECT_ID>-private --cors-file=/tmp/cors.json
-gcloud storage buckets update gs://<PROJECT_ID>-public --cors-file=/tmp/cors.json
 ```
+
+> **依敏感度分成兩個 bucket 是隱私設計的一部分**，日後啟用示意圖時不要把它們合成
+> 一個。示意圖不含孩童影像所以可以公開；寄送證明與回饋照片一旦公開就無法收回。
 
 ### 3.4 資料庫連線資訊放 Secret Manager
 
@@ -198,11 +241,9 @@ RUN_SA="online-santa-run@<PROJECT_ID>.iam.gserviceaccount.com"
 gcloud projects add-iam-policy-binding <PROJECT_ID> \
   --member="serviceAccount:$RUN_SA" --role=roles/secretmanager.secretAccessor
 
-# 讀寫兩個 bucket
-for b in public private; do
-  gcloud storage buckets add-iam-policy-binding gs://<PROJECT_ID>-$b \
-    --member="serviceAccount:$RUN_SA" --role=roles/storage.objectAdmin
-done
+# 讀寫私密 bucket（公開 bucket 目前不存在，見 3.3）
+gcloud storage buckets add-iam-policy-binding gs://<PROJECT_ID>-private \
+  --member="serviceAccount:$RUN_SA" --role=roles/storage.objectAdmin
 ```
 
 **接下來這一步最容易漏，漏了會在本機正常、一上雲就壞：**
@@ -275,7 +316,7 @@ gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
 |---|---|
 | `GCP_PROJECT_ID` | `<PROJECT_ID>` |
 | `FIREBASE_PROJECT_ID` | `<PROJECT_ID>` |
-| `GCS_PUBLIC_BUCKET` | `<PROJECT_ID>-public` |
+| `GCS_PUBLIC_BUCKET` | 先不用設——啟用示意圖時才需要，見第九節 |
 | `GCS_PRIVATE_BUCKET` | `<PROJECT_ID>-private` |
 | `APP_ADMIN_EMAILS` | 你的管理員信箱，逗號分隔 |
 | `APP_ALLOWED_ORIGINS` | `https://<PROJECT_ID>.web.app` |
@@ -353,6 +394,9 @@ gcloud billing budgets create \
   --threshold-rule=percent=100
 ```
 
+`<BILLING_ACCOUNT_ID>` 就是 3.0 建立的那一個，忘記的話 `gcloud billing accounts list`
+可以查。
+
 Cloud Run 的 `--max-instances=10` 已經寫在 workflow 裡，這是更硬的護欄：
 就算被爬蟲或攻擊打，也最多只會有 10 個實例。
 
@@ -377,10 +421,70 @@ gcloud run services update online-santa-api --region=asia-east1 --min-instances=
 
 ---
 
+## 九、日後啟用願望示意圖
+
+願望牆目前用分類圖示，機構不能上傳禮物示意圖。這是成本決定：示意圖放在公開 bucket、
+在願望牆大量曝光，是整個系統唯一會隨訪客數線性成長的費用來源。關閉時公開 bucket
+根本不存在，那筆錢就是零。
+
+程式碼完整保留著，沒有刪任何東西——啟用不需要改程式、不需要 migration、不需要回填
+資料。既有的願望沒有圖片會繼續顯示分類圖示，新舊混排是合法狀態。
+
+### 9.1 建立公開 bucket
+
+```bash
+# 只放禮物示意圖。不含孩童影像，公開沒有隱私風險，
+# 而且願望牆流量最大，公開網址省下每張圖的簽章往返
+gcloud storage buckets create gs://<PROJECT_ID>-public \
+  --location=asia-east1 --uniform-bucket-level-access
+gcloud storage buckets add-iam-policy-binding gs://<PROJECT_ID>-public \
+  --member=allUsers --role=roles/storage.objectViewer
+
+# 前端直傳需要 CORS（內容與 3.3 的那份相同）
+gcloud storage buckets update gs://<PROJECT_ID>-public --cors-file=/tmp/cors.json
+
+# Cloud Run 的執行身分要能讀寫它
+gcloud storage buckets add-iam-policy-binding gs://<PROJECT_ID>-public \
+  --member="serviceAccount:online-santa-run@<PROJECT_ID>.iam.gserviceaccount.com" \
+  --role=roles/storage.objectAdmin
+```
+
+### 9.2 設定兩個 Variable
+
+Settings → Secrets and variables → Actions → Variables：
+
+| 名稱 | 值 |
+|---|---|
+| `GCS_PUBLIC_BUCKET` | `<PROJECT_ID>-public` |
+| `WISH_IMAGE_ENABLED` | `true` |
+
+`WISH_IMAGE_ENABLED` 同時餵給後端（`app.storage.wish-image-enabled`，決定端點收不收
+上傳）與前端（`VITE_WISH_IMAGE_ENABLED`，決定畫不畫上傳按鈕）。**兩邊必須一致**——
+只開前端會讓機構按下去拿到 403。
+
+### 9.3 重新部署
+
+到 Actions 手動觸發 `Deploy`（`workflow_dispatch`）。前端是建置時把旗標編進去的，
+所以一定要重跑一次建置，只重啟 Cloud Run 沒有用。
+
+### 9.4 開啟前先確認成本
+
+啟用後的流量費用取決於圖片大小，不是訪客數。以每張 2.5 MB 的手機原圖、每位訪客
+瀏覽 25 張估算，3,000 位訪客約 188 GB 出網、約 NT$720；壓縮到 150 KB 則約 NT$43。
+
+**啟用示意圖之前，先讓 `frontend/src/lib/upload.ts` 在上傳前壓縮圖片**（長邊縮到
+1200px 並轉 WebP）。`MAX_IMAGE_BYTES` 只擋 5 MB 上限，不會縮小已經合規的檔案。
+同時把第七節的預算警示調高。
+
+---
+
 ## 疑難排解
 
 | 症狀 | 原因 |
 |---|---|
+| `services enable` 說 billing account is not found | 帳單帳戶沒建，或建了卻漏掉 `gcloud billing projects link`，見 3.0 |
+| `iam service-accounts create` 說 API 未啟用 | `iam.googleapis.com` 沒開，見 3.1 |
+| 部署時 `iam.serviceaccounts.actAs` denied on `...-compute@developer` | workflow 的 `flags` 少了 `--service-account`，Cloud Run 退回用 Compute Engine 預設服務帳號，而部署身分沒有它的 actAs 權限 |
 | 上傳圖片時 500，本機卻正常 | 漏了 3.5 最後那個 `serviceAccountTokenCreator` |
 | 瀏覽器上傳被 CORS 擋下 | bucket 的 CORS 沒設，或 origin 沒包含實際網域 |
 | 間歇性 `prepared statement does not exist` | JDBC 連線字串少了 `prepareThreshold=0` |
@@ -390,3 +494,5 @@ gcloud run services update online-santa-api --region=asia-east1 --min-instances=
 | 明明是管理員卻被擋在監控中心外 | 信箱未驗證。未驗證的 token 只有一般民眾的權限，去收驗證信 |
 | 收不到驗證信 | 檢查垃圾郵件匣；機構的公務信箱過濾較嚴，可先用 Google 登入 |
 | 註冊時說信箱已被使用 | 那個信箱先前用另一種方式註冊過，改用原本的方式登入 |
+| Cloud Run 部署失敗，說讀不到 secret | 服務沒有以 `online-santa-run` 身分執行。workflow 的 `--service-account` 與 3.5 建立的名稱要一致 |
+| 前端 job 失敗，firebase-tools 說找不到專案 | 部署身分除了 `firebasehosting.admin` 可能還需要 `roles/firebase.viewer`，補上再重跑 |

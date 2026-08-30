@@ -10,6 +10,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * 圖片儲存的設定（{@code app.storage.*}）。
  *
  * @param publicBucket        公開 bucket 名稱（禮物示意圖）
+ * @param wishImageEnabled    是否開放上傳願望示意圖；關閉時公開 bucket 不需要存在
  * @param privateBucket       私密 bucket 名稱（寄送證明、機構回饋照片）
  * @param uploadUrlTtl        上傳網址的有效期
  * @param downloadUrlTtl      讀取網址的有效期
@@ -20,6 +21,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.storage")
 public record StorageProperties(
         String publicBucket,
+        boolean wishImageEnabled,
         String privateBucket,
         Duration uploadUrlTtl,
         Duration downloadUrlTtl,

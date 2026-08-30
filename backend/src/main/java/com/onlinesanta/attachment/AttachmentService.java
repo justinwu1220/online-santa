@@ -18,6 +18,7 @@ import com.onlinesanta.claim.Claim;
 import com.onlinesanta.claim.ClaimRepository;
 import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.common.exception.BusinessRuleException;
+import com.onlinesanta.common.exception.ForbiddenException;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.storage.ObjectStorage;
 import com.onlinesanta.storage.StoredObject;
@@ -62,6 +63,7 @@ public class AttachmentService {
     public UploadUrlResponse createUploadUrl(UploadUrlRequest request) {
         AppPrincipal principal = currentUser.require();
 
+        requirePurposeEnabled(request.purpose());
         requireAllowedContentType(request.contentType());
         requireWithinSizeLimit(request.sizeBytes());
         authorizeUpload(request.purpose(), request.targetId(), principal);
@@ -252,6 +254,19 @@ public class AttachmentService {
     }
 
     // ================================================================ 檔案限制
+
+    /**
+     * 願望示意圖可以整個關閉，關閉時公開 bucket 不需要存在。
+     *
+     * <p>前端會一併隱藏上傳按鈕，但那只是介面。少了這道檢查，任何人都能直接呼叫
+     * 這個端點，把檔案寫進一個沒有人在看管、甚至還沒建立的 bucket。
+     */
+    private void requirePurposeEnabled(AttachmentPurpose purpose) {
+        if (purpose == AttachmentPurpose.WISH_IMAGE && !properties.wishImageEnabled()) {
+            throw new ForbiddenException("WISH_IMAGE_DISABLED",
+                    "目前不開放上傳願望示意圖");
+        }
+    }
 
     private void requireAllowedContentType(String contentType) {
         if (!properties.allows(contentType)) {

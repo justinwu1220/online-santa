@@ -8,6 +8,8 @@ spring:
 app:
   storage:
     public-bucket: test-public
+    # 測試涵蓋整條示意圖路徑，這裡一律開啟；正式環境的預設是關閉
+    wish-image-enabled: true
     private-bucket: test-private
     upload-url-ttl: 15m
     download-url-ttl: 10m

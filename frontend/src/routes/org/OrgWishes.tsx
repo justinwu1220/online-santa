@@ -11,6 +11,7 @@ import { Button, Field, Select, TextArea, TextInput } from '../../components/For
 import { ImageUploader } from '../../components/ImageUploader'
 import { Pagination } from '../../components/Pagination'
 import { WishStatusBadge } from '../../components/StatusBadge'
+import { WISH_IMAGE_ENABLED, wishIcon } from '../../lib/wishIcon'
 import { useOrgContext } from './orgContext'
 
 const STATUS_FILTERS: { value: WishStatus | ''; label: string }[] = [
@@ -116,7 +117,9 @@ function WishRow({ wish, onEdit, onChanged }: {
         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-santa-50">
           {wish.imageUrl
             ? <img src={wish.imageUrl} alt="" className="h-full w-full object-cover" />
-            : <div className="flex h-full items-center justify-center text-2xl">🎁</div>}
+            : <div className="flex h-full items-center justify-center text-2xl">
+                {wishIcon(wish.category)}
+              </div>}
         </div>
 
         <div className="min-w-0 flex-1">
@@ -141,12 +144,14 @@ function WishRow({ wish, onEdit, onChanged }: {
             {wish.editable && (
               <>
                 <Button variant="secondary" onClick={onEdit}>編輯</Button>
-                <ImageUploader
-                  purpose="WISH_IMAGE"
-                  targetId={wish.id}
-                  label={wish.imageUrl ? '更換示意圖' : '上傳示意圖'}
-                  onUploaded={onChanged}
-                />
+                {WISH_IMAGE_ENABLED && (
+                  <ImageUploader
+                    purpose="WISH_IMAGE"
+                    targetId={wish.id}
+                    label={wish.imageUrl ? '更換示意圖' : '上傳示意圖'}
+                    onUploaded={onChanged}
+                  />
+                )}
               </>
             )}
 

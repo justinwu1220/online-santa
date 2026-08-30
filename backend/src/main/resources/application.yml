@@ -61,6 +61,9 @@ app:
     # 依敏感度分成兩個 bucket：示意圖公開可讀（願望牆流量大，省下每張圖的簽章往返），
     # 寄送證明與回饋照片一律需要限時簽章才能讀取。
     public-bucket: ${GCS_PUBLIC_BUCKET:online-santa-public}
+    # 願望示意圖目前關閉：願望牆改以分類圖示呈現，公開 bucket 因此不必存在，
+    # 也就沒有它的出網流量。要開啟見 docs/DEPLOY.md 的「日後啟用願望示意圖」。
+    wish-image-enabled: ${WISH_IMAGE_ENABLED:false}
     private-bucket: ${GCS_PRIVATE_BUCKET:online-santa-private}
     upload-url-ttl: 15m
     download-url-ttl: 10m
