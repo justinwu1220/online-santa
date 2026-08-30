@@ -42,7 +42,8 @@ export function AdminLogin() {
 
   return (
     <Shell>
-      <AuthPanel />
+      {/* 不提供註冊：管理員身分來自 APP_ADMIN_EMAILS 白名單，不是註冊來的 */}
+      <AuthPanel allowRegister={false} />
     </Shell>
   )
 }

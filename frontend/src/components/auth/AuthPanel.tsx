@@ -14,11 +14,18 @@ type Mode = 'signIn' | 'register' | 'reset'
  *
  * 開發模式沒有真的密碼，只顯示 email 欄位與一個「模擬未驗證」的開關。
  */
-export function AuthPanel({ hint, registerHint }: {
+export function AuthPanel({ hint, registerHint, allowRegister = true }: {
   /** 登入分頁上方的說明 */
   hint?: string
   /** 註冊分頁上方的說明。沒給就沿用 hint */
   registerHint?: string
+  /**
+   * 是否提供註冊分頁。監控中心傳 `false`——那個入口只服務已經存在的管理員，
+   * 而管理員身分來自白名單，不是註冊來的。擺一個註冊分頁在那裡，等於告訴
+   * 誤打誤撞進來的人「這是一個會接受新帳號的登入面」，與這個入口刻意不透露
+   * 系統資訊的用意相反。
+   */
+  allowRegister?: boolean
 }) {
   const auth = useAuth()
   const [mode, setMode] = useState<Mode>('signIn')
@@ -130,14 +137,18 @@ export function AuthPanel({ hint, registerHint }: {
 
   // ------------------------------------------------------------ 登入／註冊
 
-  const registering = mode === 'register'
+  // 一併看 allowRegister：就算 mode 因為任何原因變成 register，
+  // 不允許註冊的入口也不會渲染出註冊表單
+  const registering = allowRegister && mode === 'register'
 
   return (
     <div className="space-y-5">
-      <div className="flex rounded-lg bg-slate-100 p-1">
-        <Tab active={!registering} onClick={() => switchMode('signIn')}>登入</Tab>
-        <Tab active={registering} onClick={() => switchMode('register')}>註冊</Tab>
-      </div>
+      {allowRegister && (
+        <div className="flex rounded-lg bg-slate-100 p-1">
+          <Tab active={!registering} onClick={() => switchMode('signIn')}>登入</Tab>
+          <Tab active={registering} onClick={() => switchMode('register')}>註冊</Tab>
+        </div>
+      )}
 
       {(registering ? registerHint ?? hint : hint) && (
         <p className="text-sm text-slate-600">{registering ? registerHint ?? hint : hint}</p>
