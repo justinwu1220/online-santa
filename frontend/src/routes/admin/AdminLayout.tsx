@@ -33,6 +33,7 @@ export function AdminLayout() {
         { to: '/admin/organizations', label: '機構審核', badge: stats.data?.pendingOrganizations },
         { to: '/admin/wishes', label: '全站願望' },
         { to: '/admin/claims', label: '全站認領', badge: stats.data?.overdueClaims },
+        { to: '/admin/annual', label: '年度營運' },
         { to: '/admin/system', label: '系統與稽核' },
       ]}
     >

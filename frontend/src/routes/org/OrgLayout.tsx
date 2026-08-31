@@ -47,6 +47,7 @@ export function OrgLayout() {
         { to: '/org/wishes', label: '願望管理' },
         { to: '/org/claims', label: '認領管理' },
         { to: '/org/overdue', label: '逾期提醒', badge: overdue.data?.totalElements },
+        { to: '/org/annual', label: '年度回顧' },
         { to: '/org/settings', label: '機構設定' },
       ]}
     >

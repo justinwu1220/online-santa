@@ -1,5 +1,7 @@
+import { lazy, Suspense } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import { PublicLayout } from './components/layouts/PublicLayout'
+import { Spinner } from './components/Feedback'
 import { RequireRole } from './components/RequireRole'
 import { AdminClaimDetail } from './routes/admin/AdminClaimDetail'
 import { AdminClaims, AdminWishes } from './routes/admin/AdminCatalog'
@@ -23,6 +25,13 @@ import { OrgSettings } from './routes/org/OrgSettings'
 import { OrgWishes } from './routes/org/OrgWishes'
 import { WishDetail } from './routes/WishDetail'
 import { WishWall } from './routes/WishWall'
+
+// 年度回顧兩頁用了 Recharts，體積不小又只有機構後台與監控中心用得到，
+// lazy 載入避免它進到主網站的首頁 bundle
+const OrgAnnualReview = lazy(() => import('./routes/org/OrgAnnualReview')
+  .then((m) => ({ default: m.OrgAnnualReview })))
+const AdminAnnualReview = lazy(() => import('./routes/admin/AdminAnnualReview')
+  .then((m) => ({ default: m.AdminAnnualReview })))
 
 /**
  * 三個在使用者感受上獨立的網站，共用同一套程式碼與身分系統。
@@ -70,6 +79,10 @@ export default function App() {
         <Route path="wishes" element={<OrgWishes />} />
         <Route path="claims" element={<OrgClaims />} />
         <Route path="overdue" element={<OrgClaims overdueOnly />} />
+        <Route path="annual" element={
+          <Suspense fallback={<Spinner label="載入年度回顧" />}>
+            <OrgAnnualReview />
+          </Suspense>} />
         <Route path="settings" element={<OrgSettings />} />
       </Route>
 
@@ -85,6 +98,10 @@ export default function App() {
         <Route path="wishes" element={<AdminWishes />} />
         <Route path="claims" element={<AdminClaims />} />
         <Route path="claims/:id" element={<AdminClaimDetail />} />
+        <Route path="annual" element={
+          <Suspense fallback={<Spinner label="載入年度營運" />}>
+            <AdminAnnualReview />
+          </Suspense>} />
         <Route path="system" element={<AdminSystem />} />
       </Route>
 

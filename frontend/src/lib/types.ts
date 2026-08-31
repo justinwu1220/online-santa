@@ -268,6 +268,70 @@ export interface AdminClaimView {
   releaseReason?: string
 }
 
+// ---------------------------------------------------------------- 年度回顧
+//
+// 年度一律為台北日曆年，認領以 claimedAt 定錨（cohort 制）：完成／釋回／取消都歸屬
+// 認領當年，不看實際發生的時間。詳見後端 TaiwanYear 的說明。
+
+export interface MonthlyCount {
+  /** 1–12，已補零，固定 12 筆 */
+  month: number
+  count: number
+}
+
+export interface DonorAnnualSummary {
+  year: number
+  claimedCount: number
+  completedCount: number
+  /** 送禮的孩子數，以 distinct 願望計 */
+  childrenHelped: number
+  organizationsSupported: number
+  /** 有認領紀錄可選的年份，由新到舊排序 */
+  availableYears: number[]
+}
+
+export interface OrganizationAnnualStats {
+  year: number
+  newWishes: number
+  claimed: number
+  completed: number
+  completionRate: number
+  /** 釋回總數，涵蓋機構手動收回與逾期自動釋回兩種 */
+  released: number
+  cancelled: number
+  /** 前述釋回中，屬於逾期自動釋回的次數 */
+  autoReleasedCount: number
+  /** 平均完成天數（認領到完成），沒有任何完成筆數時不存在 */
+  averageCompletionDays?: number
+  /** 該年度認領、但完成時間落在隔年（或更晚）的筆數 */
+  crossYearCompletions: number
+  monthlyClaims: MonthlyCount[]
+  availableYears: number[]
+}
+
+export interface OrganizationCompletionRanking {
+  organizationId: string
+  organizationName: string
+  completedCount: number
+}
+
+export interface PlatformAnnualStats {
+  year: number
+  newDonors: number
+  newOrganizations: number
+  activeDonors: number
+  publishedWishes: number
+  claimed: number
+  completed: number
+  completionRate: number
+  monthlyClaims: MonthlyCount[]
+  /** 只涵蓋三種終局狀態：COMPLETED／RELEASED／CANCELLED */
+  claimOutcomes: Record<string, number>
+  /** 該年度完成認領數前五名的機構，僅管理端可見 */
+  topOrganizations: OrganizationCompletionRanking[]
+  availableYears: number[]
+}
+
 export type AdminAuditAction =
   | 'VIEW_CLAIM_DETAIL' | 'VIEW_CLAIM_ATTACHMENTS'
   | 'APPROVE_ORGANIZATION' | 'REJECT_ORGANIZATION' | 'RUN_RELEASE_SWEEP'
