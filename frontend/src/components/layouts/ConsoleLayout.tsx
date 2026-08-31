@@ -14,6 +14,19 @@ export interface ConsoleNavItem {
 }
 
 /**
+ * 頂部工具列的高度，與下方側導覽 sticky 的 top 偏移共用同一個數字——量測自實際
+ * 渲染結果（py-3 的內距 + text-base 單行內容的行高）。兩處各自寫死同一個值很容易
+ * 之後改了 header 卻忘記改 nav，所以抽成一個常數，只有一個地方要對。
+ *
+ * 只在 md 以上生效：手機版 header 的內容會 flex-wrap 成兩行，高度不固定，
+ * sticky offset 一旦跟著跑掉就會讓側欄卡進 header 底下；小螢幕本來就該讓 nav
+ * 留在內容前面而非常駐佔位，所以手機版兩者都不做 sticky（見下方 nav 的說明）。
+ */
+const HEADER_HEIGHT_PX = 60
+const NAV_TOP_GAP_PX = 24
+const NAV_STICKY_TOP_PX = HEADER_HEIGHT_PX + NAV_TOP_GAP_PX
+
+/**
  * 後台的共用外框：側邊導覽 + 頂部工具列。
  *
  * 與主網站刻意做出區隔——後台的使用者是在「工作」，需要的是資訊密度與穩定的導覽
@@ -42,8 +55,13 @@ export function ConsoleLayout({ title, subtitle, accent, items, homePath, childr
     : 'bg-slate-800 text-white'
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
-      <header className={headerClass}>
+    <div
+      className="flex min-h-screen flex-col bg-slate-50"
+      style={{ '--console-nav-top': `${NAV_STICKY_TOP_PX}px` } as React.CSSProperties}
+    >
+      {/* z-40：要壓得住頁面內容裡的 Recharts 圖表與 glass/ring 卡片，但留出空間
+          給日後可能出現的 modal／toast（那些理當更高） */}
+      <header className={`${headerClass} md:sticky md:top-0 md:z-40`}>
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           {/*
             logo 指向自己的首頁，不會把人丟回主網站。
@@ -77,7 +95,20 @@ export function ConsoleLayout({ title, subtitle, accent, items, homePath, childr
       <EmailVerificationBanner />
 
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-6 md:flex-row">
-        <nav className="md:w-52 md:shrink-0">
+        {/*
+          手機版維持現狀：nav 水平 wrap 在內容上方、隨頁面捲動——螢幕太窄，
+          常駐側欄會吃掉本來就有限的內容空間，不值得。所有 sticky／max-height
+          都掛在 md: 前綴下，手機版完全不受影響。
+
+          top／max-height 讀 --console-nav-top 這個 CSS 變數（在外層容器上設定，
+          值等於 NAV_STICKY_TOP_PX）：用 Tailwind 的 arbitrary value 語法
+          `[var(--x)]` 而不是把 JS 常數直接內插進 class 字串——後者是動態組出來的
+          字串，Tailwind 的建置期掃描器看不到，永遠不會產生對應的 CSS。
+        */}
+        <nav
+          className="md:sticky md:top-[var(--console-nav-top)] md:w-52 md:shrink-0
+            md:max-h-[calc(100vh-var(--console-nav-top))] md:self-start md:overflow-y-auto"
+        >
           <ul className="flex flex-wrap gap-1 md:flex-col">
             {items.map((item) => (
               <li key={item.to}>
