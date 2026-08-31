@@ -231,6 +231,8 @@ export interface PlatformStats {
   availableWishes: number
   /** 有願望（以 createdAt 歸年）可選的年份，供「全站願望」頁的年度篩選下拉使用 */
   availableWishYears: number[]
+  /** 有認領（以 claimedAt 歸年，cohort 口徑）可選的年份，供「全站認領」頁使用 */
+  availableClaimYears: number[]
   generatedAt: string
 }
 

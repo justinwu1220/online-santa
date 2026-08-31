@@ -126,17 +126,36 @@ export function AdminClaims() {
   const [page, setPage] = useState(0)
   const status = (searchParams.get('status') ?? '') as ClaimStatus | ''
   const overdueOnly = searchParams.get('overdue') === 'true'
+  const year = searchParams.get('year') ?? ''
+
+  // 年度下拉的選項搭 AdminLayout 本來就會打的 /api/admin/stats 一起拿，
+  // 同一個 queryKey 會共用快取，不必為這個下拉多開一支端點或多一次往返
+  const stats = useQuery({
+    queryKey: ['admin-stats'],
+    queryFn: () => api.get<PlatformStats>('/api/admin/stats'),
+    staleTime: 30_000,
+  })
 
   const claims = useQuery({
-    queryKey: ['admin-claims', status, overdueOnly, page],
+    queryKey: ['admin-claims', status, overdueOnly, year, page],
     queryFn: () => api.get<PageResponse<AdminClaimView>>(
       withQuery('/api/admin/claims', {
         status: overdueOnly ? undefined : status,
         overdue: overdueOnly ? 'true' : undefined,
+        year: year || undefined,
         page,
         size: 20,
       })),
   })
+
+  /** status／overdue／year 各自獨立存在網址上，換一個篩選不該把另一個洗掉。 */
+  const setFilter = (key: 'status' | 'overdue' | 'year', value: string) => {
+    const next = new URLSearchParams(searchParams)
+    if (value) next.set(key, value)
+    else next.delete(key)
+    setSearchParams(next)
+    setPage(0)
+  }
 
   return (
     <ConsolePanel
@@ -147,9 +166,15 @@ export function AdminClaims() {
             className="w-36"
             value={overdueOnly ? 'overdue' : status}
             onChange={(event) => {
+              // status／overdue 是同一個下拉的三選一，切換時彼此互斥，
+              // 但都不動 year——年度篩選是獨立的維度
               const value = event.target.value
-              setSearchParams(
-                value === 'overdue' ? { overdue: 'true' } : value ? { status: value } : {})
+              const next = new URLSearchParams(searchParams)
+              next.delete('status')
+              next.delete('overdue')
+              if (value === 'overdue') next.set('overdue', 'true')
+              else if (value) next.set('status', value)
+              setSearchParams(next)
               setPage(0)
             }}
           >
@@ -157,6 +182,16 @@ export function AdminClaims() {
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
             <option value="overdue">只看逾期</option>
+          </Select>
+          <Select
+            className="w-28"
+            value={year}
+            onChange={(event) => setFilter('year', event.target.value)}
+          >
+            <option value="">全部年度</option>
+            {(stats.data?.availableClaimYears ?? []).map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
           </Select>
         </div>
       }
