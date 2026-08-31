@@ -203,26 +203,58 @@ function ClaimCard({ claim, onChanged }: { claim: ClaimOrgView; onChanged: () =>
         <div className="mt-5 space-y-5 border-t border-santa-100 pt-5">
           <div>
             <h4 className="mb-2 text-sm font-medium text-slate-700">附件</h4>
-            {attachments.isLoading ? <Spinner label="載入附件" /> : (
-              (attachments.data?.length ?? 0) === 0
-                ? <p className="text-sm text-slate-500">還沒有任何照片。</p>
-                : (
-                  <div className="grid grid-cols-4 gap-3">
-                    {attachments.data?.map((photo) => (
-                      <a key={photo.id} href={photo.url} target="_blank" rel="noreferrer"
-                        className="overflow-hidden rounded-lg ring-1 ring-santa-100">
-                        <img src={photo.url} alt="" className="aspect-square w-full object-cover" />
-                      </a>
-                    ))}
-                  </div>
-                )
-            )}
+            {attachments.isLoading
+              ? <Spinner label="載入附件" />
+              : <AttachmentGroups attachments={attachments.data ?? []} />}
           </div>
 
           <div>
             <h4 className="mb-2 text-sm font-medium text-slate-700">與捐贈者對話</h4>
             <MessageThread claimId={claim.id} closed={closed} />
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * 附件依上傳者分成兩組，不要混在同一格——寄送證明是認領人上傳的，回饋照片是
+ * 機構自己上傳的，混在一起會看不出哪張是誰放的（比照捐贈者端 ClaimDetail.tsx
+ * 的分組方式，WISH_IMAGE 不會出現在這個端點，篩選寫明確一點以防萬一）。
+ */
+function AttachmentGroups({ attachments }: { attachments: AttachmentView[] }) {
+  const shippingProofs = attachments.filter((a) => a.purpose === 'SHIPPING_PROOF')
+  const feedbackPhotos = attachments.filter((a) => a.purpose === 'ORG_FEEDBACK')
+
+  if (shippingProofs.length === 0 && feedbackPhotos.length === 0) {
+    return <p className="text-sm text-slate-500">還沒有任何照片。</p>
+  }
+
+  return (
+    <div className="space-y-4">
+      <AttachmentGroup title="寄送證明" photos={shippingProofs} emptyHint="認領人還沒上傳寄送證明。" />
+      <AttachmentGroup title="回饋照片" photos={feedbackPhotos} emptyHint="還沒有回饋照片。" />
+    </div>
+  )
+}
+
+function AttachmentGroup({ title, photos, emptyHint }: {
+  title: string; photos: AttachmentView[]; emptyHint: string
+}) {
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-medium text-slate-500">{title}</p>
+      {photos.length === 0 ? (
+        <p className="text-sm text-slate-400">{emptyHint}</p>
+      ) : (
+        <div className="grid grid-cols-4 gap-3">
+          {photos.map((photo) => (
+            <a key={photo.id} href={photo.url} target="_blank" rel="noreferrer"
+              className="overflow-hidden rounded-lg ring-1 ring-santa-100">
+              <img src={photo.url} alt="" className="aspect-square w-full object-cover" />
+            </a>
+          ))}
         </div>
       )}
     </div>
