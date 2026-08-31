@@ -1,13 +1,16 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api, withQuery } from '../../lib/api'
-import type { PlatformAnnualStats } from '../../lib/types'
+import type { PlatformAnnualStats, PlatformMonthlyStats } from '../../lib/types'
 import { AnnualStatCard, CohortNotice, YearSelect } from '../../components/AnnualStats'
 import { ClaimOutcomeChart } from '../../components/charts/ClaimOutcomeChart'
-import { MonthlyClaimsChart } from '../../components/charts/MonthlyClaimsChart'
+import { MonthlyDrilldownPanel } from '../../components/charts/MonthlyDrilldownPanel'
 import { OrganizationRankingChart } from '../../components/charts/OrganizationRankingChart'
 import { ErrorBanner, Spinner } from '../../components/Feedback'
 import { ConsolePanel } from '../../components/layouts/ConsoleLayout'
+
+const fetchDailyClaims = (year: number, month: number) =>
+  api.get<PlatformMonthlyStats>(withQuery('/api/admin/stats/monthly', { year, month }))
 
 /** 監控中心的年度營運總覽。機構完成排行僅在這裡出現——機構彼此看不到對方的數字。 */
 export function AdminAnnualReview() {
@@ -48,9 +51,13 @@ export function AdminAnnualReview() {
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2">
-            <ConsolePanel title="每月認領趨勢">
-              <MonthlyClaimsChart data={stats.data.monthlyClaims} />
-            </ConsolePanel>
+            <MonthlyDrilldownPanel
+              key={stats.data.year}
+              year={stats.data.year}
+              title="每月認領趨勢"
+              monthlyData={stats.data.monthlyClaims}
+              fetchDaily={fetchDailyClaims}
+            />
             <ConsolePanel title="認領結果分布">
               <ClaimOutcomeChart
                 completed={stats.data.claimOutcomes.COMPLETED ?? 0}

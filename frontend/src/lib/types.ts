@@ -279,6 +279,12 @@ export interface MonthlyCount {
   count: number
 }
 
+export interface DailyCount {
+  /** 1 到當月實際天數，已補零 */
+  day: number
+  count: number
+}
+
 export interface DonorAnnualSummary {
   year: number
   claimedCount: number
@@ -310,6 +316,13 @@ export interface OrganizationAnnualStats {
   availableYears: number[]
 }
 
+/** 機構「每月分布」長條圖點某個月之後的下鑽，見 GET /api/organizations/me/stats/monthly */
+export interface OrganizationMonthlyStats {
+  year: number
+  month: number
+  dailyClaims: DailyCount[]
+}
+
 export interface OrganizationCompletionRanking {
   organizationId: string
   organizationName: string
@@ -331,6 +344,13 @@ export interface PlatformAnnualStats {
   /** 該年度完成認領數前五名的機構，僅管理端可見 */
   topOrganizations: OrganizationCompletionRanking[]
   availableYears: number[]
+}
+
+/** 平台「每月趨勢」長條圖點某個月之後的下鑽，見 GET /api/admin/stats/monthly */
+export interface PlatformMonthlyStats {
+  year: number
+  month: number
+  dailyClaims: DailyCount[]
 }
 
 export type AdminAuditAction =
