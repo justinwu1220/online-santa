@@ -15,6 +15,8 @@ const ACTION_LABELS: Record<AdminAuditAction, string> = {
   VIEW_CLAIM_ATTACHMENTS: '檢視認領附件',
   APPROVE_ORGANIZATION: '核准機構',
   REJECT_ORGANIZATION: '退件',
+  SUSPEND_ORGANIZATION: '停權機構',
+  REACTIVATE_ORGANIZATION: '恢復機構',
   RUN_RELEASE_SWEEP: '執行逾期掃描',
 }
 

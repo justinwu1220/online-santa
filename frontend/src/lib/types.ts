@@ -359,7 +359,9 @@ export interface PlatformMonthlyStats {
 
 export type AdminAuditAction =
   | 'VIEW_CLAIM_DETAIL' | 'VIEW_CLAIM_ATTACHMENTS'
-  | 'APPROVE_ORGANIZATION' | 'REJECT_ORGANIZATION' | 'RUN_RELEASE_SWEEP'
+  | 'APPROVE_ORGANIZATION' | 'REJECT_ORGANIZATION'
+  | 'SUSPEND_ORGANIZATION' | 'REACTIVATE_ORGANIZATION'
+  | 'RUN_RELEASE_SWEEP'
 
 export interface AuditLogView {
   id: number

@@ -69,13 +69,22 @@ export function AdminOrganizations() {
   )
 }
 
+type Decision = 'approve' | 'reject' | 'suspend' | 'reactivate'
+
+const DECISION_COPY: Record<Decision, { label: string; fieldLabel: string; required: boolean }> = {
+  approve: { label: '核准附註', fieldLabel: '確定核准', required: false },
+  reject: { label: '退件原因', fieldLabel: '確定退件', required: true },
+  suspend: { label: '停權理由', fieldLabel: '確定停權', required: true },
+  reactivate: { label: '復權附註', fieldLabel: '確定恢復', required: false },
+}
+
 function OrganizationCard({ organization }: { organization: OrganizationReviewView }) {
   const queryClient = useQueryClient()
-  const [deciding, setDeciding] = useState<'approve' | 'reject' | null>(null)
+  const [deciding, setDeciding] = useState<Decision | null>(null)
   const [note, setNote] = useState('')
 
   const decide = useMutation({
-    mutationFn: (decision: 'approve' | 'reject') =>
+    mutationFn: (decision: Decision) =>
       api.post(`/api/admin/organizations/${organization.id}/${decision}`,
         note.trim() ? { note: note.trim() } : undefined),
     onSuccess: () => {
@@ -86,6 +95,9 @@ function OrganizationCard({ organization }: { organization: OrganizationReviewVi
   })
 
   const pending = organization.status === 'PENDING'
+  const approved = organization.status === 'APPROVED'
+  const suspended = organization.status === 'SUSPENDED'
+  const destructive = deciding === 'reject' || deciding === 'suspend'
 
   return (
     <div className="rounded-lg border border-slate-200 p-5">
@@ -124,7 +136,7 @@ function OrganizationCard({ organization }: { organization: OrganizationReviewVi
         </p>
       )}
 
-      {pending && (
+      {(pending || approved || suspended) && (
         <div className="mt-4">
           {deciding ? (
             <form
@@ -132,30 +144,44 @@ function OrganizationCard({ organization }: { organization: OrganizationReviewVi
               onSubmit={(event) => { event.preventDefault(); decide.mutate(deciding) }}
             >
               <Field
-                label={deciding === 'approve' ? '核准附註' : '退件原因'}
-                required={deciding === 'reject'}
-                hint={deciding === 'reject' ? '機構看得到，請說明要補什麼' : undefined}
+                label={DECISION_COPY[deciding].label}
+                required={DECISION_COPY[deciding].required}
+                hint={deciding === 'reject'
+                  ? '機構看得到，請說明要補什麼'
+                  : deciding === 'suspend'
+                    ? '會記錄在稽核軌跡；機構目前看不到這則理由'
+                    : undefined}
               >
                 <TextArea rows={3} maxLength={1000} value={note}
-                  required={deciding === 'reject'}
+                  required={DECISION_COPY[deciding].required}
                   onChange={(event) => setNote(event.target.value)} />
               </Field>
               {decide.isError && <ErrorBanner error={decide.error} />}
               <div className="flex gap-2">
                 <Button
                   type="submit"
-                  variant={deciding === 'approve' ? 'primary' : 'danger'}
+                  variant={destructive ? 'danger' : 'primary'}
                   disabled={decide.isPending}
                 >
-                  {decide.isPending ? '處理中…' : deciding === 'approve' ? '確定核准' : '確定退件'}
+                  {decide.isPending ? '處理中…' : DECISION_COPY[deciding].fieldLabel}
                 </Button>
                 <Button variant="ghost" onClick={() => setDeciding(null)}>取消</Button>
               </div>
             </form>
           ) : (
             <div className="flex gap-2">
-              <Button onClick={() => setDeciding('approve')}>核准</Button>
-              <Button variant="secondary" onClick={() => setDeciding('reject')}>退件</Button>
+              {pending && (
+                <>
+                  <Button onClick={() => setDeciding('approve')}>核准</Button>
+                  <Button variant="secondary" onClick={() => setDeciding('reject')}>退件</Button>
+                </>
+              )}
+              {approved && (
+                <Button variant="danger" onClick={() => setDeciding('suspend')}>停權</Button>
+              )}
+              {suspended && (
+                <Button onClick={() => setDeciding('reactivate')}>恢復</Button>
+              )}
             </div>
           )}
         </div>
