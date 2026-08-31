@@ -53,6 +53,7 @@ export function AdminAnnualReview() {
           <div className="grid gap-5 lg:grid-cols-2">
             <MonthlyDrilldownPanel
               key={stats.data.year}
+              queryScope="admin"
               year={stats.data.year}
               title="每月認領趨勢"
               monthlyData={stats.data.monthlyClaims}

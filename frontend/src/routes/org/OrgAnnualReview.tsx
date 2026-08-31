@@ -64,6 +64,7 @@ export function OrgAnnualReview() {
           <div className="grid gap-5 lg:grid-cols-2">
             <MonthlyDrilldownPanel
               key={stats.data.year}
+              queryScope="org"
               year={stats.data.year}
               title="每月認領分布"
               monthlyData={stats.data.monthlyClaims}
