@@ -229,6 +229,8 @@ export interface PlatformStats {
   overdueClaims: number
   pendingOrganizations: number
   availableWishes: number
+  /** 有願望（以 createdAt 歸年）可選的年份，供「全站願望」頁的年度篩選下拉使用 */
+  availableWishYears: number[]
   generatedAt: string
 }
 

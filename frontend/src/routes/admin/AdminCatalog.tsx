@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { api, withQuery } from '../../lib/api'
 import { formatDate } from '../../lib/format'
 import type {
-  AdminClaimView, AdminWishView, ClaimStatus, PageResponse, WishStatus,
+  AdminClaimView, AdminWishView, ClaimStatus, PageResponse, PlatformStats, WishStatus,
 } from '../../lib/types'
 import { ConsolePanel } from '../../components/layouts/ConsoleLayout'
 import { EmptyState, ErrorBanner, Notice, Spinner } from '../../components/Feedback'
@@ -36,29 +36,56 @@ export function AdminWishes() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [page, setPage] = useState(0)
   const status = (searchParams.get('status') ?? '') as WishStatus | ''
+  const year = searchParams.get('year') ?? ''
+
+  // 年度下拉的選項搭 AdminLayout 本來就會打的 /api/admin/stats 一起拿，
+  // 同一個 queryKey 會共用快取，不必為這個下拉多開一支端點或多一次往返
+  const stats = useQuery({
+    queryKey: ['admin-stats'],
+    queryFn: () => api.get<PlatformStats>('/api/admin/stats'),
+    staleTime: 30_000,
+  })
 
   const wishes = useQuery({
-    queryKey: ['admin-wishes', status, page],
+    queryKey: ['admin-wishes', status, year, page],
     queryFn: () => api.get<PageResponse<AdminWishView>>(
-      withQuery('/api/admin/wishes', { status, page, size: 20 })),
+      withQuery('/api/admin/wishes', { status, year: year || undefined, page, size: 20 })),
   })
+
+  /** status／year 各自獨立存在網址上，換一個篩選不該把另一個洗掉。 */
+  const setFilter = (key: 'status' | 'year', value: string) => {
+    const next = new URLSearchParams(searchParams)
+    if (value) next.set(key, value)
+    else next.delete(key)
+    setSearchParams(next)
+    setPage(0)
+  }
 
   return (
     <ConsolePanel
       title="全站願望"
       action={
-        <Select
-          className="w-36"
-          value={status}
-          onChange={(event) => {
-            setSearchParams(event.target.value ? { status: event.target.value } : {})
-            setPage(0)
-          }}
-        >
-          {WISH_FILTERS.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select
+            className="w-36"
+            value={status}
+            onChange={(event) => setFilter('status', event.target.value)}
+          >
+            {WISH_FILTERS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </Select>
+          <Select
+            className="w-28"
+            value={year}
+            onChange={(event) => setFilter('year', event.target.value)}
+          >
+            <option value="">全部年度</option>
+            {(stats.data?.availableWishYears ?? []).map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </Select>
+        </div>
       }
     >
       {wishes.isLoading && <Spinner label="載入願望" />}
