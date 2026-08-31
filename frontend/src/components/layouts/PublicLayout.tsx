@@ -44,6 +44,8 @@ export function PublicLayout() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6
           text-sm text-slate-500">
           <p>願望屬於孩子，故事屬於每一個願意伸手的人。</p>
+          {/* 指向 /org/login 而非直接進註冊頁：那一頁未登入時是「登入／申請」的
+              選擇畫面，兩種人都有路走。直接送去註冊頁會讓回頭的機構找不到登入 */}
           <Link to="/org/login" className="text-santa-700 hover:underline">
             我是兒童機構 →
           </Link>
