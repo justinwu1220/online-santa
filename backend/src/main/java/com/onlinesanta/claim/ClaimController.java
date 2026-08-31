@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,6 +24,7 @@ import com.onlinesanta.attachment.dto.AttachmentView;
 import com.onlinesanta.claim.dto.ClaimDonorView;
 import com.onlinesanta.claim.dto.ClaimEventView;
 import com.onlinesanta.claim.dto.ClaimRequest;
+import com.onlinesanta.claim.dto.DonorAnnualSummaryView;
 import com.onlinesanta.claim.dto.ReleaseRequest;
 import com.onlinesanta.claim.dto.ShipRequest;
 import com.onlinesanta.common.PageResponse;
@@ -38,15 +40,18 @@ import jakarta.validation.Valid;
 public class ClaimController {
 
     private final ClaimService claims;
+    private final ClaimAnnualStatsService annualStats;
     private final AttachmentService attachments;
     private final MessageService messages;
     private final CurrentUserService currentUser;
 
     public ClaimController(ClaimService claims,
+                           ClaimAnnualStatsService annualStats,
                            AttachmentService attachments,
                            MessageService messages,
                            CurrentUserService currentUser) {
         this.claims = claims;
+        this.annualStats = annualStats;
         this.attachments = attachments;
         this.messages = messages;
         this.currentUser = currentUser;
@@ -63,10 +68,11 @@ public class ClaimController {
     }
 
     @GetMapping("/claims/me")
-    @Operation(summary = "我的認領清單")
+    @Operation(summary = "我的認領清單", description = "可選填 year 依年度篩選（台北日曆年，cohort 以認領時間為準）")
     public PageResponse<ClaimDonorView> listMine(
+            @RequestParam(required = false) Integer year,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<Claim> page = claims.listMine(pageable);
+        Page<Claim> page = claims.listMine(year, pageable);
         // 一次算出整頁的未讀數，不要逐筆查
         Map<UUID, Long> unread = messages.unreadCounts(
                 page.getContent().stream().map(Claim::getId).toList(),
@@ -74,6 +80,13 @@ public class ClaimController {
 
         return PageResponse.of(page,
                 claim -> ClaimDonorView.from(claim, unread.getOrDefault(claim.getId(), 0L)));
+    }
+
+    @GetMapping("/claims/me/annual-summary")
+    @Operation(summary = "我的認領年度小結",
+            description = "該年度認領數、完成數、送禮孩子數、支持機構數，附可選年份清單")
+    public DonorAnnualSummaryView annualSummary(@RequestParam(required = false) Integer year) {
+        return annualStats.annualSummary(year);
     }
 
     @GetMapping("/claims/{id}")

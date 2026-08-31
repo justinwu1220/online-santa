@@ -1,5 +1,6 @@
 package com.onlinesanta.wish;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.List;
@@ -111,6 +112,26 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
              where id in (:wishIds) and status = 'CLAIMED'
             """, nativeQuery = true)
     int markAvailableAgainAll(@Param("wishIds") Collection<UUID> wishIds);
+
+    // ================================================================ 年度回顧
+    //
+    // 願望以 createdAt 歸年，不能用 publishedAt——已下架的願望重新上架時沿用第一次
+    // 發布的時間戳（見 publish()），機構若回收願望重用，數字會歸錯年。
+
+    /** 機構該年度新增的願望數（createdAt 落在半開區間 [from, to)）。 */
+    @Query("""
+            select count(w) from Wish w
+             where w.organization.id = :organizationId
+               and w.createdAt >= :from
+               and w.createdAt < :to
+            """)
+    long countByOrganizationAndCreatedAtBetween(@Param("organizationId") UUID organizationId,
+                                                @Param("from") Instant from,
+                                                @Param("to") Instant to);
+
+    /** 平台該年度新增的願望數，供監控中心的年度營運頁使用。 */
+    @Query("select count(w) from Wish w where w.createdAt >= :from and w.createdAt < :to")
+    long countByCreatedAtBetween(@Param("from") Instant from, @Param("to") Instant to);
 
     /** 送禮流程全部完成。 */
     @Modifying(clearAutomatically = true, flushAutomatically = true)

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.onlinesanta.admin.dto.AuditLogView;
+import com.onlinesanta.admin.dto.PlatformAnnualStatsView;
 import com.onlinesanta.admin.dto.PlatformStatsView;
 import com.onlinesanta.common.PageResponse;
 import com.onlinesanta.user.User;
@@ -31,13 +32,16 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public class AdminOverviewController {
 
     private final AdminStatsService stats;
+    private final AdminAnnualStatsService annualStats;
     private final AdminAuditService audit;
     private final UserRepository users;
 
     public AdminOverviewController(AdminStatsService stats,
+                                   AdminAnnualStatsService annualStats,
                                    AdminAuditService audit,
                                    UserRepository users) {
         this.stats = stats;
+        this.annualStats = annualStats;
         this.audit = audit;
         this.users = users;
     }
@@ -46,6 +50,13 @@ public class AdminOverviewController {
     @Operation(summary = "全站統計", description = "機構、願望、認領、使用者的狀態分佈")
     public PlatformStatsView stats() {
         return stats.collect();
+    }
+
+    @GetMapping("/stats/annual")
+    @Operation(summary = "年度營運總覽",
+            description = "新捐贈者、新機構、認領、完成率、每月趨勢、機構完成排行等年度統計")
+    public PlatformAnnualStatsView annualStats(@RequestParam(required = false) Integer year) {
+        return annualStats.annual(year);
     }
 
     @GetMapping("/audit-logs")

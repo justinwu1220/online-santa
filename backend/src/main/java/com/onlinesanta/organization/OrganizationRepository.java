@@ -1,5 +1,6 @@
 package com.onlinesanta.organization;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -7,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface OrganizationRepository extends JpaRepository<Organization, UUID> {
 
@@ -21,4 +23,8 @@ public interface OrganizationRepository extends JpaRepository<Organization, UUID
      */
     @Query("select o.status, count(o) from Organization o group by o.status")
     List<Object[]> countByStatus();
+
+    /** 該年度新加入的機構數（createdAt 落在半開區間 [from, to)），供年度營運頁使用。 */
+    @Query("select count(o) from Organization o where o.createdAt >= :from and o.createdAt < :to")
+    long countByCreatedAtBetween(@Param("from") Instant from, @Param("to") Instant to);
 }

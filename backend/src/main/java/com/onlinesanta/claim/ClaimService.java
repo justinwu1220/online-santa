@@ -15,6 +15,7 @@ import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.claim.dto.ClaimRequest;
 import com.onlinesanta.claim.dto.ReleaseRequest;
 import com.onlinesanta.claim.dto.ShipRequest;
+import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.organization.Organization;
@@ -162,9 +163,17 @@ public class ClaimService {
         return claim;
     }
 
+    /**
+     * @param year 選填的年度篩選（台北日曆年）；null 代表全部年度
+     */
     @Transactional(readOnly = true)
-    public Page<Claim> listMine(Pageable pageable) {
-        return claims.findByDonorIdOrderByClaimedAtDesc(currentUser.require().userId(), pageable);
+    public Page<Claim> listMine(Integer year, Pageable pageable) {
+        UUID donorId = currentUser.require().userId();
+        if (year == null) {
+            return claims.findByDonorIdOrderByClaimedAtDesc(donorId, pageable);
+        }
+        return claims.findByDonorIdAndClaimedAtBetween(
+                donorId, TaiwanYear.startOf(year), TaiwanYear.endOf(year), pageable);
     }
 
     // ================================================================ 機構的操作
