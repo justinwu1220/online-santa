@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -56,7 +57,8 @@ public class WishController {
             @RequestParam(required = false) WishCategory category,
             @RequestParam(required = false) AgeRange ageRange,
             @RequestParam(required = false) PriceRange priceRange,
-            @PageableDefault(size = 20, sort = "publishedAt") Pageable pageable) {
+            @PageableDefault(size = 20, sort = "publishedAt", direction = Sort.Direction.DESC)
+            Pageable pageable) {
         Page<Wish> page = wishes.browse(category, ageRange, priceRange, pageable);
 
         // 一次撈完整頁的示意圖網址，不要逐筆查詢——這是願望牆的熱門路徑

@@ -31,7 +31,8 @@ export function EmailVerificationBanner() {
   }
 
   return (
-    <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+    <div className="verify-banner border-b border-amber-200 bg-amber-50
+      px-4 py-3 text-sm text-amber-900"
       role="status">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
         <span>
@@ -45,8 +46,8 @@ export function EmailVerificationBanner() {
             type="button"
             disabled={busy}
             onClick={() => void run(() => auth.refreshVerification(), '狀態已更新')}
-            className="rounded-md bg-amber-900 px-3 py-1.5 text-xs font-medium text-white
-              hover:bg-amber-800 disabled:opacity-50"
+            className="verify-banner-confirm rounded-md bg-amber-900 px-3 py-1.5
+              text-xs font-medium text-white hover:bg-amber-800 disabled:opacity-50"
           >
             我已經驗證好了
           </button>
@@ -63,7 +64,7 @@ export function EmailVerificationBanner() {
 
       {(message || error) && (
         <p className="mx-auto mt-2 max-w-6xl text-xs">
-          {error ? <span className="text-berry-600">{error}</span> : message}
+          {error ? <span className="verify-banner-error text-berry-600">{error}</span> : message}
         </p>
       )}
     </div>

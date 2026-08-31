@@ -5,7 +5,8 @@ export function Spinner({ label = '載入中' }: { label?: string }) {
   return (
     <div className="surface-muted flex items-center justify-center gap-2 py-12 text-slate-500"
       role="status">
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-santa-500 border-t-transparent" />
+      <span className="spinner-ring h-4 w-4 animate-spin rounded-full
+        border-2 border-santa-500 border-t-transparent" />
       <span className="text-sm">{label}…</span>
     </div>
   )

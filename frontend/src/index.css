@@ -124,6 +124,11 @@ body {
   @apply text-white;
 }
 
+/* 深綠 border 在近黑背景上不可見，換成跟 btn-primary/timeline-dot 一致的 emerald */
+.theme-night .spinner-ring {
+  @apply border-emerald-400 border-t-transparent;
+}
+
 /* --- 表單 --- */
 .theme-night .field-control {
   @apply rounded-xl border-white/10 bg-white/5 text-white;
@@ -237,6 +242,23 @@ body {
 
 .theme-night .error-banner {
   @apply border-red-400/30 bg-red-500/10 text-red-200;
+}
+
+/* --- Email 驗證橫幅 ---
+ *
+ * 亮色版是實心亮黃橫幅（bg-amber-50），在玻璃主題上會是一塊刺眼的亮斑，
+ * 沿用 notice-warning 的半透明 amber 玻璃處理。
+ */
+.theme-night .verify-banner {
+  @apply border-amber-400/25 bg-amber-400/10 text-amber-100;
+}
+
+.theme-night .verify-banner-confirm {
+  @apply bg-amber-400/20 text-amber-50 hover:bg-amber-400/30;
+}
+
+.theme-night .verify-banner-error {
+  @apply text-red-300;
 }
 
 /* --- 危險操作按鈕 --- */

@@ -73,7 +73,7 @@ export function WishWall() {
         <EmptyState
           icon="🌟"
           title="這個條件下還沒有願望"
-          hint={filters === EMPTY_FILTERS
+          hint={!filters.category && !filters.ageRange && !filters.priceRange
             ? '機構還在上架中，過幾天再來看看。'
             : '試著放寬篩選條件。'}
         />
