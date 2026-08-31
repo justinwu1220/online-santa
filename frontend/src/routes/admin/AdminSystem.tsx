@@ -17,11 +17,13 @@ const ACTION_LABELS: Record<AdminAuditAction, string> = {
   REJECT_ORGANIZATION: '退件',
   SUSPEND_ORGANIZATION: '停權機構',
   REACTIVATE_ORGANIZATION: '恢復機構',
+  DELETE_ATTACHMENT: '刪除附件',
   RUN_RELEASE_SWEEP: '執行逾期掃描',
 }
 
-/** 存取個資的動作要標出來，這樣掃過一眼就知道哪幾筆值得細看。 */
-const SENSITIVE: AdminAuditAction[] = ['VIEW_CLAIM_DETAIL', 'VIEW_CLAIM_ATTACHMENTS']
+/** 存取個資或改變隱私敏感內容的動作要標出來，這樣掃過一眼就知道哪幾筆值得細看。 */
+const SENSITIVE: AdminAuditAction[] =
+  ['VIEW_CLAIM_DETAIL', 'VIEW_CLAIM_ATTACHMENTS', 'DELETE_ATTACHMENT']
 
 export function AdminSystem() {
   return (

@@ -113,7 +113,10 @@ export function ClaimDetail() {
               />
             )}
           >
-            <PhotoGrid photos={shippingProofs} emptyHint="上傳寄件單或包裹照片，讓機構安心。" />
+            <PhotoGrid photos={shippingProofs} emptyHint="上傳寄件單或包裹照片，讓機構安心。"
+              onDeleted={() => {
+                void queryClient.invalidateQueries({ queryKey: ['claim', id, 'attachments'] })
+              }} />
           </Panel>
 
           {feedbackPhotos.length > 0 && (
@@ -289,7 +292,13 @@ function CancelForm({ claimId, onDone }: { claimId: string; onDone: () => void }
   )
 }
 
-function PhotoGrid({ photos, emptyHint }: { photos: AttachmentView[]; emptyHint: string }) {
+/**
+ * 照片格線。`onDeleted` 只在「這組照片是目前使用者自己上傳的」時才傳——
+ * 機構的回饋照片對捐贈者是唯讀的，不會有這個 prop。
+ */
+function PhotoGrid({ photos, emptyHint, onDeleted }: {
+  photos: AttachmentView[]; emptyHint: string; onDeleted?: () => void
+}) {
   if (photos.length === 0) {
     return emptyHint ? <p className="text-sm text-slate-400">{emptyHint}</p> : null
   }
@@ -297,12 +306,61 @@ function PhotoGrid({ photos, emptyHint }: { photos: AttachmentView[]; emptyHint:
   return (
     <div className="grid grid-cols-3 gap-3">
       {photos.map((photo) => (
-        <a key={photo.id} href={photo.url} target="_blank" rel="noreferrer"
-          className="overflow-hidden rounded-xl ring-1 ring-white/15 transition-opacity
-            hover:opacity-90">
-          <img src={photo.url} alt="" className="aspect-square w-full object-cover" />
-        </a>
+        onDeleted
+          ? <DeletablePhoto key={photo.id} photo={photo} onDeleted={onDeleted} />
+          : <PhotoTile key={photo.id} photo={photo} />
       ))}
+    </div>
+  )
+}
+
+function PhotoTile({ photo }: { photo: AttachmentView }) {
+  return (
+    <a href={photo.url} target="_blank" rel="noreferrer"
+      className="overflow-hidden rounded-xl ring-1 ring-white/15 transition-opacity
+        hover:opacity-90">
+      <img src={photo.url} alt="" className="aspect-square w-full object-cover" />
+    </a>
+  )
+}
+
+function DeletablePhoto({ photo, onDeleted }: { photo: AttachmentView; onDeleted: () => void }) {
+  const [confirming, setConfirming] = useState(false)
+
+  const remove = useMutation({
+    mutationFn: () => api.delete(`/api/attachments/${photo.id}`),
+    onSuccess: onDeleted,
+  })
+
+  return (
+    <div className="group relative overflow-hidden rounded-xl ring-1 ring-white/15">
+      <a href={photo.url} target="_blank" rel="noreferrer">
+        <img src={photo.url} alt=""
+          className="aspect-square w-full object-cover transition-opacity group-hover:opacity-75" />
+      </a>
+
+      {confirming ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5
+          bg-black/85 p-2 text-center">
+          <p className="text-xs text-slate-200">刪除後無法復原</p>
+          {remove.isError && <p className="text-xs text-berry-300">刪除失敗，請再試一次</p>}
+          <div className="flex gap-1.5">
+            <Button variant="danger" disabled={remove.isPending}
+              onClick={() => remove.mutate()} className="px-2 py-1 text-xs">
+              {remove.isPending ? '刪除中…' : '確定刪除'}
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirming(false)} className="px-2 py-1 text-xs">
+              取消
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setConfirming(true)}
+          className="absolute right-1 top-1 rounded-md bg-black/60 px-1.5 py-0.5 text-xs
+            text-white opacity-0 transition-opacity hover:bg-berry-600 group-hover:opacity-100">
+          刪除
+        </button>
+      )}
     </div>
   )
 }

@@ -1,10 +1,12 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { formatDateTime } from '../../lib/format'
 import type { AdminClaimView, AttachmentView, ClaimEventView } from '../../lib/types'
 import { ConsolePanel } from '../../components/layouts/ConsoleLayout'
 import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
+import { Button } from '../../components/Form'
 import { ClaimStatusBadge, OverdueBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
 
@@ -134,15 +136,59 @@ function AttachmentPanel({ claimId }: { claimId: string }) {
           : (
             <div className="grid grid-cols-3 gap-3">
               {attachments.data?.map((photo) => (
-                <a key={photo.id} href={photo.url} target="_blank" rel="noreferrer"
-                  className="overflow-hidden rounded-lg ring-1 ring-slate-200">
-                  <img src={photo.url} alt="" className="aspect-square w-full object-cover" />
-                </a>
+                <DeletablePhoto key={photo.id} photo={photo}
+                  onDeleted={() => void attachments.refetch()} />
               ))}
             </div>
           )
       )}
     </ConsolePanel>
+  )
+}
+
+/**
+ * 管理員兩種附件（寄送證明與回饋照片）都能刪，用於隱私事件處置——
+ * 例如誤傳的孩童照片。刪除會另外寫入 DELETE_ATTACHMENT 稽核紀錄（後端負責）。
+ */
+function DeletablePhoto({ photo, onDeleted }: { photo: AttachmentView; onDeleted: () => void }) {
+  const [confirming, setConfirming] = useState(false)
+
+  const remove = useMutation({
+    mutationFn: () => api.delete(`/api/attachments/${photo.id}`),
+    onSuccess: onDeleted,
+  })
+
+  return (
+    <div className="group relative overflow-hidden rounded-lg ring-1 ring-slate-200">
+      <a href={photo.url} target="_blank" rel="noreferrer">
+        <img src={photo.url} alt=""
+          className="aspect-square w-full object-cover transition-opacity group-hover:opacity-75" />
+      </a>
+
+      {confirming ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5
+          bg-white/95 p-2 text-center">
+          <p className="text-xs text-slate-600">刪除後無法復原</p>
+          {remove.isError && <p className="text-xs text-berry-600">刪除失敗，請再試一次</p>}
+          <div className="flex gap-1.5">
+            <Button variant="danger" disabled={remove.isPending}
+              onClick={() => remove.mutate()} className="px-2 py-1 text-xs">
+              {remove.isPending ? '刪除中…' : '確定刪除'}
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirming(false)} className="px-2 py-1 text-xs">
+              取消
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setConfirming(true)}
+          className="absolute right-1 top-1 rounded-md bg-white/90 px-1.5 py-0.5 text-xs
+            text-slate-600 opacity-0 shadow transition-opacity hover:bg-berry-500
+            hover:text-white group-hover:opacity-100">
+          刪除
+        </button>
+      )}
+    </div>
   )
 }
 
