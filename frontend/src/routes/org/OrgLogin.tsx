@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../lib/authContext'
+import { BRAND, pageTitle } from '../../lib/brand'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
 import { AuthPanel } from '../../components/auth/AuthPanel'
 import { WrongAccountPanel } from '../../components/auth/WrongAccountPanel'
@@ -29,8 +30,8 @@ export function OrgLogin() {
   const [view, setView] = useState<'choose' | 'signIn'>(next ? 'signIn' : 'choose')
 
   useEffect(() => {
-    document.title = (view === 'choose' ? '機構入口' : '機構登入') + ' — 線上聖誕老公公'
-    return () => { document.title = '線上聖誕老公公' }
+    document.title = pageTitle(view === 'choose' ? '機構入口' : '機構登入')
+    return () => { document.title = pageTitle() }
   }, [view])
 
   if (loading) return <Spinner />
@@ -142,7 +143,7 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
         <div className="mb-6">
-          <p className="text-sm font-medium text-santa-600">線上聖誕老公公</p>
+          <p className="text-sm font-medium text-santa-600">{BRAND}</p>
           <h1 className="mt-1 text-2xl font-bold text-slate-800">{title}</h1>
         </div>
         {children}

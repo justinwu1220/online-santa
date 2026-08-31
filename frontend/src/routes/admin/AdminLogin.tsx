@@ -4,6 +4,7 @@ import { useAuth } from '../../lib/authContext'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
 import { AuthPanel } from '../../components/auth/AuthPanel'
 import { WrongAccountPanel } from '../../components/auth/WrongAccountPanel'
+import { BRAND, pageTitle } from '../../lib/brand'
 import { ErrorBanner, Spinner } from '../../components/Feedback'
 
 /**
@@ -18,8 +19,8 @@ export function AdminLogin() {
   const [searchParams] = useSearchParams()
 
   useEffect(() => {
-    document.title = '監控中心'
-    return () => { document.title = '線上聖誕老公公' }
+    document.title = pageTitle('監控中心')
+    return () => { document.title = pageTitle() }
   }, [])
 
   if (loading) return <Spinner />
@@ -52,7 +53,15 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4">
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
-        <h1 className="mb-6 text-xl font-bold text-slate-800">監控中心</h1>
+        {/*
+          這一頁仍然刻意不透露系統資訊——那指的是帳號是否存在、有哪些功能之類的
+          內部狀態。平台名稱不屬於那一類：能連到這個網址的人本來就知道自己在哪個
+          站，少寫反而讓誤入的人搞不清楚這是什麼。
+        */}
+        <div className="mb-6">
+          <p className="text-sm font-medium text-santa-600">{BRAND}</p>
+          <h1 className="mt-1 text-2xl font-bold text-slate-800">監控中心</h1>
+        </div>
         {children}
       </div>
     </div>

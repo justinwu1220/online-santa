@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth, usingFirebase } from '../../lib/authContext'
+import { PLATFORM_NAME } from '../../lib/brand'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
 import { EmailVerificationBanner } from '../EmailVerificationBanner'
 import { Snowfall } from '../Snowfall'
@@ -31,7 +32,7 @@ export function PublicLayout() {
             <span aria-hidden>🎄</span>{' '}
             <span className="bg-gradient-to-r from-red-300 via-white to-emerald-300
               bg-clip-text text-transparent">
-              線上聖誕老公公
+              {PLATFORM_NAME}
             </span>
           </Link>
 

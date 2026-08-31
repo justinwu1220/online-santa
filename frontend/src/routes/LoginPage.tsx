@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../lib/authContext'
+import { PLATFORM_NAME, pageTitle } from '../lib/brand'
 import { AuthPanel } from '../components/auth/AuthPanel'
 import { Snowfall } from '../components/Snowfall'
 import { Spinner } from '../components/Feedback'
@@ -19,8 +20,8 @@ export function LoginPage() {
   const next = searchParams.get('next')
 
   useEffect(() => {
-    document.title = '登入 — 線上聖誕老公公'
-    return () => { document.title = '線上聖誕老公公' }
+    document.title = pageTitle('登入')
+    return () => { document.title = pageTitle() }
   }, [])
 
   if (loading) return <Spinner />
@@ -38,7 +39,7 @@ export function LoginPage() {
             <span aria-hidden>🎄</span>{' '}
             <span className="bg-gradient-to-r from-red-300 via-white to-emerald-300
               bg-clip-text text-transparent">
-              線上聖誕老公公
+              {PLATFORM_NAME}
             </span>
           </Link>
         </div>

@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../../lib/authContext'
+import { BRAND, pageTitle } from '../../lib/brand'
 import { EmailVerificationBanner } from '../EmailVerificationBanner'
 import { Button } from '../Form'
 
@@ -29,6 +30,13 @@ export function ConsoleLayout({ title, subtitle, accent, items, homePath, childr
 }) {
   const { email, signOut } = useAuth()
 
+  // 後台的人常常同時開著好幾個分頁（機構後台、監控中心、主網站），
+  // 分頁標題要分得出來
+  useEffect(() => {
+    document.title = pageTitle(title)
+    return () => { document.title = pageTitle() }
+  }, [title])
+
   const headerClass = accent === 'santa'
     ? 'bg-santa-700 text-white'
     : 'bg-slate-800 text-white'
@@ -37,8 +45,16 @@ export function ConsoleLayout({ title, subtitle, accent, items, homePath, childr
     <div className="flex min-h-screen flex-col bg-slate-50">
       <header className={headerClass}>
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          {/* logo 指向自己的首頁，不會把人丟回主網站 */}
-          <Link to={homePath} className="flex items-baseline gap-2">
+          {/*
+            logo 指向自己的首頁，不會把人丟回主網站。
+
+            平台名稱擺在後台名稱之前：後台的人多半是被信件或連結直接帶進來的，
+            畫面上如果只有「機構後台」，他不見得知道自己在哪一個平台。名稱用較小的
+            字級與較低的不透明度，主角仍然是「你在哪一個後台」。
+          */}
+          <Link to={homePath} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="text-sm opacity-80">{BRAND}</span>
+            <span aria-hidden className="text-sm opacity-40">/</span>
             <span className="text-base font-semibold">{title}</span>
             {subtitle && <span className="text-sm opacity-75">{subtitle}</span>}
           </Link>

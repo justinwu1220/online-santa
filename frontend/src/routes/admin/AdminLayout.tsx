@@ -22,9 +22,10 @@ export function AdminLayout() {
   })
 
   return (
+    // subtitle 留給「這一個」的名稱（機構後台放機構名），平台名稱由 ConsoleLayout
+    // 統一顯示。監控中心沒有對應的東西，所以不給
     <ConsoleLayout
       title="監控中心"
-      subtitle="線上聖誕老公公"
       accent="slate"
       homePath="/admin"
       items={[
