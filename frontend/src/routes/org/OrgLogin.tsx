@@ -49,10 +49,10 @@ export function OrgLogin() {
     if (role === 'ORG_MEMBER') {
       return <Navigate to={next ?? '/org'} replace />
     }
-    // 一般民眾：引導去申請。信箱未驗證的人會落在這裡，
+    // 一般民眾：帳號已經有了，直接進步驟二。信箱未驗證的人也會落在這裡，
     // 申請頁本來就會擋下並要求先驗證，所以不必在這一層重複
     if (role === 'DONOR') {
-      return <Navigate to="/org/register" replace />
+      return <Navigate to="/org/apply" replace />
     }
     // 管理員不能兼任機構
     return (
@@ -89,7 +89,7 @@ export function OrgLogin() {
   return (
     <Shell title="機構後台">
       {/* 註冊在這裡沒有意義：機構帳號要連同機構資料一起申請，那是 /org/register
-          的一頁到底表單。留一個註冊分頁只會產生一個沒有機構的空帳號 */}
+          起頭的兩步流程。留一個註冊分頁只會產生一個沒有機構的空帳號 */}
       <AuthPanel
         allowRegister={false}
         hint="登入後即可上架孩子的願望、管理認領與寄送進度。"

@@ -12,6 +12,7 @@ import { ClaimDetail } from './routes/ClaimDetail'
 import { LoginPage } from './routes/LoginPage'
 import { MyClaims } from './routes/MyClaims'
 import { NotFound } from './routes/NotFound'
+import { OrgApply } from './routes/org/OrgApply'
 import { OrgClaims } from './routes/org/OrgClaims'
 import { OrgDashboard } from './routes/org/OrgDashboard'
 import { OrgLayout } from './routes/org/OrgLayout'
@@ -51,9 +52,10 @@ export default function App() {
 
       {/* ---------------------------------------------------------- 機構後台 */}
       <Route path="org/login" element={<OrgLogin />} />
-      {/* 註冊頁對未登入者開放：新機構從頁尾點進來時還沒有帳號，而建立帳號與填寫
-          機構資料現在是同一張表單。角色分流由頁面自己處理，授權在後端 */}
+      {/* 申請分兩步，兩頁都對未登入者開放：新機構從頁尾點進來時還沒有帳號。
+          角色分流由頁面自己處理，授權在後端 */}
       <Route path="org/register" element={<OrgRegister />} />
+      <Route path="org/apply" element={<OrgApply />} />
 
       <Route path="org" element={
         <RequireRole role="ORG_MEMBER" loginPath="/org/login" wrongRole="redirect">
