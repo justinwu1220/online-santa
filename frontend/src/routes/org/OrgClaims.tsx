@@ -21,22 +21,50 @@ const STATUS_FILTERS: { value: ClaimStatus | ''; label: string }[] = [
   { value: 'CANCELLED', label: '已取消' },
 ]
 
-/** 機構的認領管理。`overdueOnly` 時改看逾期清單。 */
+/**
+ * 機構的認領管理。`overdueOnly` 時改看逾期清單。
+ *
+ * <p>逾期清單刻意沒有年度篩選——那是待辦清單，手動釋回政策機構的跨年舊案就該
+ * 持續出現，加年度篩選會把該處理的事藏起來（見後端 ClaimService 的說明）。
+ */
 export function OrgClaims({ overdueOnly = false }: { overdueOnly?: boolean }) {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const status = (searchParams.get('status') ?? '') as ClaimStatus | ''
+  const year = overdueOnly ? '' : (searchParams.get('year') ?? '')
   const [page, setPage] = useState(0)
 
   const path = overdueOnly
     ? '/api/organizations/me/claims/overdue'
     : '/api/organizations/me/claims'
 
-  const claims = useQuery({
-    queryKey: ['claims', 'org', overdueOnly, status, page],
-    queryFn: () => api.get<PageResponse<ClaimOrgView>>(
-      withQuery(path, { status: overdueOnly ? undefined : status, page, size: 10 })),
+  // 逾期清單不篩年度，這支下拉的選項也就不需要在逾期模式下打
+  const years = useQuery({
+    queryKey: ['claims', 'org', 'years'],
+    queryFn: () => api.get<number[]>('/api/organizations/me/claims/years'),
+    staleTime: 30_000,
+    enabled: !overdueOnly,
   })
+
+  const claims = useQuery({
+    queryKey: ['claims', 'org', overdueOnly, status, year, page],
+    queryFn: () => api.get<PageResponse<ClaimOrgView>>(
+      withQuery(path, {
+        status: overdueOnly ? undefined : status,
+        year: overdueOnly ? undefined : (year || undefined),
+        page,
+        size: 10,
+      })),
+  })
+
+  /** status／year 各自獨立存在網址上，換一個篩選不該把另一個洗掉。 */
+  const setFilter = (key: 'status' | 'year', value: string) => {
+    const next = new URLSearchParams(searchParams)
+    if (value) next.set(key, value)
+    else next.delete(key)
+    setSearchParams(next)
+    setPage(0)
+  }
 
   function refresh() {
     void queryClient.invalidateQueries({ queryKey: ['claims'] })
@@ -51,15 +79,21 @@ export function OrgClaims({ overdueOnly = false }: { overdueOnly?: boolean }) {
           讓願望回到願望牆給其他人認領。
         </Notice>
       ) : (
-        <Select className="w-40" value={status}
-          onChange={(event) => {
-            setSearchParams(event.target.value ? { status: event.target.value } : {})
-            setPage(0)
-          }}>
-          {STATUS_FILTERS.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select className="w-40" value={status}
+            onChange={(event) => setFilter('status', event.target.value)}>
+            {STATUS_FILTERS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </Select>
+          <Select className="w-28" value={year}
+            onChange={(event) => setFilter('year', event.target.value)}>
+            <option value="">全部年度</option>
+            {(years.data ?? []).map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </Select>
+        </div>
       )}
 
       {claims.isLoading && <Spinner label="載入認領" />}

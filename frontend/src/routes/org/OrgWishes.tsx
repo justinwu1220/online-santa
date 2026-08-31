@@ -29,14 +29,32 @@ export function OrgWishes() {
   // 從網址讀篩選條件，讓總覽頁的「草稿 3」之類的連結點得進來
   const [searchParams, setSearchParams] = useSearchParams()
   const status = (searchParams.get('status') ?? '') as WishStatus | ''
+  const year = searchParams.get('year') ?? ''
   const [page, setPage] = useState(0)
   const [editing, setEditing] = useState<WishOrgView | 'new' | null>(null)
 
-  const wishes = useQuery({
-    queryKey: ['org-wishes', status, page],
-    queryFn: () => api.get<PageResponse<WishOrgView>>(
-      withQuery('/api/organizations/me/wishes', { status, page, size: 10 })),
+  // 願望管理頁沒有像機構總覽那樣每頁都會打的統計端點可以搭便車，
+  // 另開一支輕量端點，寫法比照既有的 /api/wishes/options
+  const years = useQuery({
+    queryKey: ['org-wishes', 'years'],
+    queryFn: () => api.get<number[]>('/api/organizations/me/wishes/years'),
+    staleTime: 30_000,
   })
+
+  const wishes = useQuery({
+    queryKey: ['org-wishes', status, year, page],
+    queryFn: () => api.get<PageResponse<WishOrgView>>(
+      withQuery('/api/organizations/me/wishes', { status, year: year || undefined, page, size: 10 })),
+  })
+
+  /** status／year 各自獨立存在網址上，換一個篩選不該把另一個洗掉。 */
+  const setFilter = (key: 'status' | 'year', value: string) => {
+    const next = new URLSearchParams(searchParams)
+    if (value) next.set(key, value)
+    else next.delete(key)
+    setSearchParams(next)
+    setPage(0)
+  }
 
   function refresh() {
     void queryClient.invalidateQueries({ queryKey: ['org-wishes'] })
@@ -56,18 +74,27 @@ export function OrgWishes() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Select
-          className="w-40"
-          value={status}
-          onChange={(event) => {
-            setSearchParams(event.target.value ? { status: event.target.value } : {})
-            setPage(0)
-          }}
-        >
-          {STATUS_FILTERS.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select
+            className="w-40"
+            value={status}
+            onChange={(event) => setFilter('status', event.target.value)}
+          >
+            {STATUS_FILTERS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </Select>
+          <Select
+            className="w-28"
+            value={year}
+            onChange={(event) => setFilter('year', event.target.value)}
+          >
+            <option value="">全部年度</option>
+            {(years.data ?? []).map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </Select>
+        </div>
         <Button disabled={!organization.canDraftWishes} onClick={() => setEditing('new')}>
           新增願望
         </Button>
