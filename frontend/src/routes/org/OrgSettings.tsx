@@ -34,9 +34,27 @@ export function OrgSettings() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['organization'] }),
   })
 
+  /**
+   * 清掉上一次儲存的結果。
+   *
+   * 表單一有變動就要清——否則使用者改完東西還看得到綠色的「已儲存」，
+   * 會以為新的改動也存進去了。錯誤訊息同理：它描述的是舊的那一次送出。
+   */
+  const clearSaveResult = () => {
+    if (save.isSuccess || save.isError) save.reset()
+  }
+
+  const patchForm = (patch: Partial<typeof form>) => {
+    setForm((current) => ({ ...current, ...patch }))
+    clearSaveResult()
+  }
+
   const update = (key: keyof typeof form) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => setForm((current) => ({ ...current, [key]: event.target.value }))
+  ) => {
+    setForm((current) => ({ ...current, [key]: event.target.value }))
+    clearSaveResult()
+  }
 
   return (
     <div className="max-w-2xl space-y-8">
@@ -49,18 +67,23 @@ export function OrgSettings() {
         <Field label="機構名稱" required>
           <TextInput required maxLength={120} value={form.name} onChange={update('name')} />
         </Field>
-        <Field label="聯絡信箱" required>
-          <TextInput required type="email" maxLength={255}
-            value={form.contactEmail} onChange={update('contactEmail')} />
-        </Field>
+        {/* 兩個聯絡方式併排；地址獨佔一排——它比另外兩者長得多，擠在半排會被截斷 */}
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="聯絡電話">
-            <TextInput maxLength={40} value={form.contactPhone} onChange={update('contactPhone')} />
+          <Field label="聯絡信箱" required>
+            <TextInput required type="email" maxLength={255}
+              value={form.contactEmail} onChange={update('contactEmail')} />
           </Field>
-          <Field label="地址">
-            <TextInput maxLength={255} value={form.address} onChange={update('address')} />
+          <Field label="聯絡電話" required>
+            <TextInput required maxLength={40}
+              value={form.contactPhone} onChange={update('contactPhone')} />
           </Field>
         </div>
+
+        {/* 必填：捐贈者的認領詳情頁靠它顯示禮物要寄去哪裡 */}
+        <Field label="收件地址" required hint="捐贈者會把禮物寄到這裡，請填寫完整地址">
+          <TextInput required maxLength={255}
+            value={form.address} onChange={update('address')} />
+        </Field>
         <Field label="機構簡介">
           <TextArea rows={4} maxLength={2000}
             value={form.description} onChange={update('description')} />
@@ -80,14 +103,14 @@ export function OrgSettings() {
             current={form.releasePolicy}
             title="我自己決定"
             description="系統只在「逾期提醒」頁標記，由你聯繫捐贈者後決定是否收回。"
-            onSelect={(policy) => setForm((c) => ({ ...c, releasePolicy: policy }))}
+            onSelect={(policy) => patchForm({ releasePolicy: policy })}
           />
           <PolicyOption
             value="AUTO"
             current={form.releasePolicy}
             title="自動收回"
             description="超過寬限天數仍未回報寄送，系統自動收回並讓願望重新上架。"
-            onSelect={(policy) => setForm((c) => ({ ...c, releasePolicy: policy }))}
+            onSelect={(policy) => patchForm({ releasePolicy: policy })}
           />
         </div>
 
@@ -96,7 +119,7 @@ export function OrgSettings() {
             <TextInput type="number" min={1} max={60} required
               value={form.releaseAfterDays}
               onChange={(event) =>
-                setForm((c) => ({ ...c, releaseAfterDays: Number(event.target.value) }))} />
+                patchForm({ releaseAfterDays: Number(event.target.value) })} />
           </Field>
         )}
 
