@@ -76,12 +76,19 @@ class AdminReviewIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("核准後機構才能上架願望")
+    @DisplayName("核准後機構才能上架願望；核准前只能存草稿")
     void approvalUnlocksWishPublishing() throws Exception {
         UUID orgId = registerOrganization("待核准之家", ORG_USER);
 
-        // 核准前：擋下
-        mvc.perform(as(withBody(post("/api/wishes"), wishRequest()), ORG_USER))
+        // 核准前：草稿可以建立——讓機構在等待期間先準備內容
+        String body = mvc.perform(as(withBody(post("/api/wishes"), wishRequest()), ORG_USER))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andReturn().getResponse().getContentAsString();
+        UUID draft = UUID.fromString(json.readTree(body).get("id").asText());
+
+        // 但公開被擋下——把關在這一步
+        mvc.perform(as(post("/api/wishes/{id}/publish", draft), ORG_USER))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("ORGANIZATION_NOT_APPROVED"));
 
@@ -93,9 +100,11 @@ class AdminReviewIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.reviewedAt").exists())
                 .andExpect(jsonPath("$.reviewedBy").exists());
 
-        // 核准後立刻生效——不必等 token 重簽，因為權限是查資料庫而非讀 claims
-        mvc.perform(as(withBody(post("/api/wishes"), wishRequest()), ORG_USER))
-                .andExpect(status().isCreated());
+        // 核准後立刻生效——不必等 token 重簽，因為權限是查資料庫而非讀 claims。
+        // 而且審核期間存的那份草稿現在可以直接上架，不必重打一次
+        mvc.perform(as(post("/api/wishes/{id}/publish", draft), ORG_USER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("AVAILABLE"));
     }
 
     @Test

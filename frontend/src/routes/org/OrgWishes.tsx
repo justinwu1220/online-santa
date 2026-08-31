@@ -68,12 +68,16 @@ export function OrgWishes() {
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </Select>
-        <Button onClick={() => setEditing('new')}>新增願望</Button>
+        <Button disabled={!organization.canDraftWishes} onClick={() => setEditing('new')}>
+          新增願望
+        </Button>
       </div>
 
       {!organization.canPublishWishes && (
         <Notice tone="warning">
-          機構尚未通過審核，可以先建立草稿，核准後再上架。
+          {organization.canDraftWishes
+            ? '機構尚未通過審核，可以先建立草稿，核准後再一鍵上架。'
+            : '機構已停權，無法建立或上架願望，請與平台管理員聯繫。'}
         </Notice>
       )}
 
@@ -88,7 +92,8 @@ export function OrgWishes() {
 
       <div className="space-y-4">
         {wishes.data?.content.map((wish) => (
-          <WishRow key={wish.id} wish={wish} onEdit={() => setEditing(wish)} onChanged={refresh} />
+          <WishRow key={wish.id} wish={wish} canPublish={organization.canPublishWishes}
+            onEdit={() => setEditing(wish)} onChanged={refresh} />
         ))}
       </div>
 
@@ -97,8 +102,12 @@ export function OrgWishes() {
   )
 }
 
-function WishRow({ wish, onEdit, onChanged }: {
-  wish: WishOrgView; onEdit: () => void; onChanged: () => void
+function WishRow({ wish, canPublish, onEdit, onChanged }: {
+  wish: WishOrgView
+  /** 機構通過審核前，草稿建得了但上不了架——按鈕要停用而不是送出去拿 409 */
+  canPublish: boolean
+  onEdit: () => void
+  onChanged: () => void
 }) {
   const action = useMutation({
     mutationFn: (path: 'publish' | 'unpublish') =>
@@ -137,7 +146,11 @@ function WishRow({ wish, onEdit, onChanged }: {
               <Button variant="secondary" disabled={action.isPending}
                 onClick={() => action.mutate('unpublish')}>下架</Button>
             ) : (wish.status === 'DRAFT' || wish.status === 'ARCHIVED') && (
-              <Button variant="secondary" disabled={action.isPending}
+              // 未核准時停用而非隱藏：機構看得到「上架」在哪裡，只是還不能按，
+              // 比按鈕憑空消失更好理解
+              <Button variant="secondary"
+                disabled={action.isPending || !canPublish}
+                title={canPublish ? undefined : '機構通過審核後才能上架'}
                 onClick={() => action.mutate('publish')}>上架</Button>
             )}
 

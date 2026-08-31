@@ -36,6 +36,8 @@ class OrganizationApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.name").value("陽光之家"))
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.canPublishWishes").value(false))
+                // 待審核就能存草稿，只是不能公開——後台靠這兩個旗標決定按鈕的狀態
+                .andExpect(jsonPath("$.canDraftWishes").value(true))
                 .andExpect(jsonPath("$.releasePolicy").value("MANUAL"))
                 .andExpect(jsonPath("$.releaseAfterDays").doesNotExist());
 

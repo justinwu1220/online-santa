@@ -127,17 +127,49 @@ class WishApiIT extends ApiIntegrationTest {
 
     // ------------------------------------------------------------ 權限邊界
 
+    /**
+     * 待審核的機構可以建立草稿，但不能上架。
+     *
+     * <p>後台的文案（「現在可以先把願望存成草稿」）承諾的就是這件事：審核期間先把
+     * 內容準備好，核准後一鍵上架。把關在上架這一步，草稿不會出現在願望牆上。
+     */
     @Test
-    void deniesWishCreationToUnapprovedOrganization() throws Exception {
+    void allowsDraftCreationButNotPublishingForPendingOrganization() throws Exception {
+        String pendingUser = "pending@example.org";
         Organization pending = organizations.save(
-                Organization.register("待審核之家", "pending@example.org", null, null, null));
-        User member = User.newDonor(TestJwtSupport.uidFor("pending@example.org"), "pending@example.org", "待審核");
+                Organization.register("待審核之家", pendingUser, null, null, null));
+        User member = User.newDonor(TestJwtSupport.uidFor(pendingUser), pendingUser, "待審核");
         member.joinOrganization(pending.getId());
         users.save(member);
 
-        mvc.perform(as(withBody(post("/api/wishes"), wishRequest("不該成功")), "pending@example.org"))
+        String body = mvc.perform(
+                        as(withBody(post("/api/wishes"), wishRequest("審核期間先寫好")), pendingUser))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andReturn().getResponse().getContentAsString();
+        UUID draft = UUID.fromString(json.readTree(body).get("id").asText());
+
+        mvc.perform(as(post("/api/wishes/{id}/publish", draft), pendingUser))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("ORGANIZATION_NOT_APPROVED"));
+    }
+
+    @Test
+    void keepsUnapprovedOrganizationsDraftsOffTheWishWall() throws Exception {
+        String pendingUser = "wall-check@example.org";
+        Organization pending = organizations.save(
+                Organization.register("牆上不該有的機構", pendingUser, null, null, null));
+        User member = User.newDonor(TestJwtSupport.uidFor(pendingUser), pendingUser, "待審核");
+        member.joinOrganization(pending.getId());
+        users.save(member);
+
+        mvc.perform(as(withBody(post("/api/wishes"), wishRequest("不該被公開看到")), pendingUser))
+                .andExpect(status().isCreated());
+
+        // 放寬草稿的前提是「草稿不公開」——這一條把那個前提釘住
+        mvc.perform(get("/api/wishes"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.title == '不該被公開看到')]").doesNotExist());
     }
 
     @Test

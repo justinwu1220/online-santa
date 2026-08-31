@@ -86,13 +86,19 @@ public class Wish extends BaseEntity {
         this.status = WishStatus.DRAFT;
     }
 
-    /** 新建的願望一律為草稿，讓機構在公開前有檢查隱私用字的機會。 */
+    /**
+     * 新建的願望一律為草稿，讓機構在公開前有檢查隱私用字的機會。
+     *
+     * <p>這裡刻意只要求 {@code canDraftWishes()} 而非 {@code canPublishWishes()}：
+     * 待審核的機構就能先把內容準備好，核准後一鍵上架。草稿不公開，把關留在
+     * {@link #publish()}。
+     */
     public static Wish draft(Organization organization, String childAlias, AgeRange ageRange,
                              String interests, String title, String description,
                              WishCategory category, PriceRange priceRange) {
-        if (!organization.canPublishWishes()) {
-            throw new BusinessRuleException("ORGANIZATION_NOT_APPROVED",
-                    "機構尚未通過審核，還不能建立願望");
+        if (!organization.canDraftWishes()) {
+            throw new BusinessRuleException("ORGANIZATION_SUSPENDED",
+                    "機構已停權，無法建立願望，請與平台管理員聯繫");
         }
         return new Wish(organization, childAlias, ageRange, interests,
                 title, description, category, priceRange);

@@ -21,6 +21,8 @@ public record OrganizationView(
         ReleasePolicy releasePolicy,
         Integer releaseAfterDays,
         boolean canPublishWishes,
+        /** 能否建立草稿。比 canPublishWishes 寬鬆——審核期間也能先準備內容 */
+        boolean canDraftWishes,
         Instant createdAt) {
 
     public static OrganizationView from(Organization org) {
@@ -37,6 +39,7 @@ public record OrganizationView(
                 org.getReleasePolicy(),
                 org.getReleaseAfterDays(),
                 org.canPublishWishes(),
+                org.canDraftWishes(),
                 org.getCreatedAt());
     }
 }

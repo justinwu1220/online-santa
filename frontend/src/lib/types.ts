@@ -106,6 +106,8 @@ export interface OrganizationView {
   releasePolicy: ReleasePolicy
   releaseAfterDays?: number
   canPublishWishes: boolean
+  /** 能否建立草稿。比 canPublishWishes 寬鬆——審核期間也能先準備內容 */
+  canDraftWishes: boolean
   createdAt: string
 }
 

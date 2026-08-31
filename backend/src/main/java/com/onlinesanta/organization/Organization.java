@@ -135,6 +135,10 @@ public class Organization extends BaseEntity {
         return status.canPublishWishes();
     }
 
+    public boolean canDraftWishes() {
+        return status.canDraftWishes();
+    }
+
     public String getName() {
         return name;
     }
