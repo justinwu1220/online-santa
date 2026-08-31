@@ -1,5 +1,6 @@
 package com.onlinesanta.claim;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -43,16 +44,26 @@ public class OrganizationClaimController {
     }
 
     @GetMapping
-    @Operation(summary = "本機構願望的認領清單", description = "可用 status 篩選")
+    @Operation(summary = "本機構願望的認領清單",
+            description = "可用 status／year 篩選（year 以 claimedAt 的台北日曆年為準，cohort 口徑）")
     public PageResponse<ClaimOrgView> list(
             @RequestParam(required = false) ClaimStatus status,
+            @RequestParam(required = false) Integer year,
             @PageableDefault(size = 20) Pageable pageable) {
-        return withUnreadCounts(claims.listForMyOrganization(status, pageable));
+        return withUnreadCounts(claims.listForMyOrganization(status, year, pageable));
+    }
+
+    @GetMapping("/years")
+    @Operation(summary = "可篩選的年度清單",
+            description = "以 claimedAt 歸年（cohort 制），供認領管理頁的年度篩選下拉使用")
+    public List<Integer> years() {
+        return claims.availableYearsForMyOrganization();
     }
 
     @GetMapping("/overdue")
     @Operation(summary = "逾期未寄送的認領",
-            description = "手動釋回政策的機構靠這份清單決定是否收回；自動政策的已由排程處理")
+            description = "手動釋回政策的機構靠這份清單決定是否收回；自動政策的已由排程處理。"
+                    + "刻意不支援年度篩選——這是待辦清單，見 ClaimService 的說明")
     public PageResponse<ClaimOrgView> listOverdue(
             @PageableDefault(size = 20) Pageable pageable) {
         return withUnreadCounts(claims.listOverdueForMyOrganization(pageable));

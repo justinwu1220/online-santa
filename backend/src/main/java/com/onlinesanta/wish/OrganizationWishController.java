@@ -1,5 +1,6 @@
 package com.onlinesanta.wish;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -38,15 +39,24 @@ public class OrganizationWishController {
     }
 
     @GetMapping
-    @Operation(summary = "列出自己機構的願望", description = "含草稿與已下架；可用 status 篩選")
+    @Operation(summary = "列出自己機構的願望",
+            description = "含草稿與已下架；可用 status／year 篩選（year 以 createdAt 的台北日曆年為準）")
     public PageResponse<WishOrgView> listMine(
             @RequestParam(required = false) WishStatus status,
+            @RequestParam(required = false) Integer year,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
-        Page<Wish> page = wishes.listMine(status, pageable);
+        Page<Wish> page = wishes.listMine(status, year, pageable);
         Map<UUID, String> imageUrls = attachments.wishImageUrls(
                 page.getContent().stream().map(Wish::getId).toList());
 
         return PageResponse.of(page,
                 wish -> WishOrgView.from(wish, imageUrls.get(wish.getId())));
+    }
+
+    @GetMapping("/years")
+    @Operation(summary = "可篩選的年度清單",
+            description = "自己機構的願望有 createdAt 紀錄的年份，供年度篩選下拉使用")
+    public List<Integer> years() {
+        return wishes.availableYears();
     }
 }

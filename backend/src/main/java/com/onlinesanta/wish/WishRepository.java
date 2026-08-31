@@ -85,6 +85,39 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
     @EntityGraph(attributePaths = "organization")
     Page<Wish> findByOrganizationIdAndStatus(UUID organizationId, WishStatus status, Pageable pageable);
 
+    // ------------------------------------------------------------ 機構「願望管理」的年度篩選
+    //
+    // 以 createdAt 的台北日曆年篩選——機構自己的願望管理頁，理由與寫法比照監控中心
+    // 「全站願望」的年度篩選（見上方 findByCreatedAtRange 的說明）：半開區間，
+    // Service 依「有無 year」分流成明確方法，不用 nullable-filter 踩 Instant 的坑。
+
+    @EntityGraph(attributePaths = "organization")
+    @Query("""
+            select w from Wish w
+             where w.organization.id = :organizationId
+               and w.createdAt >= :from
+               and w.createdAt < :to
+            """)
+    Page<Wish> findByOrganizationIdAndCreatedAtRange(@Param("organizationId") UUID organizationId,
+                                                     @Param("from") Instant from, @Param("to") Instant to,
+                                                     Pageable pageable);
+
+    @EntityGraph(attributePaths = "organization")
+    @Query("""
+            select w from Wish w
+             where w.organization.id = :organizationId
+               and w.status = :status
+               and w.createdAt >= :from
+               and w.createdAt < :to
+            """)
+    Page<Wish> findByOrganizationIdAndStatusAndCreatedAtRange(
+            @Param("organizationId") UUID organizationId, @Param("status") WishStatus status,
+            @Param("from") Instant from, @Param("to") Instant to, Pageable pageable);
+
+    /** 機構最早一筆願望的建立時間，供「願望管理」頁年度下拉推導可選年份。 */
+    @Query("select min(w.createdAt) from Wish w where w.organization.id = :organizationId")
+    Instant earliestCreatedAtByOrganization(@Param("organizationId") UUID organizationId);
+
     // ------------------------------------------------------------ 認領的原子狀態轉換
     //
     // 這三個方法都是「條件式 UPDATE」：WHERE 子句同時帶上預期的目前狀態，回傳受影響

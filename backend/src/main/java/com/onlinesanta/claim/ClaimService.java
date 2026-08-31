@@ -219,6 +219,10 @@ public class ClaimService {
      *
      * <p>手動釋回政策的機構靠這份清單自行決定要不要收回；自動政策的機構理論上
      * 排程已經處理掉，這裡會是空的（除非排程還沒跑）。
+     *
+     * <p><strong>刻意不支援年度篩選</strong>：這是一份待辦清單，不是統計報表。手動釋回
+     * 政策機構若有跨年沒處理的舊案，就該一直出現在這裡直到被處理，加上年度篩選只會
+     * 讓「今年以外」的案子被濾掉、看起來像沒事，反而把該處理的事藏起來。
      */
     @Transactional(readOnly = true)
     public Page<Claim> listOverdueForMyOrganization(Pageable pageable) {
@@ -226,12 +230,40 @@ public class ClaimService {
                 currentUser.requireOrganizationId(), Instant.now(), pageable);
     }
 
+    /**
+     * @param year 選填的年度篩選（台北日曆年，以 {@code claimedAt} 歸年——cohort 制，
+     *             與年度回顧口徑一致）。null 代表不篩選，可與 status 任意組合。
+     *             逾期清單（{@link #listOverdueForMyOrganization}）刻意沒有這個參數，
+     *             見該方法的說明
+     */
     @Transactional(readOnly = true)
-    public Page<Claim> listForMyOrganization(ClaimStatus status, Pageable pageable) {
+    public Page<Claim> listForMyOrganization(ClaimStatus status, Integer year, Pageable pageable) {
         UUID organizationId = currentUser.requireOrganizationId();
+        if (year == null) {
+            return status == null
+                    ? claims.findByOrganizationId(organizationId, pageable)
+                    : claims.findByOrganizationIdAndStatus(organizationId, status, pageable);
+        }
+
+        Instant from = TaiwanYear.startOf(year);
+        Instant to = TaiwanYear.endOf(year);
         return status == null
-                ? claims.findByOrganizationId(organizationId, pageable)
-                : claims.findByOrganizationIdAndStatus(organizationId, status, pageable);
+                ? claims.findByOrganizationIdAndClaimedAtRange(organizationId, from, to, pageable)
+                : claims.findByOrganizationIdAndStatusAndClaimedAtRange(
+                        organizationId, status, from, to, pageable);
+    }
+
+    /**
+     * 機構「認領管理」頁年度篩選下拉的可選年份，以 claimedAt 歸年（cohort 制）。
+     *
+     * <p>搭便車的理由同 {@code WishService.availableYears()}：機構後台沒有每頁都會打的
+     * 統計端點可以搭，另開一支輕量端點。年份本身直接重用既有的
+     * {@link ClaimRepository#earliestClaimedAtByOrganization}——年度回顧頁已經在用。
+     */
+    @Transactional(readOnly = true)
+    public List<Integer> availableYearsForMyOrganization() {
+        UUID organizationId = currentUser.requireOrganizationId();
+        return TaiwanYear.availableYearsSince(claims.earliestClaimedAtByOrganization(organizationId));
     }
 
     // ================================================================ 共用

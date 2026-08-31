@@ -1,5 +1,7 @@
 package com.onlinesanta.wish;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -8,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.onlinesanta.auth.CurrentUserService;
+import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.organization.Organization;
@@ -106,12 +109,39 @@ public class WishService {
         wishes.delete(wish);
     }
 
+    /**
+     * @param year 選填的年度篩選（台北日曆年，以 {@code createdAt} 歸年）。null 代表不篩選，
+     *             可與 status 任意組合
+     */
     @Transactional(readOnly = true)
-    public Page<Wish> listMine(WishStatus status, Pageable pageable) {
+    public Page<Wish> listMine(WishStatus status, Integer year, Pageable pageable) {
         UUID organizationId = currentUser.requireOrganizationId();
+        if (year == null) {
+            return status == null
+                    ? wishes.findByOrganizationId(organizationId, pageable)
+                    : wishes.findByOrganizationIdAndStatus(organizationId, status, pageable);
+        }
+
+        Instant from = TaiwanYear.startOf(year);
+        Instant to = TaiwanYear.endOf(year);
         return status == null
-                ? wishes.findByOrganizationId(organizationId, pageable)
-                : wishes.findByOrganizationIdAndStatus(organizationId, status, pageable);
+                ? wishes.findByOrganizationIdAndCreatedAtRange(organizationId, from, to, pageable)
+                : wishes.findByOrganizationIdAndStatusAndCreatedAtRange(
+                        organizationId, status, from, to, pageable);
+    }
+
+    /**
+     * 機構「願望管理」頁年度篩選下拉的可選年份，以 createdAt 歸年。
+     *
+     * <p>機構後台沒有像監控中心 {@code /api/admin/stats} 那樣每頁都會打的統計端點可以
+     * 搭便車（OrgLayout 打的是逾期計數，語意上跟這裡的「願望有哪些年份」無關），
+     * 因此另開一支輕量端點，寫法比照既有的 {@code GET /api/wishes/options}
+     * （選項類資料，非分頁清單，直接查即可）。
+     */
+    @Transactional(readOnly = true)
+    public List<Integer> availableYears() {
+        UUID organizationId = currentUser.requireOrganizationId();
+        return TaiwanYear.availableYearsSince(wishes.earliestCreatedAtByOrganization(organizationId));
     }
 
     // ---------------------------------------------------------------- 內部

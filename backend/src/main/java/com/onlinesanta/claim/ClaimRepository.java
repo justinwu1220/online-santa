@@ -126,6 +126,35 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID> {
                                               @Param("status") ClaimStatus status,
                                               Pageable pageable);
 
+    // ------------------------------------------------------------ 機構「認領管理」的年度篩選
+    //
+    // 以 claimedAt 的台北日曆年篩選（cohort 制，與年度回顧口徑一致）。逾期提醒
+    // （findOverdueByOrganizationId，見下方）刻意不加年度篩選——那是待辦清單，
+    // 手動釋回政策機構的跨年舊案就該持續出現，加了年度篩選會把該處理的事藏起來。
+
+    @EntityGraph(attributePaths = {"wish", "donor"})
+    @Query("""
+            select c from Claim c
+             where c.wish.organization.id = :organizationId
+               and c.claimedAt >= :from
+               and c.claimedAt < :to
+            """)
+    Page<Claim> findByOrganizationIdAndClaimedAtRange(@Param("organizationId") UUID organizationId,
+                                                       @Param("from") Instant from, @Param("to") Instant to,
+                                                       Pageable pageable);
+
+    @EntityGraph(attributePaths = {"wish", "donor"})
+    @Query("""
+            select c from Claim c
+             where c.wish.organization.id = :organizationId
+               and c.status = :status
+               and c.claimedAt >= :from
+               and c.claimedAt < :to
+            """)
+    Page<Claim> findByOrganizationIdAndStatusAndClaimedAtRange(
+            @Param("organizationId") UUID organizationId, @Param("status") ClaimStatus status,
+            @Param("from") Instant from, @Param("to") Instant to, Pageable pageable);
+
     /**
      * 機構後台的逾期提醒：手動釋回政策的機構靠這個清單自行決定要不要收回。
      */
