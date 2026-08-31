@@ -42,11 +42,13 @@ public class AdminCatalogController {
     }
 
     @GetMapping("/wishes")
-    @Operation(summary = "跨機構願望清單", description = "含所有狀態，可用 status 篩選")
+    @Operation(summary = "跨機構願望清單",
+            description = "含所有狀態，可用 status／year 篩選（year 以 createdAt 的台北日曆年為準）")
     public PageResponse<AdminWishView> wishes(
             @RequestParam(required = false) WishStatus status,
+            @RequestParam(required = false) Integer year,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
-        return PageResponse.of(catalog.listWishes(status, pageable), AdminWishView::from);
+        return PageResponse.of(catalog.listWishes(status, year, pageable), AdminWishView::from);
     }
 
     @GetMapping("/claims")

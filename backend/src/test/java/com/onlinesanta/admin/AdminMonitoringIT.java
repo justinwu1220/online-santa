@@ -6,13 +6,21 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.ZonedDateTime;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
+import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.support.ApiIntegrationTest;
@@ -44,6 +52,12 @@ class AdminMonitoringIT extends ApiIntegrationTest {
 
     @Autowired
     AdminAuditLogRepository auditLogs;
+
+    @Autowired
+    JdbcTemplate jdbc;
+
+    @PersistenceContext
+    EntityManager entityManager;
 
     private Organization organizationA;
     private Organization organizationB;
@@ -78,6 +92,12 @@ class AdminMonitoringIT extends ApiIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return UUID.fromString(json.readTree(body).get("id").asText());
+    }
+
+    private void backdateWish(UUID wishId, Instant createdAt) {
+        entityManager.flush();
+        jdbc.update("UPDATE wishes SET created_at = ? WHERE id = ?", Timestamp.from(createdAt), wishId);
+        entityManager.clear();
     }
 
     // ------------------------------------------------------------ 統計
@@ -139,6 +159,95 @@ class AdminMonitoringIT extends ApiIntegrationTest {
         mvc.perform(as(get("/api/admin/wishes").param("status", "DRAFT"), ADMIN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    // ------------------------------------------------------------ 願望的年度篩選
+
+    @Test
+    @DisplayName("願望清單可用 year 篩選，以 createdAt 的台北日曆年為準")
+    void wishListFiltersByYear() throws Exception {
+        UUID wish2025 = publishedWish(organizationA, "去年的願望");
+        backdateWish(wish2025, TaiwanYear.startOf(2025).plusSeconds(3600));
+
+        UUID wish2026 = publishedWish(organizationA, "今年的願望");
+        backdateWish(wish2026, TaiwanYear.startOf(2026).plusSeconds(3600));
+
+        mvc.perform(as(get("/api/admin/wishes").param("year", "2025"), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("去年的願望"));
+
+        mvc.perform(as(get("/api/admin/wishes").param("year", "2026"), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("今年的願望"));
+
+        // 不帶 year 就是全部
+        mvc.perform(as(get("/api/admin/wishes"), ADMIN))
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    @Test
+    @DisplayName("願望清單的 status 與 year 篩選可以同時使用")
+    void wishListFiltersByStatusAndYearTogether() throws Exception {
+        UUID availableThisYear = publishedWish(organizationA, "今年上架中");
+        backdateWish(availableThisYear, TaiwanYear.startOf(2026).plusSeconds(3600));
+
+        UUID draftThisYear = wishes.save(Wish.draft(organizationA, "小星", AgeRange.AGE_7_9, null,
+                "今年的草稿", null, WishCategory.TOY, PriceRange.UNDER_500)).getId();
+        backdateWish(draftThisYear, TaiwanYear.startOf(2026).plusSeconds(7200));
+
+        UUID availableLastYear = publishedWish(organizationA, "去年上架中");
+        backdateWish(availableLastYear, TaiwanYear.startOf(2025).plusSeconds(3600));
+
+        mvc.perform(as(get("/api/admin/wishes")
+                        .param("status", "AVAILABLE").param("year", "2026"), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("今年上架中"));
+
+        // 只 status：兩個年度的上架中都算
+        mvc.perform(as(get("/api/admin/wishes").param("status", "AVAILABLE"), ADMIN))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // 只 year：該年不分狀態都算
+        mvc.perform(as(get("/api/admin/wishes").param("year", "2026"), ADMIN))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // 都不帶：全部三筆
+        mvc.perform(as(get("/api/admin/wishes"), ADMIN))
+                .andExpect(jsonPath("$.totalElements").value(3));
+    }
+
+    @Test
+    @DisplayName("年度邊界：台北 12/31 23:30 建立的願望歸當年，即使 UTC 已經是隔年")
+    void wishYearFilterRespectsTaipeiYearBoundary() throws Exception {
+        UUID wishId = publishedWish(organizationA, "跨年夜建立的願望");
+
+        // 台北時間 2025-12-31 23:30，UTC 已經是 2026-01-01 15:30
+        Instant taipeiNewYearsEve = ZonedDateTime
+                .of(2025, 12, 31, 23, 30, 0, 0, TaiwanYear.ZONE)
+                .toInstant();
+        backdateWish(wishId, taipeiNewYearsEve);
+
+        mvc.perform(as(get("/api/admin/wishes").param("year", "2025"), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(as(get("/api/admin/wishes").param("year", "2026"), ADMIN))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
+    @DisplayName("/api/admin/stats 附上願望的可選年份，供年度篩選下拉使用")
+    void statsIncludesAvailableWishYears() throws Exception {
+        UUID wish2024 = publishedWish(organizationA, "很久以前的願望");
+        backdateWish(wish2024, TaiwanYear.startOf(2024).plusSeconds(3600));
+
+        mvc.perform(as(get("/api/admin/stats"), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.availableWishYears[0]").value(TaiwanYear.currentYear()))
+                .andExpect(jsonPath("$.availableWishYears[" + (TaiwanYear.currentYear() - 2024) + "]")
+                        .value(2024));
     }
 
     @Test

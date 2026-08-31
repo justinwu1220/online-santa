@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.onlinesanta.admin.dto.PlatformStatsView;
 import com.onlinesanta.claim.ClaimRepository;
 import com.onlinesanta.claim.ClaimStatus;
+import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.organization.OrganizationStatus;
 import com.onlinesanta.user.UserRepository;
@@ -57,6 +58,7 @@ public class AdminStatsService {
                 claims.countOverdue(Instant.now()),
                 organizationCounts.getOrDefault(OrganizationStatus.PENDING.name(), 0L),
                 wishCounts.getOrDefault(WishStatus.AVAILABLE.name(), 0L),
+                TaiwanYear.availableYearsSince(wishes.earliestCreatedAt()),
                 Instant.now());
     }
 

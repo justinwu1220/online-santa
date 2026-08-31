@@ -1,6 +1,7 @@
 package com.onlinesanta.admin.dto;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -11,6 +12,9 @@ import java.util.Map;
  *
  * @param overdueClaims 逾期未寄送的認領。這是最需要盯的數字——它代表有孩子的願望
  *                      正被卡著，而捐贈者可能已經放棄了
+ * @param availableWishYears 有願望（以 createdAt 歸年）可選的年份，供「全站願望」頁的
+ *                           年度篩選下拉使用。放在這裡而非另開端點：AdminLayout 本來就
+ *                           每次進後台都會打這支，可以搭便車，不必為一個下拉多一次往返
  */
 public record PlatformStatsView(
         Map<String, Long> organizations,
@@ -20,5 +24,6 @@ public record PlatformStatsView(
         long overdueClaims,
         long pendingOrganizations,
         long availableWishes,
+        List<Integer> availableWishYears,
         Instant generatedAt) {
 }

@@ -16,6 +16,7 @@ import com.onlinesanta.claim.ClaimEvent;
 import com.onlinesanta.claim.ClaimEventRepository;
 import com.onlinesanta.claim.ClaimRepository;
 import com.onlinesanta.claim.ClaimStatus;
+import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.wish.Wish;
 import com.onlinesanta.wish.WishRepository;
@@ -55,11 +56,23 @@ public class AdminCatalogService {
 
     // ---------------------------------------------------------------- 願望
 
+    /**
+     * @param year 選填的年度篩選（台北日曆年，以 {@code createdAt} 歸年——不可用
+     *             {@code publishedAt}，理由同年度統計：已下架的願望重新上架時沿用第一次
+     *             發布的時間戳）。null 代表不篩選
+     */
     @Transactional(readOnly = true)
-    public Page<Wish> listWishes(WishStatus status, Pageable pageable) {
+    public Page<Wish> listWishes(WishStatus status, Integer year, Pageable pageable) {
+        if (year == null) {
+            return status == null
+                    ? wishes.findAllBy(pageable)
+                    : wishes.findByStatus(status, pageable);
+        }
+        Instant from = TaiwanYear.startOf(year);
+        Instant to = TaiwanYear.endOf(year);
         return status == null
-                ? wishes.findAllBy(pageable)
-                : wishes.findByStatus(status, pageable);
+                ? wishes.findByCreatedAtRange(from, to, pageable)
+                : wishes.findByStatusAndCreatedAtRange(status, from, to, pageable);
     }
 
     // ---------------------------------------------------------------- 認領

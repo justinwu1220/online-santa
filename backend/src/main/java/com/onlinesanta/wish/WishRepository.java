@@ -47,6 +47,34 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
     @EntityGraph(attributePaths = "organization")
     Page<Wish> findAllBy(Pageable pageable);
 
+    /**
+     * 監控中心「全站願望」的年度篩選：createdAt 落在半開區間 {@code [from, to)}。
+     *
+     * <p>不用 Spring Data 的 {@code findByCreatedAtBetween}：那是 {@code BETWEEN}，
+     * 上界會是閉區間，等於把下一個年度第一毫秒也算進來。也不用
+     * {@code (:year is null or ...)} 的 nullable-filter 寫法——同一份程式碼庫已經踩過
+     * 一次：Instant 參數只出現在 {@code is null} 判斷式的那個 bind 位置時，Postgres
+     * 會回「could not determine data type of parameter」（enum 沒有這個問題，因為
+     * Hibernate 對它有明確的型別描述）。因此年度有沒有篩選，在 Service 層分流成
+     * 兩支方法，這裡的參數一定有值。
+     */
+    @EntityGraph(attributePaths = "organization")
+    @Query("select w from Wish w where w.createdAt >= :from and w.createdAt < :to")
+    Page<Wish> findByCreatedAtRange(@Param("from") Instant from, @Param("to") Instant to,
+                                    Pageable pageable);
+
+    /** 同 {@link #findByCreatedAtRange}，多帶 status 篩選。 */
+    @EntityGraph(attributePaths = "organization")
+    @Query("""
+            select w from Wish w
+             where w.status = :status
+               and w.createdAt >= :from
+               and w.createdAt < :to
+            """)
+    Page<Wish> findByStatusAndCreatedAtRange(@Param("status") WishStatus status,
+                                             @Param("from") Instant from, @Param("to") Instant to,
+                                             Pageable pageable);
+
     /** 依狀態分組計數，供監控中心的統計使用。 */
     @Query("select w.status, count(w) from Wish w group by w.status")
     List<Object[]> countByStatus();
@@ -132,6 +160,10 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
     /** 平台該年度新增的願望數，供監控中心的年度營運頁使用。 */
     @Query("select count(w) from Wish w where w.createdAt >= :from and w.createdAt < :to")
     long countByCreatedAtBetween(@Param("from") Instant from, @Param("to") Instant to);
+
+    /** 平台最早一筆願望的建立時間，供「全站願望」年度篩選下拉推導可選年份。 */
+    @Query("select min(w.createdAt) from Wish w")
+    Instant earliestCreatedAt();
 
     /** 送禮流程全部完成。 */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
