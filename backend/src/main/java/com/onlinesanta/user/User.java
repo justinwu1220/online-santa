@@ -30,6 +30,9 @@ public class User extends BaseEntity {
     @Column(name = "display_name", length = 100)
     private String displayName;
 
+    @Column(length = 40)
+    private String phone;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserRole role;
@@ -91,6 +94,12 @@ public class User extends BaseEntity {
         this.lastLoginAt = at;
     }
 
+    /** 使用者於個人檔案頁自行維護的資料。 */
+    public void updateProfile(String displayName, String phone) {
+        this.displayName = displayName;
+        this.phone = phone;
+    }
+
     public String getFirebaseUid() {
         return firebaseUid;
     }
@@ -101,6 +110,10 @@ public class User extends BaseEntity {
 
     public String getDisplayName() {
         return displayName;
+    }
+
+    public String getPhone() {
+        return phone;
     }
 
     public UserRole getRole() {
