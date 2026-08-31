@@ -136,12 +136,19 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID> {
      * 純量，把整個實體 {@code c} 放進去會被 Hibernate 當成要對實體做基本值型別轉換，丟出
      * {@code ClassCastException}（{@code SingleTableEntityPersister} 不是
      * {@code BasicValuedMapping}）。
+     *
+     * <p>送禮孩子數與支持機構數只計已完成的認領——取消或釋回的認領根本沒有把禮物送出去，
+     * 不該算進「送禮」或「支持」。{@code count(distinct case when ... then x end)}：
+     * 未完成的列該 CASE 求值為 null，{@code count(distinct ...)} 本就會忽略 null，
+     * 不需要額外的 filter 子句。
      */
     @Query("""
             select count(c),
                    count(case when c.status = com.onlinesanta.claim.ClaimStatus.COMPLETED then 1 end),
-                   count(distinct c.wish.id),
-                   count(distinct c.wish.organization.id)
+                   count(distinct case when c.status = com.onlinesanta.claim.ClaimStatus.COMPLETED
+                                        then c.wish.id end),
+                   count(distinct case when c.status = com.onlinesanta.claim.ClaimStatus.COMPLETED
+                                        then c.wish.organization.id end)
               from Claim c
              where c.donor.id = :donorId
                and c.claimedAt >= :from

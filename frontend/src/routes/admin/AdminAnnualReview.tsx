@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api, withQuery } from '../../lib/api'
 import type { PlatformAnnualStats } from '../../lib/types'
@@ -16,6 +16,9 @@ export function AdminAnnualReview() {
   const stats = useQuery({
     queryKey: ['admin', 'annual-stats', year],
     queryFn: () => api.get<PlatformAnnualStats>(withQuery('/api/admin/stats/annual', { year })),
+    // 切換年度時保留舊資料直到新的回來，不要整頁退回 Spinner——
+    // 年度下拉本身也是靠 stats.data 才畫得出來，退回 Spinner 會讓它跟著消失
+    placeholderData: keepPreviousData,
   })
 
   return (

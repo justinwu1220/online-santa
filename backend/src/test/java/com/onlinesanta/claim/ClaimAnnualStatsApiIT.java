@@ -20,6 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
+import com.onlinesanta.claim.dto.ReleaseRequest;
 import com.onlinesanta.claim.dto.ShipRequest;
 import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.organization.Organization;
@@ -215,7 +216,7 @@ class ClaimAnnualStatsApiIT extends ApiIntegrationTest {
                 "另一家的願望", "描述", WishCategory.TOY, PriceRange.UNDER_500);
         wishAtOtherOrg.publish();
         UUID wishId3 = wishes.save(wishAtOtherOrg).getId();
-        claimAs(wishId3, DONOR); // 未完成
+        claimAs(wishId3, DONOR); // 未完成——這筆不該被算進 childrenHelped／organizationsSupported
 
         int thisYear = TaiwanYear.currentYear();
         mvc.perform(as(get("/api/claims/me/annual-summary").param("year", String.valueOf(thisYear)),
@@ -224,9 +225,43 @@ class ClaimAnnualStatsApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.year").value(thisYear))
                 .andExpect(jsonPath("$.claimedCount").value(3))
                 .andExpect(jsonPath("$.completedCount").value(2))
-                .andExpect(jsonPath("$.childrenHelped").value(3))
-                .andExpect(jsonPath("$.organizationsSupported").value(2))
+                // 只有 2 筆完成，且都是同一家機構（anotherOrg 那筆還在 CLAIMED，不算數）
+                .andExpect(jsonPath("$.childrenHelped").value(2))
+                .andExpect(jsonPath("$.organizationsSupported").value(1))
                 .andExpect(jsonPath("$.availableYears[0]").value(thisYear));
+    }
+
+    @Test
+    @DisplayName("未完成的認領不計入送禮孩子數與支持機構數，即使跨了不同機構")
+    void unfinishedClaimsAreExcludedFromChildrenHelpedAndOrganizationsSupported() throws Exception {
+        Organization anotherOrg = approvedOrganization("未完成的另一家", "unfinished-org@example.org");
+
+        // 全部三筆都不完成：一筆取消、一筆被機構釋回、一筆還在等寄送
+        UUID cancelled = claimAs(publishedWish("會取消"), DONOR);
+        mvc.perform(as(withBody(post("/api/claims/{id}/cancel", cancelled),
+                        new ReleaseRequest("臨時有事")), DONOR))
+                .andExpect(status().isOk());
+
+        Wish wishToRelease = Wish.draft(anotherOrg, "小安", AgeRange.AGE_10_12, "球類",
+                "會被釋回", "描述", WishCategory.SPORTS, PriceRange.UNDER_500);
+        wishToRelease.publish();
+        UUID wishToReleaseId = wishes.save(wishToRelease).getId();
+        UUID released = claimAs(wishToReleaseId, DONOR);
+        mvc.perform(as(withBody(post("/api/organizations/me/claims/{id}/release", released),
+                        new ReleaseRequest("聯繫不上")),
+                        "unfinished-org@example.org"))
+                .andExpect(status().isOk());
+
+        claimAs(publishedWish("還在等寄送"), DONOR);
+
+        int thisYear = TaiwanYear.currentYear();
+        mvc.perform(as(get("/api/claims/me/annual-summary").param("year", String.valueOf(thisYear)),
+                        DONOR))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.claimedCount").value(3))
+                .andExpect(jsonPath("$.completedCount").value(0))
+                .andExpect(jsonPath("$.childrenHelped").value(0))
+                .andExpect(jsonPath("$.organizationsSupported").value(0));
     }
 
     @Test

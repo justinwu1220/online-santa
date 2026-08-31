@@ -9,8 +9,9 @@ import java.util.List;
  * ——年末認領、隔年才完成的禮物仍算在認領年度，因此進行中的認領完成後，去年的完成數
  * 會隨之上升（見 {@link com.onlinesanta.common.TaiwanYear}）。
  *
- * @param childrenHelped 送禮的孩子數，以 distinct 願望計（同一願望不會重複計入）
- * @param organizationsSupported 支持的機構數，以 distinct 機構計
+ * @param childrenHelped 送禮的孩子數，只計已完成的認領、以 distinct 願望計（取消或釋回的
+ *                       認領沒有把禮物送出去，不算「送禮」）
+ * @param organizationsSupported 支持的機構數，只計已完成的認領、以 distinct 機構計
  * @param availableYears 有認領紀錄可選的年份，由新到舊排序
  */
 public record DonorAnnualSummaryView(

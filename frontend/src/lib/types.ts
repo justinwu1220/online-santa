@@ -283,8 +283,9 @@ export interface DonorAnnualSummary {
   year: number
   claimedCount: number
   completedCount: number
-  /** 送禮的孩子數，以 distinct 願望計 */
+  /** 送禮的孩子數，只計已完成的認領、以 distinct 願望計 */
   childrenHelped: number
+  /** 支持的機構數，只計已完成的認領、以 distinct 機構計 */
   organizationsSupported: number
   /** 有認領紀錄可選的年份，由新到舊排序 */
   availableYears: number[]
