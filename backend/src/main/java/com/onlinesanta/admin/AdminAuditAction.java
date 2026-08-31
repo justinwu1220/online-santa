@@ -22,12 +22,15 @@ public enum AdminAuditAction {
     /** 復權：停權後恢復為 APPROVED。 */
     REACTIVATE_ORGANIZATION,
 
+    /** 管理員刪除附件（隱私事件處置）。目標是附件所屬的認領。 */
+    DELETE_ATTACHMENT,
+
     /** 手動觸發逾期釋回掃描。 */
     RUN_RELEASE_SWEEP;
 
     public AdminAuditTargetType targetType() {
         return switch (this) {
-            case VIEW_CLAIM_DETAIL, VIEW_CLAIM_ATTACHMENTS -> AdminAuditTargetType.CLAIM;
+            case VIEW_CLAIM_DETAIL, VIEW_CLAIM_ATTACHMENTS, DELETE_ATTACHMENT -> AdminAuditTargetType.CLAIM;
             case APPROVE_ORGANIZATION, REJECT_ORGANIZATION,
                  SUSPEND_ORGANIZATION, REACTIVATE_ORGANIZATION -> AdminAuditTargetType.ORGANIZATION;
             case RUN_RELEASE_SWEEP -> AdminAuditTargetType.SYSTEM;

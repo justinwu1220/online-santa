@@ -132,6 +132,75 @@ public class AttachmentService {
                 });
     }
 
+    // ================================================================ 刪除
+
+    /**
+     * 刪除一個附件。範圍限 {@link AttachmentPurpose#SHIPPING_PROOF} 與
+     * {@link AttachmentPurpose#ORG_FEEDBACK}——{@link AttachmentPurpose#WISH_IMAGE}
+     * 有「換新即汰舊」的既有語意（見 {@link #confirm}），不透過這支端點刪除。
+     *
+     * <p>三種呼叫者共用同一個端點：SHIPPING_PROOF 限該筆認領的捐贈者本人、
+     * ORG_FEEDBACK 限願望所屬機構，平台管理員兩種都能刪（隱私事件處置用，例如誤傳
+     * 的孩童照片）。管理員的呼叫由 {@code AttachmentController} 負責寫稽核紀錄——
+     * 稽核是「誰、為何能繞過一般權限」這件事的紀錄，不屬於這裡的業務邏輯。
+     *
+     * <p><strong>terminal 狀態的認領也允許刪。</strong>上傳有狀態限制（例如認領已
+     * COMPLETED 就不能再補寄送證明），但刪除沒有：一張照片就算認領流程已經走完，
+     * 只要有人要求下架，隱私考量一律優先於「認領紀錄要不要保持完整封存」。
+     *
+     * <p>刪除順序刻意是「先刪儲存物件，成功後才刪 DB 列」：{@link ObjectStorage#delete}
+     * 對已經不存在的物件是冪等的（GCS 的 delete 找不到物件時回 false 而非拋例外，
+     * {@link com.onlinesanta.storage.LocalObjectStorage} 用 {@code deleteIfExists}），
+     * 但儲存端若真的出錯（网路、權限）會拋例外，讓交易回滾、DB 列保留——不能讓
+     * 資料庫說「已刪除」而實際檔案還留在儲存端。
+     */
+    @Transactional
+    public AttachmentDeletionResult delete(UUID attachmentId) {
+        AppPrincipal principal = currentUser.require();
+        Attachment attachment = attachments.findById(attachmentId)
+                .orElseThrow(() -> ResourceNotFoundException.of("附件", attachmentId));
+
+        requireDeletablePurpose(attachment);
+
+        boolean deletedByAdmin = principal.isAdmin();
+        if (!deletedByAdmin) {
+            authorizeDelete(attachment, principal);
+        }
+
+        storage.delete(attachment.getPurpose().bucket(), attachment.getObjectName());
+        attachments.delete(attachment);
+
+        return new AttachmentDeletionResult(
+                attachment.getId(), attachment.getPurpose(), attachment.getOwnerId(), deletedByAdmin);
+    }
+
+    private void requireDeletablePurpose(Attachment attachment) {
+        if (attachment.getPurpose() == AttachmentPurpose.WISH_IMAGE) {
+            throw new BusinessRuleException("ATTACHMENT_NOT_DELETABLE",
+                    "願望示意圖請改用「更換示意圖」上傳新圖取代，不支援直接刪除");
+        }
+    }
+
+    private void authorizeDelete(Attachment attachment, AppPrincipal principal) {
+        switch (attachment.getPurpose()) {
+            case SHIPPING_PROOF -> {
+                Claim claim = findClaim(attachment.getOwnerId());
+                if (!claim.isOwnedBy(principal.userId())) {
+                    throw ResourceNotFoundException.of("附件", attachment.getId());
+                }
+            }
+            case ORG_FEEDBACK -> {
+                UUID organizationId = currentUser.requireOrganizationId();
+                Claim claim = findClaim(attachment.getOwnerId());
+                if (!claim.getWish().getOrganization().getId().equals(organizationId)) {
+                    throw ResourceNotFoundException.of("附件", attachment.getId());
+                }
+            }
+            case WISH_IMAGE -> throw new IllegalStateException(
+                    "requireDeletablePurpose 應該已經擋掉 WISH_IMAGE");
+        }
+    }
+
     // ================================================================ 讀取
 
     /** 願望的示意圖網址。公開 bucket，固定網址，不需簽章。 */
