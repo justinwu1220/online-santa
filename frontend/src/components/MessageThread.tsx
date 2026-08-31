@@ -57,21 +57,21 @@ export function MessageThread({ claimId, closed }: { claimId: string; closed: bo
     <div className="space-y-4">
       <div className="max-h-96 space-y-3 overflow-y-auto pr-1">
         {messages.data?.length === 0 && (
-          <p className="py-6 text-center text-sm text-slate-400">
+          <p className="surface-muted py-6 text-center text-sm text-slate-400">
             還沒有任何訊息。有任何寄送上的問題都可以在這裡討論。
           </p>
         )}
         {messages.data?.map((message) => (
           <div key={message.id}
             className={`flex ${message.fromMe ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+            <div className={`msg-bubble max-w-[80%] rounded-2xl px-4 py-2 ${
               message.fromMe
-                ? 'bg-santa-600 text-white'
-                : 'bg-white text-slate-700 ring-1 ring-santa-100'
+                ? 'msg-mine bg-santa-600 text-white'
+                : 'msg-theirs bg-white text-slate-700 ring-1 ring-santa-100'
             }`}>
               <p className="whitespace-pre-wrap text-sm">{message.body}</p>
               <p className={`mt-1 text-[11px] ${
-                message.fromMe ? 'text-santa-100' : 'text-slate-400'
+                message.fromMe ? 'msg-time-mine text-santa-100' : 'msg-time-theirs text-slate-400'
               }`}>
                 {formatDateTime(message.sentAt)}
               </p>
@@ -81,7 +81,7 @@ export function MessageThread({ claimId, closed }: { claimId: string; closed: bo
       </div>
 
       {closed ? (
-        <p className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-500">
+        <p className="thread-closed rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-500">
           這筆認領已經結束，無法再傳送訊息。
         </p>
       ) : (

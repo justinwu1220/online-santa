@@ -144,7 +144,7 @@ export function AuthPanel({ hint, registerHint, allowRegister = true }: {
   return (
     <div className="space-y-5">
       {allowRegister && (
-        <div className="flex rounded-lg bg-slate-100 p-1">
+        <div className="auth-tabs flex rounded-lg bg-slate-100 p-1">
           <Tab active={!registering} onClick={() => switchMode('signIn')}>登入</Tab>
           <Tab active={registering} onClick={() => switchMode('register')}>註冊</Tab>
         </div>
@@ -240,8 +240,9 @@ function Tab({ active, onClick, children }: {
     <button
       type="button"
       onClick={onClick}
-      className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-        active ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+      className={`auth-tab flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+        active ? 'auth-tab-active bg-white text-slate-900 shadow-sm'
+          : 'text-slate-500 hover:text-slate-700'
       }`}
     >
       {children}
@@ -251,7 +252,7 @@ function Tab({ active, onClick, children }: {
 
 function ErrorText({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-berry-600" role="alert">
+    <p className="form-error rounded-lg bg-rose-50 px-3 py-2 text-sm text-berry-600" role="alert">
       {children}
     </p>
   )

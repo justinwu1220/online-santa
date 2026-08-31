@@ -1,7 +1,11 @@
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 
+/*
+ * hook class（field-control / field-label / …）不影響亮色外觀，是給深色主題的掛點。
+ * 深色差異寫在 index.css 的 .theme-night 規則裡，見 docs/DESIGN.md
+ */
 const FIELD_CLASS =
-  'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm ' +
+  'field-control w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm ' +
   'focus:border-santa-500 focus:outline-none focus:ring-2 focus:ring-santa-100 ' +
   'disabled:bg-slate-50 disabled:text-slate-400'
 
@@ -10,13 +14,13 @@ export function Field({ label, hint, error, required, children }: {
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-slate-700">
+      <span className="field-label text-sm font-medium text-slate-700">
         {label}
         {required && <span className="ml-0.5 text-berry-500">*</span>}
       </span>
-      {hint && <span className="mt-0.5 block text-xs text-slate-500">{hint}</span>}
+      {hint && <span className="field-hint mt-0.5 block text-xs text-slate-500">{hint}</span>}
       <div className="mt-1.5">{children}</div>
-      {error && <span className="mt-1 block text-xs text-berry-600">{error}</span>}
+      {error && <span className="field-error mt-1 block text-xs text-berry-600">{error}</span>}
     </label>
   )
 }
@@ -47,8 +51,8 @@ export function Button({ variant = 'primary', children, className, ...props }: B
   return (
     <button
       {...props}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2
-        text-sm font-medium transition-colors disabled:cursor-not-allowed
+      className={`btn btn-${variant} inline-flex items-center justify-center gap-1.5
+        rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed
         ${VARIANTS[variant]} ${className ?? ''}`}
     >
       {children}
