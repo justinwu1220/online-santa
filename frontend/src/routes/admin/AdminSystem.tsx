@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { api, withQuery } from '../../lib/api'
 import { formatDateTime } from '../../lib/format'
 import type {
-  AdminAuditAction, AuditLogView, PageResponse, ReleaseSweepResult,
+  AdminAuditAction, AttachmentCleanupResult, AuditLogView, PageResponse, ReleaseSweepResult,
 } from '../../lib/types'
 import { ConsolePanel } from '../../components/layouts/ConsoleLayout'
 import { EmptyState, ErrorBanner, Notice, Spinner } from '../../components/Feedback'
@@ -19,6 +19,7 @@ const ACTION_LABELS: Record<AdminAuditAction, string> = {
   REACTIVATE_ORGANIZATION: '恢復機構',
   DELETE_ATTACHMENT: '刪除附件',
   RUN_RELEASE_SWEEP: '執行逾期掃描',
+  RUN_ATTACHMENT_CLEANUP: '執行附件清理',
 }
 
 /** 存取個資或改變隱私敏感內容的動作要標出來，這樣掃過一眼就知道哪幾筆值得細看。 */
@@ -29,6 +30,7 @@ export function AdminSystem() {
   return (
     <div className="space-y-5">
       <ReleaseSweepPanel />
+      <AttachmentCleanupPanel />
       <AuditTrailPanel />
     </div>
   )
@@ -66,6 +68,44 @@ function ReleaseSweepPanel() {
             掃到 {sweep.data.overdueFound} 筆逾期：自動收回 {sweep.data.autoReleased} 筆
             （{sweep.data.wishesReturnedToWall} 個願望回到願望牆），
             待機構自行處理 {sweep.data.flaggedForOrganization} 筆。
+          </Notice>
+        </div>
+      )}
+    </ConsolePanel>
+  )
+}
+
+function AttachmentCleanupPanel() {
+  const queryClient = useQueryClient()
+  const cleanup = useMutation({
+    mutationFn: () => api.post<AttachmentCleanupResult>('/api/admin/jobs/cleanup-pending-attachments'),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['audit-logs'] })
+    },
+  })
+
+  return (
+    <ConsolePanel
+      title="PENDING 附件清理"
+      action={
+        <Button variant="secondary" disabled={cleanup.isPending} onClick={() => cleanup.mutate()}>
+          {cleanup.isPending ? '清理中…' : '立即執行'}
+        </Button>
+      }
+    >
+      <p className="text-sm text-slate-600">
+        正式環境由 Cloud Scheduler 每日自動執行，走的是獨立的驗證鏈（Google OIDC token），
+        與這裡的手動觸發是同一段邏輯。清掉建立超過 24 小時仍未確認上傳的附件
+        （放棄的上傳留下的孤兒紀錄），逐筆處理，單筆失敗不會擋住其他筆。
+      </p>
+
+      {cleanup.isError && <div className="mt-3"><ErrorBanner error={cleanup.error} /></div>}
+      {cleanup.data && (
+        <div className="mt-3">
+          <Notice tone={cleanup.data.failed > 0 ? 'warning' : 'success'}>
+            掃到 {cleanup.data.found} 筆超過 24 小時的孤兒附件：
+            成功清除 {cleanup.data.deleted} 筆
+            {cleanup.data.failed > 0 && `，${cleanup.data.failed} 筆清除失敗（可再執行一次重試）`}。
           </Notice>
         </div>
       )}

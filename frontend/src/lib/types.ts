@@ -213,6 +213,13 @@ export interface ReleaseSweepResult {
   flaggedForOrganization: number
 }
 
+export interface AttachmentCleanupResult {
+  cutoff: string
+  found: number
+  deleted: number
+  failed: number
+}
+
 // ---------------------------------------------------------------- 監控中心
 
 /**
@@ -362,7 +369,7 @@ export type AdminAuditAction =
   | 'APPROVE_ORGANIZATION' | 'REJECT_ORGANIZATION'
   | 'SUSPEND_ORGANIZATION' | 'REACTIVATE_ORGANIZATION'
   | 'DELETE_ATTACHMENT'
-  | 'RUN_RELEASE_SWEEP'
+  | 'RUN_RELEASE_SWEEP' | 'RUN_ATTACHMENT_CLEANUP'
 
 export interface AuditLogView {
   id: number
