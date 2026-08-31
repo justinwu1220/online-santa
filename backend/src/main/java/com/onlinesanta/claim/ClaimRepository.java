@@ -236,6 +236,23 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID> {
     List<Object[]> monthlyClaimsForOrganization(@Param("organizationId") UUID organizationId,
                                                 @Param("from") Instant from, @Param("to") Instant to);
 
+    /**
+     * 機構單月的每日認領分布，日期為台北時區的日期（1–月底）。供「每月分布」長條圖
+     * 點選某月後的下鑽使用，寫法比照 {@link #monthlyClaimsForOrganization}。
+     */
+    @Query(value = """
+            select extract(day from (c.claimed_at AT TIME ZONE 'Asia/Taipei'))::int as day,
+                   count(*)
+              from claims c
+              join wishes w on w.id = c.wish_id
+             where w.organization_id = :organizationId
+               and c.claimed_at >= :from
+               and c.claimed_at < :to
+             group by day
+            """, nativeQuery = true)
+    List<Object[]> dailyClaimsForOrganization(@Param("organizationId") UUID organizationId,
+                                              @Param("from") Instant from, @Param("to") Instant to);
+
     /** 平台最早一筆認領的時間，供管理端年度下拉選單推導可選年份。 */
     @Query("select min(c.claimedAt) from Claim c")
     Instant earliestClaimedAtPlatformWide();
@@ -265,6 +282,19 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID> {
              group by month
             """, nativeQuery = true)
     List<Object[]> monthlyClaimsPlatformWide(@Param("from") Instant from, @Param("to") Instant to);
+
+    /**
+     * 平台單月的每日認領分布，日期為台北時區的日期（1–月底）。供「每月趨勢」長條圖
+     * 點選某月後的下鑽使用，寫法比照 {@link #monthlyClaimsPlatformWide}。
+     */
+    @Query(value = """
+            select extract(day from (claimed_at AT TIME ZONE 'Asia/Taipei'))::int as day,
+                   count(*)
+              from claims
+             where claimed_at >= :from and claimed_at < :to
+             group by day
+            """, nativeQuery = true)
+    List<Object[]> dailyClaimsPlatformWide(@Param("from") Instant from, @Param("to") Instant to);
 
     /** 平台年度的認領結果分布，只涵蓋三種終局狀態（完成／釋回／取消）。 */
     @Query("""

@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.ZonedDateTime;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -219,5 +220,66 @@ class AdminAnnualStatsApiIT extends ApiIntegrationTest {
         mvc.perform(as(get("/api/admin/stats/annual"), DONOR)).andExpect(status().isForbidden());
         mvc.perform(as(get("/api/admin/stats/annual"), ORG_A)).andExpect(status().isForbidden());
         mvc.perform(get("/api/admin/stats/annual")).andExpect(status().isUnauthorized());
+    }
+
+    // ------------------------------------------------------------ 每月分布下鑽
+
+    @Test
+    @DisplayName("月份邊界：台北 1/31 23:30 的認領歸屬 1 月，即使 UTC 已經是 2 月")
+    void dailyClaimsRespectsTaipeiMonthBoundary() throws Exception {
+        UUID claimId = claimAs(publishedWish(organizationA, "月底的認領"), DONOR);
+
+        // 台北時間 2026-01-31 23:30，UTC 已經是 2026-02-01 15:30
+        Instant taipeiMonthEnd = ZonedDateTime.of(2026, 1, 31, 23, 30, 0, 0, TaiwanYear.ZONE).toInstant();
+        backdateClaim(claimId, taipeiMonthEnd);
+
+        mvc.perform(as(get("/api/admin/stats/monthly")
+                        .param("year", "2026").param("month", "1"), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dailyClaims[30].day").value(31))
+                .andExpect(jsonPath("$.dailyClaims[30].count").value(1));
+
+        mvc.perform(as(get("/api/admin/stats/monthly")
+                        .param("year", "2026").param("month", "2"), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dailyClaims[0].count").value(0));
+    }
+
+    @Test
+    @DisplayName("補零：二月沒資料的日子是 0，且天數依實際月長（2026 是平年，28 天），跨機構彙總")
+    void dailyClaimsZeroFillAcrossOrganizations() throws Exception {
+        UUID claimA = claimAs(publishedWish(organizationA, "甲機構二月的認領"), DONOR);
+        UUID claimB = claimAs(publishedWish(organizationB, "乙機構二月的認領"), DONOR);
+        Instant february15 = ZonedDateTime.of(2026, 2, 15, 10, 0, 0, 0, TaiwanYear.ZONE).toInstant();
+        backdateClaim(claimA, february15);
+        backdateClaim(claimB, february15);
+
+        mvc.perform(as(get("/api/admin/stats/monthly")
+                        .param("year", "2026").param("month", "2"), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dailyClaims.length()").value(28))
+                // 平台端彙總所有機構，兩筆都落在 2/15
+                .andExpect(jsonPath("$.dailyClaims[14].day").value(15))
+                .andExpect(jsonPath("$.dailyClaims[14].count").value(2))
+                .andExpect(jsonPath("$.dailyClaims[0].count").value(0));
+    }
+
+    @Test
+    @DisplayName("月份超出 1–12 範圍回 400")
+    void monthOutOfRangeReturns400() throws Exception {
+        mvc.perform(as(get("/api/admin/stats/monthly")
+                        .param("year", "2026").param("month", "13"), ADMIN))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("INVALID_MONTH"));
+    }
+
+    @Test
+    @DisplayName("非管理員無法查詢單月每日分布，未登入回 401")
+    void nonAdminsCannotAccessMonthlyStats() throws Exception {
+        mvc.perform(as(get("/api/admin/stats/monthly")
+                        .param("year", "2026").param("month", "1"), DONOR))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/stats/monthly").param("year", "2026").param("month", "1"))
+                .andExpect(status().isUnauthorized());
     }
 }

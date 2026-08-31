@@ -12,9 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.onlinesanta.admin.dto.OrganizationCompletionRankingView;
 import com.onlinesanta.admin.dto.PlatformAnnualStatsView;
+import com.onlinesanta.admin.dto.PlatformMonthlyStatsView;
 import com.onlinesanta.claim.ClaimRepository;
 import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.common.TaiwanYear;
+import com.onlinesanta.common.dto.DailyCount;
 import com.onlinesanta.common.dto.MonthlyCount;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.user.UserRepository;
@@ -77,6 +79,17 @@ public class AdminAnnualStatsService {
                 resolvedYear, newDonors, newOrganizations, activeDonors, publishedWishes,
                 claimed, completed, completionRate, monthlyClaims, claimOutcomes,
                 topOrganizations, availableYears);
+    }
+
+    /** 「每月趨勢」長條圖點選某月後的下鑽：該月每日的認領分布。 */
+    @Transactional(readOnly = true)
+    public PlatformMonthlyStatsView monthly(int year, int month) {
+        Instant from = TaiwanYear.startOfMonth(year, month);
+        Instant to = TaiwanYear.endOfMonth(year, month);
+
+        List<DailyCount> dailyClaims = DailyCount.fill(year, month, claims.dailyClaimsPlatformWide(from, to));
+
+        return new PlatformMonthlyStatsView(year, month, dailyClaims);
     }
 
     /**

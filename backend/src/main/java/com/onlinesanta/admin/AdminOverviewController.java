@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.onlinesanta.admin.dto.AuditLogView;
 import com.onlinesanta.admin.dto.PlatformAnnualStatsView;
+import com.onlinesanta.admin.dto.PlatformMonthlyStatsView;
 import com.onlinesanta.admin.dto.PlatformStatsView;
 import com.onlinesanta.common.PageResponse;
 import com.onlinesanta.user.User;
@@ -57,6 +58,13 @@ public class AdminOverviewController {
             description = "新捐贈者、新機構、認領、完成率、每月趨勢、機構完成排行等年度統計")
     public PlatformAnnualStatsView annualStats(@RequestParam(required = false) Integer year) {
         return annualStats.annual(year);
+    }
+
+    @GetMapping("/stats/monthly")
+    @Operation(summary = "平台單月每日認領分布",
+            description = "年度營運頁「每月趨勢」長條圖的下鑽；year、month 皆必填，month 須介於 1–12")
+    public PlatformMonthlyStatsView monthlyStats(@RequestParam int year, @RequestParam int month) {
+        return annualStats.monthly(year, month);
     }
 
     @GetMapping("/audit-logs")

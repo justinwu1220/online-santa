@@ -11,8 +11,10 @@ import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.claim.ClaimEventRepository;
 import com.onlinesanta.claim.ClaimRepository;
 import com.onlinesanta.common.TaiwanYear;
+import com.onlinesanta.common.dto.DailyCount;
 import com.onlinesanta.common.dto.MonthlyCount;
 import com.onlinesanta.organization.dto.OrganizationAnnualStatsView;
+import com.onlinesanta.organization.dto.OrganizationMonthlyStatsView;
 import com.onlinesanta.wish.WishRepository;
 
 /**
@@ -69,5 +71,18 @@ public class OrganizationStatsService {
                 resolvedYear, newWishes, claimed, completed, completionRate,
                 released, cancelled, autoReleased, averageCompletionDays, crossYearCompletions,
                 monthlyClaims, availableYears);
+    }
+
+    /** 「每月分布」長條圖點選某月後的下鑽：該月每日的認領分布。 */
+    @Transactional(readOnly = true)
+    public OrganizationMonthlyStatsView monthly(int year, int month) {
+        UUID organizationId = currentUser.requireOrganizationId();
+        Instant from = TaiwanYear.startOfMonth(year, month);
+        Instant to = TaiwanYear.endOfMonth(year, month);
+
+        List<DailyCount> dailyClaims = DailyCount.fill(year, month,
+                claims.dailyClaimsForOrganization(organizationId, from, to));
+
+        return new OrganizationMonthlyStatsView(year, month, dailyClaims);
     }
 }

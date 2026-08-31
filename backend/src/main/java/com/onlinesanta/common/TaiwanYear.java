@@ -2,9 +2,12 @@ package com.onlinesanta.common;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.onlinesanta.common.exception.BadRequestException;
 
 /**
  * 年度統計共用的時區與區間換算。
@@ -39,6 +42,35 @@ public final class TaiwanYear {
     /** 某個時間點對應的台北年度。 */
     public static int yearOf(Instant instant) {
         return LocalDate.ofInstant(instant, ZONE).getYear();
+    }
+
+    /**
+     * 某年某月的起始（含），對應台北時間該月 1 號 00:00。
+     *
+     * <p>用於年度回顧「每月分布」長條圖的下鑽——選定月份後只看該月的每日分布。
+     *
+     * @throws BadRequestException month 不在 1–12 範圍內
+     */
+    public static Instant startOfMonth(int year, int month) {
+        validateMonth(month);
+        return YearMonth.of(year, month).atDay(1).atStartOfDay(ZONE).toInstant();
+    }
+
+    /**
+     * 某年某月的結束（不含），即下個月的起始——月份查詢比照年度用半開區間
+     * {@code [start, end)}。月長交給 {@link YearMonth} 處理，二月是否閏年不必自己判斷。
+     *
+     * @throws BadRequestException month 不在 1–12 範圍內
+     */
+    public static Instant endOfMonth(int year, int month) {
+        validateMonth(month);
+        return YearMonth.of(year, month).plusMonths(1).atDay(1).atStartOfDay(ZONE).toInstant();
+    }
+
+    private static void validateMonth(int month) {
+        if (month < 1 || month > 12) {
+            throw new BadRequestException("INVALID_MONTH", "月份必須介於 1 到 12");
+        }
     }
 
     /**

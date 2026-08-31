@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
@@ -289,6 +290,86 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
     @DisplayName("未登入無法查詢機構的年度統計")
     void anonymousCannotAccessStats() throws Exception {
         mvc.perform(get("/api/organizations/me/stats/annual"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    // ------------------------------------------------------------ 每月分布下鑽
+
+    @Test
+    @DisplayName("月份邊界：台北 1/31 23:30 的認領歸屬 1 月，即使 UTC 已經是 2 月")
+    void dailyClaimsRespectsTaipeiMonthBoundary() throws Exception {
+        UUID claimId = claimAs(publishedWish(organizationA, "月底的認領"), DONOR);
+
+        // 台北時間 2026-01-31 23:30，UTC 已經是 2026-02-01 15:30
+        Instant taipeiMonthEnd = ZonedDateTime.of(2026, 1, 31, 23, 30, 0, 0, TaiwanYear.ZONE).toInstant();
+        backdateClaim(claimId, taipeiMonthEnd, null);
+
+        mvc.perform(as(get("/api/organizations/me/stats/monthly")
+                        .param("year", "2026").param("month", "1"), ORG_A))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dailyClaims[30].day").value(31))
+                .andExpect(jsonPath("$.dailyClaims[30].count").value(1));
+
+        mvc.perform(as(get("/api/organizations/me/stats/monthly")
+                        .param("year", "2026").param("month", "2"), ORG_A))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dailyClaims[0].day").value(1))
+                .andExpect(jsonPath("$.dailyClaims[0].count").value(0));
+    }
+
+    @Test
+    @DisplayName("補零：二月沒資料的日子是 0，且天數依實際月長（2026 是平年，28 天）")
+    void dailyClaimsZeroFillAccordingToActualMonthLength() throws Exception {
+        UUID claimId = claimAs(publishedWish(organizationA, "二月的認領"), DONOR);
+        Instant february15 = ZonedDateTime.of(2026, 2, 15, 10, 0, 0, 0, TaiwanYear.ZONE).toInstant();
+        backdateClaim(claimId, february15, null);
+
+        mvc.perform(as(get("/api/organizations/me/stats/monthly")
+                        .param("year", "2026").param("month", "2"), ORG_A))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dailyClaims.length()").value(28))
+                .andExpect(jsonPath("$.dailyClaims[14].day").value(15))
+                .andExpect(jsonPath("$.dailyClaims[14].count").value(1))
+                .andExpect(jsonPath("$.dailyClaims[0].count").value(0));
+    }
+
+    @Test
+    @DisplayName("機構彼此看不到對方的單月每日分布")
+    void dailyClaimsAreIsolatedPerOrganization() throws Exception {
+        UUID claimId = claimAs(publishedWish(organizationA, "甲機構九月的認領"), DONOR);
+        Instant september = ZonedDateTime.of(2026, 9, 5, 10, 0, 0, 0, TaiwanYear.ZONE).toInstant();
+        backdateClaim(claimId, september, null);
+
+        mvc.perform(as(get("/api/organizations/me/stats/monthly")
+                        .param("year", "2026").param("month", "9"), ORG_A))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dailyClaims[4].count").value(1));
+
+        mvc.perform(as(get("/api/organizations/me/stats/monthly")
+                        .param("year", "2026").param("month", "9"), ORG_B))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dailyClaims[4].count").value(0));
+    }
+
+    @Test
+    @DisplayName("月份超出 1–12 範圍回 400")
+    void monthOutOfRangeReturns400() throws Exception {
+        mvc.perform(as(get("/api/organizations/me/stats/monthly")
+                        .param("year", "2026").param("month", "13"), ORG_A))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("INVALID_MONTH"));
+
+        mvc.perform(as(get("/api/organizations/me/stats/monthly")
+                        .param("year", "2026").param("month", "0"), ORG_A))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("INVALID_MONTH"));
+    }
+
+    @Test
+    @DisplayName("未登入無法查詢單月每日分布")
+    void anonymousCannotAccessMonthlyStats() throws Exception {
+        mvc.perform(get("/api/organizations/me/stats/monthly")
+                        .param("year", "2026").param("month", "1"))
                 .andExpect(status().isUnauthorized());
     }
 }
