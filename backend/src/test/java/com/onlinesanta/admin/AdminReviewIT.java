@@ -163,8 +163,10 @@ class AdminReviewIT extends ApiIntegrationTest {
     @Test
     @DisplayName("管理員不能自己註冊機構")
     void adminsCannotRegisterOrganizations() throws Exception {
+        // 電話與地址填滿：這條測試要驗的是「管理員被擋下」，欄位缺漏會先回 400，
+        // 授權那一條根本不會被執行到，測試就會因為錯誤的理由而通過
         var request = new OrganizationRegistrationRequest(
-                "球員兼裁判之家", "admin@example.org", null, null, null);
+                "球員兼裁判之家", "admin@example.org", "02-1234-5678", "台北市某路 1 號", null);
 
         mvc.perform(as(withBody(post("/api/organizations"), request), ADMIN))
                 .andExpect(status().isConflict())

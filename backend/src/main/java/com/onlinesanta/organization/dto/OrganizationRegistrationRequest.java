@@ -14,9 +14,13 @@ public record OrganizationRegistrationRequest(
         @Size(max = 255)
         String contactEmail,
 
+        // 電話與地址是必填：捐贈者認領後要靠它們把禮物寄到，而管理員審核時
+        // 也需要它們才判斷得出這是不是一個真的機構
+        @NotBlank(message = "聯絡電話不可為空")
         @Size(max = 40, message = "聯絡電話不可超過 40 字")
         String contactPhone,
 
+        @NotBlank(message = "地址不可為空——捐贈者要靠它寄送禮物")
         @Size(max = 255, message = "地址不可超過 255 字")
         String address,
 

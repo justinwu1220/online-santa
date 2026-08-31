@@ -141,6 +141,12 @@ interface ClaimBase {
 
 export interface ClaimDonorView extends ClaimBase {
   organizationName: string
+  /**
+   * 寄送目的地。只出現在捐贈者自己的認領上，願望牆與願望詳情沒有這兩個欄位——
+   * 認領之後才需要知道寄去哪。機構註冊時必填，但舊資料可能為空
+   */
+  organizationAddress?: string
+  organizationPhone?: string
 }
 
 export interface ClaimOrgView extends ClaimBase {

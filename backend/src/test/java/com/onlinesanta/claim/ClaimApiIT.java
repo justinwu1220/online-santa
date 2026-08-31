@@ -55,7 +55,9 @@ class ClaimApiIT extends ApiIntegrationTest {
     }
 
     private Organization approvedOrganization(String name, String memberEmail) {
-        Organization org = Organization.register(name, "contact@example.org", null, null, null);
+        // 電話與地址現在是必填，測試資料也照著填——捐贈者的認領視圖要靠它們
+        Organization org = Organization.register(
+                name, "contact@example.org", "02-1234-5678", "台北市中正區某某路 1 號", null);
         org.approve(null, "測試資料");
         organizations.save(org);
 
@@ -80,6 +82,28 @@ class ClaimApiIT extends ApiIntegrationTest {
     }
 
     // ------------------------------------------------------------ 認領
+
+    @Test
+    @DisplayName("寄送地址只給認領者，願望牆上沒有")
+    void exposesOrganizationAddressOnlyToTheDonorWhoClaimed() throws Exception {
+        publishedWish("留在牆上的願望");
+        UUID wishId = publishedWish("要被認領的願望");
+
+        // 捐贈者要靠這兩個欄位才知道禮物該寄去哪。在此之前只能用訊息串問機構
+        mvc.perform(as(post("/api/wishes/{id}/claim", wishId), DONOR))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.organizationName").value("送禮之家"))
+                .andExpect(jsonPath("$.organizationAddress").value("台北市中正區某某路 1 號"))
+                .andExpect(jsonPath("$.organizationPhone").value("02-1234-5678"));
+
+        // 公開的願望牆只有機構名稱。這一條釘住那道界線——地址若漏進公開視圖，
+        // 等於把每一家合作機構的地址掛在首頁上
+        mvc.perform(get("/api/wishes"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].organizationAddress").doesNotExist())
+                .andExpect(jsonPath("$.content[0].organizationPhone").doesNotExist());
+    }
 
     @Test
     @DisplayName("認領成功後願望轉為 CLAIMED，且不再出現在願望牆")

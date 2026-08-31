@@ -111,8 +111,9 @@ class EmailVerificationIT extends ApiIntegrationTest {
     @Test
     @DisplayName("未驗證不能申請機構")
     void unverifiedUsersCannotRegisterAnOrganization() throws Exception {
+        // 同上：欄位要填滿，才驗得到「信箱未驗證被擋下」而不是欄位驗證
         var request = new OrganizationRegistrationRequest(
-                "假機構", "fake@example.org", null, null, null);
+                "假機構", "fake@example.org", "02-1234-5678", "台北市某路 1 號", null);
 
         mvc.perform(asUnverified(withBody(post("/api/organizations"), request), NEWCOMER))
                 .andExpect(status().isForbidden())

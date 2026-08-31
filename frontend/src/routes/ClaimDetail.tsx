@@ -72,6 +72,9 @@ export function ClaimDetail() {
 
       <div className="grid gap-8 lg:grid-cols-[1.3fr_1fr]">
         <div className="space-y-8">
+          {/* 放在「回報寄送」之前：要先知道寄去哪，才談得上回報寄了沒 */}
+          <ShippingAddressPanel claim={data} />
+
           {data.status === 'CLAIMED' && (
             <Panel title="回報寄送">
               <ShipForm claimId={id} onDone={refreshAll} />
@@ -167,6 +170,44 @@ function ShipDeadlineNotice({ deadline }: { deadline?: string }) {
       已逾期 {Math.abs(remaining)} 天。機構可能會收回這個願望讓其他人認領——
       如果還想繼續，請盡快寄出並回報，或在下方與機構聯繫。
     </Notice>
+  )
+}
+
+/**
+ * 寄送地址。
+ *
+ * 這是捐贈者唯一看得到機構地址的地方——願望牆與願望詳情只有機構名稱。認領之後才需要
+ * 知道寄去哪，那道界線由後端的擁有者檢查守著，不要把地址加進公開的願望視圖。
+ */
+function ShippingAddressPanel({ claim }: { claim: ClaimDonorView }) {
+  const hasAddress = Boolean(claim.organizationAddress)
+
+  return (
+    <Panel title="寄送地址">
+      {hasAddress ? (
+        <dl className="space-y-3 text-sm">
+          <div>
+            <dt className="text-xs text-slate-500">收件單位</dt>
+            <dd className="mt-0.5 font-medium text-slate-800">{claim.organizationName}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-slate-500">地址</dt>
+            <dd className="mt-0.5 font-medium text-slate-800">{claim.organizationAddress}</dd>
+          </div>
+          {claim.organizationPhone && (
+            <div>
+              <dt className="text-xs text-slate-500">聯絡電話</dt>
+              <dd className="mt-0.5 font-medium text-slate-800">{claim.organizationPhone}</dd>
+            </div>
+          )}
+        </dl>
+      ) : (
+        // 電話與地址在機構註冊時已是必填，但更早之前建立的機構可能沒有
+        <Notice tone="warning">
+          這個機構還沒有填寫收件地址，請用下方的訊息詢問機構。
+        </Notice>
+      )}
+    </Panel>
   )
 }
 

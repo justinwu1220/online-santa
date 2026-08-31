@@ -24,9 +24,13 @@ public record OrganizationUpdateRequest(
         @Size(max = 255)
         String contactEmail,
 
+        // 與註冊時一致。少了這兩條，機構之後在設定頁把電話或地址清空仍然存得了檔，
+        // 而捐贈者的認領詳情頁正是靠它們顯示寄送地址
+        @NotBlank(message = "聯絡電話不可為空")
         @Size(max = 40)
         String contactPhone,
 
+        @NotBlank(message = "地址不可為空——捐贈者要靠它寄送禮物")
         @Size(max = 255)
         String address,
 
