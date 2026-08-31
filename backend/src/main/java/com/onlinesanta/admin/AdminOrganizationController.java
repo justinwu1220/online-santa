@@ -65,4 +65,24 @@ public class AdminOrganizationController {
         return OrganizationReviewView.from(
                 review.reject(id, request == null ? ReviewDecisionRequest.empty() : request));
     }
+
+    @PostMapping("/{id}/suspend")
+    @Operation(summary = "停權機構",
+            description = "資安事件應變手冊第一步：立即讓該機構的願望從公開曝光下架，"
+                    + "進行中的認領不受影響。請於 note 說明理由，只有 APPROVED 的機構能被停權")
+    public OrganizationReviewView suspend(
+            @PathVariable UUID id,
+            @Valid @RequestBody(required = false) ReviewDecisionRequest request) {
+        return OrganizationReviewView.from(
+                review.suspend(id, request == null ? ReviewDecisionRequest.empty() : request));
+    }
+
+    @PostMapping("/{id}/reactivate")
+    @Operation(summary = "恢復機構", description = "停權後恢復為 APPROVED，願望重新出現在公開曝光。只有 SUSPENDED 的機構能被恢復")
+    public OrganizationReviewView reactivate(
+            @PathVariable UUID id,
+            @Valid @RequestBody(required = false) ReviewDecisionRequest request) {
+        return OrganizationReviewView.from(
+                review.reactivate(id, request == null ? ReviewDecisionRequest.empty() : request));
+    }
 }

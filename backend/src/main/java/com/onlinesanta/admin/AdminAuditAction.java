@@ -17,13 +17,19 @@ public enum AdminAuditAction {
     APPROVE_ORGANIZATION,
     REJECT_ORGANIZATION,
 
+    /** 停權：資安事件應變手冊的第一步，見 PRIVACY.md。 */
+    SUSPEND_ORGANIZATION,
+    /** 復權：停權後恢復為 APPROVED。 */
+    REACTIVATE_ORGANIZATION,
+
     /** 手動觸發逾期釋回掃描。 */
     RUN_RELEASE_SWEEP;
 
     public AdminAuditTargetType targetType() {
         return switch (this) {
             case VIEW_CLAIM_DETAIL, VIEW_CLAIM_ATTACHMENTS -> AdminAuditTargetType.CLAIM;
-            case APPROVE_ORGANIZATION, REJECT_ORGANIZATION -> AdminAuditTargetType.ORGANIZATION;
+            case APPROVE_ORGANIZATION, REJECT_ORGANIZATION,
+                 SUSPEND_ORGANIZATION, REACTIVATE_ORGANIZATION -> AdminAuditTargetType.ORGANIZATION;
             case RUN_RELEASE_SWEEP -> AdminAuditTargetType.SYSTEM;
         };
     }

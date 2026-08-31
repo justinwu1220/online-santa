@@ -22,11 +22,17 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
      * <p>三個篩選條件皆可為 null 代表不篩選，用一句 JPQL 涵蓋所有組合，避免為每種
      * 組合各寫一個方法。{@code join fetch} 一次帶回機構名稱——列表要顯示機構，
      * 沒有它就會對每一筆願望各發一次查詢（N+1）。
+     *
+     * <p>{@code o.status = APPROVED}：機構停權後，它名下先前已上架的願望不會自動
+     * 變成 DRAFT（狀態機沒有這個轉換），單靠 {@code w.status} 篩選會讓停權機構的
+     * 願望繼續掛在牆上。這裡跟 {@link com.onlinesanta.wish.Wish#isPubliclyVisible()}
+     * 是同一個把關條件的兩處實作——一個管列表、一個管詳情。
      */
     @Query("""
             select w from Wish w
             join fetch w.organization o
             where w.status = :status
+              and o.status = com.onlinesanta.organization.OrganizationStatus.APPROVED
               and (:category is null or w.category = :category)
               and (:ageRange is null or w.ageRange = :ageRange)
               and (:priceRange is null or w.priceRange = :priceRange)

@@ -69,6 +69,40 @@ public class OrganizationReviewService {
     }
 
     /**
+     * 停權：資安事件應變手冊第一步。只有 APPROVED 的機構能被停權——PENDING 還沒
+     * 上架過東西、REJECTED/SUSPENDED 已經不在公開曝光裡，停權對它們沒有意義，
+     * 而是暗示了誤操作。
+     */
+    @Transactional
+    public Organization suspend(UUID organizationId, ReviewDecisionRequest request) {
+        AppPrincipal admin = currentUser.requireAdmin();
+        Organization organization = organizationService.getById(organizationId);
+
+        requireApproved(organization);
+        organization.suspend(admin.userId(), request.note());
+        audit.record(AdminAuditAction.SUSPEND_ORGANIZATION, organizationId,
+                describeReason(request.note()));
+        return organization;
+    }
+
+    /** 復權：只有已停權的機構能被復權。 */
+    @Transactional
+    public Organization reactivate(UUID organizationId, ReviewDecisionRequest request) {
+        AppPrincipal admin = currentUser.requireAdmin();
+        Organization organization = organizationService.getById(organizationId);
+
+        requireSuspended(organization);
+        organization.reactivate(admin.userId(), request.note());
+        audit.record(AdminAuditAction.REACTIVATE_ORGANIZATION, organizationId,
+                describeReason(request.note()));
+        return organization;
+    }
+
+    private String describeReason(String note) {
+        return note == null || note.isBlank() ? null : "理由：" + note;
+    }
+
+    /**
      * 只有待審核的機構能被裁決。
      *
      * <p>擋掉重複送出的請求——管理員在清單頁按了兩次核准，第二次應該得到明確的
@@ -78,6 +112,20 @@ public class OrganizationReviewService {
         if (organization.getStatus() != OrganizationStatus.PENDING) {
             throw new BusinessRuleException("ORGANIZATION_NOT_PENDING",
                     "這個機構目前是 %s，不在待審核狀態".formatted(organization.getStatus()));
+        }
+    }
+
+    private void requireApproved(Organization organization) {
+        if (organization.getStatus() != OrganizationStatus.APPROVED) {
+            throw new BusinessRuleException("ORGANIZATION_NOT_APPROVED",
+                    "這個機構目前是 %s，不是核准狀態，無法停權".formatted(organization.getStatus()));
+        }
+    }
+
+    private void requireSuspended(Organization organization) {
+        if (organization.getStatus() != OrganizationStatus.SUSPENDED) {
+            throw new BusinessRuleException("ORGANIZATION_NOT_SUSPENDED",
+                    "這個機構目前是 %s，不是停權狀態，無法恢復".formatted(organization.getStatus()));
         }
     }
 }

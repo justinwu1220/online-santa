@@ -128,6 +128,26 @@ public class Organization extends BaseEntity {
         this.reviewedAt = Instant.now();
     }
 
+    /**
+     * 停權：資安事件應變手冊（PRIVACY.md）的第一步。停權後機構名下的願望立刻從
+     * 公開曝光下架（見 {@code Wish.isPubliclyVisible()}），但進行中的認領不受影響
+     * ——已經認領的送禮流程繼續走完，停權處理的是「不再讓更多人接觸」，不是追溯。
+     */
+    public void suspend(UUID reviewerId, String note) {
+        this.status = OrganizationStatus.SUSPENDED;
+        this.reviewedBy = reviewerId;
+        this.reviewNote = note;
+        this.reviewedAt = Instant.now();
+    }
+
+    /** 復權：停權後恢復為 APPROVED，願望重新出現在公開曝光。 */
+    public void reactivate(UUID reviewerId, String note) {
+        this.status = OrganizationStatus.APPROVED;
+        this.reviewedBy = reviewerId;
+        this.reviewNote = note;
+        this.reviewedAt = Instant.now();
+    }
+
     /** 被退件的機構補件後可重新送審。 */
     public void resubmitForReview() {
         if (status != OrganizationStatus.REJECTED) {

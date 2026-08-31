@@ -5,6 +5,7 @@ import java.time.Instant;
 import com.onlinesanta.common.BaseEntity;
 import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.organization.Organization;
+import com.onlinesanta.organization.OrganizationStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -148,9 +149,13 @@ public class Wish extends BaseEntity {
         return status == WishStatus.DRAFT;
     }
 
-    /** 公開端點是否應顯示此願望：草稿只有機構自己看得到。 */
+    /**
+     * 公開端點是否應顯示此願望：草稿只有機構自己看得到；機構被停權後，
+     * 它名下的願望也一併從公開曝光下架——停權是資安事件應變手冊的第一步，
+     * 若願望還留在牆上或詳情頁看得到，這一步就沒有真的生效。
+     */
     public boolean isPubliclyVisible() {
-        return status != WishStatus.DRAFT;
+        return status != WishStatus.DRAFT && organization.getStatus() == OrganizationStatus.APPROVED;
     }
 
     private void requireEditable(String action) {
