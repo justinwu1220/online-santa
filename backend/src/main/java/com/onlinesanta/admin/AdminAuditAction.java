@@ -26,14 +26,17 @@ public enum AdminAuditAction {
     DELETE_ATTACHMENT,
 
     /** 手動觸發逾期釋回掃描。 */
-    RUN_RELEASE_SWEEP;
+    RUN_RELEASE_SWEEP,
+
+    /** 手動觸發 PENDING 附件清理排程。 */
+    RUN_ATTACHMENT_CLEANUP;
 
     public AdminAuditTargetType targetType() {
         return switch (this) {
             case VIEW_CLAIM_DETAIL, VIEW_CLAIM_ATTACHMENTS, DELETE_ATTACHMENT -> AdminAuditTargetType.CLAIM;
             case APPROVE_ORGANIZATION, REJECT_ORGANIZATION,
                  SUSPEND_ORGANIZATION, REACTIVATE_ORGANIZATION -> AdminAuditTargetType.ORGANIZATION;
-            case RUN_RELEASE_SWEEP -> AdminAuditTargetType.SYSTEM;
+            case RUN_RELEASE_SWEEP, RUN_ATTACHMENT_CLEANUP -> AdminAuditTargetType.SYSTEM;
         };
     }
 }

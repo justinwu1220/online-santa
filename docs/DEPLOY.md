@@ -418,18 +418,32 @@ gcloud scheduler jobs create http release-expired-claims \
   --http-method=POST \
   --oidc-service-account-email="$SCHED_SA" \
   --oidc-token-audience="https://online-santa/internal-jobs"
+
+gcloud scheduler jobs create http cleanup-pending-attachments \
+  --location=asia-east1 \
+  --schedule="0 4 * * *" \
+  --time-zone="Asia/Taipei" \
+  --uri="$API_URL/internal/jobs/cleanup-pending-attachments" \
+  --http-method=POST \
+  --oidc-service-account-email="$SCHED_SA" \
+  --oidc-token-audience="https://online-santa/internal-jobs"
 ```
 
 > `--oidc-token-audience` 必須與 `INTERNAL_JOB_AUDIENCE` 完全一致，否則後端會
-> 拒絕（這正是設計上要擋掉「任何 Google 帳號都能打進來」的那道檢查）。
+> 拒絕（這正是設計上要擋掉「任何 Google 帳號都能打進來」的那道檢查）。兩個排程
+> 共用同一個服務帳號與 audience，`InternalJobSecurityConfig` 的驗證鏈是依路徑
+> 前綴 `/internal/**` 套用的，不是逐一端點設定。
 
 驗證：
 
 ```bash
 gcloud scheduler jobs run release-expired-claims --location=asia-east1
+gcloud scheduler jobs run cleanup-pending-attachments --location=asia-east1
 ```
 
 也可以登入監控中心，在「系統與稽核」按「立即執行」——同一段邏輯，不同的身分驗證。
+附件清理建議排在逾期釋回之後（凌晨 4 點 vs 3 點）：兩者互不相依，錯開只是避免
+同時打進資料庫的尖峰重疊。
 
 ---
 

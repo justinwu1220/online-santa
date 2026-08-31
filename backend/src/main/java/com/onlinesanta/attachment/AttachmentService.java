@@ -174,6 +174,29 @@ public class AttachmentService {
                 attachment.getId(), attachment.getPurpose(), attachment.getOwnerId(), deletedByAdmin);
     }
 
+    /**
+     * 內部用：清理排程刪除一筆放棄的 PENDING 附件，不做任何使用者授權檢查。
+     *
+     * <p>清理排程沒有「使用者」這個概念——呼叫端的身分驗證（Cloud Scheduler 的
+     * OIDC token，或管理端手動觸發要求的 ADMIN 角色）已經在 controller 層把關過，
+     * 這裡只管刪除本身。刻意獨立於 {@link #delete}（一般使用者走的授權路徑）之外，
+     * 也是為了讓 {@code PendingAttachmentCleanupService} 對每一筆呼叫都各自成為一個
+     * 獨立的交易——它是不同的 Spring bean，透過代理呼叫，不會落入同一個類別內
+     * 自我呼叫導致 {@code @Transactional} 失效的陷阱。
+     */
+    @Transactional
+    public void deletePendingAttachment(UUID attachmentId) {
+        Attachment attachment = attachments.findById(attachmentId)
+                .orElseThrow(() -> ResourceNotFoundException.of("附件", attachmentId));
+        if (attachment.getUploadStatus() != UploadStatus.PENDING) {
+            throw new IllegalStateException(
+                    "清理排程只處理 PENDING 附件，這筆實際是 " + attachment.getUploadStatus());
+        }
+
+        storage.delete(attachment.getPurpose().bucket(), attachment.getObjectName());
+        attachments.delete(attachment);
+    }
+
     private void requireDeletablePurpose(Attachment attachment) {
         if (attachment.getPurpose() == AttachmentPurpose.WISH_IMAGE) {
             throw new BusinessRuleException("ATTACHMENT_NOT_DELETABLE",

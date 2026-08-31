@@ -6,6 +6,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.onlinesanta.job.ClaimReleaseService;
+import com.onlinesanta.job.PendingAttachmentCleanupService;
+import com.onlinesanta.job.dto.AttachmentCleanupResult;
 import com.onlinesanta.job.dto.ReleaseSweepResult;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,10 +27,14 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public class AdminJobController {
 
     private final ClaimReleaseService releases;
+    private final PendingAttachmentCleanupService attachmentCleanup;
     private final AdminAuditService audit;
 
-    public AdminJobController(ClaimReleaseService releases, AdminAuditService audit) {
+    public AdminJobController(ClaimReleaseService releases,
+                              PendingAttachmentCleanupService attachmentCleanup,
+                              AdminAuditService audit) {
         this.releases = releases;
+        this.attachmentCleanup = attachmentCleanup;
         this.audit = audit;
     }
 
@@ -40,6 +46,18 @@ public class AdminJobController {
         audit.record(AdminAuditAction.RUN_RELEASE_SWEEP, null,
                 "逾期 %d 筆，自動釋回 %d 筆".formatted(
                         result.overdueFound(), result.autoReleased()));
+        return result;
+    }
+
+    @PostMapping("/cleanup-pending-attachments")
+    @Operation(summary = "立即執行 PENDING 附件清理",
+            description = "清掉建立超過 24 小時仍未確認上傳的附件，含 best-effort 刪除對應的儲存物件；"
+                    + "逐筆處理，單筆失敗不擋整批")
+    public AttachmentCleanupResult cleanupPendingAttachments() {
+        AttachmentCleanupResult result = attachmentCleanup.cleanup();
+        audit.record(AdminAuditAction.RUN_ATTACHMENT_CLEANUP, null,
+                "掃到 %d 筆，清除 %d 筆，失敗 %d 筆".formatted(
+                        result.found(), result.deleted(), result.failed()));
         return result;
     }
 }
