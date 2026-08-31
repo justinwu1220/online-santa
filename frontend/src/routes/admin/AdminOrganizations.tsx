@@ -100,6 +100,7 @@ function OrganizationCard({ organization }: { organization: OrganizationReviewVi
       </div>
 
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <Row label="承辦人" value={organization.contactPerson} />
         <Row label="聯絡信箱" value={organization.contactEmail} />
         <Row label="聯絡電話" value={organization.contactPhone} />
         <div className="sm:col-span-2">

@@ -20,6 +20,10 @@ public class Organization extends BaseEntity {
     @Column(nullable = false, length = 120)
     private String name;
 
+    /** 承辦人姓名。是機構的屬性而非某位使用者的——一家機構日後可能有多位成員 */
+    @Column(name = "contact_person", length = 100)
+    private String contactPerson;
+
     @Column(name = "contact_email", nullable = false, length = 255)
     private String contactEmail;
 
@@ -61,9 +65,10 @@ public class Organization extends BaseEntity {
         // JPA
     }
 
-    private Organization(String name, String contactEmail, String contactPhone,
-                         String address, String description) {
+    private Organization(String name, String contactPerson, String contactEmail,
+                         String contactPhone, String address, String description) {
         this.name = name;
+        this.contactPerson = contactPerson;
         this.contactEmail = contactEmail;
         this.contactPhone = contactPhone;
         this.address = address;
@@ -73,14 +78,16 @@ public class Organization extends BaseEntity {
     }
 
     /** 自助註冊：一律從 PENDING 起算，須經管理員核准才能上架願望。 */
-    public static Organization register(String name, String contactEmail, String contactPhone,
-                                        String address, String description) {
-        return new Organization(name, contactEmail, contactPhone, address, description);
+    public static Organization register(String name, String contactPerson, String contactEmail,
+                                        String contactPhone, String address, String description) {
+        return new Organization(name, contactPerson, contactEmail, contactPhone,
+                address, description);
     }
 
-    public void updateProfile(String name, String contactEmail, String contactPhone,
-                              String address, String description) {
+    public void updateProfile(String name, String contactPerson, String contactEmail,
+                              String contactPhone, String address, String description) {
         this.name = name;
+        this.contactPerson = contactPerson;
         this.contactEmail = contactEmail;
         this.contactPhone = contactPhone;
         this.address = address;
@@ -145,6 +152,10 @@ public class Organization extends BaseEntity {
 
     public String getContactEmail() {
         return contactEmail;
+    }
+
+    public String getContactPerson() {
+        return contactPerson;
     }
 
     public String getContactPhone() {

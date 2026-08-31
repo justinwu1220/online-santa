@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { describeAuthError, useAuth, usingFirebase } from '../../lib/authContext'
+import { pageTitle } from '../../lib/brand'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
 import { WrongAccountPanel } from '../../components/auth/WrongAccountPanel'
 import { ErrorBanner, Spinner } from '../../components/Feedback'
@@ -23,9 +24,14 @@ export function OrgRegister() {
   const me = useCurrentUser()
 
   const [accountMode, setAccountMode] = useState<'register' | 'signIn'>('register')
-  const [account, setAccount] = useState({ contactName: '', email: '', password: '' })
+  const [account, setAccount] = useState({ email: '', password: '' })
   const [authError, setAuthError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    document.title = pageTitle('機構申請')
+    return () => { document.title = pageTitle() }
+  }, [])
 
   async function run(action: () => Promise<void>) {
     setAuthError(null)
@@ -91,20 +97,11 @@ export function OrgRegister() {
         onSubmit={(event) => {
           event.preventDefault()
           void run(() => registering
-            ? auth.registerWithPassword(
-              account.email, account.password, account.contactName || undefined)
+            ? auth.registerWithPassword(account.email, account.password)
             : auth.signInWithPassword(account.email, account.password))
         }}
       >
-        {registering && (
-          <Field label="承辦人姓名"
-            hint="填表這個人的姓名，不是機構名稱——機構名稱在下一步填">
-            <TextInput maxLength={100} placeholder="王小明"
-              value={account.contactName}
-              onChange={(e) => setAccount((c) => ({ ...c, contactName: e.target.value }))} />
-          </Field>
-        )}
-
+        {/* 承辦人姓名在下一步跟機構資料一起填——它是機構的欄位，不是帳號的 */}
         <Field label="信箱" required>
           <TextInput required type="email" autoComplete="email"
             placeholder="you@example.com" value={account.email}

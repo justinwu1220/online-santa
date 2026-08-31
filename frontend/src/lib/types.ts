@@ -96,6 +96,8 @@ export type ReleasePolicy = 'MANUAL' | 'AUTO'
 export interface OrganizationView {
   id: string
   name: string
+  /** 承辦人姓名。是機構的屬性，不是某位使用者的 display_name */
+  contactPerson: string
   contactEmail: string
   contactPhone?: string
   address?: string

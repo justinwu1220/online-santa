@@ -25,7 +25,7 @@ class OrganizationApiIT extends ApiIntegrationTest {
 
     private OrganizationRegistrationRequest registration(String name) {
         return new OrganizationRegistrationRequest(
-                name, "contact@example.org", "02-1234-5678",
+                name, "王承辦", "contact@example.org", "02-1234-5678",
                 "台北市中正區某路 1 號", "服務失依兒童的機構");
     }
 
@@ -34,6 +34,8 @@ class OrganizationApiIT extends ApiIntegrationTest {
         mvc.perform(as(withBody(post("/api/organizations"), registration("陽光之家")), ORG_USER))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value("陽光之家"))
+                // 承辦人存在機構上，不是 users.display_name——後者沒有任何地方讀得到
+                .andExpect(jsonPath("$.contactPerson").value("王承辦"))
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.canPublishWishes").value(false))
                 // 待審核就能存草稿，只是不能公開——後台靠這兩個旗標決定按鈕的狀態
@@ -76,13 +78,15 @@ class OrganizationApiIT extends ApiIntegrationTest {
 
     @Test
     void reportsFieldLevelValidationErrors() throws Exception {
-        var invalid = new OrganizationRegistrationRequest("", "not-an-email", null, null, null);
+        var invalid = new OrganizationRegistrationRequest("", null, "not-an-email", null, null, null);
 
         mvc.perform(as(withBody(post("/api/organizations"), invalid), ORG_USER))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorCode").value("VALIDATION_FAILED"))
                 .andExpect(jsonPath("$.fieldErrors.name").exists())
                 .andExpect(jsonPath("$.fieldErrors.contactEmail").exists())
+                // 承辦人是審核與聯繫的窗口，也必填
+                .andExpect(jsonPath("$.fieldErrors.contactPerson").exists())
                 // 電話與地址是必填：捐贈者認領後就是照著這兩個欄位把禮物寄出去的
                 .andExpect(jsonPath("$.fieldErrors.contactPhone").exists())
                 .andExpect(jsonPath("$.fieldErrors.address").exists());
@@ -95,7 +99,7 @@ class OrganizationApiIT extends ApiIntegrationTest {
 
         // 只在註冊時擋是不夠的——機構之後在設定頁清空一樣會讓寄送地址消失
         var cleared = new OrganizationUpdateRequest(
-                "先建立起來", "contact@example.org", "   ", "", null, ReleasePolicy.MANUAL, null);
+                "先建立起來", "王承辦", "contact@example.org", "   ", "", null, ReleasePolicy.MANUAL, null);
 
         mvc.perform(as(withBody(patch("/api/organizations/me"), cleared), ORG_USER))
                 .andExpect(status().isBadRequest())
@@ -116,7 +120,7 @@ class OrganizationApiIT extends ApiIntegrationTest {
                 .andExpect(status().isCreated());
 
         var update = new OrganizationUpdateRequest(
-                "自動釋回之家", "new@example.org", "02-0000-0000",
+                "自動釋回之家", "王承辦", "new@example.org", "02-0000-0000",
                 "新地址", "新簡介", ReleasePolicy.AUTO, 10);
 
         mvc.perform(as(withBody(patch("/api/organizations/me"), update), ORG_USER))
@@ -131,13 +135,13 @@ class OrganizationApiIT extends ApiIntegrationTest {
         mvc.perform(as(withBody(post("/api/organizations"), registration("切回手動之家")), ORG_USER))
                 .andExpect(status().isCreated());
 
-        var toAuto = new OrganizationUpdateRequest("切回手動之家", "a@example.org",
+        var toAuto = new OrganizationUpdateRequest("切回手動之家", "王承辦", "a@example.org",
                 "02-1234-5678", "台北市中正區某路 1 號", null, ReleasePolicy.AUTO, 5);
         mvc.perform(as(withBody(patch("/api/organizations/me"), toAuto), ORG_USER))
                 .andExpect(status().isOk());
 
         // 切回 MANUAL 時必須清掉天數，否則違反 ck_org_release_after_days
-        var toManual = new OrganizationUpdateRequest("切回手動之家", "a@example.org",
+        var toManual = new OrganizationUpdateRequest("切回手動之家", "王承辦", "a@example.org",
                 "02-1234-5678", "台北市中正區某路 1 號", null, ReleasePolicy.MANUAL, 5);
         mvc.perform(as(withBody(patch("/api/organizations/me"), toManual), ORG_USER))
                 .andExpect(status().isOk())
@@ -150,7 +154,7 @@ class OrganizationApiIT extends ApiIntegrationTest {
         mvc.perform(as(withBody(post("/api/organizations"), registration("缺天數之家")), ORG_USER))
                 .andExpect(status().isCreated());
 
-        var invalid = new OrganizationUpdateRequest("缺天數之家", "a@example.org",
+        var invalid = new OrganizationUpdateRequest("缺天數之家", "王承辦", "a@example.org",
                 "02-1234-5678", "台北市中正區某路 1 號", null, ReleasePolicy.AUTO, null);
 
         mvc.perform(as(withBody(patch("/api/organizations/me"), invalid), ORG_USER))

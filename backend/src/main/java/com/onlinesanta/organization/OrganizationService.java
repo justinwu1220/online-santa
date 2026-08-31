@@ -55,6 +55,7 @@ public class OrganizationService {
 
         Organization organization = organizations.save(Organization.register(
                 request.name(),
+                request.contactPerson(),
                 request.contactEmail(),
                 request.contactPhone(),
                 request.address(),
@@ -83,6 +84,7 @@ public class OrganizationService {
 
         organization.updateProfile(
                 request.name(),
+                request.contactPerson(),
                 request.contactEmail(),
                 request.contactPhone(),
                 request.address(),

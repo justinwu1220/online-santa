@@ -9,6 +9,10 @@ public record OrganizationRegistrationRequest(
         @Size(max = 120, message = "機構名稱不可超過 120 字")
         String name,
 
+        @NotBlank(message = "承辦人姓名不可為空")
+        @Size(max = 100, message = "承辦人姓名不可超過 100 字")
+        String contactPerson,
+
         @NotBlank(message = "聯絡信箱不可為空")
         @Email(message = "聯絡信箱格式不正確")
         @Size(max = 255)

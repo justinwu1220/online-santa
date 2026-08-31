@@ -57,7 +57,7 @@ class ClaimApiIT extends ApiIntegrationTest {
     private Organization approvedOrganization(String name, String memberEmail) {
         // 電話與地址現在是必填，測試資料也照著填——捐贈者的認領視圖要靠它們
         Organization org = Organization.register(
-                name, "contact@example.org", "02-1234-5678", "台北市中正區某某路 1 號", null);
+                name, "王承辦", "contact@example.org", "02-1234-5678", "台北市中正區某某路 1 號", null);
         org.approve(null, "測試資料");
         organizations.save(org);
 

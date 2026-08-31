@@ -70,7 +70,7 @@ class ClaimReleaseIT extends ApiIntegrationTest {
 
     private Organization organizationWith(String name, String memberEmail,
                                           ReleasePolicy policy, Integer days) {
-        Organization org = Organization.register(name, "contact@example.org", null, null, null);
+        Organization org = Organization.register(name, "王承辦", "contact@example.org", null, null, null);
         org.approve(null, "測試資料");
         org.updateReleasePolicy(policy, days);
         organizations.save(org);

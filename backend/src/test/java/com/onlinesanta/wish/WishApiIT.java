@@ -44,7 +44,7 @@ class WishApiIT extends ApiIntegrationTest {
 
     private void createApprovedOrganization(String name, String memberEmail) {
         Organization organization = Organization.register(
-                name, "contact@example.org", null, null, "測試機構");
+                name, "王承辦", "contact@example.org", null, null, "測試機構");
         organization.approve(null, "測試資料");
         organizations.save(organization);
 
@@ -137,7 +137,7 @@ class WishApiIT extends ApiIntegrationTest {
     void allowsDraftCreationButNotPublishingForPendingOrganization() throws Exception {
         String pendingUser = "pending@example.org";
         Organization pending = organizations.save(
-                Organization.register("待審核之家", pendingUser, null, null, null));
+                Organization.register("待審核之家", "王承辦", pendingUser, null, null, null));
         User member = User.newDonor(TestJwtSupport.uidFor(pendingUser), pendingUser, "待審核");
         member.joinOrganization(pending.getId());
         users.save(member);
@@ -158,7 +158,7 @@ class WishApiIT extends ApiIntegrationTest {
     void keepsUnapprovedOrganizationsDraftsOffTheWishWall() throws Exception {
         String pendingUser = "wall-check@example.org";
         Organization pending = organizations.save(
-                Organization.register("牆上不該有的機構", pendingUser, null, null, null));
+                Organization.register("牆上不該有的機構", "王承辦", pendingUser, null, null, null));
         User member = User.newDonor(TestJwtSupport.uidFor(pendingUser), pendingUser, "待審核");
         member.joinOrganization(pending.getId());
         users.save(member);

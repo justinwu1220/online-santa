@@ -10,6 +10,7 @@ import com.onlinesanta.organization.OrganizationStatus;
 public record OrganizationReviewView(
         UUID id,
         String name,
+        String contactPerson,
         String contactEmail,
         String contactPhone,
         String address,
@@ -24,6 +25,7 @@ public record OrganizationReviewView(
         return new OrganizationReviewView(
                 org.getId(),
                 org.getName(),
+                org.getContactPerson(),
                 org.getContactEmail(),
                 org.getContactPhone(),
                 org.getAddress(),

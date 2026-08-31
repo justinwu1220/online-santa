@@ -11,6 +11,7 @@ import com.onlinesanta.organization.ReleasePolicy;
 public record OrganizationView(
         UUID id,
         String name,
+        String contactPerson,
         String contactEmail,
         String contactPhone,
         String address,
@@ -29,6 +30,7 @@ public record OrganizationView(
         return new OrganizationView(
                 org.getId(),
                 org.getName(),
+                org.getContactPerson(),
                 org.getContactEmail(),
                 org.getContactPhone(),
                 org.getAddress(),

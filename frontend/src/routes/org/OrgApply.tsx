@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { ApiError, api } from '../../lib/api'
 import { useAuth } from '../../lib/authContext'
+import { pageTitle } from '../../lib/brand'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
 import type { OrganizationView } from '../../lib/types'
 import { EmailVerificationBanner } from '../../components/EmailVerificationBanner'
@@ -13,6 +14,7 @@ import { StepHeading } from './applyShared'
 
 type Form = {
   name: string
+  contactPerson: string
   contactEmail: string
   contactPhone: string
   address: string
@@ -22,7 +24,10 @@ type Form = {
 type Draft = { form: Form; contactEmailTouched: boolean }
 
 const EMPTY: Draft = {
-  form: { name: '', contactEmail: '', contactPhone: '', address: '', description: '' },
+  form: {
+    name: '', contactPerson: '', contactEmail: '',
+    contactPhone: '', address: '', description: '',
+  },
   contactEmailTouched: false,
 }
 
@@ -52,6 +57,11 @@ function readDraft(key: string): Draft {
 export function OrgApply() {
   const auth = useAuth()
   const me = useCurrentUser()
+
+  useEffect(() => {
+    document.title = pageTitle('機構申請')
+    return () => { document.title = pageTitle() }
+  }, [])
 
   if (auth.loading) return <Spinner />
   // 還沒有帳號：回步驟一
@@ -169,6 +179,12 @@ function ApplyForm({ email }: { email: string }) {
           <Field label="機構名稱" required error={fieldErrors?.name}>
             <TextInput required maxLength={120} placeholder="某某社會福利基金會"
               value={form.name} onChange={update('name')} />
+          </Field>
+
+          <Field label="承辦人姓名" required error={fieldErrors?.contactPerson}
+            hint="平台審核與捐贈者聯繫時的窗口">
+            <TextInput required maxLength={100} placeholder="王小明"
+              value={form.contactPerson} onChange={update('contactPerson')} />
           </Field>
 
           <Field label="聯絡信箱" required error={fieldErrors?.contactEmail}

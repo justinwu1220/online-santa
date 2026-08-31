@@ -53,7 +53,7 @@ class WishImageDisabledIT extends ApiIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        organization = Organization.register("送禮之家", "contact@example.org", null, null, null);
+        organization = Organization.register("送禮之家", "王承辦", "contact@example.org", null, null, null);
         organization.approve(null, "測試資料");
         organizations.save(organization);
 

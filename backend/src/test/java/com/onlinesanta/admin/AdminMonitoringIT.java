@@ -56,7 +56,7 @@ class AdminMonitoringIT extends ApiIntegrationTest {
     }
 
     private Organization approvedOrganization(String name, String memberEmail) {
-        Organization org = Organization.register(name, "contact@example.org", null, null, null);
+        Organization org = Organization.register(name, "王承辦", "contact@example.org", null, null, null);
         org.approve(null, "測試資料");
         organizations.save(org);
 
@@ -88,7 +88,7 @@ class AdminMonitoringIT extends ApiIntegrationTest {
         publishedWish(organizationA, "甲的願望一");
         publishedWish(organizationA, "甲的願望二");
         claim(publishedWish(organizationB, "乙的願望"));
-        organizations.save(Organization.register("待審之家", "pending@example.org", null, null, null));
+        organizations.save(Organization.register("待審之家", "王承辦", "pending@example.org", null, null, null));
 
         mvc.perform(as(get("/api/admin/stats"), ADMIN))
                 .andExpect(status().isOk())
@@ -203,7 +203,7 @@ class AdminMonitoringIT extends ApiIntegrationTest {
     @DisplayName("審核決定會寫稽核")
     void reviewDecisionsAreAudited() throws Exception {
         Organization pending = organizations.save(
-                Organization.register("待審之家", "pending@example.org", null, null, null));
+                Organization.register("待審之家", "王承辦", "pending@example.org", null, null, null));
 
         mvc.perform(as(post("/api/admin/organizations/{id}/approve", pending.getId()), ADMIN))
                 .andExpect(status().isOk());

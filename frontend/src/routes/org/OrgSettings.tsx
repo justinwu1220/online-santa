@@ -12,6 +12,7 @@ export function OrgSettings() {
 
   const [form, setForm] = useState({
     name: organization.name,
+    contactPerson: organization.contactPerson ?? '',
     contactEmail: organization.contactEmail,
     contactPhone: organization.contactPhone ?? '',
     address: organization.address ?? '',
@@ -67,6 +68,11 @@ export function OrgSettings() {
         <Field label="機構名稱" required>
           <TextInput required maxLength={120} value={form.name} onChange={update('name')} />
         </Field>
+        <Field label="承辦人姓名" required hint="平台審核與捐贈者聯繫時的窗口">
+          <TextInput required maxLength={100}
+            value={form.contactPerson} onChange={update('contactPerson')} />
+        </Field>
+
         {/* 兩個聯絡方式併排；地址獨佔一排——它比另外兩者長得多，擠在半排會被截斷 */}
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="聯絡信箱" required>

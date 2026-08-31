@@ -66,7 +66,7 @@ class AttachmentApiIT extends ApiIntegrationTest {
     }
 
     private Organization approvedOrganization(String name, String memberEmail) {
-        Organization org = Organization.register(name, "contact@example.org", null, null, null);
+        Organization org = Organization.register(name, "王承辦", "contact@example.org", null, null, null);
         org.approve(null, "測試資料");
         organizations.save(org);
 

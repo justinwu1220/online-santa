@@ -19,6 +19,10 @@ public record OrganizationUpdateRequest(
         @Size(max = 120)
         String name,
 
+        @NotBlank(message = "承辦人姓名不可為空")
+        @Size(max = 100)
+        String contactPerson,
+
         @NotBlank(message = "聯絡信箱不可為空")
         @Email(message = "聯絡信箱格式不正確")
         @Size(max = 255)

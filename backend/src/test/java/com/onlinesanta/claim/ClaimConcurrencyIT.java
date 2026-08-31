@@ -73,7 +73,7 @@ class ClaimConcurrencyIT extends PostgresIntegrationTest {
         cleanDatabase();
 
         Organization organization = Organization.register(
-                "搶領測試之家", "contact@example.org", null, null, null);
+                "搶領測試之家", "王承辦", "contact@example.org", null, null, null);
         organization.approve(null, "測試資料");
         organizations.save(organization);
 

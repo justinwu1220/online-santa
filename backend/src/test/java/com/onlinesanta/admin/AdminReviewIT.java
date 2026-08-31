@@ -27,7 +27,7 @@ class AdminReviewIT extends ApiIntegrationTest {
 
     private UUID registerOrganization(String name, String memberEmail) throws Exception {
         var request = new OrganizationRegistrationRequest(
-                name, "contact@example.org", "02-1234-5678", "台北市", "服務失依兒童");
+                name, "王承辦", "contact@example.org", "02-1234-5678", "台北市", "服務失依兒童");
         String body = mvc.perform(as(withBody(post("/api/organizations"), request), memberEmail))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
@@ -166,7 +166,7 @@ class AdminReviewIT extends ApiIntegrationTest {
         // 電話與地址填滿：這條測試要驗的是「管理員被擋下」，欄位缺漏會先回 400，
         // 授權那一條根本不會被執行到，測試就會因為錯誤的理由而通過
         var request = new OrganizationRegistrationRequest(
-                "球員兼裁判之家", "admin@example.org", "02-1234-5678", "台北市某路 1 號", null);
+                "球員兼裁判之家", "王承辦", "admin@example.org", "02-1234-5678", "台北市某路 1 號", null);
 
         mvc.perform(as(withBody(post("/api/organizations"), request), ADMIN))
                 .andExpect(status().isConflict())
