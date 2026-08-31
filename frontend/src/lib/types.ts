@@ -16,6 +16,14 @@ export interface CurrentUser {
   emailVerified: boolean
 }
 
+/** 個人檔案設定頁使用的自身資料，見 GET/PATCH /api/me/profile */
+export interface UserProfile {
+  displayName: string
+  phone?: string
+  email: string
+  emailVerified: boolean
+}
+
 export interface PageResponse<T> {
   content: T[]
   page: number

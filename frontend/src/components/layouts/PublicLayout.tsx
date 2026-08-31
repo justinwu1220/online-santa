@@ -89,9 +89,18 @@ function AuthControls() {
         {effectiveRoleOf(me.data) === 'ORG_MEMBER' && (
           <Link to="/org" className="text-sm text-emerald-300 hover:underline">機構後台</Link>
         )}
-        <span className="max-w-[14rem] truncate text-sm text-slate-400" title={email}>
-          {email}
-        </span>
+        {/* 帳號圖示取代原本直接顯示 email 的做法：點進去是個人檔案頁，
+            title 帶 email 讓 hover 還看得到自己是誰 */}
+        <Link
+          to="/me/profile"
+          title={email}
+          aria-label="個人資料"
+          className="flex h-9 w-9 items-center justify-center rounded-full border
+            border-white/10 bg-white/5 text-slate-300 backdrop-blur-md transition-colors
+            hover:border-white/20 hover:bg-white/10 hover:text-white"
+        >
+          <AccountIcon />
+        </Link>
         <Button variant="ghost" className="text-slate-300 hover:bg-white/10 hover:text-white"
           onClick={() => void signOut()}>
           登出
@@ -114,6 +123,17 @@ function AuthControls() {
     >
       登入 / 註冊
     </Link>
+  )
+}
+
+function AccountIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"
+      className="h-5 w-5" aria-hidden>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4 3.5-6 8-6s8 2 8 6" />
+    </svg>
   )
 }
 

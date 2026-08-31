@@ -11,6 +11,7 @@ import { AdminSystem } from './routes/admin/AdminSystem'
 import { ClaimDetail } from './routes/ClaimDetail'
 import { LoginPage } from './routes/LoginPage'
 import { MyClaims } from './routes/MyClaims'
+import { MyProfile } from './routes/MyProfile'
 import { NotFound } from './routes/NotFound'
 import { OrgApply } from './routes/org/OrgApply'
 import { OrgClaims } from './routes/org/OrgClaims'
@@ -48,6 +49,10 @@ export default function App() {
           <RequireRole role="DONOR" loginPath="/login"><MyClaims /></RequireRole>} />
         <Route path="me/claims/:id" element={
           <RequireRole role="DONOR" loginPath="/login"><ClaimDetail /></RequireRole>} />
+
+        {/* 不用 RequireRole：它只接受單一角色，會把機構成員與管理員也鎖在
+            個人檔案外面，而任何登入者都該能編輯自己的資料 */}
+        <Route path="me/profile" element={<MyProfile />} />
       </Route>
 
       {/* ---------------------------------------------------------- 機構後台 */}
