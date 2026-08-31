@@ -59,6 +59,7 @@ public class AdminStatsService {
                 organizationCounts.getOrDefault(OrganizationStatus.PENDING.name(), 0L),
                 wishCounts.getOrDefault(WishStatus.AVAILABLE.name(), 0L),
                 TaiwanYear.availableYearsSince(wishes.earliestCreatedAt()),
+                TaiwanYear.availableYearsSince(claims.earliestClaimedAtPlatformWide()),
                 Instant.now());
     }
 

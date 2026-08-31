@@ -77,14 +77,30 @@ public class AdminCatalogService {
 
     // ---------------------------------------------------------------- 認領
 
+    /**
+     * @param year 選填的年度篩選（台北日曆年，以 {@code claimedAt} 歸年——cohort 制，
+     *             與年度統計口徑一致）。null 代表不篩選，可與 status／overdueOnly
+     *             任意組合
+     */
     @Transactional(readOnly = true)
-    public Page<Claim> listClaims(ClaimStatus status, boolean overdueOnly, Pageable pageable) {
+    public Page<Claim> listClaims(ClaimStatus status, boolean overdueOnly, Integer year, Pageable pageable) {
+        if (year == null) {
+            if (overdueOnly) {
+                return claims.findAllOverdue(Instant.now(), pageable);
+            }
+            return status == null
+                    ? claims.findAllBy(pageable)
+                    : claims.findByStatus(status, pageable);
+        }
+
+        Instant from = TaiwanYear.startOf(year);
+        Instant to = TaiwanYear.endOf(year);
         if (overdueOnly) {
-            return claims.findAllOverdue(Instant.now(), pageable);
+            return claims.findOverdueAndClaimedAtRange(Instant.now(), from, to, pageable);
         }
         return status == null
-                ? claims.findAllBy(pageable)
-                : claims.findByStatus(status, pageable);
+                ? claims.findByClaimedAtRange(from, to, pageable)
+                : claims.findByStatusAndClaimedAtRange(status, from, to, pageable);
     }
 
     /**

@@ -15,6 +15,8 @@ import java.util.Map;
  * @param availableWishYears 有願望（以 createdAt 歸年）可選的年份，供「全站願望」頁的
  *                           年度篩選下拉使用。放在這裡而非另開端點：AdminLayout 本來就
  *                           每次進後台都會打這支，可以搭便車，不必為一個下拉多一次往返
+ * @param availableClaimYears 有認領（以 claimedAt 歸年，cohort 口徑）可選的年份，
+ *                            供「全站認領」頁的年度篩選下拉使用，理由同上
  */
 public record PlatformStatsView(
         Map<String, Long> organizations,
@@ -25,5 +27,6 @@ public record PlatformStatsView(
         long pendingOrganizations,
         long availableWishes,
         List<Integer> availableWishYears,
+        List<Integer> availableClaimYears,
         Instant generatedAt) {
 }

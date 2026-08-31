@@ -52,13 +52,15 @@ public class AdminCatalogController {
     }
 
     @GetMapping("/claims")
-    @Operation(summary = "跨機構認領清單", description = "可用 status 篩選，或 overdue=true 只看逾期")
+    @Operation(summary = "跨機構認領清單",
+            description = "可用 status 篩選、overdue=true 只看逾期、year 依 claimedAt 的台北日曆年篩選，三者可任意組合")
     public PageResponse<AdminClaimView> claims(
             @RequestParam(required = false) ClaimStatus status,
             @RequestParam(defaultValue = "false") boolean overdue,
+            @RequestParam(required = false) Integer year,
             @PageableDefault(size = 20, sort = "claimedAt") Pageable pageable) {
         return PageResponse.of(
-                catalog.listClaims(status, overdue, pageable), AdminClaimView::from);
+                catalog.listClaims(status, overdue, year, pageable), AdminClaimView::from);
     }
 
     @GetMapping("/claims/{id}")

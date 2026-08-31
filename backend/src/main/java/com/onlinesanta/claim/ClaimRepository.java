@@ -38,6 +38,43 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID> {
             """)
     Page<Claim> findAllOverdue(@Param("now") Instant now, Pageable pageable);
 
+    // ================================================================ 監控中心「全站認領」的年度篩選
+    //
+    // 以 claimedAt 的台北日曆年篩選，與年度統計的 cohort 口徑一致（認領的歸屬時間
+    // 就是 claimedAt，不是 createdAt）。比照本分支已知的坑：不用
+    // (:year is null or ...) 的 nullable-filter，Service 依「有無 year」分流成
+    // 明確的方法，這裡的參數一定有值，用 >= / < 半開區間。
+
+    @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
+    @Query("select c from Claim c where c.claimedAt >= :from and c.claimedAt < :to")
+    Page<Claim> findByClaimedAtRange(@Param("from") Instant from, @Param("to") Instant to,
+                                     Pageable pageable);
+
+    @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
+    @Query("""
+            select c from Claim c
+             where c.status = :status
+               and c.claimedAt >= :from
+               and c.claimedAt < :to
+            """)
+    Page<Claim> findByStatusAndClaimedAtRange(@Param("status") ClaimStatus status,
+                                              @Param("from") Instant from, @Param("to") Instant to,
+                                              Pageable pageable);
+
+    /** 逾期清單加年度篩選：同 {@link #findAllOverdue}，多帶 claimedAt 區間。 */
+    @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
+    @Query("""
+            select c from Claim c
+            where c.status = com.onlinesanta.claim.ClaimStatus.CLAIMED
+              and c.shipDeadlineAt is not null
+              and c.shipDeadlineAt < :now
+              and c.claimedAt >= :from
+              and c.claimedAt < :to
+            """)
+    Page<Claim> findOverdueAndClaimedAtRange(@Param("now") Instant now,
+                                             @Param("from") Instant from, @Param("to") Instant to,
+                                             Pageable pageable);
+
     /** 依狀態分組計數，供監控中心的統計使用。 */
     @Query("select c.status, count(c) from Claim c group by c.status")
     List<Object[]> countByStatus();

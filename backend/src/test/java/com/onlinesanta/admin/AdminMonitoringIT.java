@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -92,6 +93,19 @@ class AdminMonitoringIT extends ApiIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return UUID.fromString(json.readTree(body).get("id").asText());
+    }
+
+    private void backdateClaim(UUID claimId, Instant claimedAt) {
+        entityManager.flush();
+        jdbc.update("UPDATE claims SET claimed_at = ? WHERE id = ?", Timestamp.from(claimedAt), claimId);
+        entityManager.clear();
+    }
+
+    private void makeOverdue(UUID claimId) {
+        entityManager.flush();
+        jdbc.update("UPDATE claims SET ship_deadline_at = ? WHERE id = ?",
+                Timestamp.from(Instant.now().minus(1, ChronoUnit.DAYS)), claimId);
+        entityManager.clear();
     }
 
     private void backdateWish(UUID wishId, Instant createdAt) {
@@ -260,6 +274,111 @@ class AdminMonitoringIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].organizationName").value("甲機構"))
                 .andExpect(jsonPath("$.content[0].donorEmail").value(DONOR));
+    }
+
+    // ------------------------------------------------------------ 認領的年度篩選
+
+    @Test
+    @DisplayName("認領清單可用 year 篩選，以 claimedAt 的台北日曆年為準（cohort 口徑）")
+    void claimListFiltersByYear() throws Exception {
+        UUID claim2025 = claim(publishedWish(organizationA, "去年的認領"));
+        backdateClaim(claim2025, TaiwanYear.startOf(2025).plusSeconds(3600));
+
+        UUID claim2026 = claim(publishedWish(organizationA, "今年的認領"));
+        backdateClaim(claim2026, TaiwanYear.startOf(2026).plusSeconds(3600));
+
+        mvc.perform(as(get("/api/admin/claims").param("year", "2025"), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].wishTitle").value("去年的認領"));
+
+        mvc.perform(as(get("/api/admin/claims").param("year", "2026"), ADMIN))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].wishTitle").value("今年的認領"));
+
+        mvc.perform(as(get("/api/admin/claims"), ADMIN))
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    @Test
+    @DisplayName("認領清單的 status 與 year 篩選可以同時使用")
+    void claimListFiltersByStatusAndYearTogether() throws Exception {
+        UUID claimedThisYear = claim(publishedWish(organizationA, "今年待寄送"));
+        backdateClaim(claimedThisYear, TaiwanYear.startOf(2026).plusSeconds(3600));
+
+        UUID cancelledThisYear = claim(publishedWish(organizationA, "今年已取消"));
+        backdateClaim(cancelledThisYear, TaiwanYear.startOf(2026).plusSeconds(7200));
+        mvc.perform(as(post("/api/claims/{id}/cancel", cancelledThisYear), DONOR))
+                .andExpect(status().isOk());
+
+        UUID claimedLastYear = claim(publishedWish(organizationA, "去年待寄送"));
+        backdateClaim(claimedLastYear, TaiwanYear.startOf(2025).plusSeconds(3600));
+
+        mvc.perform(as(get("/api/admin/claims")
+                        .param("status", "CLAIMED").param("year", "2026"), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].wishTitle").value("今年待寄送"));
+
+        // 只 status：兩個年度的 CLAIMED 都算
+        mvc.perform(as(get("/api/admin/claims").param("status", "CLAIMED"), ADMIN))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        // 只 year：該年不分狀態都算
+        mvc.perform(as(get("/api/admin/claims").param("year", "2026"), ADMIN))
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    @Test
+    @DisplayName("逾期清單也能加 year 篩選")
+    void overdueListFiltersByYearToo() throws Exception {
+        UUID overdueThisYear = claim(publishedWish(organizationA, "今年逾期"));
+        backdateClaim(overdueThisYear, TaiwanYear.startOf(2026).plusSeconds(3600));
+        makeOverdue(overdueThisYear);
+
+        UUID overdueLastYear = claim(publishedWish(organizationA, "去年逾期"));
+        backdateClaim(overdueLastYear, TaiwanYear.startOf(2025).plusSeconds(3600));
+        makeOverdue(overdueLastYear);
+
+        mvc.perform(as(get("/api/admin/claims")
+                        .param("overdue", "true").param("year", "2026"), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].wishTitle").value("今年逾期"));
+
+        // 只 overdue：兩個年度的逾期都算
+        mvc.perform(as(get("/api/admin/claims").param("overdue", "true"), ADMIN))
+                .andExpect(jsonPath("$.totalElements").value(2));
+    }
+
+    @Test
+    @DisplayName("認領年度邊界：台北 12/31 23:30 認領歸當年，即使 UTC 已經是隔年")
+    void claimYearFilterRespectsTaipeiYearBoundary() throws Exception {
+        UUID claimId = claim(publishedWish(organizationA, "跨年夜認領"));
+
+        Instant taipeiNewYearsEve = ZonedDateTime
+                .of(2025, 12, 31, 23, 30, 0, 0, TaiwanYear.ZONE)
+                .toInstant();
+        backdateClaim(claimId, taipeiNewYearsEve);
+
+        mvc.perform(as(get("/api/admin/claims").param("year", "2025"), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(as(get("/api/admin/claims").param("year", "2026"), ADMIN))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
+    @DisplayName("/api/admin/stats 附上認領的可選年份，供年度篩選下拉使用")
+    void statsIncludesAvailableClaimYears() throws Exception {
+        UUID claim2023 = claim(publishedWish(organizationA, "很久以前的認領"));
+        backdateClaim(claim2023, TaiwanYear.startOf(2023).plusSeconds(3600));
+
+        mvc.perform(as(get("/api/admin/stats"), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.availableClaimYears[0]").value(TaiwanYear.currentYear()))
+                .andExpect(jsonPath("$.availableClaimYears[" + (TaiwanYear.currentYear() - 2023) + "]")
+                        .value(2023));
     }
 
     // ------------------------------------------------------------ 稽核
