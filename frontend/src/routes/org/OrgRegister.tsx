@@ -32,6 +32,9 @@ export function OrgRegister() {
   const [account, setAccount] = useState({ contactName: '', email: '', password: '' })
   const [authError, setAuthError] = useState<string | null>(null)
   const [authBusy, setAuthBusy] = useState(false)
+  // 帳號是在這一頁剛建立/登入的。用來決定要不要提示「還有第二步」——
+  // 從機構入口帶著身分進來的人不需要那句話，表單本身就夠清楚了
+  const [accountJustReady, setAccountJustReady] = useState(false)
 
   // ---------------------------------------------------------------- 機構區塊
   const [form, setForm] = useState({
@@ -82,6 +85,7 @@ export function OrgRegister() {
         } else {
           await auth.signInWithPassword(account.email, account.password)
         }
+        setAccountJustReady(true)
       } catch (caught) {
         if ((caught as { code?: string })?.code === 'auth/email-already-in-use') {
           // 不要把人導去登入頁——已經填好的機構資料會全部消失
@@ -98,6 +102,19 @@ export function OrgRegister() {
 
     if (!auth.emailVerified) return
     register.mutate()
+  }
+
+  async function signInWithGoogle() {
+    setAuthError(null)
+    setAuthBusy(true)
+    try {
+      await auth.signIn()
+      setAccountJustReady(true)
+    } catch (caught) {
+      setAuthError(describeAuthError(caught))
+    } finally {
+      setAuthBusy(false)
+    }
   }
 
   // ---------------------------------------------------------------- 身分分流
@@ -136,7 +153,9 @@ export function OrgRegister() {
 
   const registering = accountMode === 'register'
   const busy = authBusy || register.isPending
-  const submitLabel = signedIn ? '送出申請' : (registering ? '建立帳號' : '登入')
+  // 「並繼續」不是贅字：這一步不會送出申請，標籤要先講清楚，
+  // 否則使用者按完看不到變化，會以為送出失敗
+  const submitLabel = signedIn ? '送出申請' : (registering ? '建立帳號並繼續' : '登入並繼續')
 
   return (
     <>
@@ -211,7 +230,7 @@ export function OrgRegister() {
                 {usingFirebase && (
                   <div className="space-y-2 border-t border-slate-100 pt-5">
                     <Button variant="secondary" className="w-full py-2.5" disabled={busy}
-                      onClick={() => void auth.signIn()}>
+                      onClick={() => void signInWithGoogle()}>
                       使用 Google 登入
                     </Button>
                     <p className="text-center text-xs text-slate-500">
@@ -258,6 +277,16 @@ export function OrgRegister() {
                 value={form.description} onChange={update('description')} />
             </Field>
           </fieldset>
+
+          {signedIn && auth.emailVerified && accountJustReady && (
+            <Notice tone="success">
+              <p className="font-medium">帳號完成，還沒送出申請</p>
+              <p className="mt-1">
+                機構資料還在下面這張表單裡。確認無誤後按「<strong>送出申請</strong>」才會
+                真的提出申請。
+              </p>
+            </Notice>
+          )}
 
           {signedIn && !auth.emailVerified && (
             <Notice tone="warning">
