@@ -32,6 +32,8 @@ export function AuthPanel({ hint, registerHint, allowRegister = true }: {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [confirmError, setConfirmError] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -41,6 +43,10 @@ export function AuthPanel({ hint, registerHint, allowRegister = true }: {
     setMode(next)
     setError(null)
     setNotice(null)
+    // 離開註冊分頁時一併清掉——確認密碼欄只在註冊模式出現，殘留的值與錯誤
+    // 沒有意義，切回來也該是空白的
+    setConfirmPassword('')
+    setConfirmError(null)
   }
 
   async function run(action: () => Promise<void>, successNotice?: string) {
@@ -158,6 +164,10 @@ export function AuthPanel({ hint, registerHint, allowRegister = true }: {
         className="space-y-3"
         onSubmit={(event) => {
           event.preventDefault()
+          if (registering && password !== confirmPassword) {
+            setConfirmError('兩次輸入的密碼不一致')
+            return
+          }
           void run(() => registering
             ? auth.registerWithPassword(email, password, displayName || undefined)
             : auth.signInWithPassword(email, password))
@@ -188,9 +198,28 @@ export function AuthPanel({ hint, registerHint, allowRegister = true }: {
             minLength={registering ? 6 : undefined}
             autoComplete={registering ? 'new-password' : 'current-password'}
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(event) => {
+              setPassword(event.target.value)
+              setConfirmError(null)
+            }}
           />
         </Field>
+
+        {registering && (
+          <Field label="確認密碼" required error={confirmError ?? undefined}>
+            <TextInput
+              type="password"
+              required
+              minLength={6}
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(event) => {
+                setConfirmPassword(event.target.value)
+                setConfirmError(null)
+              }}
+            />
+          </Field>
+        )}
 
         {error && <ErrorText>{error}</ErrorText>}
         {notice && <Notice tone="success">{notice}</Notice>}

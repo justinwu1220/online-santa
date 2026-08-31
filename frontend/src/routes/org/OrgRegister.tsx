@@ -24,9 +24,26 @@ export function OrgRegister() {
   const me = useCurrentUser()
 
   const [accountMode, setAccountMode] = useState<'register' | 'signIn'>('register')
-  const [account, setAccount] = useState({ email: '', password: '' })
+  const [account, setAccount] = useState({ email: '', password: '', confirmPassword: '' })
+  const [confirmError, setConfirmError] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  /**
+   * 切換註冊／登入模式時一併清掉確認密碼——它只在註冊模式出現，殘留的值與
+   * 錯誤沒有意義。
+   *
+   * <p>只在模式真的改變時才清：信箱欄每次輸入都會呼叫這個函式把模式收斂回
+   * 'register'，若不判斷是否真的變了，使用者填完確認密碼後回頭修信箱錯字，
+   * 會把剛打好的確認密碼清空。
+   */
+  function switchAccountMode(next: 'register' | 'signIn') {
+    if (next !== accountMode) {
+      setAccount((c) => ({ ...c, confirmPassword: '' }))
+      setConfirmError(null)
+    }
+    setAccountMode(next)
+  }
 
   useEffect(() => {
     document.title = pageTitle('機構申請')
@@ -41,7 +58,7 @@ export function OrgRegister() {
     } catch (caught) {
       if ((caught as { code?: string })?.code === 'auth/email-already-in-use') {
         // 就地切換成登入，不要把人趕去別的頁面重打一次信箱
-        setAccountMode('signIn')
+        switchAccountMode('signIn')
         setAuthError('這個信箱已經有帳號了。輸入密碼登入之後就能繼續下一步。')
       } else {
         setAuthError(describeAuthError(caught))
@@ -96,6 +113,10 @@ export function OrgRegister() {
         className="space-y-5"
         onSubmit={(event) => {
           event.preventDefault()
+          if (usingFirebase && registering && account.password !== account.confirmPassword) {
+            setConfirmError('兩次輸入的密碼不一致')
+            return
+          }
           void run(() => registering
             ? auth.registerWithPassword(account.email, account.password)
             : auth.signInWithPassword(account.email, account.password))
@@ -110,7 +131,7 @@ export function OrgRegister() {
               // signIn 模式只綁定「剛剛被判定為已存在」的那個信箱。換了信箱就切回
               // 註冊，否則使用者改掉打錯的信箱之後，按鈕仍然是「登入」，
               // 會拿到莫名其妙的「信箱或密碼不正確」
-              setAccountMode('register')
+              switchAccountMode('register')
               setAuthError(null)
             }} />
         </Field>
@@ -121,7 +142,21 @@ export function OrgRegister() {
             <TextInput required type="password" minLength={registering ? 6 : undefined}
               autoComplete={registering ? 'new-password' : 'current-password'}
               value={account.password}
-              onChange={(e) => setAccount((c) => ({ ...c, password: e.target.value }))} />
+              onChange={(e) => {
+                setAccount((c) => ({ ...c, password: e.target.value }))
+                setConfirmError(null)
+              }} />
+          </Field>
+        )}
+
+        {usingFirebase && registering && (
+          <Field label="確認密碼" required error={confirmError ?? undefined}>
+            <TextInput required type="password" minLength={6} autoComplete="new-password"
+              value={account.confirmPassword}
+              onChange={(e) => {
+                setAccount((c) => ({ ...c, confirmPassword: e.target.value }))
+                setConfirmError(null)
+              }} />
           </Field>
         )}
 
