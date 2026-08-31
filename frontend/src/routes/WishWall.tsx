@@ -40,14 +40,19 @@ export function WishWall() {
 
   return (
     <section>
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold text-santa-700">今年的願望</h1>
-        <p className="mt-2 max-w-2xl text-slate-600">
+      <header className="mb-8 text-center">
+        <h1 className="text-4xl font-bold tracking-wide md:text-5xl">
+          <span className="bg-gradient-to-r from-red-300 via-white to-emerald-300
+            bg-clip-text text-transparent drop-shadow">
+            今年的願望
+          </span>
+        </h1>
+        <p className="mx-auto mt-3 max-w-2xl text-slate-300">
           每一則願望背後都是一個孩子。挑一個你想幫忙實現的，剩下的我們陪你走完。
         </p>
       </header>
 
-      <div className="mb-6 grid gap-3 rounded-xl bg-white p-4 ring-1 ring-santa-100 sm:grid-cols-3">
+      <div className="glass-card mb-8 grid gap-4 p-5 sm:grid-cols-3">
         <FilterSelect label="分類" value={filters.category}
           options={options.data?.categories}
           onChange={(value) => updateFilter('category', value)} />
@@ -94,7 +99,7 @@ function FilterSelect({ label, value, options, onChange }: {
 }) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-slate-500">{label}</span>
+      <span className="text-xs font-medium text-slate-400">{label}</span>
       <Select className="mt-1" value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">全部</option>
         {options?.map((option) => (
@@ -109,10 +114,9 @@ function WishCard({ wish }: { wish: WishPublicView }) {
   return (
     <Link
       to={`/wishes/${wish.id}`}
-      className="group flex flex-col overflow-hidden rounded-xl bg-white ring-1 ring-santa-100
-        transition-shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-santa-500"
+      className="glass-card-interactive group flex flex-col overflow-hidden"
     >
-      <div className="aspect-[4/3] overflow-hidden bg-santa-50">
+      <div className="aspect-[4/3] overflow-hidden bg-white/5">
         {wish.imageUrl ? (
           <img
             src={wish.imageUrl}
@@ -121,31 +125,35 @@ function WishCard({ wish }: { wish: WishPublicView }) {
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-5xl">
+          <div className="flex h-full items-center justify-center text-6xl opacity-90">
             {wishIcon(wish.category)}
           </div>
         )}
       </div>
 
-      <div className="flex flex-1 flex-col p-4">
-        <h2 className="font-semibold text-slate-800">{wish.title}</h2>
+      <div className="flex flex-1 flex-col p-5">
+        <h2 className="text-lg font-bold text-white transition-colors
+          group-hover:text-emerald-200">
+          {wish.title}
+        </h2>
         {/* 只顯示暱稱與年齡區間——系統裡本來就沒有孩子的真實姓名 */}
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-slate-400">
           {wish.childAlias}・{wish.ageRangeLabel}
         </p>
         {wish.interests && (
-          <p className="mt-2 line-clamp-2 text-sm text-slate-600">{wish.interests}</p>
+          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-300">
+            {wish.interests}
+          </p>
         )}
 
-        <div className="mt-auto flex flex-wrap items-center gap-2 pt-4 text-xs">
-          <span className="rounded-full bg-santa-50 px-2 py-0.5 text-santa-700">
+        <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
+          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1
+            text-xs font-medium text-emerald-200">
             {wish.categoryLabel}
           </span>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
-            {wish.priceRangeLabel}
-          </span>
+          <span className="night-chip">{wish.priceRangeLabel}</span>
         </div>
-        <p className="mt-2 truncate text-xs text-slate-400">{wish.organizationName}</p>
+        <p className="mt-3 truncate text-xs text-slate-500">{wish.organizationName}</p>
       </div>
     </Link>
   )

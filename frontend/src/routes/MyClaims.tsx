@@ -26,8 +26,10 @@ export function MyClaims() {
 
   return (
     <section>
-      <h1 className="text-3xl font-bold text-santa-700">我的認領</h1>
-      <p className="mt-2 text-slate-600">寄出禮物後記得回來回報，機構才知道要準備收件。</p>
+      {/* 這裡刻意不用願望牆那種漸層標題。那是招攬用的門面，這一頁是使用者查
+          自己的東西，安靜一點比較好讀 */}
+      <h1 className="text-3xl font-bold text-white">我的認領</h1>
+      <p className="mt-2 text-slate-300">寄出禮物後記得回來回報，機構才知道要準備收件。</p>
 
       <div className="mt-6 space-y-4">
         {claims.isLoading && <Spinner label="載入認領" />}
@@ -38,7 +40,7 @@ export function MyClaims() {
         {claims.data?.content.length === 0 && (
           <EmptyState
             title="還沒有認領任何願望"
-            hint={<Link to="/" className="text-berry-600 underline">去願望牆看看</Link>}
+            hint={<Link to="/" className="text-emerald-300 underline">去願望牆看看</Link>}
           />
         )}
 
@@ -55,21 +57,19 @@ function ClaimRow({ claim }: { claim: ClaimDonorView }) {
   const awaitingShipment = claim.status === 'CLAIMED'
 
   return (
-    <Link
-      to={`/me/claims/${claim.id}`}
-      className="block rounded-xl bg-white p-5 ring-1 ring-santa-100 transition-shadow
-        hover:shadow-md focus:outline-none focus:ring-2 focus:ring-santa-500"
-    >
+    <Link to={`/me/claims/${claim.id}`} className="glass-card-interactive block p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-semibold text-slate-800">{claim.wishTitle}</h2>
-          <p className="mt-0.5 text-sm text-slate-500">
+          <h2 className="font-semibold text-white">{claim.wishTitle}</h2>
+          <p className="mt-0.5 text-sm text-slate-400">
             給 {claim.childAlias}・{claim.organizationName}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* 比其他標籤醒目一階，但仍是半透明的——實心飽和色在玻璃上會浮出來 */}
           {claim.unreadMessageCount > 0 && (
-            <span className="rounded-full bg-berry-500 px-2 py-0.5 text-xs font-medium text-white">
+            <span className="rounded-full border border-red-400/40 bg-red-500/20 px-2.5 py-0.5
+              text-xs font-medium text-red-100">
               {claim.unreadMessageCount} 則新訊息
             </span>
           )}
@@ -78,13 +78,25 @@ function ClaimRow({ claim }: { claim: ClaimDonorView }) {
         </div>
       </div>
 
-      <p className="mt-3 text-sm text-slate-500">
+      <p className="mt-3 text-sm text-slate-300">
         {awaitingShipment && remaining !== null ? (
           remaining >= 0
-            ? <>請於 <strong className="text-slate-700">{formatDate(claim.shipDeadlineAt)}</strong> 前寄出（還有 {remaining} 天）</>
-            : <span className="text-berry-600">已逾期 {Math.abs(remaining)} 天，機構可能會收回這個願望</span>
+            ? (
+              <>
+                請於 <strong className="font-semibold text-white">
+                  {formatDate(claim.shipDeadlineAt)}
+                </strong> 前寄出（還有 {remaining} 天）
+              </>
+            )
+            : (
+              <span className="text-red-300">
+                已逾期 {Math.abs(remaining)} 天，機構可能會收回這個願望
+              </span>
+            )
         ) : (
-          <>認領於 {formatDate(claim.claimedAt)}・{CLAIM_STATUS_LABELS[claim.status]}</>
+          <span className="text-slate-400">
+            認領於 {formatDate(claim.claimedAt)}・{CLAIM_STATUS_LABELS[claim.status]}
+          </span>
         )}
       </p>
     </Link>

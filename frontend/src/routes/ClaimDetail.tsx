@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { daysUntil, formatDate } from '../lib/format'
 import type { AttachmentView, ClaimDonorView, ClaimEventView } from '../lib/types'
+import { Breadcrumb } from '../components/Breadcrumb'
 import { ErrorBanner, Notice, Spinner } from '../components/Feedback'
 import { Button, Field, TextInput } from '../components/Form'
 import { ImageUploader } from '../components/ImageUploader'
@@ -50,11 +51,14 @@ export function ClaimDetail() {
   return (
     <div className="space-y-8">
       <header>
-        <Link to="/me/claims" className="text-sm text-slate-500 hover:underline">← 我的認領</Link>
+        <Breadcrumb items={[
+          { label: '我的認領', to: '/me/claims' },
+          { label: data.wishTitle },
+        ]} />
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-santa-700">{data.wishTitle}</h1>
-            <p className="mt-1 text-slate-600">
+            <h1 className="text-3xl font-bold text-white">{data.wishTitle}</h1>
+            <p className="mt-1 text-slate-300">
               給 {data.childAlias}・{data.organizationName}
             </p>
           </div>
@@ -85,12 +89,12 @@ export function ClaimDetail() {
             <Panel title="寄送資訊">
               <dl className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <dt className="text-xs text-slate-500">物流業者</dt>
-                  <dd className="mt-0.5 font-medium">{data.trackingCarrier}</dd>
+                  <dt className="text-xs text-slate-400">物流業者</dt>
+                  <dd className="mt-0.5 font-medium text-white">{data.trackingCarrier}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-slate-500">追蹤碼</dt>
-                  <dd className="mt-0.5 font-medium">{data.trackingNumber}</dd>
+                  <dt className="text-xs text-slate-400">追蹤碼</dt>
+                  <dd className="mt-0.5 font-medium text-white">{data.trackingNumber}</dd>
                 </div>
               </dl>
             </Panel>
@@ -114,7 +118,7 @@ export function ClaimDetail() {
 
           {feedbackPhotos.length > 0 && (
             <Panel title="機構的回饋">
-              <p className="mb-3 text-sm text-slate-500">
+              <p className="mb-3 text-sm text-slate-400">
                 這些照片只有你和機構看得到，網址會在數分鐘後失效。
               </p>
               <PhotoGrid photos={feedbackPhotos} emptyHint="" />
@@ -146,9 +150,9 @@ function Panel({ title, action, children }: {
   title: string; action?: React.ReactNode; children: React.ReactNode
 }) {
   return (
-    <section className="rounded-xl bg-white p-5 ring-1 ring-santa-100">
+    <section className="glass-card p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="font-semibold text-slate-800">{title}</h2>
+        <h2 className="font-semibold text-white">{title}</h2>
         {action}
       </div>
       {children}
@@ -187,17 +191,20 @@ function ShippingAddressPanel({ claim }: { claim: ClaimDonorView }) {
       {hasAddress ? (
         <dl className="space-y-3 text-sm">
           <div>
-            <dt className="text-xs text-slate-500">收件單位</dt>
-            <dd className="mt-0.5 font-medium text-slate-800">{claim.organizationName}</dd>
+            <dt className="text-xs text-slate-400">收件單位</dt>
+            <dd className="mt-0.5 font-medium text-white">{claim.organizationName}</dd>
           </div>
           <div>
-            <dt className="text-xs text-slate-500">地址</dt>
-            <dd className="mt-0.5 font-medium text-slate-800">{claim.organizationAddress}</dd>
+            <dt className="text-xs text-slate-400">地址</dt>
+            {/* 這是要照著抄去寄件的資訊，給它最高的對比 */}
+            <dd className="mt-0.5 text-base font-semibold text-white">
+              {claim.organizationAddress}
+            </dd>
           </div>
           {claim.organizationPhone && (
             <div>
-              <dt className="text-xs text-slate-500">聯絡電話</dt>
-              <dd className="mt-0.5 font-medium text-slate-800">{claim.organizationPhone}</dd>
+              <dt className="text-xs text-slate-400">聯絡電話</dt>
+              <dd className="mt-0.5 font-medium text-white">{claim.organizationPhone}</dd>
             </div>
           )}
         </dl>
@@ -257,7 +264,7 @@ function CancelForm({ claimId, onDone }: { claimId: string; onDone: () => void }
   if (!confirming) {
     return (
       <div>
-        <p className="mb-3 text-sm text-slate-600">
+        <p className="mb-3 text-sm text-slate-300">
           取消後這個願望會立刻回到願望牆，讓其他人有機會認領。
         </p>
         <Button variant="secondary" onClick={() => setConfirming(true)}>取消認領</Button>
@@ -284,14 +291,15 @@ function CancelForm({ claimId, onDone }: { claimId: string; onDone: () => void }
 
 function PhotoGrid({ photos, emptyHint }: { photos: AttachmentView[]; emptyHint: string }) {
   if (photos.length === 0) {
-    return emptyHint ? <p className="text-sm text-slate-500">{emptyHint}</p> : null
+    return emptyHint ? <p className="text-sm text-slate-400">{emptyHint}</p> : null
   }
 
   return (
     <div className="grid grid-cols-3 gap-3">
       {photos.map((photo) => (
         <a key={photo.id} href={photo.url} target="_blank" rel="noreferrer"
-          className="overflow-hidden rounded-lg ring-1 ring-santa-100">
+          className="overflow-hidden rounded-xl ring-1 ring-white/15 transition-opacity
+            hover:opacity-90">
           <img src={photo.url} alt="" className="aspect-square w-full object-cover" />
         </a>
       ))}

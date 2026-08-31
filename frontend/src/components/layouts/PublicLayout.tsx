@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth, usingFirebase } from '../../lib/authContext'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
 import { EmailVerificationBanner } from '../EmailVerificationBanner'
+import { Snowfall } from '../Snowfall'
 import { Button } from '../Form'
 
 /**
@@ -12,16 +13,26 @@ import { Button } from '../Form'
  *
  * 機構入口放在頁尾，不放主導覽：捐贈者是主要對象，機構是少數但知道自己要找什麼。
  * 監控中心完全不出現在這裡。
+ *
+ * 視覺上是深色玻璃質感（見 docs/DESIGN.md）。深色底鋪在 fixed 圖層而不是改 body，
+ * 因為機構後台與監控中心共用同一個 body，那兩個是工作介面要維持亮色。
  */
 export function PublicLayout() {
   const { email } = useAuth()
 
   return (
-    <div className="flex min-h-screen flex-col bg-santa-50">
-      <header className="border-b border-santa-100 bg-white">
+    <div className="theme-night flex min-h-screen flex-col font-rounded text-white">
+      <div className="night-backdrop" />
+      <Snowfall />
+
+      <header className="border-b border-white/10 bg-white/5 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <Link to="/" className="text-lg font-bold text-santa-700">
-            🎄 線上聖誕老公公
+          <Link to="/" className="text-lg font-bold tracking-wide">
+            <span aria-hidden>🎄</span>{' '}
+            <span className="bg-gradient-to-r from-red-300 via-white to-emerald-300
+              bg-clip-text text-transparent">
+              線上聖誕老公公
+            </span>
           </Link>
 
           <nav className="flex flex-wrap gap-1">
@@ -36,17 +47,17 @@ export function PublicLayout() {
       {!usingFirebase && <DevModeBanner />}
       <EmailVerificationBanner />
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
         <Outlet />
       </main>
 
-      <footer className="border-t border-santa-100 bg-white">
+      <footer className="border-t border-white/10 bg-white/5 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6
-          text-sm text-slate-500">
+          text-sm text-slate-400">
           <p>願望屬於孩子，故事屬於每一個願意伸手的人。</p>
           {/* 指向 /org/login 而非直接進註冊頁：那一頁未登入時是「登入／申請」的
               選擇畫面，兩種人都有路走。直接送去註冊頁會讓回頭的機構找不到登入 */}
-          <Link to="/org/login" className="text-santa-700 hover:underline">
+          <Link to="/org/login" className="text-emerald-300 hover:underline">
             我是兒童機構 →
           </Link>
         </div>
@@ -56,8 +67,8 @@ export function PublicLayout() {
 }
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-    isActive ? 'bg-santa-100 text-santa-700' : 'text-slate-600 hover:text-santa-600'
+  `rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+    isActive ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'
   }`
 
 function AuthControls() {
@@ -75,12 +86,15 @@ function AuthControls() {
         {/* 機構成員誤入主網站時，給他一條回後台的路。用生效角色判斷——
             信箱還沒驗證的人進不了後台，這時給連結只會把他彈回登入頁 */}
         {effectiveRoleOf(me.data) === 'ORG_MEMBER' && (
-          <Link to="/org" className="text-sm text-santa-700 hover:underline">機構後台</Link>
+          <Link to="/org" className="text-sm text-emerald-300 hover:underline">機構後台</Link>
         )}
-        <span className="max-w-[14rem] truncate text-sm text-slate-500" title={email}>
+        <span className="max-w-[14rem] truncate text-sm text-slate-400" title={email}>
           {email}
         </span>
-        <Button variant="ghost" onClick={() => void signOut()}>登出</Button>
+        <Button variant="ghost" className="text-slate-300 hover:bg-white/10 hover:text-white"
+          onClick={() => void signOut()}>
+          登出
+        </Button>
       </div>
     )
   }
@@ -89,10 +103,13 @@ function AuthControls() {
   const next = encodeURIComponent(location.pathname + location.search)
 
   return (
+    // 玻璃質感而非實心漸層：頁首整條是半透明的，一顆飽和的按鈕會從那層玻璃上浮出來。
+    // 綠色而非紅色——與站內的主要按鈕一致，紅色在這套配色裡只代表危險與逾期
     <Link
       to={`/login?next=${next}`}
-      className="rounded-lg bg-santa-600 px-4 py-2 text-sm font-medium text-white
-        transition-colors hover:bg-santa-700"
+      className="rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-sm
+        font-bold text-emerald-100 backdrop-blur-md transition-colors
+        hover:border-emerald-400/50 hover:bg-emerald-500/25 hover:text-white"
     >
       登入 / 註冊
     </Link>
@@ -101,7 +118,7 @@ function AuthControls() {
 
 function DevModeBanner() {
   return (
-    <div className="bg-amber-50 px-4 py-2 text-center text-xs text-amber-900">
+    <div className="bg-amber-500/15 px-4 py-2 text-center text-xs text-amber-200">
       開發模式：未設定 Firebase，身分僅由 <code>X-Dev-User-Email</code> 標頭指定，沒有任何驗證。
     </div>
   )
