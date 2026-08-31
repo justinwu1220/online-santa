@@ -4,19 +4,30 @@ import { Link } from 'react-router-dom'
 import { api, withQuery } from '../lib/api'
 import { useAuth } from '../lib/authContext'
 import { CLAIM_STATUS_LABELS, daysUntil, formatDate } from '../lib/format'
-import type { ClaimDonorView, PageResponse } from '../lib/types'
+import type { ClaimDonorView, DonorAnnualSummary, PageResponse } from '../lib/types'
 import { EmptyState, ErrorBanner, Notice, Spinner } from '../components/Feedback'
+import { Select } from '../components/Form'
 import { Pagination } from '../components/Pagination'
 import { ClaimStatusBadge, OverdueBadge } from '../components/StatusBadge'
 
 export function MyClaims() {
   const { email } = useAuth()
+  const [year, setYear] = useState<number | ''>('')
   const [page, setPage] = useState(0)
 
   const claims = useQuery({
-    queryKey: ['claims', 'mine', page],
+    queryKey: ['claims', 'mine', year, page],
     queryFn: () => api.get<PageResponse<ClaimDonorView>>(
-      withQuery('/api/claims/me', { page, size: 10 })),
+      withQuery('/api/claims/me', { year: year === '' ? undefined : year, page, size: 10 })),
+    enabled: Boolean(email),
+  })
+
+  // 一併取年度小結——即使目前選的是「全部」也要打，年份下拉的選項就是靠它的
+  // availableYears，不必另開一支端點
+  const summary = useQuery({
+    queryKey: ['claims', 'annual-summary', year],
+    queryFn: () => api.get<DonorAnnualSummary>(
+      withQuery('/api/claims/me/annual-summary', { year: year === '' ? undefined : year })),
     enabled: Boolean(email),
   })
 
@@ -24,12 +35,30 @@ export function MyClaims() {
     return <Notice>請先在右上角登入，才能查看自己的認領。</Notice>
   }
 
+  const availableYears = summary.data?.availableYears ?? []
+
   return (
     <section>
       {/* 這裡刻意不用願望牆那種漸層標題。那是招攬用的門面，這一頁是使用者查
           自己的東西，安靜一點比較好讀 */}
       <h1 className="text-3xl font-bold text-white">我的認領</h1>
       <p className="mt-2 text-slate-300">寄出禮物後記得回來回報，機構才知道要準備收件。</p>
+
+      <div className="mt-6">
+        <Select
+          className="w-32"
+          value={year}
+          onChange={(event) => {
+            setYear(event.target.value === '' ? '' : Number(event.target.value))
+            setPage(0)
+          }}
+        >
+          <option value="">全部年度</option>
+          {availableYears.map((y) => <option key={y} value={y}>{y}</option>)}
+        </Select>
+      </div>
+
+      {year !== '' && summary.data && <AnnualSummaryCard summary={summary.data} />}
 
       <div className="mt-6 space-y-4">
         {claims.isLoading && <Spinner label="載入認領" />}
@@ -49,6 +78,33 @@ export function MyClaims() {
 
       {claims.data && <Pagination page={claims.data} onChange={setPage} />}
     </section>
+  )
+}
+
+/**
+ * 年度小結卡。只在挑了特定年度時出現——「全部」跨年度加總沒有 cohort 的意義，
+ * 數字容易被誤讀成單一年度的完成率之類的東西。
+ */
+function AnnualSummaryCard({ summary }: { summary: DonorAnnualSummary }) {
+  return (
+    <div className="glass-card mt-4 grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
+      <SummaryStat value={summary.claimedCount} label="認領" />
+      <SummaryStat value={summary.completedCount} label="完成" />
+      <SummaryStat value={summary.childrenHelped} label="送禮孩子" unit="位" />
+      <SummaryStat value={summary.organizationsSupported} label="支持機構" unit="間" />
+    </div>
+  )
+}
+
+function SummaryStat({ value, label, unit }: { value: number; label: string; unit?: string }) {
+  return (
+    <div>
+      <p className="text-2xl font-bold text-white">
+        {value}
+        {unit && <span className="ml-1 text-base font-normal text-slate-300">{unit}</span>}
+      </p>
+      <p className="mt-0.5 text-sm text-slate-400">{label}</p>
+    </div>
   )
 }
 
