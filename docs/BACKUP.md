@@ -128,7 +128,7 @@ gcloud storage buckets update gs://<PROJECT_ID>-private --versioning
 確認已經開啟：
 
 ```bash
-gcloud storage buckets describe gs://<PROJECT_ID>-private --format="value(versioning.enabled)"
+gcloud storage buckets describe gs://<PROJECT_ID>-private --format="value(versioning_enabled)"  # gcloud storage 的欄位名稱，不是 JSON API 的 versioning.enabled
 # 應該回 True
 ```
 
