@@ -482,13 +482,15 @@ gcloud scheduler jobs run send-deadline-reminders --location=asia-east1
 
 ```bash
 # 帳單警示。設定後超過門檻會寄信，但不會自動停用服務
+# 注意：percent 是小數（0.5 = 50%），寫成整數 50 會被解讀成 5000%，
+# API 回 INVALID_ARGUMENT
 gcloud billing budgets create \
   --billing-account=<BILLING_ACCOUNT_ID> \
   --display-name="線上聖誕老公公" \
   --budget-amount=10USD \
-  --threshold-rule=percent=50 \
-  --threshold-rule=percent=90 \
-  --threshold-rule=percent=100
+  --threshold-rule=percent=0.5 \
+  --threshold-rule=percent=0.9 \
+  --threshold-rule=percent=1.0
 ```
 
 `<BILLING_ACCOUNT_ID>` 就是 3.0 建立的那一個，忘記的話 `gcloud billing accounts list`
