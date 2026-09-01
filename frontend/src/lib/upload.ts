@@ -1,6 +1,56 @@
 import { api } from './api'
 import type { AttachmentPurpose, AttachmentView, UploadUrlResponse } from './types'
 
+const COMPRESS_MAX_DIMENSION = 1280
+const COMPRESS_QUALITY = 0.8
+// 已經夠小就別再重編碼一次，省一趟 canvas 往返
+const SKIP_COMPRESSION_MAX_BYTES = 300 * 1024
+
+/**
+ * 上傳前在瀏覽器端把圖片壓小：長邊縮到 1280px、輸出 JPEG 品質 0.8。
+ *
+ * 輸出固定用 JPEG，不用 WebP——canvas.toBlob 對 WebP 的支援在舊版 Safari 不穩定，
+ * 而 JPEG 0.8 品質已經足夠壓低 egress，不值得為此多一層瀏覽器能力偵測。
+ * 用 createImageBitmap 而非 <img> 是因為 { imageOrientation: 'from-image' } 能
+ * 正確吃掉 EXIF 方向，避免直向照片壓完變橫的。
+ *
+ * 任何一步失敗（罕見格式、瀏覽器不支援）都退回原始檔案，不擋使用者上傳。
+ */
+async function compressImage(file: File): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+    try {
+      const longEdge = Math.max(bitmap.width, bitmap.height)
+      if (file.size <= SKIP_COMPRESSION_MAX_BYTES && longEdge <= COMPRESS_MAX_DIMENSION) {
+        return file
+      }
+
+      const scale = Math.min(1, COMPRESS_MAX_DIMENSION / longEdge)
+      const width = Math.round(bitmap.width * scale)
+      const height = Math.round(bitmap.height * scale)
+
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('無法取得 canvas context')
+      ctx.drawImage(bitmap, 0, 0, width, height)
+
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', COMPRESS_QUALITY))
+      if (!blob) throw new Error('圖片編碼失敗')
+
+      const compressedName = file.name.replace(/\.[^.]+$/, '') + '.jpg'
+      return new File([blob], compressedName, { type: 'image/jpeg' })
+    } finally {
+      bitmap.close()
+    }
+  } catch (error) {
+    console.warn('圖片壓縮失敗，改用原始檔案上傳', error)
+    return file
+  }
+}
+
 /**
  * 圖片上傳的三步驟。
  *
@@ -12,19 +62,21 @@ export async function uploadImage(
   targetId: string,
   file: File,
 ): Promise<AttachmentView> {
+  const upload = await compressImage(file)
+
   // 一、向後端索取限時的直傳網址
   const target = await api.post<UploadUrlResponse>('/api/uploads/signed-url', {
     purpose,
     targetId,
-    contentType: file.type,
-    sizeBytes: file.size,
+    contentType: upload.type,
+    sizeBytes: upload.size,
   })
 
   // 二、直接把檔案 PUT 到儲存端。Content-Type 必須與簽章時一致，否則會被拒絕
   const response = await fetch(target.uploadUrl, {
     method: 'PUT',
     headers: { 'Content-Type': target.contentType },
-    body: file,
+    body: upload,
   })
   if (!response.ok) {
     throw new Error(`檔案上傳失敗（${response.status}），請稍後再試`)
