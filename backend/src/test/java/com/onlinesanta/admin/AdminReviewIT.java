@@ -11,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.onlinesanta.admin.dto.ReviewDecisionRequest;
+import com.onlinesanta.admin.dto.ReviewReasonRequest;
 import com.onlinesanta.organization.dto.OrganizationRegistrationRequest;
 import com.onlinesanta.support.ApiIntegrationTest;
 import com.onlinesanta.wish.AgeRange;
@@ -113,7 +114,7 @@ class AdminReviewIT extends ApiIntegrationTest {
         UUID orgId = registerOrganization("被退件之家", ORG_USER);
 
         mvc.perform(as(withBody(post("/api/admin/organizations/{id}/reject", orgId),
-                        new ReviewDecisionRequest("請補立案證明")), ADMIN))
+                        new ReviewReasonRequest("請補立案證明")), ADMIN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("REJECTED"))
                 .andExpect(jsonPath("$.reviewNote").value("請補立案證明"));
@@ -133,6 +134,26 @@ class AdminReviewIT extends ApiIntegrationTest {
         mvc.perform(as(get("/api/admin/organizations").param("status", "PENDING"), ADMIN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    @DisplayName("退件的理由必填，空白或缺漏都會被擋下")
+    void rejectionRequiresANonBlankReason() throws Exception {
+        UUID orgId = registerOrganization("理由必填之家", ORG_USER);
+
+        mvc.perform(as(withBody(post("/api/admin/organizations/{id}/reject", orgId),
+                        new ReviewReasonRequest("   ")), ADMIN))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.fieldErrors.note").exists());
+
+        mvc.perform(as(post("/api/admin/organizations/{id}/reject", orgId), ADMIN))
+                .andExpect(status().isBadRequest());
+
+        // 核准不受影響，附註依然選填
+        mvc.perform(as(post("/api/admin/organizations/{id}/approve", orgId), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"));
     }
 
     @Test

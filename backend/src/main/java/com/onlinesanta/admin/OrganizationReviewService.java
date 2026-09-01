@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.onlinesanta.admin.dto.ReviewDecisionRequest;
+import com.onlinesanta.admin.dto.ReviewReasonRequest;
 import com.onlinesanta.auth.AppPrincipal;
 import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.common.exception.BusinessRuleException;
@@ -58,7 +59,7 @@ public class OrganizationReviewService {
     }
 
     @Transactional
-    public Organization reject(UUID organizationId, ReviewDecisionRequest request) {
+    public Organization reject(UUID organizationId, ReviewReasonRequest request) {
         AppPrincipal admin = currentUser.requireAdmin();
         Organization organization = organizationService.getById(organizationId);
 
@@ -74,14 +75,13 @@ public class OrganizationReviewService {
      * 而是暗示了誤操作。
      */
     @Transactional
-    public Organization suspend(UUID organizationId, ReviewDecisionRequest request) {
+    public Organization suspend(UUID organizationId, ReviewReasonRequest request) {
         AppPrincipal admin = currentUser.requireAdmin();
         Organization organization = organizationService.getById(organizationId);
 
         requireApproved(organization);
         organization.suspend(admin.userId(), request.note());
-        audit.record(AdminAuditAction.SUSPEND_ORGANIZATION, organizationId,
-                describeReason(request.note()));
+        audit.record(AdminAuditAction.SUSPEND_ORGANIZATION, organizationId, "理由：" + request.note());
         return organization;
     }
 

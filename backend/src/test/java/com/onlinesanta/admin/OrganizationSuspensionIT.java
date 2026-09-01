@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.onlinesanta.admin.dto.ReviewDecisionRequest;
+import com.onlinesanta.admin.dto.ReviewReasonRequest;
 import com.onlinesanta.claim.dto.ShipRequest;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
@@ -77,7 +78,7 @@ class OrganizationSuspensionIT extends ApiIntegrationTest {
 
     private void suspend(UUID organizationId, String note) throws Exception {
         mvc.perform(as(withBody(post("/api/admin/organizations/{id}/suspend", organizationId),
-                        new ReviewDecisionRequest(note)), ADMIN))
+                        new ReviewReasonRequest(note)), ADMIN))
                 .andExpect(status().isOk());
     }
 
@@ -152,16 +153,36 @@ class OrganizationSuspensionIT extends ApiIntegrationTest {
         organizations.save(pending);
 
         mvc.perform(as(withBody(post("/api/admin/organizations/{id}/suspend", pending.getId()),
-                        new ReviewDecisionRequest("理由")), ADMIN))
+                        new ReviewReasonRequest("理由")), ADMIN))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("ORGANIZATION_NOT_APPROVED"));
 
         // 已經停權的機構不能再被停權一次
         suspend(organization.getId(), "第一次停權");
         mvc.perform(as(withBody(post("/api/admin/organizations/{id}/suspend", organization.getId()),
-                        new ReviewDecisionRequest("第二次")), ADMIN))
+                        new ReviewReasonRequest("第二次")), ADMIN))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("ORGANIZATION_NOT_APPROVED"));
+    }
+
+    @Test
+    @DisplayName("停權的理由必填，空白或缺漏都會被擋下；復權的附註仍然選填")
+    void suspensionRequiresANonBlankReasonButReactivationDoesNot() throws Exception {
+        mvc.perform(as(withBody(post("/api/admin/organizations/{id}/suspend", organization.getId()),
+                        new ReviewReasonRequest("   ")), ADMIN))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.fieldErrors.note").exists());
+
+        mvc.perform(as(post("/api/admin/organizations/{id}/suspend", organization.getId()), ADMIN))
+                .andExpect(status().isBadRequest());
+
+        suspend(organization.getId(), "接獲檢舉");
+
+        // 復權不受影響，附註依然選填（不傳 body 也能過）
+        mvc.perform(as(post("/api/admin/organizations/{id}/reactivate", organization.getId()), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"));
     }
 
     @Test

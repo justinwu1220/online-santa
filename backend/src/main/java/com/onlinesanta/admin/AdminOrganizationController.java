@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.onlinesanta.admin.dto.OrganizationReviewView;
 import com.onlinesanta.admin.dto.ReviewDecisionRequest;
+import com.onlinesanta.admin.dto.ReviewReasonRequest;
 import com.onlinesanta.common.PageResponse;
 import com.onlinesanta.organization.OrganizationStatus;
 
@@ -58,23 +59,21 @@ public class AdminOrganizationController {
     }
 
     @PostMapping("/{id}/reject")
-    @Operation(summary = "退件", description = "請於 note 說明原因；機構補件後可重新送審")
+    @Operation(summary = "退件", description = "note 必填，說明原因；機構補件後可重新送審")
     public OrganizationReviewView reject(
             @PathVariable UUID id,
-            @Valid @RequestBody(required = false) ReviewDecisionRequest request) {
-        return OrganizationReviewView.from(
-                review.reject(id, request == null ? ReviewDecisionRequest.empty() : request));
+            @Valid @RequestBody ReviewReasonRequest request) {
+        return OrganizationReviewView.from(review.reject(id, request));
     }
 
     @PostMapping("/{id}/suspend")
     @Operation(summary = "停權機構",
             description = "資安事件應變手冊第一步：立即讓該機構的願望從公開曝光下架，"
-                    + "進行中的認領不受影響。請於 note 說明理由，只有 APPROVED 的機構能被停權")
+                    + "進行中的認領不受影響。note 必填，只有 APPROVED 的機構能被停權")
     public OrganizationReviewView suspend(
             @PathVariable UUID id,
-            @Valid @RequestBody(required = false) ReviewDecisionRequest request) {
-        return OrganizationReviewView.from(
-                review.suspend(id, request == null ? ReviewDecisionRequest.empty() : request));
+            @Valid @RequestBody ReviewReasonRequest request) {
+        return OrganizationReviewView.from(review.suspend(id, request));
     }
 
     @PostMapping("/{id}/reactivate")
