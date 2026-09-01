@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,7 @@ import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.common.exception.ForbiddenException;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
+import com.onlinesanta.event.FeedbackPhotoConfirmedEvent;
 import com.onlinesanta.storage.ObjectStorage;
 import com.onlinesanta.storage.StoredObject;
 import com.onlinesanta.storage.StorageProperties;
@@ -42,19 +44,22 @@ public class AttachmentService {
     private final ObjectStorage storage;
     private final StorageProperties properties;
     private final CurrentUserService currentUser;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AttachmentService(AttachmentRepository attachments,
                              WishRepository wishes,
                              ClaimRepository claims,
                              ObjectStorage storage,
                              StorageProperties properties,
-                             CurrentUserService currentUser) {
+                             CurrentUserService currentUser,
+                             ApplicationEventPublisher eventPublisher) {
         this.attachments = attachments;
         this.wishes = wishes;
         this.claims = claims;
         this.storage = storage;
         this.properties = properties;
         this.currentUser = currentUser;
+        this.eventPublisher = eventPublisher;
     }
 
     // ================================================================ 上傳
@@ -116,6 +121,11 @@ public class AttachmentService {
         // 願望示意圖只保留最新一張，舊的連同檔案一起汰除
         if (attachment.getPurpose().replacesPrevious()) {
             removePreviousVersions(attachment);
+        }
+
+        // 回饋照片確認上傳成功，通知捐贈者——ownerId 就是 claimId（見 AttachmentPurpose）
+        if (attachment.getPurpose() == AttachmentPurpose.ORG_FEEDBACK) {
+            eventPublisher.publishEvent(new FeedbackPhotoConfirmedEvent(attachment.getOwnerId()));
         }
 
         return toView(attachment);

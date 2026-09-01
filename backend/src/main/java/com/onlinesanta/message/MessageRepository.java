@@ -18,6 +18,13 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     long countByClaimIdAndReadAtIsNullAndSenderUserIdNot(UUID claimId, UUID readerId);
 
     /**
+     * 這個寄件人先前寄出、對方還沒讀的訊息數。供新訊息通知信的防轟炸節流使用：
+     * 對方已經有這個人寄的舊訊息還沒讀，就不用再寄一封信提醒——等對方讀了（或
+     * 這個人的訊息被讀過）,下一則新訊息才會再次觸發通知。
+     */
+    long countByClaimIdAndReadAtIsNullAndSenderUserId(UUID claimId, UUID senderUserId);
+
+    /**
      * 一次算出多筆認領的未讀數，供清單頁使用。
      *
      * <p>逐筆查詢會讓「我的認領」與機構後台各多出一頁筆數的查詢；這裡一次解決。

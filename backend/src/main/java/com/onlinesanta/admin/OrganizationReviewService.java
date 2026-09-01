@@ -2,6 +2,7 @@ package com.onlinesanta.admin;
 
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,7 @@ import com.onlinesanta.admin.dto.ReviewReasonRequest;
 import com.onlinesanta.auth.AppPrincipal;
 import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.common.exception.BusinessRuleException;
+import com.onlinesanta.event.OrganizationReviewedEvent;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.organization.OrganizationService;
@@ -29,15 +31,18 @@ public class OrganizationReviewService {
     private final OrganizationService organizationService;
     private final CurrentUserService currentUser;
     private final AdminAuditService audit;
+    private final ApplicationEventPublisher eventPublisher;
 
     public OrganizationReviewService(OrganizationRepository organizations,
                                      OrganizationService organizationService,
                                      CurrentUserService currentUser,
-                                     AdminAuditService audit) {
+                                     AdminAuditService audit,
+                                     ApplicationEventPublisher eventPublisher) {
         this.organizations = organizations;
         this.organizationService = organizationService;
         this.currentUser = currentUser;
         this.audit = audit;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional(readOnly = true)
@@ -55,6 +60,7 @@ public class OrganizationReviewService {
         requireAwaitingDecision(organization);
         organization.approve(admin.userId(), request.note());
         audit.record(AdminAuditAction.APPROVE_ORGANIZATION, organizationId, organization.getName());
+        eventPublisher.publishEvent(new OrganizationReviewedEvent(organizationId, true));
         return organization;
     }
 
@@ -66,6 +72,7 @@ public class OrganizationReviewService {
         requireAwaitingDecision(organization);
         organization.reject(admin.userId(), request.note());
         audit.record(AdminAuditAction.REJECT_ORGANIZATION, organizationId, organization.getName());
+        eventPublisher.publishEvent(new OrganizationReviewedEvent(organizationId, false));
         return organization;
     }
 

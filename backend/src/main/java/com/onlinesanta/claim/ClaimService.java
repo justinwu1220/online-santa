@@ -5,6 +5,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import com.onlinesanta.claim.dto.ShipRequest;
 import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
+import com.onlinesanta.event.ClaimCreatedEvent;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.ReleasePolicy;
 import com.onlinesanta.user.User;
@@ -40,19 +42,22 @@ public class ClaimService {
     private final UserRepository users;
     private final CurrentUserService currentUser;
     private final ClaimProperties properties;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ClaimService(ClaimRepository claims,
                         ClaimEventRepository events,
                         WishRepository wishes,
                         UserRepository users,
                         CurrentUserService currentUser,
-                        ClaimProperties properties) {
+                        ClaimProperties properties,
+                        ApplicationEventPublisher eventPublisher) {
         this.claims = claims;
         this.events = events;
         this.wishes = wishes;
         this.users = users;
         this.currentUser = currentUser;
         this.properties = properties;
+        this.eventPublisher = eventPublisher;
     }
 
     // ================================================================ 認領
@@ -107,6 +112,8 @@ public class ClaimService {
                 claimedWish, donor, policy, deadline, request.donorMessage()));
 
         record(claim, ClaimEventType.CLAIMED, principal.userId(), null);
+        // 通知機構有人認領了——監聽端用 AFTER_COMMIT，交易若回滾就不會寄信
+        eventPublisher.publishEvent(new ClaimCreatedEvent(claim.getId()));
         return claim;
     }
 
