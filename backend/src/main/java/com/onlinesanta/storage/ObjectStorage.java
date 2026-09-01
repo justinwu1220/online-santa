@@ -38,4 +38,12 @@ public interface ObjectStorage {
     String publicUrl(String objectName);
 
     void delete(StorageBucket bucket, String objectName);
+
+    /**
+     * 設定物件的 {@code Cache-Control} 中繼資料。在 {@link StorageBucket#PUBLIC}
+     * 確認上傳完成時呼叫——物件名稱每次上傳都帶一個新的 UUID（見
+     * {@code AttachmentService#createUploadUrl}），同一個名稱不會被覆寫成別的內容，
+     * 設成永久快取沒有「快取到舊圖」的風險。
+     */
+    void applyCacheControl(StorageBucket bucket, String objectName, String cacheControl);
 }

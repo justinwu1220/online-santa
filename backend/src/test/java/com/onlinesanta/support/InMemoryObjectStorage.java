@@ -21,6 +21,7 @@ import com.onlinesanta.storage.UploadTarget;
 public class InMemoryObjectStorage implements ObjectStorage {
 
     private final Map<String, StoredObject> objects = new ConcurrentHashMap<>();
+    private final Map<String, String> cacheControls = new ConcurrentHashMap<>();
 
     @Override
     public UploadTarget createUploadUrl(StorageBucket bucket, String objectName,
@@ -52,7 +53,17 @@ public class InMemoryObjectStorage implements ObjectStorage {
         objects.remove(key(bucket, objectName));
     }
 
+    @Override
+    public void applyCacheControl(StorageBucket bucket, String objectName, String cacheControl) {
+        cacheControls.put(key(bucket, objectName), cacheControl);
+    }
+
     // ------------------------------------------------------------ 測試控制
+
+    /** 供 IT 斷言 {@link #applyCacheControl} 實際被叫的值。 */
+    public String cacheControlOf(StorageBucket bucket, String objectName) {
+        return cacheControls.get(key(bucket, objectName));
+    }
 
     /** 模擬前端把檔案 PUT 上去了。 */
     public void simulateUpload(StorageBucket bucket, String objectName,

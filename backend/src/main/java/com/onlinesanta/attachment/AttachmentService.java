@@ -23,6 +23,7 @@ import com.onlinesanta.common.exception.ForbiddenException;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.event.FeedbackPhotoConfirmedEvent;
 import com.onlinesanta.storage.ObjectStorage;
+import com.onlinesanta.storage.StorageBucket;
 import com.onlinesanta.storage.StoredObject;
 import com.onlinesanta.storage.StorageProperties;
 import com.onlinesanta.storage.UploadTarget;
@@ -117,6 +118,8 @@ public class AttachmentService {
         requireWithinSizeLimit(stored.sizeBytes());
 
         attachment.confirm(stored.contentType(), stored.sizeBytes());
+        storage.applyCacheControl(attachment.getPurpose().bucket(), attachment.getObjectName(),
+                cacheControlFor(attachment.getPurpose().bucket()));
 
         // 願望示意圖只保留最新一張，舊的連同檔案一起汰除
         if (attachment.getPurpose().replacesPrevious()) {
@@ -129,6 +132,18 @@ public class AttachmentService {
         }
 
         return toView(attachment);
+    }
+
+    /**
+     * 物件名稱每次上傳都帶新的 UUID（見 {@link #createUploadUrl}），同一個名稱不會被
+     * 覆寫成別的內容，公開 bucket 的示意圖可以放心設成永久快取。私密 bucket（寄送
+     * 證明、機構回饋照片）反過來明確設 {@code max-age=0}：讀取一律靠短效簽章網址，
+     * 長快取只會讓簽章過期後的殘留內容繼續被瀏覽器或中介快取回放，沒有好處。
+     */
+    private static String cacheControlFor(StorageBucket bucket) {
+        return bucket == StorageBucket.PUBLIC
+                ? "public, max-age=31536000, immutable"
+                : "private, max-age=0";
     }
 
     private void removePreviousVersions(Attachment current) {

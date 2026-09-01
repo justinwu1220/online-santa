@@ -97,6 +97,17 @@ public class LocalObjectStorage implements ObjectStorage {
         }
     }
 
+    /**
+     * 刻意 no-op。{@link DevStorageController} 直接把檔案讀回來，沒有 CDN 或瀏覽器快取
+     * 這種會因為 {@code Cache-Control} 而表現不同的中間層，本機開發用不到這個資訊；
+     * 這裡存在只是為了滿足 {@link ObjectStorage} 介面，讓正式環境的快取策略不必分支
+     * 判斷「是不是 dev 環境」。
+     */
+    @Override
+    public void applyCacheControl(StorageBucket bucket, String objectName, String cacheControl) {
+        // no-op
+    }
+
     // ------------------------------------------------------------ 內部
 
     Path pathOf(StorageBucket bucket, String objectName) {

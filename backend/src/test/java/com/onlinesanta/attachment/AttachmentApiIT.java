@@ -147,6 +147,36 @@ class AttachmentApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.purpose").value("WISH_IMAGE"))
                 .andExpect(jsonPath("$.sizeBytes").value(120_000))
                 .andExpect(jsonPath("$.url").exists());
+
+        // 公開 bucket（禮物示意圖）：物件名稱每次上傳都唯一，設成永久快取
+        assertThat(fakeStorage.cacheControlOf(StorageBucket.PUBLIC, objectName))
+                .isEqualTo("public, max-age=31536000, immutable");
+    }
+
+    @Test
+    @DisplayName("私密 bucket 的附件確認後不會設長快取")
+    void confirmingPrivateBucketAttachmentDoesNotSetLongCache() throws Exception {
+        UUID wishId = publishedWish("有寄送證明的願望");
+        UUID claimId = claimAs(wishId, DONOR);
+        var request = new UploadUrlRequest(AttachmentPurpose.SHIPPING_PROOF, claimId, JPEG, 1_000);
+
+        String body = mvc.perform(as(withBody(post("/api/uploads/signed-url"), request), DONOR))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        var node = json.readTree(body);
+        UUID attachmentId = UUID.fromString(node.get("attachmentId").asText());
+        String objectName = objectNameOf(node.get("uploadUrl").asText(),
+                AttachmentPurpose.SHIPPING_PROOF);
+
+        fakeStorage.simulateUpload(StorageBucket.PRIVATE, objectName, JPEG, 1_000);
+
+        mvc.perform(as(post("/api/attachments/{id}/confirm", attachmentId), DONOR))
+                .andExpect(status().isOk());
+
+        // 私密 bucket 一律靠短效簽章網址讀取，明確設 max-age=0，不留長快取殘留過期簽章的風險
+        assertThat(fakeStorage.cacheControlOf(StorageBucket.PRIVATE, objectName))
+                .isEqualTo("private, max-age=0");
     }
 
     @Test

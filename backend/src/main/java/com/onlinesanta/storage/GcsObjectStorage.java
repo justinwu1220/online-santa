@@ -86,4 +86,15 @@ public class GcsObjectStorage implements ObjectStorage {
     public void delete(StorageBucket bucket, String objectName) {
         storage.delete(BlobId.of(properties.bucketName(bucket), objectName));
     }
+
+    @Override
+    public void applyCacheControl(StorageBucket bucket, String objectName, String cacheControl) {
+        // storage.update 是 PATCH 語意：BlobInfo 裡沒設的欄位不會被清空，
+        // 只有這裡明確 set 的 cacheControl 會被送出去更新
+        BlobInfo update = BlobInfo
+                .newBuilder(BlobId.of(properties.bucketName(bucket), objectName))
+                .setCacheControl(cacheControl)
+                .build();
+        storage.update(update);
+    }
 }
