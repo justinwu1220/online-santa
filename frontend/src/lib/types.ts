@@ -220,6 +220,13 @@ export interface AttachmentCleanupResult {
   failed: number
 }
 
+export interface DeadlineReminderResult {
+  sweptAt: string
+  found: number
+  sent: number
+  failed: number
+}
+
 // ---------------------------------------------------------------- 監控中心
 
 /**
@@ -369,7 +376,7 @@ export type AdminAuditAction =
   | 'APPROVE_ORGANIZATION' | 'REJECT_ORGANIZATION'
   | 'SUSPEND_ORGANIZATION' | 'REACTIVATE_ORGANIZATION'
   | 'DELETE_ATTACHMENT'
-  | 'RUN_RELEASE_SWEEP' | 'RUN_ATTACHMENT_CLEANUP'
+  | 'RUN_RELEASE_SWEEP' | 'RUN_ATTACHMENT_CLEANUP' | 'RUN_DEADLINE_REMINDERS'
 
 export interface AuditLogView {
   id: number

@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { api, withQuery } from '../../lib/api'
 import { formatDateTime } from '../../lib/format'
 import type {
-  AdminAuditAction, AttachmentCleanupResult, AuditLogView, PageResponse, ReleaseSweepResult,
+  AdminAuditAction, AttachmentCleanupResult, AuditLogView, DeadlineReminderResult,
+  PageResponse, ReleaseSweepResult,
 } from '../../lib/types'
 import { ConsolePanel } from '../../components/layouts/ConsoleLayout'
 import { EmptyState, ErrorBanner, Notice, Spinner } from '../../components/Feedback'
@@ -20,6 +21,7 @@ const ACTION_LABELS: Record<AdminAuditAction, string> = {
   DELETE_ATTACHMENT: '刪除附件',
   RUN_RELEASE_SWEEP: '執行逾期掃描',
   RUN_ATTACHMENT_CLEANUP: '執行附件清理',
+  RUN_DEADLINE_REMINDERS: '執行期限提醒',
 }
 
 /** 存取個資或改變隱私敏感內容的動作要標出來，這樣掃過一眼就知道哪幾筆值得細看。 */
@@ -31,6 +33,7 @@ export function AdminSystem() {
     <div className="space-y-5">
       <ReleaseSweepPanel />
       <AttachmentCleanupPanel />
+      <DeadlineReminderPanel />
       <AuditTrailPanel />
     </div>
   )
@@ -106,6 +109,43 @@ function AttachmentCleanupPanel() {
             掃到 {cleanup.data.found} 筆超過 24 小時的孤兒附件：
             成功清除 {cleanup.data.deleted} 筆
             {cleanup.data.failed > 0 && `，${cleanup.data.failed} 筆清除失敗（可再執行一次重試）`}。
+          </Notice>
+        </div>
+      )}
+    </ConsolePanel>
+  )
+}
+
+function DeadlineReminderPanel() {
+  const queryClient = useQueryClient()
+  const remind = useMutation({
+    mutationFn: () => api.post<DeadlineReminderResult>('/api/admin/jobs/send-deadline-reminders'),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['audit-logs'] })
+    },
+  })
+
+  return (
+    <ConsolePanel
+      title="寄送期限提醒"
+      action={
+        <Button variant="secondary" disabled={remind.isPending} onClick={() => remind.mutate()}>
+          {remind.isPending ? '寄送中…' : '立即執行'}
+        </Button>
+      }
+    >
+      <p className="text-sm text-slate-600">
+        正式環境由 Cloud Scheduler 每日自動執行，走的是獨立的驗證鏈（Google OIDC token），
+        與這裡的手動觸發是同一段邏輯。提醒寄送期限在 2 天內、還沒寄過提醒信的認領，
+        逐筆處理，單筆失敗不會擋住其他筆。
+      </p>
+
+      {remind.isError && <div className="mt-3"><ErrorBanner error={remind.error} /></div>}
+      {remind.data && (
+        <div className="mt-3">
+          <Notice tone={remind.data.failed > 0 ? 'warning' : 'success'}>
+            掃到 {remind.data.found} 筆快到期的認領：成功寄出 {remind.data.sent} 筆
+            {remind.data.failed > 0 && `，${remind.data.failed} 筆寄送失敗（可再執行一次重試）`}。
           </Notice>
         </div>
       )}
