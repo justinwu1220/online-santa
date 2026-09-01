@@ -3,6 +3,7 @@ package com.onlinesanta.support;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 
@@ -29,6 +30,20 @@ public class TestSecurityConfig {
     @Primary
     ObjectStorage testObjectStorage() {
         return new InMemoryObjectStorage();
+    }
+
+    /**
+     * 測試用的記錄式郵件寄送器，取代真的 SMTP 連線。
+     *
+     * <p>正式環境的 {@code MailConfig.javaMailSender} 在 {@code MAIL_HOST} 未設定時
+     * 回傳 {@code null}（no-op 降級），測試環境同樣沒有設定，但這裡改註冊一個
+     * {@code @Primary} 的記錄式實作，讓 IT 能斷言「哪些信被寄出去了」，而不是
+     * 停留在「反正沒有 mailSender，程式不會炸」這種弱驗證。
+     */
+    @Bean
+    @Primary
+    JavaMailSender testJavaMailSender() {
+        return new RecordingMailSender();
     }
 
     @Bean

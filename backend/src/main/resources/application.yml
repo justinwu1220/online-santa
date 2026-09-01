@@ -86,3 +86,14 @@ app:
     # 白名單內的 email 於登入時取得 ADMIN 角色
     admin-emails: ${APP_ADMIN_EMAILS:}
     allowed-origins: ${APP_ALLOWED_ORIGINS:http://localhost:5173}
+  notification:
+    # 不綁定特定供應商——任何符合 SMTP 的服務都能填進這五個值。host 留空時
+    # MailConfig 不會建立 JavaMailSender，NotificationService 自動降級為
+    # no-op（只記 log，不寄信），本機開發與尚未申請 SMTP 的環境都不受影響。
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    from-address: ${MAIL_FROM:no-reply@example.org}
+    # 信件內文的連結要指向前端，不是這支 API 自己的網址
+    public-url: ${APP_PUBLIC_URL:http://localhost:5173}

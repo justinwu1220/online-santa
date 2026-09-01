@@ -66,6 +66,12 @@
             <version>${google-cloud-storage.version}</version>
         </dependency>
 
+        <!-- Email 通知：認領成立、審核結果、回饋照片、新訊息、寄送期限提醒 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- 維運 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
