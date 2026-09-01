@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.onlinesanta.job.dto.AttachmentCleanupResult;
+import com.onlinesanta.job.dto.DeadlineReminderResult;
 import com.onlinesanta.job.dto.ReleaseSweepResult;
 
 import io.swagger.v3.oas.annotations.Hidden;
@@ -25,11 +26,14 @@ public class InternalJobController {
 
     private final ClaimReleaseService releases;
     private final PendingAttachmentCleanupService attachmentCleanup;
+    private final DeadlineReminderService deadlineReminders;
 
     public InternalJobController(ClaimReleaseService releases,
-                                 PendingAttachmentCleanupService attachmentCleanup) {
+                                 PendingAttachmentCleanupService attachmentCleanup,
+                                 DeadlineReminderService deadlineReminders) {
         this.releases = releases;
         this.attachmentCleanup = attachmentCleanup;
+        this.deadlineReminders = deadlineReminders;
     }
 
     @PostMapping("/release-expired-claims")
@@ -40,5 +44,10 @@ public class InternalJobController {
     @PostMapping("/cleanup-pending-attachments")
     public AttachmentCleanupResult cleanupPendingAttachments() {
         return attachmentCleanup.cleanup();
+    }
+
+    @PostMapping("/send-deadline-reminders")
+    public DeadlineReminderResult sendDeadlineReminders() {
+        return deadlineReminders.sweep();
     }
 }

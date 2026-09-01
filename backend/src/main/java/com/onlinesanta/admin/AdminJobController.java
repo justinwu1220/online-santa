@@ -6,8 +6,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.onlinesanta.job.ClaimReleaseService;
+import com.onlinesanta.job.DeadlineReminderService;
 import com.onlinesanta.job.PendingAttachmentCleanupService;
 import com.onlinesanta.job.dto.AttachmentCleanupResult;
+import com.onlinesanta.job.dto.DeadlineReminderResult;
 import com.onlinesanta.job.dto.ReleaseSweepResult;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,13 +30,16 @@ public class AdminJobController {
 
     private final ClaimReleaseService releases;
     private final PendingAttachmentCleanupService attachmentCleanup;
+    private final DeadlineReminderService deadlineReminders;
     private final AdminAuditService audit;
 
     public AdminJobController(ClaimReleaseService releases,
                               PendingAttachmentCleanupService attachmentCleanup,
+                              DeadlineReminderService deadlineReminders,
                               AdminAuditService audit) {
         this.releases = releases;
         this.attachmentCleanup = attachmentCleanup;
+        this.deadlineReminders = deadlineReminders;
         this.audit = audit;
     }
 
@@ -58,6 +63,17 @@ public class AdminJobController {
         audit.record(AdminAuditAction.RUN_ATTACHMENT_CLEANUP, null,
                 "掃到 %d 筆，清除 %d 筆，失敗 %d 筆".formatted(
                         result.found(), result.deleted(), result.failed()));
+        return result;
+    }
+
+    @PostMapping("/send-deadline-reminders")
+    @Operation(summary = "立即執行寄送期限提醒",
+            description = "提醒寄送期限在 2 天內、還沒寄過提醒信的認領；逐筆處理，單筆失敗不擋整批")
+    public DeadlineReminderResult sendDeadlineReminders() {
+        DeadlineReminderResult result = deadlineReminders.sweep();
+        audit.record(AdminAuditAction.RUN_DEADLINE_REMINDERS, null,
+                "掃到 %d 筆，寄出 %d 筆，失敗 %d 筆".formatted(
+                        result.found(), result.sent(), result.failed()));
         return result;
     }
 }

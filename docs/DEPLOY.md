@@ -312,6 +312,7 @@ gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
 |---|---|
 | `WIF_PROVIDER` | `projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/github/providers/github` |
 | `WIF_SERVICE_ACCOUNT` | `github-deployer@<PROJECT_ID>.iam.gserviceaccount.com` |
+| `MAIL_PASSWORD` | SMTP 服務的密碼／API key，見下方「Email 通知」 |
 
 ### Variables（非機密，會出現在建置紀錄裡）
 
@@ -327,10 +328,26 @@ gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
 | `VITE_FIREBASE_AUTH_DOMAIN` | 1.5 取得的 authDomain |
 | `INTERNAL_JOB_AUDIENCE` | `https://online-santa/internal-jobs`（見下方說明） |
 | `SCHEDULER_SERVICE_ACCOUNT` | `online-santa-scheduler@<PROJECT_ID>.iam.gserviceaccount.com` |
+| `MAIL_HOST` | SMTP 主機，見下方「Email 通知」 |
+| `MAIL_PORT` | SMTP 連接埠，通常是 `587` |
+| `MAIL_USERNAME` | SMTP 帳號 |
+| `MAIL_FROM` | 通知信的寄件人地址 |
+| `APP_PUBLIC_URL` | `https://<PROJECT_ID>.web.app`——通知信內文的連結會指向這裡 |
 
 > **`INTERNAL_JOB_AUDIENCE` 為什麼是一個看起來假的網址**：OIDC token 的 audience
 > 可以是任意字串，只要排程與後端兩邊一致即可。刻意不用 Cloud Run 的網址，
 > 因為那要等第一次部署後才知道——會變成先有雞還是先有蛋。
+
+### Email 通知
+
+`MAIL_HOST/PORT/USERNAME/PASSWORD/FROM` 不綁定特定供應商——任何符合 SMTP 的服務
+都能填（Gmail 的應用程式密碼、SendGrid、Mailgun 等）。**這五個變數全部留空是合法
+狀態**：後端偵測到 `MAIL_HOST` 是空的就自動降級成 no-op（只記 log，不寄信），不會
+因為沒設定就啟動失敗，因此可以先不申請 SMTP 服務就上線，通知功能之後再補設定、
+重新部署即可生效，不必改程式碼。
+
+`APP_PUBLIC_URL` 一律要設（即使暫時不用 email）：通知信內文的連結（例如「查看認領
+詳情」）是拿這個值組出來的，不是後端 API 自己的網址——使用者到不了 API 的網址。
 
 ---
 
@@ -430,6 +447,15 @@ gcloud scheduler jobs create http cleanup-pending-attachments \
   --http-method=POST \
   --oidc-service-account-email="$SCHED_SA" \
   --oidc-token-audience="https://online-santa/internal-jobs"
+
+gcloud scheduler jobs create http send-deadline-reminders \
+  --location=asia-east1 \
+  --schedule="0 9 * * *" \
+  --time-zone="Asia/Taipei" \
+  --uri="$API_URL/internal/jobs/send-deadline-reminders" \
+  --http-method=POST \
+  --oidc-service-account-email="$SCHED_SA" \
+  --oidc-token-audience="https://online-santa/internal-jobs"
 ```
 
 > `--oidc-token-audience` 必須與 `INTERNAL_JOB_AUDIENCE` 完全一致，否則後端會
@@ -442,11 +468,13 @@ gcloud scheduler jobs create http cleanup-pending-attachments \
 ```bash
 gcloud scheduler jobs run release-expired-claims --location=asia-east1
 gcloud scheduler jobs run cleanup-pending-attachments --location=asia-east1
+gcloud scheduler jobs run send-deadline-reminders --location=asia-east1
 ```
 
 也可以登入監控中心，在「系統與稽核」按「立即執行」——同一段邏輯，不同的身分驗證。
 附件清理建議排在逾期釋回之後（凌晨 4 點 vs 3 點）：兩者互不相依，錯開只是避免
-同時打進資料庫的尖峰重疊。
+同時打進資料庫的尖峰重疊。寄送期限提醒刻意排在早上 9 點而非半夜——前兩個是內部
+維運排程，這個是真的會寄到捐贈者信箱的信，半夜寄出沒有意義，還可能被當垃圾信。
 
 ---
 

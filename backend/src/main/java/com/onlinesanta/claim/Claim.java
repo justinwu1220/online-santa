@@ -80,6 +80,15 @@ public class Claim extends BaseEntity {
     @Column(name = "donor_message", length = 500)
     private String donorMessage;
 
+    /**
+     * 寄送期限提醒信已寄出的時間。null 代表還沒寄過。
+     *
+     * <p>只是「有沒有寄過」的記號，不是提醒本身的資料——用它擋掉排程重複執行時
+     * 對同一筆認領再寄一次信。
+     */
+    @Column(name = "deadline_reminder_sent_at")
+    private Instant deadlineReminderSentAt;
+
     @Version
     @Column(nullable = false)
     private long version;
@@ -131,6 +140,10 @@ public class Claim extends BaseEntity {
         transitionTo(ClaimStatus.CANCELLED);
         this.releasedAt = Instant.now();
         this.releaseReason = reason;
+    }
+
+    public void markDeadlineReminderSent() {
+        this.deadlineReminderSentAt = Instant.now();
     }
 
     /**
@@ -214,6 +227,10 @@ public class Claim extends BaseEntity {
 
     public String getDonorMessage() {
         return donorMessage;
+    }
+
+    public Instant getDeadlineReminderSentAt() {
+        return deadlineReminderSentAt;
     }
 
     public long getVersion() {

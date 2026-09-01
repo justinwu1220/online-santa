@@ -29,14 +29,17 @@ public enum AdminAuditAction {
     RUN_RELEASE_SWEEP,
 
     /** 手動觸發 PENDING 附件清理排程。 */
-    RUN_ATTACHMENT_CLEANUP;
+    RUN_ATTACHMENT_CLEANUP,
+
+    /** 手動觸發寄送期限提醒排程。 */
+    RUN_DEADLINE_REMINDERS;
 
     public AdminAuditTargetType targetType() {
         return switch (this) {
             case VIEW_CLAIM_DETAIL, VIEW_CLAIM_ATTACHMENTS, DELETE_ATTACHMENT -> AdminAuditTargetType.CLAIM;
             case APPROVE_ORGANIZATION, REJECT_ORGANIZATION,
                  SUSPEND_ORGANIZATION, REACTIVATE_ORGANIZATION -> AdminAuditTargetType.ORGANIZATION;
-            case RUN_RELEASE_SWEEP, RUN_ATTACHMENT_CLEANUP -> AdminAuditTargetType.SYSTEM;
+            case RUN_RELEASE_SWEEP, RUN_ATTACHMENT_CLEANUP, RUN_DEADLINE_REMINDERS -> AdminAuditTargetType.SYSTEM;
         };
     }
 }

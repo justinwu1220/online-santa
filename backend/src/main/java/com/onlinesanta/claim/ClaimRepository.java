@@ -38,6 +38,22 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID> {
             """)
     Page<Claim> findAllOverdue(@Param("now") Instant now, Pageable pageable);
 
+    /**
+     * 寄送期限快到、還沒寄過提醒信的認領。供 {@code DeadlineReminderService} 的每日
+     * 排程使用。半開區間 {@code [from, to)}：{@code from} 是「現在」（已經逾期的不算，
+     * 那是 {@link #findAllOverdue} 與逾期釋回排程的職責），{@code to} 是提醒窗口的
+     * 終點（現在 + 2 天）。
+     */
+    @EntityGraph(attributePaths = {"wish", "donor"})
+    @Query("""
+            select c from Claim c
+            where c.status = com.onlinesanta.claim.ClaimStatus.CLAIMED
+              and c.shipDeadlineAt >= :from
+              and c.shipDeadlineAt < :to
+              and c.deadlineReminderSentAt is null
+            """)
+    List<Claim> findNeedingDeadlineReminder(@Param("from") Instant from, @Param("to") Instant to);
+
     // ================================================================ 監控中心「全站認領」的年度篩選
     //
     // 以 claimedAt 的台北日曆年篩選，與年度統計的 cohort 口徑一致（認領的歸屬時間
