@@ -482,12 +482,15 @@ gcloud scheduler jobs run send-deadline-reminders --location=asia-east1
 
 ```bash
 # 帳單警示。設定後超過門檻會寄信，但不會自動停用服務
-# 注意：percent 是小數（0.5 = 50%），寫成整數 50 會被解讀成 5000%，
+# 注意一：percent 是小數（0.5 = 50%），寫成整數 50 會被解讀成 5000%，
 # API 回 INVALID_ARGUMENT
+# 注意二：金額幣別必須與帳單帳戶一致（台灣帳戶通常是 TWD，用 USD 會被拒，
+# 錯誤訊息同樣只給 INVALID_ARGUMENT 不說原因）。查幣別：
+#   gcloud billing accounts describe <BILLING_ACCOUNT_ID> --format="value(currencyCode)"
 gcloud billing budgets create \
   --billing-account=<BILLING_ACCOUNT_ID> \
   --display-name="線上聖誕老公公" \
-  --budget-amount=10USD \
+  --budget-amount=300TWD \
   --threshold-rule=percent=0.5 \
   --threshold-rule=percent=0.9 \
   --threshold-rule=percent=1.0
