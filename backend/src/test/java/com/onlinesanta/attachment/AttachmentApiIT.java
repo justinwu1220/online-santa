@@ -327,8 +327,9 @@ class AttachmentApiIT extends ApiIntegrationTest {
     // ------------------------------------------------------------ 讀取與隱私
 
     @Test
-    @DisplayName("願望示意圖出現在公開願望牆，且是不需簽章的固定網址")
-    void wishImageAppearsOnThePublicWall() throws Exception {
+    @DisplayName("願望示意圖不出現在願望牆清單（流量優化：清單一律用分類圖示），"
+            + "但詳情頁看得到，是不需簽章的固定網址")
+    void wishImageAppearsOnlyOnTheDetailPageNotTheWall() throws Exception {
         UUID wishId = draftWish("有示意圖");
         uploadAs(AttachmentPurpose.WISH_IMAGE, wishId, ORG_USER);
         mvc.perform(as(post("/api/wishes/{id}/publish", wishId), ORG_USER))
@@ -336,9 +337,13 @@ class AttachmentApiIT extends ApiIntegrationTest {
 
         mvc.perform(get("/api/wishes"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].imageUrl").exists())
+                .andExpect(jsonPath("$.content[0].imageUrl").doesNotExist());
+
+        mvc.perform(get("/api/wishes/{id}", wishId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.imageUrl").exists())
                 // 公開 bucket 的網址不帶簽章參數
-                .andExpect(jsonPath("$.content[0].imageUrl").value(
+                .andExpect(jsonPath("$.imageUrl").value(
                         org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("signature"))));
     }
 

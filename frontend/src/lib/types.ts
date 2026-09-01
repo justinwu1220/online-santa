@@ -37,6 +37,28 @@ export interface PageResponse<T> {
 
 export type WishStatus = 'DRAFT' | 'AVAILABLE' | 'CLAIMED' | 'FULFILLED' | 'ARCHIVED'
 
+/**
+ * 願望牆清單的單筆項目。流量優化：清單不含 imageUrl，一律用分類圖示，圖片只在
+ * 詳情頁（{@link WishPublicView}）載入。
+ */
+export interface WishListView {
+  id: string
+  title: string
+  description?: string
+  category: string
+  categoryLabel: string
+  ageRange: string
+  ageRangeLabel: string
+  priceRange: string
+  priceRangeLabel: string
+  childAlias: string
+  interests?: string
+  status: WishStatus
+  publishedAt?: string
+  organizationId: string
+  organizationName: string
+}
+
 export interface WishPublicView {
   id: string
   title: string

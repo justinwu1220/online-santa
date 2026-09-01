@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, withQuery } from '../lib/api'
-import type { PageResponse, WishFilterOptions, WishPublicView } from '../lib/types'
+import type { PageResponse, WishFilterOptions, WishListView } from '../lib/types'
 import { EmptyState, ErrorBanner, Spinner } from '../components/Feedback'
 import { Select } from '../components/Form'
 import { Pagination } from '../components/Pagination'
@@ -27,10 +27,11 @@ export function WishWall() {
     staleTime: Infinity,
   })
 
+  // 清單卡片縮小了、密度提高了，一頁撐得住比原本 12 筆更多
   const wishes = useQuery({
     queryKey: ['wishes', filters, page],
-    queryFn: () => api.get<PageResponse<WishPublicView>>(
-      withQuery('/api/wishes', { ...filters, page, size: 12 })),
+    queryFn: () => api.get<PageResponse<WishListView>>(
+      withQuery('/api/wishes', { ...filters, page, size: 20 })),
   })
 
   function updateFilter(key: keyof Filters, value: string) {
@@ -81,7 +82,7 @@ export function WishWall() {
 
       {wishes.data && wishes.data.content.length > 0 && (
         <>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {wishes.data.content.map((wish) => <WishCard key={wish.id} wish={wish} />)}
           </div>
           <Pagination page={wishes.data} onChange={setPage} />
@@ -110,50 +111,40 @@ function FilterSelect({ label, value, options, onChange }: {
   )
 }
 
-function WishCard({ wish }: { wish: WishPublicView }) {
+/**
+ * 清單卡片刻意緊湊：流量優化決策是清單不載圖，一律用分類圖示（小圖示，不是
+ * 撐版面的大圖區塊），也拿掉了 interests 這種次要資訊——那些留給願望詳情頁，
+ * 清單的任務是讓人一眼掃過更多願望，不是每一張都講完整個故事。
+ */
+function WishCard({ wish }: { wish: WishListView }) {
   return (
     <Link
       to={`/wishes/${wish.id}`}
-      className="glass-card-interactive group flex flex-col overflow-hidden"
+      className="glass-card-interactive group flex items-start gap-3 p-3.5"
     >
-      <div className="aspect-[4/3] overflow-hidden bg-white/5">
-        {wish.imageUrl ? (
-          <img
-            src={wish.imageUrl}
-            alt=""
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-6xl opacity-90">
-            {wishIcon(wish.category)}
-          </div>
-        )}
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg
+        bg-white/5 text-xl transition-transform group-hover:scale-110">
+        {wishIcon(wish.category)}
       </div>
 
-      <div className="flex flex-1 flex-col p-5">
-        <h2 className="text-lg font-bold text-white transition-colors
+      <div className="min-w-0 flex-1">
+        <h2 className="truncate text-sm font-bold text-white transition-colors
           group-hover:text-emerald-200">
           {wish.title}
         </h2>
         {/* 只顯示暱稱與年齡區間——系統裡本來就沒有孩子的真實姓名 */}
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-0.5 truncate text-xs text-slate-400">
           {wish.childAlias}・{wish.ageRangeLabel}
         </p>
-        {wish.interests && (
-          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-300">
-            {wish.interests}
-          </p>
-        )}
 
-        <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
-          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1
-            text-xs font-medium text-emerald-200">
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5
+            text-[11px] font-medium text-emerald-200">
             {wish.categoryLabel}
           </span>
-          <span className="night-chip">{wish.priceRangeLabel}</span>
+          <span className="night-chip px-2 py-0.5 text-[11px]">{wish.priceRangeLabel}</span>
         </div>
-        <p className="mt-3 truncate text-xs text-slate-500">{wish.organizationName}</p>
+        <p className="mt-1.5 truncate text-[11px] text-slate-500">{wish.organizationName}</p>
       </div>
     </Link>
   )

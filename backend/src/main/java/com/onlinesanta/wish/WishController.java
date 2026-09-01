@@ -1,6 +1,5 @@
 package com.onlinesanta.wish;
 
-import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -22,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.onlinesanta.attachment.AttachmentService;
 import com.onlinesanta.common.PageResponse;
 import com.onlinesanta.wish.dto.WishFilterOptions;
+import com.onlinesanta.wish.dto.WishListView;
 import com.onlinesanta.wish.dto.WishOrgView;
 import com.onlinesanta.wish.dto.WishPublicView;
 import com.onlinesanta.wish.dto.WishRequest;
@@ -52,21 +52,17 @@ public class WishController {
     // ---------------------------------------------------------------- 公開瀏覽
 
     @GetMapping
-    @Operation(summary = "瀏覽願望牆", description = "只回上架中的願望；分類、年齡區間、價格區間皆為選填篩選")
-    public PageResponse<WishPublicView> browse(
+    @Operation(summary = "瀏覽願望牆",
+            description = "只回上架中的願望；分類、年齡區間、價格區間皆為選填篩選。"
+                    + "清單不含示意圖網址——願望牆一律用分類圖示，圖片只在詳情頁載入")
+    public PageResponse<WishListView> browse(
             @RequestParam(required = false) WishCategory category,
             @RequestParam(required = false) AgeRange ageRange,
             @RequestParam(required = false) PriceRange priceRange,
             @PageableDefault(size = 20, sort = "publishedAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
         Page<Wish> page = wishes.browse(category, ageRange, priceRange, pageable);
-
-        // 一次撈完整頁的示意圖網址，不要逐筆查詢——這是願望牆的熱門路徑
-        Map<UUID, String> imageUrls = attachments.wishImageUrls(
-                page.getContent().stream().map(Wish::getId).toList());
-
-        return PageResponse.of(page,
-                wish -> WishPublicView.from(wish, imageUrls.get(wish.getId())));
+        return PageResponse.of(page, WishListView::from);
     }
 
     @GetMapping("/options")
