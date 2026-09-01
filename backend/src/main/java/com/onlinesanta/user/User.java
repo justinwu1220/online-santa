@@ -100,6 +100,19 @@ public class User extends BaseEntity {
         this.phone = phone;
     }
 
+    /**
+     * 舊版 JIT provisioning 曾在 token 沒帶名字時直接把 email 塞進 displayName。
+     * 下次登入時 token 若帶了 name claim，就用它取代那個舊 fallback——但只在目前的
+     * displayName 明顯就是那個 fallback（null 或等於 email 本身）時才動，使用者自己
+     * 在個人檔案改過的名稱（不等於 email 的）一律不覆蓋。
+     */
+    public void repairLegacyDisplayName(String nameFromToken) {
+        boolean isLegacyFallback = displayName == null || displayName.equalsIgnoreCase(email);
+        if (isLegacyFallback && nameFromToken != null && !nameFromToken.isBlank()) {
+            this.displayName = nameFromToken;
+        }
+    }
+
     public String getFirebaseUid() {
         return firebaseUid;
     }

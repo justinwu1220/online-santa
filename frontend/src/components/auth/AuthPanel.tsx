@@ -35,6 +35,7 @@ export function AuthPanel({ hint, registerHint, allowRegister = true }: {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [confirmError, setConfirmError] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState('')
+  const [displayNameError, setDisplayNameError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -47,6 +48,7 @@ export function AuthPanel({ hint, registerHint, allowRegister = true }: {
     // 沒有意義，切回來也該是空白的
     setConfirmPassword('')
     setConfirmError(null)
+    setDisplayNameError(null)
   }
 
   async function run(action: () => Promise<void>, successNotice?: string) {
@@ -164,20 +166,28 @@ export function AuthPanel({ hint, registerHint, allowRegister = true }: {
         className="space-y-3"
         onSubmit={(event) => {
           event.preventDefault()
+          if (registering && !displayName.trim()) {
+            setDisplayNameError('請輸入顯示名稱')
+            return
+          }
           if (registering && password !== confirmPassword) {
             setConfirmError('兩次輸入的密碼不一致')
             return
           }
           void run(() => registering
-            ? auth.registerWithPassword(email, password, displayName || undefined)
+            ? auth.registerWithPassword(email, password, displayName.trim())
             : auth.signInWithPassword(email, password))
         }}
       >
         {registering && (
-          <Field label="顯示名稱" hint="機構聯繫你時會看到這個名字">
-            <TextInput maxLength={100} value={displayName}
+          <Field label="顯示名稱" required hint="機構聯繫你時會看到這個名字"
+            error={displayNameError ?? undefined}>
+            <TextInput required maxLength={100} value={displayName}
               placeholder="王小明"
-              onChange={(event) => setDisplayName(event.target.value)} />
+              onChange={(event) => {
+                setDisplayName(event.target.value)
+                setDisplayNameError(null)
+              }} />
           </Field>
         )}
 
