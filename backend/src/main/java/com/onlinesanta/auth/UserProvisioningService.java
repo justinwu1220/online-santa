@@ -44,6 +44,7 @@ public class UserProvisioningService {
                     HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "此帳號已被停用");
         }
 
+        user.repairLegacyDisplayName(displayName);
         promoteToAdminIfWhitelisted(user, emailVerified);
         user.recordLogin(Instant.now());
         return AppPrincipal.from(user, emailVerified);
@@ -72,9 +73,28 @@ public class UserProvisioningService {
                     return existing;
                 })
                 .orElseGet(() -> users.save(User.newDonor(
-                        firebaseUid,
-                        email,
-                        StringUtils.hasText(displayName) ? displayName : email)));
+                        firebaseUid, email, resolveDisplayName(displayName, email))));
+    }
+
+    /**
+     * JIT 建立帳號時決定 displayName：優先用 token 的 name claim（Google 登入本來就有），
+     * 沒有的話退而求其次用信箱 {@code @} 前面那段——比整串信箱好看，但終究是猜的，
+     * 拿不到局部字串（例如信箱格式怪異）才真的保底用整個信箱。
+     */
+    private static String resolveDisplayName(String displayName, String email) {
+        if (StringUtils.hasText(displayName)) {
+            return displayName;
+        }
+        String localPart = localPartOf(email);
+        return StringUtils.hasText(localPart) ? localPart : email;
+    }
+
+    private static String localPartOf(String email) {
+        if (!StringUtils.hasText(email)) {
+            return null;
+        }
+        int at = email.indexOf('@');
+        return at > 0 ? email.substring(0, at) : null;
     }
 
     /**
