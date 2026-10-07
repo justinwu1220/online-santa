@@ -116,6 +116,7 @@ export interface WishFilterOptions {
   categories: FilterOption[]
   ageRanges: FilterOption[]
   priceRanges: FilterOption[]
+  organizations: FilterOption[]
 }
 
 // ---------------------------------------------------------------- 機構

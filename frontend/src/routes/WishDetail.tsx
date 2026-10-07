@@ -10,6 +10,7 @@ import { ErrorBanner, Notice, Spinner } from '../components/Feedback'
 import { Button, TextArea } from '../components/Form'
 import { WishStatusBadge } from '../components/StatusBadge'
 import { wishIcon } from '../lib/wishIcon'
+import { wallStatusTag } from '../lib/wishWallStatus'
 
 export function WishDetail() {
   const { id = '' } = useParams()
@@ -61,6 +62,7 @@ export function WishDetail() {
   const data = wish.data!
   const available = data.status === 'AVAILABLE'
   const isDonor = effectiveRoleOf(me.data) === 'DONOR'
+  const statusTag = wallStatusTag(data.status)
 
   return (
     <div className="space-y-6">
@@ -81,7 +83,15 @@ export function WishDetail() {
         <div>
           <div className="flex items-start justify-between gap-4">
             <h1 className="text-3xl font-bold text-white">{data.title}</h1>
-            <WishStatusBadge status={data.status} />
+            <div className="flex shrink-0 items-center gap-1.5">
+              <WishStatusBadge status={data.status} />
+              {statusTag && (
+                <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+                  statusTag.className}`}>
+                  {statusTag.label}
+                </span>
+              )}
+            </div>
           </div>
 
           <dl className="glass-card mt-6 grid grid-cols-2 gap-4 p-4 text-sm">

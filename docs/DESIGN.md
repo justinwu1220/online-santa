@@ -125,6 +125,12 @@ rounded-full        標籤、頭像、通知
 
 `Notice` 與 `ErrorBanner` 同理，都已經有對應的 `.theme-night` 規則。
 
+> **例外**：願望牆的未認領/已認領/已完成標籤（`lib/wishWallStatus.ts`）刻意**沒有**
+> 走上面這套 `.badge`/`.theme-night` 機制，是直接寫死的深色底配色（綠/黃/紅）。
+> 不是漏改——這個標籤的顏色語意跟 `StatusBadge` 的 `WISH_TONES` 不同：後台的
+> 「已完成」是正向的綠色，願望牆這裡強調的是「還能不能認領」而刻意用紅收尾，
+> 硬共用同一套 tone 系統會變成後台綠字、牆上紅字的矛盾。兩套各自獨立維護。
+
 ### 漸層文字
 
 標題用 `bg-gradient-to-r from-red-300 via-white to-emerald-300` +

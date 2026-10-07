@@ -53,22 +53,24 @@ public class WishController {
 
     @GetMapping
     @Operation(summary = "瀏覽願望牆",
-            description = "只回上架中的願望；分類、年齡區間、價格區間皆為選填篩選。"
+            description = "預設回可認領／已認領／已完成（草稿與下架一律不回）；"
+                    + "機構、分類、年齡區間、狀態皆為選填篩選，狀態只能篩成單一值。"
                     + "清單不含示意圖網址——願望牆一律用分類圖示，圖片只在詳情頁載入")
     public PageResponse<WishListView> browse(
             @RequestParam(required = false) WishCategory category,
             @RequestParam(required = false) AgeRange ageRange,
-            @RequestParam(required = false) PriceRange priceRange,
+            @RequestParam(required = false) UUID organizationId,
+            @RequestParam(required = false) WishWallStatus status,
             @PageableDefault(size = 20, sort = "publishedAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
-        Page<Wish> page = wishes.browse(category, ageRange, priceRange, pageable);
+        Page<Wish> page = wishes.browse(category, ageRange, organizationId, status, pageable);
         return PageResponse.of(page, WishListView::from);
     }
 
     @GetMapping("/options")
     @Operation(summary = "取得篩選選項", description = "供前端建立篩選器，避免兩端的 enum 定義不同步")
     public WishFilterOptions options() {
-        return WishFilterOptions.build();
+        return wishes.filterOptions();
     }
 
     @GetMapping("/{id}")

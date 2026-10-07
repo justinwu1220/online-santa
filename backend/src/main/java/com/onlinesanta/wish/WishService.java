@@ -15,10 +15,20 @@ import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationService;
+import com.onlinesanta.wish.dto.WishFilterOptions;
 import com.onlinesanta.wish.dto.WishRequest;
 
 @Service
 public class WishService {
+
+    /**
+     * 願望牆「全部」狀態的預設可見範圍：可認領、已認領、已完成。
+     *
+     * <p>草稿與下架一律不開放——跟 {@link Wish#isPubliclyVisible()} 的精神一致，只是
+     * 這裡還要再排除 ARCHIVED（願望詳情頁允許看已下架的舊連結，但願望牆列表不该列出）。
+     */
+    private static final List<WishStatus> DEFAULT_WALL_STATUSES =
+            List.of(WishStatus.AVAILABLE, WishStatus.CLAIMED, WishStatus.FULFILLED);
 
     private final WishRepository wishes;
     private final OrganizationService organizations;
@@ -34,11 +44,23 @@ public class WishService {
 
     // ---------------------------------------------------------------- 公開瀏覽
 
-    /** 願望牆：只回上架中的願望，三個篩選條件皆為選填。 */
+    /**
+     * 願望牆：預設顯示可認領／已認領／已完成（不帶 {@code status} 篩選時），草稿與
+     * 下架一律不會出現。帶 {@code status} 時只篩單一狀態。其餘條件皆為選填。
+     */
     @Transactional(readOnly = true)
-    public Page<Wish> browse(WishCategory category, AgeRange ageRange,
-                             PriceRange priceRange, Pageable pageable) {
-        return wishes.search(WishStatus.AVAILABLE, category, ageRange, priceRange, pageable);
+    public Page<Wish> browse(WishCategory category, AgeRange ageRange, UUID organizationId,
+                             WishWallStatus status, Pageable pageable) {
+        List<WishStatus> statuses = status == null
+                ? DEFAULT_WALL_STATUSES
+                : List.of(status.toWishStatus());
+        return wishes.search(statuses, organizationId, category, ageRange, pageable);
+    }
+
+    /** 願望牆篩選選項：分類/年齡/價格為固定 enum，機構名稱來自已核准機構清單。 */
+    @Transactional(readOnly = true)
+    public WishFilterOptions filterOptions() {
+        return WishFilterOptions.build(organizations.listApprovedForWishFilter());
     }
 
     /** 公開的願望詳情。草稿不對外顯示，且不透露「存在但看不到」——一律回 404。 */
