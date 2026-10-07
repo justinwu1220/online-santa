@@ -133,18 +133,24 @@ public class AdminCatalogService {
     /**
      * 這筆認領的捐贈者與機構對話。
      *
-     * <p>視為認領詳情的一部分，不另外寫稽核——開啟詳情時 {@link #getClaim} 已經記過
-     * {@code VIEW_CLAIM_DETAIL}。比照 {@code timelineOf}：清單頁不記、單筆存取靠
-     * 進入詳情頁那一次就夠了。
+     * <p>比照附件：這是對個人資料的一次具體存取，稽核紀錄的 detail 會記下看到
+     * 幾則訊息。
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<AdminMessageView> messagesOf(UUID claimId) {
         Claim claim = claims.findWithDetailsById(claimId)
                 .orElseThrow(() -> ResourceNotFoundException.of("認領", claimId));
 
-        return messages.findByClaimIdOrderByCreatedAtAsc(claimId).stream()
+        List<AdminMessageView> views = messages.findByClaimIdOrderByCreatedAtAsc(claimId).stream()
                 .map(message -> AdminMessageView.from(message, claim.getDonor().getId()))
                 .toList();
+
+        audit.record(AdminAuditAction.VIEW_CLAIM_MESSAGES, claimId,
+                "%s / %s，共 %d 則".formatted(
+                        claim.getWish().getOrganization().getName(),
+                        claim.getWish().getTitle(),
+                        views.size()));
+        return views;
     }
 
     /**

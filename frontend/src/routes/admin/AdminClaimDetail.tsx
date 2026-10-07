@@ -16,8 +16,9 @@ import { Timeline } from '../../components/Timeline'
  * 管理員檢視單筆認領。
  *
  * 這是全系統最敏感的畫面：捐贈者的姓名與 email、寄送證明、以及可能含孩童影像的
- * 回饋照片全都在這裡。因此**開啟這個頁面本身就會寫入稽核紀錄**——附件另外再記一筆；
- * 捐贈者與機構的對話則視為詳情的一部分，隨頁面直接展開，不另外記。
+ * 回饋照片全都在這裡。因此**開啟這個頁面本身就會寫入稽核紀錄**——附件與對話都
+ * 另外再記一筆：要按鈕才載入，載入時各自寫入 VIEW_CLAIM_ATTACHMENTS／
+ * VIEW_CLAIM_MESSAGES。
  *
  * 畫面上直接告知使用者這件事。讓管理員知道自己的行為被記錄，本身就是一種約束。
  */
@@ -32,13 +33,6 @@ export function AdminClaimDetail() {
   const timeline = useQuery({
     queryKey: ['admin-claim', id, 'timeline'],
     queryFn: () => api.get<ClaimEventView[]>(`/api/admin/claims/${id}/timeline`),
-  })
-
-  // 對話屬於認領詳情的一部分，隨頁面一起載入——開啟詳情時已經寫入
-  // VIEW_CLAIM_DETAIL 稽核，不像附件那樣需要另一次明確的點擊才載入。
-  const messages = useQuery({
-    queryKey: ['admin-claim', id, 'messages'],
-    queryFn: () => api.get<AdminMessageView[]>(`/api/admin/claims/${id}/messages`),
   })
 
   if (claim.isLoading) return <Spinner label="載入認領" />
@@ -88,13 +82,7 @@ export function AdminClaimDetail() {
         </dl>
       </ConsolePanel>
 
-      <ConsolePanel title="對話">
-        {messages.isLoading && <Spinner label="載入對話" />}
-        {messages.isError && (
-          <ErrorBanner error={messages.error} onRetry={() => void messages.refetch()} />
-        )}
-        {messages.data && <MessagePanel messages={messages.data} />}
-      </ConsolePanel>
+      <MessagesPanel claimId={id} />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <ConsolePanel title="歷程">
@@ -106,6 +94,53 @@ export function AdminClaimDetail() {
         <AttachmentPanel claimId={id} />
       </div>
     </div>
+  )
+}
+
+/**
+ * 對話要按鈕才載入，跟附件一樣。
+ *
+ * 不自動抓的理由跟附件相同：這是對個人資料的一次具體存取（捐贈者與機構
+ * 可能在訊息裡提到收件細節），載入會另外寫入一筆稽核紀錄，讓「看對話」
+ * 成為一個明確的動作，而不是打開頁面的副作用。
+ */
+function MessagesPanel({ claimId }: { claimId: string }) {
+  const messages = useQuery({
+    queryKey: ['admin-claim', claimId, 'messages'],
+    queryFn: () => api.get<AdminMessageView[]>(`/api/admin/claims/${claimId}/messages`),
+    enabled: false,
+  })
+
+  return (
+    <ConsolePanel
+      title="對話"
+      action={
+        !messages.isFetched && (
+          <button
+            type="button"
+            onClick={() => void messages.refetch()}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium
+              text-slate-700 hover:bg-slate-50"
+          >
+            載入對話
+          </button>
+        )
+      }
+    >
+      {!messages.isFetched && (
+        <p className="text-sm text-slate-500">
+          對話內容可能涉及捐贈者與機構討論的收件細節。
+          <strong>載入會另外寫入一筆稽核紀錄。</strong>
+        </p>
+      )}
+
+      {messages.isFetching && <Spinner label="載入對話" />}
+      {messages.isError && <ErrorBanner error={messages.error} />}
+
+      {messages.isFetched && !messages.isFetching && messages.data && (
+        <MessagePanel messages={messages.data} />
+      )}
+    </ConsolePanel>
   )
 }
 

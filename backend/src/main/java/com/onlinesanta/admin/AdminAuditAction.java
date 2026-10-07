@@ -14,6 +14,9 @@ public enum AdminAuditAction {
     /** 看了某一筆認領的附件——可能包含寄送證明與含孩童影像的回饋照片。 */
     VIEW_CLAIM_ATTACHMENTS,
 
+    /** 看了某一筆認領的對話內容——捐贈者與機構之間可能提到的收件細節等資訊。 */
+    VIEW_CLAIM_MESSAGES,
+
     APPROVE_ORGANIZATION,
     REJECT_ORGANIZATION,
 
@@ -36,7 +39,8 @@ public enum AdminAuditAction {
 
     public AdminAuditTargetType targetType() {
         return switch (this) {
-            case VIEW_CLAIM_DETAIL, VIEW_CLAIM_ATTACHMENTS, DELETE_ATTACHMENT -> AdminAuditTargetType.CLAIM;
+            case VIEW_CLAIM_DETAIL, VIEW_CLAIM_ATTACHMENTS, VIEW_CLAIM_MESSAGES, DELETE_ATTACHMENT
+                    -> AdminAuditTargetType.CLAIM;
             case APPROVE_ORGANIZATION, REJECT_ORGANIZATION,
                  SUSPEND_ORGANIZATION, REACTIVATE_ORGANIZATION -> AdminAuditTargetType.ORGANIZATION;
             case RUN_RELEASE_SWEEP, RUN_ATTACHMENT_CLEANUP, RUN_DEADLINE_REMINDERS -> AdminAuditTargetType.SYSTEM;

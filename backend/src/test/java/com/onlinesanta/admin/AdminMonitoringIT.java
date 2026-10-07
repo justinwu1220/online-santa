@@ -434,8 +434,8 @@ class AdminMonitoringIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("認領詳情的對話：標角色、不洩漏身分，且不另外寫稽核")
-    void viewingClaimMessagesShowsRolesWithoutIdentityAndIsNotAudited() throws Exception {
+    @DisplayName("看對話會寫稽核，並記下看到幾則，且不洩漏身分")
+    void viewingClaimMessagesIsAudited() throws Exception {
         UUID claimId = claim(publishedWish(organizationA, "有對話的願望"));
         sendMessage(claimId, DONOR, "這週末可以寄出嗎？");
         sendMessage(claimId, ORG_A, "可以，麻煩您了");
@@ -451,16 +451,10 @@ class AdminMonitoringIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$[0].senderUserId").doesNotExist())
                 .andExpect(jsonPath("$[0].donorEmail").doesNotExist());
 
-        // 開啟詳情時的 VIEW_CLAIM_DETAIL 之外，看對話本身不另外寫一筆
-        mvc.perform(as(get("/api/admin/claims/{id}", claimId), ADMIN)).andExpect(status().isOk());
-        long afterClaimDetail = auditLogs.count();
-
-        mvc.perform(as(get("/api/admin/claims/{id}/messages", claimId), ADMIN))
-                .andExpect(status().isOk());
-
-        assertThat(auditLogs.count())
-                .as("對話是認領詳情的一部分，開啟詳情時已經記過 VIEW_CLAIM_DETAIL")
-                .isEqualTo(afterClaimDetail);
+        var logs = auditLogs.findAll();
+        assertThat(logs).hasSize(1);
+        assertThat(logs.get(0).getAction()).isEqualTo(AdminAuditAction.VIEW_CLAIM_MESSAGES);
+        assertThat(logs.get(0).getDetail()).contains("共 2 則");
     }
 
     @Test

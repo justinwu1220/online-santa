@@ -78,8 +78,7 @@ public class AdminCatalogController {
     }
 
     @GetMapping("/claims/{id}/messages")
-    @Operation(summary = "認領的對話",
-            description = "屬於認領詳情的一部分：開啟詳情時已寫入 VIEW_CLAIM_DETAIL 稽核，這裡不另外記")
+    @Operation(summary = "認領的對話", description = "可能涉及收件細節等資訊。**這個操作會寫入稽核紀錄**")
     public List<AdminMessageView> messages(@PathVariable UUID id) {
         return catalog.messagesOf(id);
     }
