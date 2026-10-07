@@ -62,7 +62,7 @@ same email**（預設就是開啟）。
 Authentication → Templates → 電子郵件地址驗證：
 
 - 語言改成**繁體中文**
-- 寄件人名稱改成「線上聖誕老公公」
+- 寄件人名稱改成「線上聖誕老人」
 
 > 沒有自訂網域之前，寄件人是 `noreply@<專案>.firebaseapp.com`。Gmail 與 Outlook
 > 通常收得到，但 hinet 與機構自架的公務信箱可能過濾掉。前端的驗證橫幅已經提示
@@ -188,7 +188,7 @@ gcloud services enable \
 gcloud artifacts repositories create online-santa \
   --repository-format=docker \
   --location=asia-east1 \
-  --description="線上聖誕老公公的容器映像檔"
+  --description="線上聖誕老人的容器映像檔"
 ```
 
 ### 3.3 儲存空間
@@ -236,7 +236,7 @@ printf '%s' '你的密碼' | \
 
 ```bash
 gcloud iam service-accounts create online-santa-run \
-  --display-name="線上聖誕老公公 Cloud Run"
+  --display-name="線上聖誕老人 Cloud Run"
 
 RUN_SA="online-santa-run@<PROJECT_ID>.iam.gserviceaccount.com"
 
@@ -489,7 +489,7 @@ gcloud scheduler jobs run send-deadline-reminders --location=asia-east1
 #   gcloud billing accounts describe <BILLING_ACCOUNT_ID> --format="value(currencyCode)"
 gcloud billing budgets create \
   --billing-account=<BILLING_ACCOUNT_ID> \
-  --display-name="線上聖誕老公公" \
+  --display-name="線上聖誕老人" \
   --budget-amount=300TWD \
   --threshold-rule=percent=0.5 \
   --threshold-rule=percent=0.9 \

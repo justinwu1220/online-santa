@@ -44,7 +44,7 @@ public class OrganizationReviewedNotificationListener {
                         登入機構後台開始使用：
                         %s/org
 
-                        線上聖誕老公公
+                        線上聖誕老人
                         """.formatted(organization.getName(), reasonLine, properties.publicUrl())
                 : """
                         %s 您好，
@@ -54,7 +54,7 @@ public class OrganizationReviewedNotificationListener {
                         登入機構後台補件：
                         %s/org
 
-                        線上聖誕老公公
+                        線上聖誕老人
                         """.formatted(organization.getName(), reasonLine, properties.publicUrl());
 
         notifications.send(organization.getContactEmail(), subject, body);

@@ -108,7 +108,7 @@ public class DeadlineReminderService {
                 查看認領詳情：
                 %s/me/claims/%s
 
-                線上聖誕老公公
+                線上聖誕老人
                 """.formatted(
                         claim.getWish().getTitle(),
                         NotificationFormat.dateTime(claim.getShipDeadlineAt()),

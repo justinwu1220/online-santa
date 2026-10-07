@@ -4,7 +4,7 @@
  * 集中在一處，是因為它散落在五個入口的標頭與每一頁的 document.title 裡。哪天要改名
  * （或加上贊助單位），不必去翻十幾個檔案還漏掉一兩處。
  */
-export const PLATFORM_NAME = '線上聖誕老公公'
+export const PLATFORM_NAME = '線上聖誕老人'
 
 /** 標頭用的品牌字串，帶聖誕樹。 */
 export const BRAND = `🎄 ${PLATFORM_NAME}`
