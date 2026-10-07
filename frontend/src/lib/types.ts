@@ -309,6 +309,19 @@ export interface AdminClaimView {
   releaseReason?: string
 }
 
+export type AdminMessageSenderRole = 'DONOR' | 'ORGANIZATION'
+
+/**
+ * 管理員檢視認領對話，比照 {@link MessageView} 不帶發言者身分——只標角色，
+ * 沒有使用者 id、email。
+ */
+export interface AdminMessageView {
+  id: number
+  senderRole: AdminMessageSenderRole
+  body: string
+  sentAt: string
+}
+
 // ---------------------------------------------------------------- 年度回顧
 //
 // 年度一律為台北日曆年，認領以 claimedAt 定錨（cohort 制）：完成／釋回／取消都歸屬

@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.onlinesanta.admin.dto.AdminMessageView;
 import com.onlinesanta.attachment.AttachmentService;
 import com.onlinesanta.attachment.dto.AttachmentView;
 import com.onlinesanta.claim.Claim;
@@ -18,6 +19,7 @@ import com.onlinesanta.claim.ClaimRepository;
 import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
+import com.onlinesanta.message.MessageRepository;
 import com.onlinesanta.wish.Wish;
 import com.onlinesanta.wish.WishRepository;
 import com.onlinesanta.wish.WishStatus;
@@ -39,17 +41,20 @@ public class AdminCatalogService {
     private final WishRepository wishes;
     private final ClaimRepository claims;
     private final ClaimEventRepository claimEvents;
+    private final MessageRepository messages;
     private final AttachmentService attachments;
     private final AdminAuditService audit;
 
     public AdminCatalogService(WishRepository wishes,
                                ClaimRepository claims,
                                ClaimEventRepository claimEvents,
+                               MessageRepository messages,
                                AttachmentService attachments,
                                AdminAuditService audit) {
         this.wishes = wishes;
         this.claims = claims;
         this.claimEvents = claimEvents;
+        this.messages = messages;
         this.attachments = attachments;
         this.audit = audit;
     }
@@ -123,6 +128,23 @@ public class AdminCatalogService {
     @Transactional(readOnly = true)
     public List<ClaimEvent> timelineOf(UUID claimId) {
         return claimEvents.findByClaimIdOrderByCreatedAtAsc(claimId);
+    }
+
+    /**
+     * 這筆認領的捐贈者與機構對話。
+     *
+     * <p>視為認領詳情的一部分，不另外寫稽核——開啟詳情時 {@link #getClaim} 已經記過
+     * {@code VIEW_CLAIM_DETAIL}。比照 {@code timelineOf}：清單頁不記、單筆存取靠
+     * 進入詳情頁那一次就夠了。
+     */
+    @Transactional(readOnly = true)
+    public List<AdminMessageView> messagesOf(UUID claimId) {
+        Claim claim = claims.findWithDetailsById(claimId)
+                .orElseThrow(() -> ResourceNotFoundException.of("認領", claimId));
+
+        return messages.findByClaimIdOrderByCreatedAtAsc(claimId).stream()
+                .map(message -> AdminMessageView.from(message, claim.getDonor().getId()))
+                .toList();
     }
 
     /**
