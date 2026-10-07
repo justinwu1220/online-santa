@@ -97,17 +97,23 @@ class ClaimApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.organizationPhone").value("02-1234-5678"));
 
         // 公開的願望牆只有機構名稱。這一條釘住那道界線——地址若漏進公開視圖，
-        // 等於把每一家合作機構的地址掛在首頁上
-        mvc.perform(get("/api/wishes"))
+        // 等於把每一家合作機構的地址掛在首頁上。用 status=AVAILABLE 篩選，
+        // 不受「願望牆預設也顯示已認領/已完成」這個範圍影響，只檢查欄位外洩
+        mvc.perform(get("/api/wishes").param("status", "AVAILABLE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].organizationAddress").doesNotExist())
                 .andExpect(jsonPath("$.content[0].organizationPhone").doesNotExist());
     }
 
+    /**
+     * 願望牆改版後，已認領／已完成的願望不會從牆上消失——牆上要讓人看到進度，
+     * 只是「可認領」這個篩選值會把它們排除。見 WishApiIT 裡對這個行為的完整覆蓋，
+     * 這裡只確認認領這個動作本身跟願望牆的互動符合預期。
+     */
     @Test
-    @DisplayName("認領成功後願望轉為 CLAIMED，且不再出現在願望牆")
-    void claimingRemovesWishFromTheWall() throws Exception {
+    @DisplayName("認領成功後願望轉為 CLAIMED，願望牆預設仍顯示它，但 status=AVAILABLE 會排除")
+    void claimingMovesWishToClaimedButKeepsItOnTheWall() throws Exception {
         UUID wishId = publishedWish("恐龍玩具");
 
         mvc.perform(as(post("/api/wishes/{id}/claim", wishId), DONOR))
@@ -119,6 +125,11 @@ class ClaimApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.overdue").value(false));
 
         mvc.perform(get("/api/wishes"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].status").value("CLAIMED"));
+
+        mvc.perform(get("/api/wishes").param("status", "AVAILABLE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(0));
     }
@@ -212,8 +223,12 @@ class ClaimApiIT extends ApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
 
-        // 完成後願望轉為 FULFILLED，不會回到願望牆
+        // 完成後願望轉為 FULFILLED，願望牆預設仍顯示它（標示已完成），
+        // 但不再算「可認領」
         mvc.perform(get("/api/wishes"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].status").value("FULFILLED"));
+        mvc.perform(get("/api/wishes").param("status", "AVAILABLE"))
                 .andExpect(jsonPath("$.totalElements").value(0));
         mvc.perform(get("/api/wishes/{id}", wishId))
                 .andExpect(jsonPath("$.status").value("FULFILLED"));
