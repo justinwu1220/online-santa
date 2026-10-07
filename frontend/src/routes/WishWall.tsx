@@ -7,14 +7,16 @@ import { EmptyState, ErrorBanner, Spinner } from '../components/Feedback'
 import { Select } from '../components/Form'
 import { Pagination } from '../components/Pagination'
 import { wishIcon } from '../lib/wishIcon'
+import { WALL_STATUS_OPTIONS, wallStatusTag } from '../lib/wishWallStatus'
 
 interface Filters {
+  organizationId: string
   category: string
   ageRange: string
-  priceRange: string
+  status: string
 }
 
-const EMPTY_FILTERS: Filters = { category: '', ageRange: '', priceRange: '' }
+const EMPTY_FILTERS: Filters = { organizationId: '', category: '', ageRange: '', status: '' }
 
 export function WishWall() {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
@@ -53,16 +55,19 @@ export function WishWall() {
         </p>
       </header>
 
-      <div className="glass-card mb-8 grid gap-4 p-5 sm:grid-cols-3">
-        <FilterSelect label="分類" value={filters.category}
+      <div className="glass-card mb-8 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+        <FilterSelect label="機構名稱" value={filters.organizationId}
+          options={options.data?.organizations}
+          onChange={(value) => updateFilter('organizationId', value)} />
+        <FilterSelect label="禮物分類" value={filters.category}
           options={options.data?.categories}
           onChange={(value) => updateFilter('category', value)} />
-        <FilterSelect label="年齡" value={filters.ageRange}
+        <FilterSelect label="孩童年齡" value={filters.ageRange}
           options={options.data?.ageRanges}
           onChange={(value) => updateFilter('ageRange', value)} />
-        <FilterSelect label="預算" value={filters.priceRange}
-          options={options.data?.priceRanges}
-          onChange={(value) => updateFilter('priceRange', value)} />
+        <FilterSelect label="禮物狀態" value={filters.status}
+          options={WALL_STATUS_OPTIONS}
+          onChange={(value) => updateFilter('status', value)} />
       </div>
 
       {wishes.isLoading && <Spinner label="載入願望" />}
@@ -74,7 +79,7 @@ export function WishWall() {
         <EmptyState
           icon="🌟"
           title="這個條件下還沒有願望"
-          hint={!filters.category && !filters.ageRange && !filters.priceRange
+          hint={!filters.organizationId && !filters.category && !filters.ageRange && !filters.status
             ? '機構還在上架中，過幾天再來看看。'
             : '試著放寬篩選條件。'}
         />
@@ -95,7 +100,7 @@ export function WishWall() {
 function FilterSelect({ label, value, options, onChange }: {
   label: string
   value: string
-  options?: { value: string; label: string }[]
+  options?: readonly { value: string; label: string }[]
   onChange: (value: string) => void
 }) {
   return (
@@ -117,6 +122,8 @@ function FilterSelect({ label, value, options, onChange }: {
  * 清單的任務是讓人一眼掃過更多願望，不是每一張都講完整個故事。
  */
 function WishCard({ wish }: { wish: WishListView }) {
+  const statusTag = wallStatusTag(wish.status)
+
   return (
     <Link
       to={`/wishes/${wish.id}`}
@@ -142,7 +149,12 @@ function WishCard({ wish }: { wish: WishListView }) {
             text-[11px] font-medium text-emerald-200">
             {wish.categoryLabel}
           </span>
-          <span className="night-chip px-2 py-0.5 text-[11px]">{wish.priceRangeLabel}</span>
+          {statusTag && (
+            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+              statusTag.className}`}>
+              {statusTag.label}
+            </span>
+          )}
         </div>
         <p className="mt-1.5 truncate text-[11px] text-slate-500">{wish.organizationName}</p>
       </div>

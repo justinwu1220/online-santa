@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.onlinesanta.admin.dto.AdminClaimView;
+import com.onlinesanta.admin.dto.AdminMessageView;
 import com.onlinesanta.admin.dto.AdminWishView;
 import com.onlinesanta.attachment.dto.AttachmentView;
 import com.onlinesanta.claim.ClaimStatus;
@@ -74,6 +75,13 @@ public class AdminCatalogController {
     @Operation(summary = "認領歷程")
     public List<ClaimEventView> timeline(@PathVariable UUID id) {
         return catalog.timelineOf(id).stream().map(ClaimEventView::from).toList();
+    }
+
+    @GetMapping("/claims/{id}/messages")
+    @Operation(summary = "認領的對話",
+            description = "屬於認領詳情的一部分：開啟詳情時已寫入 VIEW_CLAIM_DETAIL 稽核，這裡不另外記")
+    public List<AdminMessageView> messages(@PathVariable UUID id) {
+        return catalog.messagesOf(id);
     }
 
     @GetMapping("/claims/{id}/attachments")

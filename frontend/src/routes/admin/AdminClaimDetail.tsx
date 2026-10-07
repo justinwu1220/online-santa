@@ -3,7 +3,9 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { formatDateTime } from '../../lib/format'
-import type { AdminClaimView, AttachmentView, ClaimEventView } from '../../lib/types'
+import type {
+  AdminClaimView, AdminMessageView, AttachmentView, ClaimEventView,
+} from '../../lib/types'
 import { ConsolePanel } from '../../components/layouts/ConsoleLayout'
 import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
 import { Button } from '../../components/Form'
@@ -14,7 +16,8 @@ import { Timeline } from '../../components/Timeline'
  * 管理員檢視單筆認領。
  *
  * 這是全系統最敏感的畫面：捐贈者的姓名與 email、寄送證明、以及可能含孩童影像的
- * 回饋照片全都在這裡。因此**開啟這個頁面本身就會寫入稽核紀錄**——附件另外再記一筆。
+ * 回饋照片全都在這裡。因此**開啟這個頁面本身就會寫入稽核紀錄**——附件另外再記一筆；
+ * 捐贈者與機構的對話則視為詳情的一部分，隨頁面直接展開，不另外記。
  *
  * 畫面上直接告知使用者這件事。讓管理員知道自己的行為被記錄，本身就是一種約束。
  */
@@ -29,6 +32,13 @@ export function AdminClaimDetail() {
   const timeline = useQuery({
     queryKey: ['admin-claim', id, 'timeline'],
     queryFn: () => api.get<ClaimEventView[]>(`/api/admin/claims/${id}/timeline`),
+  })
+
+  // 對話屬於認領詳情的一部分，隨頁面一起載入——開啟詳情時已經寫入
+  // VIEW_CLAIM_DETAIL 稽核，不像附件那樣需要另一次明確的點擊才載入。
+  const messages = useQuery({
+    queryKey: ['admin-claim', id, 'messages'],
+    queryFn: () => api.get<AdminMessageView[]>(`/api/admin/claims/${id}/messages`),
   })
 
   if (claim.isLoading) return <Spinner label="載入認領" />
@@ -78,6 +88,14 @@ export function AdminClaimDetail() {
         </dl>
       </ConsolePanel>
 
+      <ConsolePanel title="對話">
+        {messages.isLoading && <Spinner label="載入對話" />}
+        {messages.isError && (
+          <ErrorBanner error={messages.error} onRetry={() => void messages.refetch()} />
+        )}
+        {messages.data && <MessagePanel messages={messages.data} />}
+      </ConsolePanel>
+
       <div className="grid gap-5 lg:grid-cols-2">
         <ConsolePanel title="歷程">
           {timeline.isLoading
@@ -87,6 +105,49 @@ export function AdminClaimDetail() {
 
         <AttachmentPanel claimId={id} />
       </div>
+    </div>
+  )
+}
+
+const SENDER_ROLE_LABELS: Record<AdminMessageView['senderRole'], string> = {
+  DONOR: '捐贈者',
+  ORGANIZATION: '機構',
+}
+
+/**
+ * 管理員的對話檢視，唯讀——沒有輸入框，管理員不是對話的一方。
+ *
+ * 比照 `MessageThread.tsx` 的氣泡樣式，但左右邊不是看「是不是自己」，而是看
+ * 角色：捐贈者／機構。不顯示姓名或 email，只有角色標籤——那兩項個資已經在上面
+ * 的認領詳情看得到，這裡沒有必要重複曝露。
+ */
+function MessagePanel({ messages }: { messages: AdminMessageView[] }) {
+  if (messages.length === 0) {
+    return <p className="text-sm text-slate-500">這筆認領還沒有任何對話。</p>
+  }
+
+  return (
+    <div className="max-h-96 space-y-3 overflow-y-auto pr-1">
+      {messages.map((message) => (
+        <div key={message.id}
+          className={`flex ${message.senderRole === 'DONOR' ? 'justify-start' : 'justify-end'}`}>
+          <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+            message.senderRole === 'DONOR'
+              ? 'bg-white text-slate-700 ring-1 ring-santa-100'
+              : 'bg-santa-600 text-white'
+          }`}>
+            <p className="text-xs font-medium opacity-70">
+              {SENDER_ROLE_LABELS[message.senderRole]}
+            </p>
+            <p className="mt-0.5 whitespace-pre-wrap text-sm">{message.body}</p>
+            <p className={`mt-1 text-[11px] ${
+              message.senderRole === 'DONOR' ? 'text-slate-400' : 'text-santa-100'
+            }`}>
+              {formatDateTime(message.sentAt)}
+            </p>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

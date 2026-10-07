@@ -37,7 +37,7 @@ public class FeedbackPhotoConfirmedNotificationListener {
                 您送出的「%s」，機構上傳了送禮回饋照片，一起看看孩子收到禮物的樣子吧：
                 %s/me/claims/%s
 
-                線上聖誕老公公
+                線上聖誕老人
                 """.formatted(claim.getWish().getTitle(), properties.publicUrl(), claim.getId());
         notifications.send(claim.getDonor().getEmail(), subject, body);
     }

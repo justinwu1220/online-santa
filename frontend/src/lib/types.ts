@@ -116,6 +116,7 @@ export interface WishFilterOptions {
   categories: FilterOption[]
   ageRanges: FilterOption[]
   priceRanges: FilterOption[]
+  organizations: FilterOption[]
 }
 
 // ---------------------------------------------------------------- 機構
@@ -306,6 +307,19 @@ export interface AdminClaimView {
   trackingCarrier?: string
   trackingNumber?: string
   releaseReason?: string
+}
+
+export type AdminMessageSenderRole = 'DONOR' | 'ORGANIZATION'
+
+/**
+ * 管理員檢視認領對話，比照 {@link MessageView} 不帶發言者身分——只標角色，
+ * 沒有使用者 id、email。
+ */
+export interface AdminMessageView {
+  id: number
+  senderRole: AdminMessageSenderRole
+  body: string
+  sentAt: string
 }
 
 // ---------------------------------------------------------------- 年度回顧

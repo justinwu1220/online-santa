@@ -35,14 +35,20 @@ class WishApiIT extends ApiIntegrationTest {
     @Autowired
     UserRepository users;
 
+    @Autowired
+    WishRepository wishes;
+
+    private UUID orgId;
+    private UUID otherOrgId;
+
     @BeforeEach
     void setUpApprovedOrganizations() {
         // 機構審核端點要到 M3 才有，這裡直接以核准狀態建立測試資料
-        createApprovedOrganization("已核准之家", ORG_USER);
-        createApprovedOrganization("另一家機構", OTHER_ORG_USER);
+        orgId = createApprovedOrganization("已核准之家", ORG_USER);
+        otherOrgId = createApprovedOrganization("另一家機構", OTHER_ORG_USER);
     }
 
-    private void createApprovedOrganization(String name, String memberEmail) {
+    private UUID createApprovedOrganization(String name, String memberEmail) {
         Organization organization = Organization.register(
                 name, "王承辦", "contact@example.org", null, null, "測試機構");
         organization.approve(null, "測試資料");
@@ -51,6 +57,7 @@ class WishApiIT extends ApiIntegrationTest {
         User member = User.newDonor(TestJwtSupport.uidFor(memberEmail), memberEmail, memberEmail);
         member.joinOrganization(organization.getId());
         users.save(member);
+        return organization.getId();
     }
 
     private WishRequest wishRequest(String title) {
@@ -59,15 +66,23 @@ class WishApiIT extends ApiIntegrationTest {
     }
 
     private UUID createWish(String title) throws Exception {
-        String body = mvc.perform(as(withBody(post("/api/wishes"), wishRequest(title)), ORG_USER))
+        return createWish(title, ORG_USER);
+    }
+
+    private UUID createWish(String title, String asUser) throws Exception {
+        String body = mvc.perform(as(withBody(post("/api/wishes"), wishRequest(title)), asUser))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return UUID.fromString(json.readTree(body).get("id").asText());
     }
 
     private UUID createPublishedWish(String title) throws Exception {
-        UUID id = createWish(title);
-        mvc.perform(as(post("/api/wishes/{id}/publish", id), ORG_USER))
+        return createPublishedWish(title, ORG_USER);
+    }
+
+    private UUID createPublishedWish(String title, String asUser) throws Exception {
+        UUID id = createWish(title, asUser);
+        mvc.perform(as(post("/api/wishes/{id}/publish", id), asUser))
                 .andExpect(status().isOk());
         return id;
     }
@@ -191,18 +206,72 @@ class WishApiIT extends ApiIntegrationTest {
 
     // ------------------------------------------------------------ 公開瀏覽
 
+    /**
+     * 「全部」（不帶 status）預設顯示可認領／已認領／已完成；草稿永遠不在裡面。
+     *
+     * <p>願望牆改版後，牆上不再只有可認領的願望——已認領／已完成也要留在牆上讓人
+     * 看到進度，只是草稿與下架這兩種狀態一律不開放。
+     */
     @Test
-    void publicWallShowsOnlyAvailableWishes() throws Exception {
+    void publicWallShowsAvailableClaimedAndFulfilledButNeverDrafts() throws Exception {
         createWish("還是草稿");
-        createPublishedWish("已上架的願望");
+        UUID available = createPublishedWish("可認領的願望");
+        UUID claimed = createPublishedWish("已認領的願望");
+        wishes.markClaimed(claimed);
+        UUID fulfilled = createPublishedWish("已完成的願望");
+        wishes.markClaimed(fulfilled);
+        wishes.markFulfilled(fulfilled);
 
         String body = mvc.perform(get("/api/wishes"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
         JsonNode content = json.readTree(body).get("content");
-        assertThat(content).hasSize(1);
-        assertThat(content.get(0).get("title").asText()).isEqualTo("已上架的願望");
+        assertThat(content).hasSize(3);
+        assertThat(content).extracting(node -> node.get("title").asText())
+                .containsExactlyInAnyOrder("可認領的願望", "已認領的願望", "已完成的願望");
+
+        // status=AVAILABLE 可以把範圍縮小成只看可認領的
+        mvc.perform(get("/api/wishes").param("status", "AVAILABLE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].id").value(available.toString()));
+    }
+
+    @Test
+    void filtersWishesByStatus() throws Exception {
+        UUID claimed = createPublishedWish("篩選用的已認領願望");
+        wishes.markClaimed(claimed);
+        createPublishedWish("篩選用的可認領願望");
+
+        mvc.perform(get("/api/wishes").param("status", "CLAIMED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].id").value(claimed.toString()));
+
+        mvc.perform(get("/api/wishes").param("status", "FULFILLED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        // DRAFT／ARCHIVED 不是公開可篩選的狀態，繫結階段直接 400
+        mvc.perform(get("/api/wishes").param("status", "DRAFT"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void filtersWishesByOrganization() throws Exception {
+        createPublishedWish("第一家機構的願望", ORG_USER);
+        createPublishedWish("另一家機構的願望", OTHER_ORG_USER);
+
+        mvc.perform(get("/api/wishes").param("organizationId", orgId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].organizationName").value("已核准之家"));
+
+        mvc.perform(get("/api/wishes").param("organizationId", otherOrgId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].organizationName").value("另一家機構"));
     }
 
     @Test
@@ -243,18 +312,26 @@ class WishApiIT extends ApiIntegrationTest {
     }
 
     @Test
-    void filtersWishesByAgeRangeAndPriceRange() throws Exception {
-        createPublishedWish("年齡與價格篩選");
+    void filtersWishesByAgeRange() throws Exception {
+        createPublishedWish("年齡篩選");
 
-        mvc.perform(get("/api/wishes")
-                        .param("ageRange", "AGE_7_9")
-                        .param("priceRange", "UNDER_500"))
+        mvc.perform(get("/api/wishes").param("ageRange", "AGE_7_9"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
 
         mvc.perform(get("/api/wishes").param("ageRange", "AGE_16_18"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    /** 願望牆拿掉了預算篩選，priceRange 不再是這個端點認得的參數——傳了也會被忽略。 */
+    @Test
+    void ignoresPriceRangeParamSincePublicWallNoLongerFiltersByIt() throws Exception {
+        createPublishedWish("預算篩選已移除");
+
+        mvc.perform(get("/api/wishes").param("priceRange", "OVER_2000"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 
     @Test
@@ -264,7 +341,11 @@ class WishApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.categories[0].value").value("TOY"))
                 .andExpect(jsonPath("$.categories[0].label").value("玩具"))
                 .andExpect(jsonPath("$.ageRanges.length()").value(6))
-                .andExpect(jsonPath("$.priceRanges.length()").value(4));
+                .andExpect(jsonPath("$.priceRanges.length()").value(4))
+                // 機構名稱選項：兩家已核准機構都要出現，不受目前有沒有願望影響
+                .andExpect(jsonPath("$.organizations.length()").value(2))
+                .andExpect(jsonPath("$.organizations[*].label",
+                        org.hamcrest.Matchers.containsInAnyOrder("已核准之家", "另一家機構")));
     }
 
     // ------------------------------------------------------------ 機構後台清單

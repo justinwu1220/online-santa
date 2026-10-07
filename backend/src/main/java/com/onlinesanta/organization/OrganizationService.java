@@ -1,5 +1,6 @@
 package com.onlinesanta.organization;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -106,5 +107,11 @@ public class OrganizationService {
     public Organization getById(UUID id) {
         return organizations.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.of("機構", id));
+    }
+
+    /** 願望牆「機構名稱」篩選的選項來源：所有已核准機構，依名稱排序。 */
+    @Transactional(readOnly = true)
+    public List<Organization> listApprovedForWishFilter() {
+        return organizations.findByStatusOrderByNameAsc(OrganizationStatus.APPROVED);
     }
 }

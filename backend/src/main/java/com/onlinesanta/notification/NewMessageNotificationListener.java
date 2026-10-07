@@ -58,7 +58,7 @@ public class NewMessageNotificationListener {
                 「%s」這筆認領有新的訊息，登入查看並回覆：
                 %s
 
-                線上聖誕老公公
+                線上聖誕老人
                 """.formatted(claim.getWish().getTitle(), link);
         notifications.send(to, subject, body);
     }

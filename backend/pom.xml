@@ -15,7 +15,7 @@
     <artifactId>online-santa-api</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>online-santa-api</name>
-    <description>線上聖誕老公公 — 願望認領平台 API</description>
+    <description>線上聖誕老人 — 願望認領平台 API</description>
 
     <properties>
         <java.version>21</java.version>

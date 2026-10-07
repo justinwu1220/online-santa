@@ -427,6 +427,56 @@ class AdminMonitoringIT extends ApiIntegrationTest {
         assertThat(logs.get(0).getDetail()).contains("共 0 個檔案");
     }
 
+    private void sendMessage(UUID claimId, String asUser, String body) throws Exception {
+        mvc.perform(as(withBody(post("/api/claims/{id}/messages", claimId),
+                        java.util.Map.of("body", body)), asUser))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("認領詳情的對話：標角色、不洩漏身分，且不另外寫稽核")
+    void viewingClaimMessagesShowsRolesWithoutIdentityAndIsNotAudited() throws Exception {
+        UUID claimId = claim(publishedWish(organizationA, "有對話的願望"));
+        sendMessage(claimId, DONOR, "這週末可以寄出嗎？");
+        sendMessage(claimId, ORG_A, "可以，麻煩您了");
+
+        mvc.perform(as(get("/api/admin/claims/{id}/messages", claimId), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].senderRole").value("DONOR"))
+                .andExpect(jsonPath("$[0].body").value("這週末可以寄出嗎？"))
+                .andExpect(jsonPath("$[1].senderRole").value("ORGANIZATION"))
+                .andExpect(jsonPath("$[1].body").value("可以，麻煩您了"))
+                // 不帶發言者身分——沒有使用者 id、email 等欄位
+                .andExpect(jsonPath("$[0].senderUserId").doesNotExist())
+                .andExpect(jsonPath("$[0].donorEmail").doesNotExist());
+
+        // 開啟詳情時的 VIEW_CLAIM_DETAIL 之外，看對話本身不另外寫一筆
+        mvc.perform(as(get("/api/admin/claims/{id}", claimId), ADMIN)).andExpect(status().isOk());
+        long afterClaimDetail = auditLogs.count();
+
+        mvc.perform(as(get("/api/admin/claims/{id}/messages", claimId), ADMIN))
+                .andExpect(status().isOk());
+
+        assertThat(auditLogs.count())
+                .as("對話是認領詳情的一部分，開啟詳情時已經記過 VIEW_CLAIM_DETAIL")
+                .isEqualTo(afterClaimDetail);
+    }
+
+    @Test
+    @DisplayName("非管理員看不到認領對話")
+    void nonAdminsCannotReadClaimMessages() throws Exception {
+        UUID claimId = claim(publishedWish(organizationA, "對話不給非管理員看"));
+        sendMessage(claimId, DONOR, "有人在嗎？");
+
+        mvc.perform(as(get("/api/admin/claims/{id}/messages", claimId), DONOR))
+                .andExpect(status().isForbidden());
+        mvc.perform(as(get("/api/admin/claims/{id}/messages", claimId), ORG_A))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/claims/{id}/messages", claimId))
+                .andExpect(status().isUnauthorized());
+    }
+
     @Test
     @DisplayName("審核決定會寫稽核")
     void reviewDecisionsAreAudited() throws Exception {

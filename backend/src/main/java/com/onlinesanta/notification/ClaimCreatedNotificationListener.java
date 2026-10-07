@@ -49,7 +49,7 @@ public class ClaimCreatedNotificationListener {
                 請留意寄送期限，登入機構後台查看詳情、並與捐贈者保持聯繫：
                 %s/org/claims
 
-                線上聖誕老公公
+                線上聖誕老人
                 """.formatted(
                         organization.getName(),
                         claim.getWish().getTitle(),

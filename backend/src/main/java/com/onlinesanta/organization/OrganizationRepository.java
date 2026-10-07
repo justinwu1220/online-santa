@@ -16,6 +16,9 @@ public interface OrganizationRepository extends JpaRepository<Organization, UUID
 
     Page<Organization> findByStatusOrderByCreatedAtAsc(OrganizationStatus status, Pageable pageable);
 
+    /** 願望牆的「機構名稱」篩選選項：所有已核准機構，含目前沒有任何願望的機構。 */
+    List<Organization> findByStatusOrderByNameAsc(OrganizationStatus status);
+
     /**
      * 依狀態分組計數，供監控中心的統計使用。
      *
