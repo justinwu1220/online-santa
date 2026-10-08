@@ -1,5 +1,7 @@
 package com.onlinesanta.organization;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -9,6 +11,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.onlinesanta.attachment.AttachmentService;
+import com.onlinesanta.attachment.dto.AttachmentView;
+import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.organization.dto.OrganizationRegistrationRequest;
 import com.onlinesanta.organization.dto.OrganizationUpdateRequest;
 import com.onlinesanta.organization.dto.OrganizationView;
@@ -23,9 +28,15 @@ import jakarta.validation.Valid;
 public class OrganizationController {
 
     private final OrganizationService organizations;
+    private final AttachmentService attachments;
+    private final CurrentUserService currentUser;
 
-    public OrganizationController(OrganizationService organizations) {
+    public OrganizationController(OrganizationService organizations,
+                                  AttachmentService attachments,
+                                  CurrentUserService currentUser) {
         this.organizations = organizations;
+        this.attachments = attachments;
+        this.currentUser = currentUser;
     }
 
     @PostMapping
@@ -51,5 +62,11 @@ public class OrganizationController {
     @Operation(summary = "補件後重新送審")
     public OrganizationView resubmit() {
         return OrganizationView.from(organizations.resubmitMine());
+    }
+
+    @GetMapping("/me/documents")
+    @Operation(summary = "取得自己機構上傳的申請文件", description = "私密 bucket，下載網址為限時簽章網址")
+    public List<AttachmentView> myDocuments() {
+        return attachments.organizationDocuments(currentUser.requireOrganizationId());
     }
 }

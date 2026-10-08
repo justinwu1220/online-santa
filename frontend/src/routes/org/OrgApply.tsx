@@ -5,15 +5,13 @@ import { ApiError, api } from '../../lib/api'
 import { useAuth } from '../../lib/authContext'
 import { pageTitle } from '../../lib/brand'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
-import { ACCEPTED_ORG_DOCUMENT_TYPES, uploadImage, validateOrgDocument } from '../../lib/upload'
+import { ACCEPTED_ORG_DOCUMENT_TYPES, MAX_ORG_DOCUMENTS, uploadImage, validateOrgDocument } from '../../lib/upload'
 import type { OrganizationView } from '../../lib/types'
 import { EmailVerificationBanner } from '../../components/EmailVerificationBanner'
 import { WrongAccountPanel } from '../../components/auth/WrongAccountPanel'
 import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
 import { Button, Field, TextArea, TextInput } from '../../components/Form'
 import { StepHeading } from './applyShared'
-
-const MAX_DOCUMENTS = 3
 
 type Form = {
   name: string
@@ -244,8 +242,8 @@ function ApplyForm({ email }: { email: string }) {
               onChange={(event) => {
                 const file = event.target.files?.[0]
                 if (!file) return
-                if (documents.length >= MAX_DOCUMENTS) {
-                  setDocumentsError(`最多上傳 ${MAX_DOCUMENTS} 份文件`)
+                if (documents.length >= MAX_ORG_DOCUMENTS) {
+                  setDocumentsError(`最多上傳 ${MAX_ORG_DOCUMENTS} 份文件`)
                 } else {
                   const problem = validateOrgDocument(file)
                   if (problem) {
@@ -270,7 +268,7 @@ function ApplyForm({ email }: { email: string }) {
                   </button>
                 </div>
               ))}
-              {documents.length < MAX_DOCUMENTS && (
+              {documents.length < MAX_ORG_DOCUMENTS && (
                 <Button type="button" variant="secondary"
                   onClick={() => documentInputRef.current?.click()}>
                   新增文件

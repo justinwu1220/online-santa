@@ -193,6 +193,39 @@ class OrgDocumentAndWishLetterAttachmentIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.errorCode").value("ATTACHMENT_NOT_DELETABLE"));
     }
 
+    @Test
+    @DisplayName("機構可以在自己的後台看到自己上傳的申請文件，下載網址帶簽章")
+    void organizationCanViewOwnDocuments() throws Exception {
+        uploadAs(AttachmentPurpose.ORG_DOCUMENT, organization.getId(), JPEG, ORG_USER);
+        uploadAs(AttachmentPurpose.ORG_DOCUMENT, organization.getId(), PDF, ORG_USER);
+
+        mvc.perform(as(get("/api/organizations/me/documents"), ORG_USER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].url").value(Matchers.containsString("signature")))
+                .andExpect(jsonPath("$[1].contentType").value(PDF));
+    }
+
+    @Test
+    @DisplayName("機構在後台看不到別家機構的文件")
+    void organizationCannotViewOtherOrganizationsDocuments() throws Exception {
+        uploadAs(AttachmentPurpose.ORG_DOCUMENT, organization.getId(), JPEG, ORG_USER);
+
+        mvc.perform(as(get("/api/organizations/me/documents"), OTHER_ORG_USER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("民眾與未登入者不能查詢機構文件")
+    void donorsAndAnonymousCannotViewOrganizationDocuments() throws Exception {
+        mvc.perform(as(get("/api/organizations/me/documents"), DONOR))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("NOT_ORG_MEMBER"));
+        mvc.perform(get("/api/organizations/me/documents"))
+                .andExpect(status().isUnauthorized());
+    }
+
     // ------------------------------------------------------------ 願望信件
 
     @Test

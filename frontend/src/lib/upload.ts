@@ -118,6 +118,11 @@ export const ACCEPTED_ORG_DOCUMENT_TYPES = [...ACCEPTED_IMAGE_TYPES, 'applicatio
 // 跟後端 app.storage.max-upload-bytes 一致（單一全站上限，不分用途）
 export const MAX_ORG_DOCUMENT_BYTES = MAX_IMAGE_BYTES
 
+// 跟後端 AttachmentPurpose.ORG_DOCUMENT.maxPerOwner() 一致，機構申請頁（OrgApply）
+// 與機構後台的文件區塊（OrgSettings）共用同一個數字，避免兩處各自維護、
+// 日後改了後端卻漏改其中一處前端
+export const MAX_ORG_DOCUMENTS = 3
+
 export function validateOrgDocument(file: File): string | null {
   return validateFile(file, ACCEPTED_ORG_DOCUMENT_TYPES, MAX_ORG_DOCUMENT_BYTES, '圖檔（JPEG/PNG/WebP）或 PDF')
 }

@@ -1,9 +1,11 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../../lib/api'
-import type { OrganizationView, ReleasePolicy } from '../../lib/types'
-import { ErrorBanner, Notice } from '../../components/Feedback'
+import type { AttachmentView, OrganizationView, ReleasePolicy } from '../../lib/types'
+import { ACCEPTED_ORG_DOCUMENT_TYPES, MAX_ORG_DOCUMENTS, validateOrgDocument } from '../../lib/upload'
+import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
 import { Button, Field, TextArea, TextInput } from '../../components/Form'
+import { ImageUploader } from '../../components/ImageUploader'
 import { useOrgContext } from './orgContext'
 
 export function OrgSettings() {
@@ -137,6 +139,8 @@ export function OrgSettings() {
         </Button>
       </form>
 
+      <DocumentsSection organizationId={organization.id} />
+
       {organization.status === 'REJECTED' && (
         <div className="rounded-xl bg-white p-5 ring-1 ring-santa-100">
           <h2 className="font-semibold text-slate-800">重新送審</h2>
@@ -148,6 +152,61 @@ export function OrgSettings() {
             {resubmit.isPending ? '送出中…' : '重新送審'}
           </Button>
         </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * 申請時上傳的立案證明文件。
+ *
+ * 不受機構審核狀態限制顯示——PENDING／APPROVED／REJECTED／SUSPENDED 都看得到，
+ * 跟後端 authorizeOrgDocument 不檢查機構狀態一致。沒有刪除按鈕：ORG_DOCUMENT
+ * 不支援自行刪除（AttachmentService.requireDeletablePurpose 無條件擋下，
+ * 管理員也不能透過一般附件端點刪），需要更換只能聯繫平台管理員。
+ */
+function DocumentsSection({ organizationId }: { organizationId: string }) {
+  const documents = useQuery({
+    queryKey: ['organization', 'me', 'documents'],
+    queryFn: () => api.get<AttachmentView[]>('/api/organizations/me/documents'),
+  })
+  const count = documents.data?.length ?? 0
+  const atLimit = count >= MAX_ORG_DOCUMENTS
+
+  return (
+    <div className="rounded-xl bg-white p-5 ring-1 ring-santa-100">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-semibold text-slate-800">相關文件證明</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            申請時上傳的立案證明文件，已上傳 {count} / {MAX_ORG_DOCUMENTS} 份。
+            需要更換或刪除請聯繫平台管理員協助處理。
+          </p>
+        </div>
+        {!atLimit && (
+          <ImageUploader purpose="ORG_DOCUMENT" targetId={organizationId} label="新增文件"
+            accept={ACCEPTED_ORG_DOCUMENT_TYPES} validate={validateOrgDocument}
+            onUploaded={() => void documents.refetch()} />
+        )}
+      </div>
+
+      {documents.isLoading && <Spinner label="載入文件" />}
+      {documents.isError && <ErrorBanner error={documents.error} />}
+      {documents.isFetched && !documents.isLoading && (
+        count === 0 ? (
+          <p className="mt-3 text-sm text-slate-400">還沒有上傳任何文件。</p>
+        ) : (
+          <ul className="mt-3 space-y-1.5">
+            {documents.data?.map((doc) => (
+              <li key={doc.id}>
+                <a href={doc.url} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm text-santa-700 hover:underline">
+                  {doc.contentType === 'application/pdf' ? '📄' : '🖼️'} 下載文件
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
       )}
     </div>
   )

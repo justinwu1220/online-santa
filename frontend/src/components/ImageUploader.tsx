@@ -9,19 +9,23 @@ import { ErrorBanner } from './Feedback'
  *
  * 上傳中會停用，避免使用者連按產生多個孤兒附件。
  */
-export function ImageUploader({ purpose, targetId, label, onUploaded, disabled }: {
+export function ImageUploader({ purpose, targetId, label, onUploaded, disabled,
+  accept = ACCEPTED_IMAGE_TYPES, validate = validateImage }: {
   purpose: AttachmentPurpose
   targetId: string
   label: string
   onUploaded: () => void
   disabled?: boolean
+  /** 預設只收圖片；機構文件等非純圖片用途可傳入 ACCEPTED_ORG_DOCUMENT_TYPES */
+  accept?: readonly string[]
+  validate?: (file: File) => string | null
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<unknown>(null)
 
   async function handleFile(file: File) {
-    const problem = validateImage(file)
+    const problem = validate(file)
     if (problem) {
       setError(new Error(problem))
       return
@@ -47,7 +51,7 @@ export function ImageUploader({ purpose, targetId, label, onUploaded, disabled }
         ref={inputRef}
         type="file"
         className="hidden"
-        accept={ACCEPTED_IMAGE_TYPES.join(',')}
+        accept={accept.join(',')}
         onChange={(event) => {
           const file = event.target.files?.[0]
           if (file) void handleFile(file)
