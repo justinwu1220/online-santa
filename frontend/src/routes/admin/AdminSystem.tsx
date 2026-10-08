@@ -14,6 +14,7 @@ import { Pagination } from '../../components/Pagination'
 const ACTION_LABELS: Record<AdminAuditAction, string> = {
   VIEW_CLAIM_DETAIL: '檢視認領詳情',
   VIEW_CLAIM_ATTACHMENTS: '檢視認領附件',
+  VIEW_CLAIM_MESSAGES: '檢視認領對話',
   APPROVE_ORGANIZATION: '核准機構',
   REJECT_ORGANIZATION: '退件',
   SUSPEND_ORGANIZATION: '停權機構',
@@ -26,7 +27,7 @@ const ACTION_LABELS: Record<AdminAuditAction, string> = {
 
 /** 存取個資或改變隱私敏感內容的動作要標出來，這樣掃過一眼就知道哪幾筆值得細看。 */
 const SENSITIVE: AdminAuditAction[] =
-  ['VIEW_CLAIM_DETAIL', 'VIEW_CLAIM_ATTACHMENTS', 'DELETE_ATTACHMENT']
+  ['VIEW_CLAIM_DETAIL', 'VIEW_CLAIM_ATTACHMENTS', 'VIEW_CLAIM_MESSAGES', 'DELETE_ATTACHMENT']
 
 export function AdminSystem() {
   return (

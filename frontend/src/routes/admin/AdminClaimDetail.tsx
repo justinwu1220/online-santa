@@ -82,17 +82,16 @@ export function AdminClaimDetail() {
         </dl>
       </ConsolePanel>
 
-      <MessagesPanel claimId={id} />
-
       <div className="grid gap-5 lg:grid-cols-2">
-        <ConsolePanel title="歷程">
-          {timeline.isLoading
-            ? <Spinner label="載入歷程" />
-            : <Timeline events={timeline.data ?? []} />}
-        </ConsolePanel>
-
+        <MessagesPanel claimId={id} />
         <AttachmentPanel claimId={id} />
       </div>
+
+      <ConsolePanel title="歷程">
+        {timeline.isLoading
+          ? <Spinner label="載入歷程" />
+          : <Timeline events={timeline.data ?? []} />}
+      </ConsolePanel>
     </div>
   )
 }
@@ -230,11 +229,16 @@ function AttachmentPanel({ claimId }: { claimId: string }) {
         (attachments.data?.length ?? 0) === 0
           ? <p className="text-sm text-slate-500">這筆認領沒有任何附件。</p>
           : (
-            <div className="grid grid-cols-3 gap-3">
-              {attachments.data?.map((photo) => (
-                <DeletablePhoto key={photo.id} photo={photo}
-                  onDeleted={() => void attachments.refetch()} />
-              ))}
+            // 跟對話的訊息列表用同一個高度上限，兩者現在並排一列——
+            // 寄送證明＋回饋照片最多可到 10 張，沒有上限的話縮圖格線
+            // 會把整列撐得很高，下面的「歷程」也會跟著跳動
+            <div className="max-h-96 overflow-y-auto pr-1">
+              <div className="grid grid-cols-3 gap-3">
+                {attachments.data?.map((photo) => (
+                  <DeletablePhoto key={photo.id} photo={photo}
+                    onDeleted={() => void attachments.refetch()} />
+                ))}
+              </div>
             </div>
           )
       )}
