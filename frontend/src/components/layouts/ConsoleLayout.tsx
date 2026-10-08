@@ -64,18 +64,28 @@ export function ConsoleLayout({ title, subtitle, accent, items, homePath, childr
       <header className={`${headerClass} md:sticky md:top-0 md:z-40`}>
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           {/*
-            logo 指向自己的首頁，不會把人丟回主網站。
+            兩個區塊各自獨立可點，去的地方不一樣：平台名稱固定回願望牆（離開
+            後台去主網站），後台名稱回這個後台自己的首頁（在後台裡面導覽）。
+            以前是整塊一個連結只會回 homePath——拆開是刻意的，兩種意圖不該
+            共用一個目的地。
 
             平台名稱擺在後台名稱之前：後台的人多半是被信件或連結直接帶進來的，
             畫面上如果只有「機構後台」，他不見得知道自己在哪一個平台。名稱用較小的
-            字級與較低的不透明度，主角仍然是「你在哪一個後台」。
+            字級與較低的不透明度，主角仍然是「你在哪一個後台」。中間的 `/` 分隔符
+            剛好卡在兩個區塊的天然分界上，不用額外加分隔線。沿用這個元件本來就在用
+            的「透明度表達層級」語言做 hover 回饋，不引入底色/底線這種新語彙。
           */}
-          <Link to={homePath} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="text-sm opacity-80">{BRAND}</span>
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <Link to="/" className="text-sm opacity-80 transition-opacity hover:opacity-100">
+              {BRAND}
+            </Link>
             <span aria-hidden className="text-sm opacity-40">/</span>
-            <span className="text-base font-semibold">{title}</span>
-            {subtitle && <span className="text-sm opacity-75">{subtitle}</span>}
-          </Link>
+            <Link to={homePath} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5
+              transition-opacity hover:opacity-70">
+              <span className="text-base font-semibold">{title}</span>
+              {subtitle && <span className="text-sm opacity-75">{subtitle}</span>}
+            </Link>
+          </div>
 
           <div className="flex items-center gap-3">
             <span className="max-w-[16rem] truncate text-sm opacity-90" title={email ?? ''}>

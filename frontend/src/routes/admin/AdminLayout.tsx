@@ -8,10 +8,10 @@ import { ConsoleLayout } from '../../components/layouts/ConsoleLayout'
  * 監控中心的外框。
  *
  * 主網站沒有任何連往這裡的連結——要進來只能直接輸入網址。這不是安全機制
- * （真正的保護是後端的 hasRole('ADMIN')），只是減少誤闖。
- *
- * logo 指向 /admin 而非 /：監控中心在使用者的感受上是獨立的系統，不該把人
- * 丟回主網站。
+ * （真正的保護是後端的 hasRole('ADMIN')），只是減少誤闖。這一條說的是「進來」
+ * 的方向；logo 區塊的平台名稱那一半是刻意反過來的「離開」出口，見
+ * ConsoleLayout 裡的說明——homePath 這裡仍然給 /admin（後台名稱那一半用），
+ * 不是說監控中心完全不能連回主網站。
  */
 export function AdminLayout() {
   // 待審核數放在導覽上，管理員一進來就看得到有事要處理
