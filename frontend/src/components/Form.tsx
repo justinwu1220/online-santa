@@ -59,10 +59,11 @@ const VARIANTS = {
   ghost: 'text-slate-600 hover:bg-slate-100 disabled:text-slate-300',
 }
 
-export function Button({ variant = 'primary', children, className, ...props }: ButtonProps) {
+export function Button({ variant = 'primary', children, className, type = 'button', ...props }: ButtonProps) {
   return (
     <button
       {...props}
+      type={type}
       className={`btn btn-${variant} inline-flex items-center justify-center gap-1.5
         rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed
         ${VARIANTS[variant]} ${className ?? ''}`}
