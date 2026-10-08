@@ -76,6 +76,8 @@ export interface WishPublicView {
   organizationId: string
   organizationName: string
   imageUrl?: string
+  /** 孩子手寫的感謝卡／願望信照片，沒有就是空陣列（不是 undefined） */
+  letterPhotoUrls: string[]
 }
 
 export interface WishOrgView {
@@ -95,6 +97,11 @@ export interface WishOrgView {
   createdAt: string
   updatedAt: string
   imageUrl?: string
+  /**
+   * 孩子手寫的感謝卡／願望信照片，沒有就是空陣列（不是 undefined）。帶附件完整
+   * 資訊（而非只有網址）——機構後台要用 id 刪除自己上傳的照片
+   */
+  letterPhotos: AttachmentView[]
 }
 
 export interface WishRequestBody {
@@ -199,7 +206,8 @@ export interface ClaimEventView {
 
 // ---------------------------------------------------------------- 附件與訊息
 
-export type AttachmentPurpose = 'WISH_IMAGE' | 'SHIPPING_PROOF' | 'ORG_FEEDBACK'
+export type AttachmentPurpose =
+  | 'WISH_IMAGE' | 'SHIPPING_PROOF' | 'ORG_FEEDBACK' | 'ORG_DOCUMENT' | 'WISH_LETTER'
 
 export interface AttachmentView {
   id: string
@@ -408,7 +416,7 @@ export interface PlatformMonthlyStats {
 
 export type AdminAuditAction =
   | 'VIEW_CLAIM_DETAIL' | 'VIEW_CLAIM_ATTACHMENTS' | 'VIEW_CLAIM_MESSAGES'
-  | 'APPROVE_ORGANIZATION' | 'REJECT_ORGANIZATION'
+  | 'APPROVE_ORGANIZATION' | 'REJECT_ORGANIZATION' | 'VIEW_ORGANIZATION_DOCUMENTS'
   | 'SUSPEND_ORGANIZATION' | 'REACTIVATE_ORGANIZATION'
   | 'DELETE_ATTACHMENT'
   | 'RUN_RELEASE_SWEEP' | 'RUN_ATTACHMENT_CLEANUP' | 'RUN_DEADLINE_REMINDERS'

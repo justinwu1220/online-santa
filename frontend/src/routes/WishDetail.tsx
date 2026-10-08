@@ -8,6 +8,7 @@ import { effectiveRoleOf, useCurrentUser } from '../lib/useCurrentUser'
 import { Breadcrumb } from '../components/Breadcrumb'
 import { ErrorBanner, Notice, Spinner } from '../components/Feedback'
 import { Button, TextArea } from '../components/Form'
+import { Modal } from '../components/Modal'
 import { WishStatusBadge } from '../components/StatusBadge'
 import { wishIcon } from '../lib/wishIcon'
 import { wallStatusTag } from '../lib/wishWallStatus'
@@ -19,6 +20,7 @@ export function WishDetail() {
   const { email, emailVerified } = useAuth()
   const me = useCurrentUser()
   const [message, setMessage] = useState('')
+  const [confirming, setConfirming] = useState(false)
 
   const wish = useQuery({
     queryKey: ['wish', id],
@@ -138,20 +140,11 @@ export function WishDetail() {
               </Notice>
             ) : (
               <div className="space-y-3">
-                <TextArea
-                  rows={3}
-                  maxLength={500}
-                  value={message}
-                  placeholder="想對孩子說的話（選填）"
-                  onChange={(event) => setMessage(event.target.value)}
-                />
-                {claim.isError && <ClaimError error={claim.error} />}
                 <Button
                   className="w-full py-3 text-base"
-                  disabled={claim.isPending}
-                  onClick={() => claim.mutate()}
+                  onClick={() => setConfirming(true)}
                 >
-                  {claim.isPending ? '認領中…' : '我要實現這個願望'}
+                  我要實現這個願望
                 </Button>
                 <p className="text-center text-xs text-slate-400">
                   認領後請於期限內寄出禮物，逾期機構可能會收回讓其他人認領。
@@ -161,6 +154,44 @@ export function WishDetail() {
           </div>
         </div>
       </article>
+
+      {data.letterPhotoUrls.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-lg font-semibold text-white">孩子想對你說</h2>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {data.letterPhotoUrls.map((url) => (
+              <a key={url} href={url} target="_blank" rel="noreferrer"
+                className="glass-card overflow-hidden">
+                <img src={url} alt="" className="aspect-square w-full object-cover" />
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {confirming && (
+        <Modal title="確定要認領這個願望嗎？"
+          onClose={() => !claim.isPending && setConfirming(false)}>
+          <div className="space-y-3">
+            <TextArea
+              rows={3}
+              maxLength={500}
+              value={message}
+              placeholder="想對孩子說的話（選填）"
+              onChange={(event) => setMessage(event.target.value)}
+            />
+            {claim.isError && <ClaimError error={claim.error} />}
+            <div className="flex gap-2">
+              <Button className="flex-1" disabled={claim.isPending} onClick={() => claim.mutate()}>
+                {claim.isPending ? '認領中…' : '確定認領'}
+              </Button>
+              <Button variant="ghost" disabled={claim.isPending} onClick={() => setConfirming(false)}>
+                取消
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

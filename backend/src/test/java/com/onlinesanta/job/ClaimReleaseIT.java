@@ -19,6 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
+import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.claim.dto.ShipRequest;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
@@ -213,6 +214,7 @@ class ClaimReleaseIT extends ApiIntegrationTest {
     @DisplayName("已寄出的認領不算逾期")
     void shippedClaimsAreNotConsideredOverdue() throws Exception {
         UUID claimId = claim(publishedWish(autoOrganization, "已經寄了"), DONOR);
+        uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                 new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
         makeOverdue(claimId);

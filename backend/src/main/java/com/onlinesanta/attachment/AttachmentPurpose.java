@@ -17,7 +17,18 @@ public enum AttachmentPurpose {
     SHIPPING_PROOF(StorageBucket.PRIVATE, "shipping-proofs", 5),
 
     /** 送禮回饋照片，由機構上傳，掛在認領上。可能含孩童影像，敏感度最高。 */
-    ORG_FEEDBACK(StorageBucket.PRIVATE, "feedback", 5);
+    ORG_FEEDBACK(StorageBucket.PRIVATE, "feedback", 5),
+
+    /** 機構申請附上的立案證明文件，由機構承辦人上傳，掛在機構上。可能含個資，須限時簽章才能讀。 */
+    ORG_DOCUMENT(StorageBucket.PRIVATE, "org-documents", 3),
+
+    /**
+     * 孩童手寫的感謝卡／願望信照片，由機構上傳，掛在願望上。
+     *
+     * <p>公開——跟 {@link #WISH_IMAGE} 同樣的既有例外，但機構須避免拍到孩子臉部或
+     * 完整姓名，見 docs/PRIVACY.md。
+     */
+    WISH_LETTER(StorageBucket.PUBLIC, "wish-letters", 3);
 
     private final StorageBucket bucket;
     private final String prefix;

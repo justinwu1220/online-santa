@@ -76,7 +76,8 @@ public class WishController {
     @GetMapping("/{id}")
     @Operation(summary = "願望詳情")
     public WishPublicView getOne(@PathVariable UUID id) {
-        return WishPublicView.from(wishes.getPublicById(id), attachments.wishImageUrl(id));
+        return WishPublicView.from(
+                wishes.getPublicById(id), attachments.wishImageUrl(id), attachments.wishLetterUrls(id));
     }
 
     // ---------------------------------------------------------------- 機構操作
@@ -91,19 +92,22 @@ public class WishController {
     @PatchMapping("/{id}")
     @Operation(summary = "修改願望內容")
     public WishOrgView update(@PathVariable UUID id, @Valid @RequestBody WishRequest request) {
-        return WishOrgView.from(wishes.update(id, request), attachments.wishImageUrl(id));
+        return WishOrgView.from(
+                wishes.update(id, request), attachments.wishImageUrl(id), attachments.wishLetters(id));
     }
 
     @PostMapping("/{id}/publish")
     @Operation(summary = "上架願望")
     public WishOrgView publish(@PathVariable UUID id) {
-        return WishOrgView.from(wishes.publish(id), attachments.wishImageUrl(id));
+        return WishOrgView.from(
+                wishes.publish(id), attachments.wishImageUrl(id), attachments.wishLetters(id));
     }
 
     @PostMapping("/{id}/unpublish")
     @Operation(summary = "下架願望", description = "已被認領的願望無法下架")
     public WishOrgView unpublish(@PathVariable UUID id) {
-        return WishOrgView.from(wishes.unpublish(id), attachments.wishImageUrl(id));
+        return WishOrgView.from(
+                wishes.unpublish(id), attachments.wishImageUrl(id), attachments.wishLetters(id));
     }
 
     @DeleteMapping("/{id}")

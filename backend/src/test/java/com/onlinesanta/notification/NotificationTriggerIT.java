@@ -250,6 +250,7 @@ class NotificationTriggerIT extends ApiIntegrationTest {
 
         UUID wishId = publishedWish("回饋照片");
         UUID claimId = claimAs(wishId, DONOR);
+        uploadAndConfirm(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                 new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))

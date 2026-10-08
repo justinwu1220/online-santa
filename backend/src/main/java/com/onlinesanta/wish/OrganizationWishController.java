@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.onlinesanta.attachment.AttachmentService;
+import com.onlinesanta.attachment.dto.AttachmentView;
 import com.onlinesanta.common.PageResponse;
 import com.onlinesanta.wish.dto.WishOrgView;
 
@@ -46,11 +47,13 @@ public class OrganizationWishController {
             @RequestParam(required = false) Integer year,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
         Page<Wish> page = wishes.listMine(status, year, pageable);
-        Map<UUID, String> imageUrls = attachments.wishImageUrls(
-                page.getContent().stream().map(Wish::getId).toList());
+        List<UUID> wishIds = page.getContent().stream().map(Wish::getId).toList();
+        Map<UUID, String> imageUrls = attachments.wishImageUrls(wishIds);
+        Map<UUID, List<AttachmentView>> letterPhotos = attachments.wishLetters(wishIds);
 
         return PageResponse.of(page,
-                wish -> WishOrgView.from(wish, imageUrls.get(wish.getId())));
+                wish -> WishOrgView.from(wish, imageUrls.get(wish.getId()),
+                        letterPhotos.getOrDefault(wish.getId(), List.of())));
     }
 
     @GetMapping("/years")

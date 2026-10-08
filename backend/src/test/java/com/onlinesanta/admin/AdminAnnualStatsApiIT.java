@@ -19,6 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
+import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.claim.dto.ReleaseRequest;
 import com.onlinesanta.claim.dto.ShipRequest;
 import com.onlinesanta.common.TaiwanYear;
@@ -115,6 +116,7 @@ class AdminAnnualStatsApiIT extends ApiIntegrationTest {
         int thisYear = TaiwanYear.currentYear();
 
         UUID claim1 = claimAs(publishedWish(organizationA, "甲的願望"), DONOR);
+        uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claim1, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claim1),
                         new ShipRequest("郵局", "R1")), DONOR)).andExpect(status().isOk());
         completeFully(claim1, ORG_A);
@@ -160,11 +162,13 @@ class AdminAnnualStatsApiIT extends ApiIntegrationTest {
         // 甲機構完成 2 筆、乙機構完成 1 筆
         for (String title : new String[]{"甲一", "甲二"}) {
             UUID claimId = claimAs(publishedWish(organizationA, title), DONOR);
+            uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
             mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                             new ShipRequest("郵局", "R")), DONOR)).andExpect(status().isOk());
             completeFully(claimId, ORG_A);
         }
         UUID claimB = claimAs(publishedWish(organizationB, "乙一"), DONOR);
+        uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimB, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimB),
                         new ShipRequest("郵局", "R")), DONOR)).andExpect(status().isOk());
         completeFully(claimB, ORG_B);
@@ -200,6 +204,7 @@ class AdminAnnualStatsApiIT extends ApiIntegrationTest {
     @DisplayName("cohort 制：完成數以認領年度計，不看實際完成的年份")
     void completedCountFollowsClaimYearAcrossThePlatform() throws Exception {
         UUID claimId = claimAs(publishedWish(organizationA, "跨年才完成"), DONOR);
+        uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                         new ShipRequest("郵局", "R1")), DONOR)).andExpect(status().isOk());
         completeFully(claimId, ORG_A);

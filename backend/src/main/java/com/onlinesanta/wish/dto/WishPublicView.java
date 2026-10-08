@@ -1,6 +1,7 @@
 package com.onlinesanta.wish.dto;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import com.onlinesanta.wish.AgeRange;
@@ -32,14 +33,18 @@ public record WishPublicView(
         Instant publishedAt,
         UUID organizationId,
         String organizationName,
-        String imageUrl) {
+        String imageUrl,
+        List<String> letterPhotoUrls) {
 
     public static WishPublicView from(Wish wish) {
-        return from(wish, null);
+        return from(wish, null, List.of());
     }
 
-    /** @param imageUrl 禮物示意圖網址，沒有圖時為 null */
-    public static WishPublicView from(Wish wish, String imageUrl) {
+    /**
+     * @param imageUrl        禮物示意圖網址，沒有圖時為 null
+     * @param letterPhotoUrls 孩子手寫的感謝卡／願望信照片，沒有就是空清單（不是 null）
+     */
+    public static WishPublicView from(Wish wish, String imageUrl, List<String> letterPhotoUrls) {
         return new WishPublicView(
                 wish.getId(),
                 wish.getTitle(),
@@ -56,6 +61,7 @@ public record WishPublicView(
                 wish.getPublishedAt(),
                 wish.getOrganization().getId(),
                 wish.getOrganization().getName(),
-                imageUrl);
+                imageUrl,
+                letterPhotoUrls);
     }
 }

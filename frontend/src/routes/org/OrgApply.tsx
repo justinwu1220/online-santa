@@ -1,16 +1,19 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { ApiError, api } from '../../lib/api'
 import { useAuth } from '../../lib/authContext'
 import { pageTitle } from '../../lib/brand'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
+import { ACCEPTED_ORG_DOCUMENT_TYPES, uploadImage, validateOrgDocument } from '../../lib/upload'
 import type { OrganizationView } from '../../lib/types'
 import { EmailVerificationBanner } from '../../components/EmailVerificationBanner'
 import { WrongAccountPanel } from '../../components/auth/WrongAccountPanel'
 import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
 import { Button, Field, TextArea, TextInput } from '../../components/Form'
 import { StepHeading } from './applyShared'
+
+const MAX_DOCUMENTS = 3
 
 type Form = {
   name: string
@@ -109,6 +112,12 @@ function ApplyForm({ email }: { email: string }) {
   const [draft, setDraft] = useState<Draft>(() => readDraft(draftKey))
   const { form, contactEmailTouched } = draft
 
+  // 文件不進草稿（File 物件無法存進 sessionStorage），送出前都還是本地狀態，
+  // 離開這頁或重新整理會遺失已選的檔案——跟表單文字欄位不同，先記錄為已知限制
+  const [documents, setDocuments] = useState<File[]>([])
+  const [documentsError, setDocumentsError] = useState<string | null>(null)
+  const documentInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     try {
       sessionStorage.setItem(draftKey, JSON.stringify(draft))
@@ -120,7 +129,17 @@ function ApplyForm({ email }: { email: string }) {
   const contactEmail = contactEmailTouched ? form.contactEmail : email
 
   const register = useMutation({
-    mutationFn: () => api.post<OrganizationView>('/api/organizations', { ...form, contactEmail }),
+    mutationFn: async () => {
+      const organization = await api.post<OrganizationView>(
+        '/api/organizations', { ...form, contactEmail })
+      // 機構在送出前沒有 id，文件只能在機構建立之後才上傳。這裡的檔案若有一份
+      // 上傳失敗，機構申請本身已經成立（不會、也不該回滾）——使用者會看到錯誤，
+      // 但機構其實已經送出去了，這個落差目前沒有「重新上傳」的介面可以補救
+      for (const file of documents) {
+        await uploadImage('ORG_DOCUMENT', organization.id, file)
+      }
+      return organization
+    },
     onSuccess: () => {
       try {
         sessionStorage.removeItem(draftKey)
@@ -212,6 +231,52 @@ function ApplyForm({ email }: { email: string }) {
             error={fieldErrors?.description}>
             <TextArea rows={4} maxLength={2000}
               value={form.description} onChange={update('description')} />
+          </Field>
+
+          <Field label="相關文件證明"
+            hint="請擇一上傳證明文件:法人登記證書/立案證書/設立許可函/教職員證/當學年度聘書"
+            error={documentsError ?? undefined}>
+            <input
+              ref={documentInputRef}
+              type="file"
+              className="hidden"
+              accept={ACCEPTED_ORG_DOCUMENT_TYPES.join(',')}
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (!file) return
+                if (documents.length >= MAX_DOCUMENTS) {
+                  setDocumentsError(`最多上傳 ${MAX_DOCUMENTS} 份文件`)
+                } else {
+                  const problem = validateOrgDocument(file)
+                  if (problem) {
+                    setDocumentsError(problem)
+                  } else {
+                    setDocuments((current) => [...current, file])
+                    setDocumentsError(null)
+                  }
+                }
+                event.target.value = ''
+              }}
+            />
+            <div className="space-y-2">
+              {documents.map((file, index) => (
+                <div key={`${file.name}-${index}`}
+                  className="flex items-center justify-between gap-2 rounded-lg border
+                    border-slate-200 bg-white px-3 py-2 text-sm">
+                  <span className="truncate text-slate-700">{file.name}</span>
+                  <button type="button" className="text-slate-400 hover:text-berry-600"
+                    onClick={() => setDocuments((current) => current.filter((_, i) => i !== index))}>
+                    移除
+                  </button>
+                </div>
+              ))}
+              {documents.length < MAX_DOCUMENTS && (
+                <Button type="button" variant="secondary"
+                  onClick={() => documentInputRef.current?.click()}>
+                  新增文件
+                </Button>
+              )}
+            </div>
           </Field>
 
           {!auth.emailVerified && (

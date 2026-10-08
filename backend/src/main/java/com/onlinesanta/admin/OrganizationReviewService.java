@@ -1,5 +1,6 @@
 package com.onlinesanta.admin;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.context.ApplicationEventPublisher;
@@ -10,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.onlinesanta.admin.dto.ReviewDecisionRequest;
 import com.onlinesanta.admin.dto.ReviewReasonRequest;
+import com.onlinesanta.attachment.AttachmentService;
+import com.onlinesanta.attachment.dto.AttachmentView;
 import com.onlinesanta.auth.AppPrincipal;
 import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.common.exception.BusinessRuleException;
@@ -32,17 +35,20 @@ public class OrganizationReviewService {
     private final CurrentUserService currentUser;
     private final AdminAuditService audit;
     private final ApplicationEventPublisher eventPublisher;
+    private final AttachmentService attachments;
 
     public OrganizationReviewService(OrganizationRepository organizations,
                                      OrganizationService organizationService,
                                      CurrentUserService currentUser,
                                      AdminAuditService audit,
-                                     ApplicationEventPublisher eventPublisher) {
+                                     ApplicationEventPublisher eventPublisher,
+                                     AttachmentService attachments) {
         this.organizations = organizations;
         this.organizationService = organizationService;
         this.currentUser = currentUser;
         this.audit = audit;
         this.eventPublisher = eventPublisher;
+        this.attachments = attachments;
     }
 
     @Transactional(readOnly = true)
@@ -103,6 +109,21 @@ public class OrganizationReviewService {
         audit.record(AdminAuditAction.REACTIVATE_ORGANIZATION, organizationId,
                 describeReason(request.note()));
         return organization;
+    }
+
+    /**
+     * 機構申請時附上的立案證明文件。
+     *
+     * <p>可能含個資（法人登記證書等），比照附件審核的慣例寫入稽核，記下看到幾份文件。
+     */
+    @Transactional
+    public List<AttachmentView> documentsOf(UUID organizationId) {
+        Organization organization = organizationService.getById(organizationId);
+
+        List<AttachmentView> views = attachments.organizationDocuments(organizationId);
+        audit.record(AdminAuditAction.VIEW_ORGANIZATION_DOCUMENTS, organizationId,
+                "%s，共 %d 份文件".formatted(organization.getName(), views.size()));
+        return views;
     }
 
     private String describeReason(String note) {

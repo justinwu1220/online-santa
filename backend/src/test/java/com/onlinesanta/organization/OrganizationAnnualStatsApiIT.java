@@ -20,6 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
+import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.claim.dto.ReleaseRequest;
 import com.onlinesanta.claim.dto.ShipRequest;
 import com.onlinesanta.common.TaiwanYear;
@@ -122,6 +123,7 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
 
         UUID wish1 = publishedWish(organizationA, "願望一");
         UUID claim1 = claimAs(wish1, DONOR);
+        uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claim1, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claim1),
                         new ShipRequest("郵局", "R1")), DONOR)).andExpect(status().isOk());
         completeFully(claim1, ORG_A);
@@ -175,6 +177,7 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
     void crossYearCompletionsAreCounted() throws Exception {
         UUID wishId = publishedWish(organizationA, "跨年完成");
         UUID claimId = claimAs(wishId, DONOR);
+        uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                         new ShipRequest("郵局", "R1")), DONOR)).andExpect(status().isOk());
         completeFully(claimId, ORG_A);
@@ -259,6 +262,7 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
     @DisplayName("機構彼此看不到對方的年度統計")
     void statsAreIsolatedPerOrganization() throws Exception {
         UUID claimId = claimAs(publishedWish(organizationA, "甲機構的認領"), DONOR);
+        uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                         new ShipRequest("郵局", "R1")), DONOR)).andExpect(status().isOk());
         completeFully(claimId, ORG_A);

@@ -1,5 +1,6 @@
 package com.onlinesanta.admin;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Pageable;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.onlinesanta.admin.dto.OrganizationReviewView;
 import com.onlinesanta.admin.dto.ReviewDecisionRequest;
 import com.onlinesanta.admin.dto.ReviewReasonRequest;
+import com.onlinesanta.attachment.dto.AttachmentView;
 import com.onlinesanta.common.PageResponse;
 import com.onlinesanta.organization.OrganizationStatus;
 
@@ -74,6 +76,12 @@ public class AdminOrganizationController {
             @PathVariable UUID id,
             @Valid @RequestBody ReviewReasonRequest request) {
         return OrganizationReviewView.from(review.suspend(id, request));
+    }
+
+    @GetMapping("/{id}/documents")
+    @Operation(summary = "機構申請文件", description = "機構申請時附上的立案證明文件，下載網址為限時簽章網址")
+    public List<AttachmentView> documents(@PathVariable UUID id) {
+        return review.documentsOf(id);
     }
 
     @PostMapping("/{id}/reactivate")

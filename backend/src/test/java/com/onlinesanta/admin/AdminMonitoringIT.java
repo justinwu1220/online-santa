@@ -458,6 +458,35 @@ class AdminMonitoringIT extends ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("看機構文件會寫稽核，並記下看到幾份文件")
+    void viewingOrganizationDocumentsIsAudited() throws Exception {
+        uploadConfirmedAttachment(
+                com.onlinesanta.attachment.AttachmentPurpose.ORG_DOCUMENT, organizationA.getId(), ORG_A);
+
+        mvc.perform(as(get("/api/admin/organizations/{id}/documents", organizationA.getId()), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+
+        var logs = auditLogs.findAll();
+        assertThat(logs).hasSize(1);
+        assertThat(logs.get(0).getAction()).isEqualTo(AdminAuditAction.VIEW_ORGANIZATION_DOCUMENTS);
+        assertThat(logs.get(0).getTargetType()).isEqualTo(AdminAuditTargetType.ORGANIZATION);
+        assertThat(logs.get(0).getTargetId()).isEqualTo(organizationA.getId());
+        assertThat(logs.get(0).getDetail()).contains("甲機構", "共 1 份文件");
+    }
+
+    @Test
+    @DisplayName("非管理員看不到機構文件")
+    void nonAdminsCannotReadOrganizationDocuments() throws Exception {
+        mvc.perform(as(get("/api/admin/organizations/{id}/documents", organizationA.getId()), DONOR))
+                .andExpect(status().isForbidden());
+        mvc.perform(as(get("/api/admin/organizations/{id}/documents", organizationA.getId()), ORG_A))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/organizations/{id}/documents", organizationA.getId()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("非管理員看不到認領對話")
     void nonAdminsCannotReadClaimMessages() throws Exception {
         UUID claimId = claim(publishedWish(organizationA, "對話不給非管理員看"));

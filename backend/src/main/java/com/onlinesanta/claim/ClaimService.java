@@ -11,6 +11,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.onlinesanta.attachment.AttachmentPurpose;
+import com.onlinesanta.attachment.AttachmentRepository;
+import com.onlinesanta.attachment.UploadStatus;
 import com.onlinesanta.auth.AppPrincipal;
 import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.claim.dto.ClaimRequest;
@@ -40,6 +43,7 @@ public class ClaimService {
     private final ClaimEventRepository events;
     private final WishRepository wishes;
     private final UserRepository users;
+    private final AttachmentRepository attachments;
     private final CurrentUserService currentUser;
     private final ClaimProperties properties;
     private final ApplicationEventPublisher eventPublisher;
@@ -48,6 +52,7 @@ public class ClaimService {
                         ClaimEventRepository events,
                         WishRepository wishes,
                         UserRepository users,
+                        AttachmentRepository attachments,
                         CurrentUserService currentUser,
                         ClaimProperties properties,
                         ApplicationEventPublisher eventPublisher) {
@@ -55,6 +60,7 @@ public class ClaimService {
         this.events = events;
         this.wishes = wishes;
         this.users = users;
+        this.attachments = attachments;
         this.currentUser = currentUser;
         this.properties = properties;
         this.eventPublisher = eventPublisher;
@@ -147,10 +153,21 @@ public class ClaimService {
 
     // ================================================================ 捐贈者的操作
 
+    /**
+     * 要求至少有一張已確認的寄送證明才能回報已寄出。前端已經把這個檢查放進同一次
+     * 送出的流程（選照片、填物流資訊、一次送出），這裡是後端的第二道防線——
+     * 不信任前端，避免有人直接打 API 跳過照片。
+     */
     @Transactional
     public Claim ship(UUID claimId, ShipRequest request) {
         AppPrincipal principal = currentUser.require();
         Claim claim = findOwnedByDonor(claimId, principal.userId());
+
+        long proofCount = attachments.countByPurposeAndOwnerIdAndUploadStatus(
+                AttachmentPurpose.SHIPPING_PROOF, claimId, UploadStatus.CONFIRMED);
+        if (proofCount == 0) {
+            throw new BusinessRuleException("SHIPPING_PROOF_REQUIRED", "請先上傳至少一張寄送證明照片");
+        }
 
         claim.markShipped(request.carrier(), request.trackingNumber());
         record(claim, ClaimEventType.SHIPPED, principal.userId(),

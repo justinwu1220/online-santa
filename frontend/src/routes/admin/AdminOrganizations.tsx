@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { api, withQuery } from '../../lib/api'
 import { formatDate, formatDateTime } from '../../lib/format'
 import type {
-  OrganizationReviewView, OrganizationStatus, PageResponse,
+  AttachmentView, OrganizationReviewView, OrganizationStatus, PageResponse,
 } from '../../lib/types'
 import { ConsolePanel } from '../../components/layouts/ConsoleLayout'
 import { EmptyState, ErrorBanner, Spinner } from '../../components/Feedback'
@@ -136,6 +136,8 @@ function OrganizationCard({ organization }: { organization: OrganizationReviewVi
         </p>
       )}
 
+      <DocumentsPanel organizationId={organization.id} />
+
       {(pending || approved || suspended) && (
         <div className="mt-4">
           {deciding ? (
@@ -185,6 +187,63 @@ function OrganizationCard({ organization }: { organization: OrganizationReviewVi
             </div>
           )}
         </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * 機構申請時附上的立案證明文件。按鈕才載入，跟認領的對話／附件一樣——
+ * 這是對機構承辦人個資的一次具體存取，載入會另外寫入一筆稽核紀錄。
+ */
+function DocumentsPanel({ organizationId }: { organizationId: string }) {
+  const documents = useQuery({
+    queryKey: ['admin-organization', organizationId, 'documents'],
+    queryFn: () => api.get<AttachmentView[]>(`/api/admin/organizations/${organizationId}/documents`),
+    enabled: false,
+  })
+
+  return (
+    <div className="mt-4">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-medium text-slate-700">相關文件證明</h3>
+        {!documents.isFetched && (
+          <button
+            type="button"
+            onClick={() => void documents.refetch()}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium
+              text-slate-700 hover:bg-slate-50"
+          >
+            載入文件
+          </button>
+        )}
+      </div>
+
+      {!documents.isFetched && (
+        <p className="text-sm text-slate-500">
+          可能含法人登記證書等個資。<strong>載入會另外寫入一筆稽核紀錄。</strong>
+        </p>
+      )}
+
+      {documents.isFetching && <Spinner label="載入文件" />}
+      {documents.isError && <ErrorBanner error={documents.error} />}
+
+      {documents.isFetched && !documents.isFetching && (
+        (documents.data?.length ?? 0) === 0
+          ? <p className="text-sm text-slate-500">這個機構沒有上傳任何文件。</p>
+          : (
+            <ul className="space-y-1.5">
+              {documents.data?.map((doc) => (
+                <li key={doc.id}>
+                  <a href={doc.url} target="_blank" rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm text-santa-700
+                      hover:underline">
+                    {doc.contentType === 'application/pdf' ? '📄' : '🖼️'} 下載文件
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )
       )}
     </div>
   )

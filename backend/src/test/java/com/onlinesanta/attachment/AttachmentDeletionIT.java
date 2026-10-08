@@ -127,6 +127,7 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
     }
 
     private void shipReceiveComplete(UUID claimId) throws Exception {
+        uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                 new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
@@ -180,6 +181,7 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
     @DisplayName("機構可以刪除自己上傳的回饋照片")
     void organizationCanDeleteOwnFeedbackPhoto() throws Exception {
         UUID claimId = claimAs(publishedWish("回饋照片"), DONOR);
+        uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                 new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
@@ -198,6 +200,7 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
     @DisplayName("別家機構不能刪除這筆認領的回饋照片")
     void otherOrganizationsCannotDeleteFeedbackPhoto() throws Exception {
         UUID claimId = claimAs(publishedWish("不是你家的回饋"), DONOR);
+        uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                 new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
@@ -246,6 +249,9 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
         mvc.perform(as(delete("/api/attachments/{id}", proof.attachmentId()), ADMIN))
                 .andExpect(status().isNoContent());
 
+        // 剛才那張證明照被刪了，回報已寄出前要再補一張才符合必填要求——
+        // 這裡要測的是「刪除會寫稽核」，不是寄送證明的必填規則本身
+        uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                 new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))

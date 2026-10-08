@@ -25,6 +25,9 @@ public enum AdminAuditAction {
     /** 復權：停權後恢復為 APPROVED。 */
     REACTIVATE_ORGANIZATION,
 
+    /** 看了某機構申請附上的立案證明文件。 */
+    VIEW_ORGANIZATION_DOCUMENTS,
+
     /** 管理員刪除附件（隱私事件處置）。目標是附件所屬的認領。 */
     DELETE_ATTACHMENT,
 
@@ -42,7 +45,8 @@ public enum AdminAuditAction {
             case VIEW_CLAIM_DETAIL, VIEW_CLAIM_ATTACHMENTS, VIEW_CLAIM_MESSAGES, DELETE_ATTACHMENT
                     -> AdminAuditTargetType.CLAIM;
             case APPROVE_ORGANIZATION, REJECT_ORGANIZATION,
-                 SUSPEND_ORGANIZATION, REACTIVATE_ORGANIZATION -> AdminAuditTargetType.ORGANIZATION;
+                 SUSPEND_ORGANIZATION, REACTIVATE_ORGANIZATION, VIEW_ORGANIZATION_DOCUMENTS
+                    -> AdminAuditTargetType.ORGANIZATION;
             case RUN_RELEASE_SWEEP, RUN_ATTACHMENT_CLEANUP, RUN_DEADLINE_REMINDERS -> AdminAuditTargetType.SYSTEM;
         };
     }

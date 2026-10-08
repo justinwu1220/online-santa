@@ -17,6 +17,9 @@ const SKIP_COMPRESSION_MAX_BYTES = 300 * 1024
  * 任何一步失敗（罕見格式、瀏覽器不支援）都退回原始檔案，不擋使用者上傳。
  */
 async function compressImage(file: File): Promise<File> {
+  // PDF（或其他非圖片格式）沒辦法丟進 canvas 解壓縮，原樣直接送出
+  if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) return file
+
   try {
     const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
     try {
@@ -90,12 +93,31 @@ export const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
 /** 在送出前先擋掉明顯不合規的檔案，省去一次往返。 */
-export function validateImage(file: File): string | null {
-  if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-    return '只接受 JPEG、PNG 或 WebP 圖片'
+export function validateFile(
+  file: File,
+  acceptedTypes: readonly string[],
+  maxBytes: number,
+  typeLabel: string,
+): string | null {
+  if (!acceptedTypes.includes(file.type)) {
+    return `只接受 ${typeLabel} 格式`
   }
-  if (file.size > MAX_IMAGE_BYTES) {
-    return '圖片不可超過 5 MB'
+  if (file.size > maxBytes) {
+    return `檔案不可超過 ${maxBytes / (1024 * 1024)} MB`
   }
   return null
+}
+
+export function validateImage(file: File): string | null {
+  return validateFile(file, ACCEPTED_IMAGE_TYPES, MAX_IMAGE_BYTES, 'JPEG、PNG 或 WebP 圖片')
+}
+
+// 機構申請文件：圖檔或 PDF 皆可——任意格式會重新打開腳本/巨集偽裝檔案的風險，
+// 管理員又是全站權限最高的帳號，被釣魚的代價更高，所以限制在這個白名單內
+export const ACCEPTED_ORG_DOCUMENT_TYPES = [...ACCEPTED_IMAGE_TYPES, 'application/pdf'] as const
+// 跟後端 app.storage.max-upload-bytes 一致（單一全站上限，不分用途）
+export const MAX_ORG_DOCUMENT_BYTES = MAX_IMAGE_BYTES
+
+export function validateOrgDocument(file: File): string | null {
+  return validateFile(file, ACCEPTED_ORG_DOCUMENT_TYPES, MAX_ORG_DOCUMENT_BYTES, '圖檔（JPEG/PNG/WebP）或 PDF')
 }

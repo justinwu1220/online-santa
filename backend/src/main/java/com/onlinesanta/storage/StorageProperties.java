@@ -29,11 +29,19 @@ public record StorageProperties(
         List<String> allowedContentTypes,
         String localStorageDir) {
 
-    /** MIME 型別對應的副檔名。只收這幾種——SVG 可以夾帶腳本，刻意不支援。 */
+    /**
+     * MIME 型別對應的副檔名。只收這幾種——SVG 可以夾帶腳本，刻意不支援。
+     *
+     * <p>這張表只決定副檔名，不是白名單本身——{@code application/pdf} 能不能真的
+     * 上傳，仍然由 {@code AttachmentService.requireAllowedContentType} 依用途判斷
+     * （目前只有 {@code ORG_DOCUMENT} 開放 PDF）。加在這裡只是讓機構文件存成
+     * {@code .pdf} 而不是退回預設的 {@code .bin}。
+     */
     private static final Map<String, String> EXTENSIONS = Map.of(
             "image/jpeg", "jpg",
             "image/png", "png",
-            "image/webp", "webp");
+            "image/webp", "webp",
+            "application/pdf", "pdf");
 
     public String bucketName(StorageBucket bucket) {
         return bucket == StorageBucket.PUBLIC ? publicBucket : privateBucket;

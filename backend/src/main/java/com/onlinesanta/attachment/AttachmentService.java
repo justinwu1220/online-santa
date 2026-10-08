@@ -70,7 +70,7 @@ public class AttachmentService {
         AppPrincipal principal = currentUser.require();
 
         requirePurposeEnabled(request.purpose());
-        requireAllowedContentType(request.contentType());
+        requireAllowedContentType(request.purpose(), request.contentType());
         requireWithinSizeLimit(request.sizeBytes());
         authorizeUpload(request.purpose(), request.targetId(), principal);
         requireWithinCountLimit(request.purpose(), request.targetId());
@@ -114,7 +114,7 @@ public class AttachmentService {
                 .orElseThrow(() -> new BusinessRuleException(
                         "UPLOAD_NOT_FOUND", "找不到上傳的檔案，請重新上傳"));
 
-        requireAllowedContentType(stored.contentType());
+        requireAllowedContentType(attachment.getPurpose(), stored.contentType());
         requireWithinSizeLimit(stored.sizeBytes());
 
         attachment.confirm(stored.contentType(), stored.sizeBytes());
@@ -227,6 +227,10 @@ public class AttachmentService {
             throw new BusinessRuleException("ATTACHMENT_NOT_DELETABLE",
                     "願望示意圖請改用「更換示意圖」上傳新圖取代，不支援直接刪除");
         }
+        if (attachment.getPurpose() == AttachmentPurpose.ORG_DOCUMENT) {
+            throw new BusinessRuleException("ATTACHMENT_NOT_DELETABLE",
+                    "機構文件請聯繫平台管理員協助處理，不支援自行刪除");
+        }
     }
 
     private void authorizeDelete(Attachment attachment, AppPrincipal principal) {
@@ -244,8 +248,18 @@ public class AttachmentService {
                     throw ResourceNotFoundException.of("附件", attachment.getId());
                 }
             }
+            case WISH_LETTER -> {
+                UUID organizationId = currentUser.requireOrganizationId();
+                Wish wish = wishes.findWithOrganizationById(attachment.getOwnerId())
+                        .orElseThrow(() -> ResourceNotFoundException.of("願望", attachment.getOwnerId()));
+                if (!wish.getOrganization().getId().equals(organizationId)) {
+                    throw ResourceNotFoundException.of("附件", attachment.getId());
+                }
+            }
             case WISH_IMAGE -> throw new IllegalStateException(
                     "requireDeletablePurpose 應該已經擋掉 WISH_IMAGE");
+            case ORG_DOCUMENT -> throw new IllegalStateException(
+                    "requireDeletablePurpose 應該已經擋掉 ORG_DOCUMENT");
         }
     }
 
@@ -273,6 +287,56 @@ public class AttachmentService {
                         AttachmentPurpose.WISH_IMAGE, wishId, UploadStatus.CONFIRMED)
                 .map(attachment -> storage.publicUrl(attachment.getObjectName()))
                 .orElse(null);
+    }
+
+    /**
+     * 願望信件照片（孩童手寫的感謝卡）給公開端點用——只需要網址，不需要附件 id。
+     * 公開 bucket，固定網址，不需簽章；跟 {@link #wishImageUrl} 不同的是可能不只
+     * 一張，回傳整個清單而非取最新一張。
+     */
+    @Transactional(readOnly = true)
+    public List<String> wishLetterUrls(UUID wishId) {
+        return wishLetters(wishId).stream().map(AttachmentView::url).toList();
+    }
+
+    /**
+     * 願望信件照片給機構後台用——帶附件 id，機構才能刪除自己上傳的照片
+     * （對應 {@code DELETE /api/attachments/{id}}）。
+     */
+    @Transactional(readOnly = true)
+    public List<AttachmentView> wishLetters(UUID wishId) {
+        return attachments.findByPurposeAndOwnerIdAndUploadStatusOrderByCreatedAtAsc(
+                        AttachmentPurpose.WISH_LETTER, wishId, UploadStatus.CONFIRMED)
+                .stream()
+                .map(this::toView)
+                .toList();
+    }
+
+    /** {@link #wishLetters(UUID)} 的批次版本，供機構後台的願望清單頁避免逐筆查詢。 */
+    @Transactional(readOnly = true)
+    public Map<UUID, List<AttachmentView>> wishLetters(Collection<UUID> wishIds) {
+        if (wishIds.isEmpty()) {
+            return Map.of();
+        }
+        return attachments.findByPurposeAndOwnerIdInAndUploadStatus(
+                        AttachmentPurpose.WISH_LETTER, wishIds, UploadStatus.CONFIRMED)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        Attachment::getOwnerId,
+                        Collectors.mapping(this::toView, Collectors.toList())));
+    }
+
+    /**
+     * 機構申請時附上的立案證明文件，供管理員審核使用。私密 bucket，{@code toView}
+     * 會自動簽出限時下載網址。
+     */
+    @Transactional(readOnly = true)
+    public List<AttachmentView> organizationDocuments(UUID organizationId) {
+        return attachments.findByPurposeAndOwnerIdAndUploadStatusOrderByCreatedAtAsc(
+                        AttachmentPurpose.ORG_DOCUMENT, organizationId, UploadStatus.CONFIRMED)
+                .stream()
+                .map(this::toView)
+                .toList();
     }
 
     /**
@@ -319,6 +383,36 @@ public class AttachmentService {
             case WISH_IMAGE -> authorizeWishImage(targetId, principal);
             case SHIPPING_PROOF -> authorizeShippingProof(targetId, principal);
             case ORG_FEEDBACK -> authorizeOrganizationFeedback(targetId, principal);
+            case ORG_DOCUMENT -> authorizeOrgDocument(targetId, principal);
+            case WISH_LETTER -> authorizeWishLetter(targetId, principal);
+        }
+    }
+
+    /**
+     * 機構申請時附上的立案證明文件。targetId 是機構 id——
+     * {@link com.onlinesanta.organization.OrganizationService#register} 建立機構
+     * 跟把呼叫者加入該機構是同一個交易，註冊 API 回應回來的那一刻
+     * {@code requireOrganizationId()} 就能正確解析出剛建立的機構，不受角色解析
+     * 走資料庫（而非 JWT custom claims）這個設計影響。
+     */
+    private void authorizeOrgDocument(UUID organizationId, AppPrincipal principal) {
+        UUID callerOrganizationId = currentUser.requireOrganizationId();
+        if (!callerOrganizationId.equals(organizationId)) {
+            throw ResourceNotFoundException.of("機構", organizationId);
+        }
+    }
+
+    /**
+     * 孩童手寫的感謝卡／願望信照片。跟 {@link #authorizeWishImage} 的差別是
+     * <strong>不檢查願望狀態</strong>——感謝卡通常是禮物寄出或收到之後才有，
+     * 那時候願望早就不是 {@code isEditable()} 的 DRAFT/AVAILABLE/ARCHIVED 了。
+     */
+    private void authorizeWishLetter(UUID wishId, AppPrincipal principal) {
+        UUID organizationId = currentUser.requireOrganizationId();
+        Wish wish = wishes.findWithOrganizationById(wishId)
+                .orElseThrow(() -> ResourceNotFoundException.of("願望", wishId));
+        if (!wish.getOrganization().getId().equals(organizationId)) {
+            throw ResourceNotFoundException.of("願望", wishId);
         }
     }
 
@@ -385,8 +479,15 @@ public class AttachmentService {
         }
     }
 
-    private void requireAllowedContentType(String contentType) {
-        if (!properties.allows(contentType)) {
+    /**
+     * 內容類型檢查依用途而定——只有 {@code ORG_DOCUMENT}（法人登記證書等）另外
+     * 開放 PDF，不動 {@code app.storage.allowed-content-types} 這個全站共用的設定，
+     * 其餘用途維持純圖檔。
+     */
+    private void requireAllowedContentType(AttachmentPurpose purpose, String contentType) {
+        boolean allowed = properties.allows(contentType)
+                || (purpose == AttachmentPurpose.ORG_DOCUMENT && "application/pdf".equals(contentType));
+        if (!allowed) {
             throw new BusinessRuleException("UNSUPPORTED_CONTENT_TYPE",
                     "只接受 %s；不支援 SVG 等可夾帶腳本的格式"
                             .formatted(String.join("、", properties.allowedContentTypes())));

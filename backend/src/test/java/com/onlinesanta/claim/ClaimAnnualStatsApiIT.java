@@ -20,6 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
+import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.claim.dto.ReleaseRequest;
 import com.onlinesanta.claim.dto.ShipRequest;
 import com.onlinesanta.common.TaiwanYear;
@@ -106,6 +107,7 @@ class ClaimAnnualStatsApiIT extends ApiIntegrationTest {
     }
 
     private void completeFully(UUID claimId, String donorEmail) throws Exception {
+        uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, donorEmail);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                         new ShipRequest("郵局", "R123")), donorEmail))
                 .andExpect(status().isOk());

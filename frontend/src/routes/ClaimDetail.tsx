@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { daysUntil, formatDate } from '../lib/format'
+import { ACCEPTED_IMAGE_TYPES, uploadImage, validateImage } from '../lib/upload'
 import type { AttachmentView, ClaimDonorView, ClaimEventView } from '../lib/types'
 import { Breadcrumb } from '../components/Breadcrumb'
 import { ErrorBanner, Notice, Spinner } from '../components/Feedback'
@@ -35,6 +36,7 @@ export function ClaimDetail() {
 
   function refreshAll() {
     void queryClient.invalidateQueries({ queryKey: ['claim', id] })
+    void queryClient.invalidateQueries({ queryKey: ['claim', id, 'attachments'] })
     void queryClient.invalidateQueries({ queryKey: ['claims'] })
   }
 
@@ -100,24 +102,26 @@ export function ClaimDetail() {
             </Panel>
           )}
 
-          <Panel
-            title="寄送證明"
-            action={!closed && (
-              <ImageUploader
-                purpose="SHIPPING_PROOF"
-                targetId={id}
-                label="上傳照片"
-                onUploaded={() => {
+          {data.status !== 'CLAIMED' && (
+            <Panel
+              title="寄送證明"
+              action={!closed && (
+                <ImageUploader
+                  purpose="SHIPPING_PROOF"
+                  targetId={id}
+                  label="上傳照片"
+                  onUploaded={() => {
+                    void queryClient.invalidateQueries({ queryKey: ['claim', id, 'attachments'] })
+                  }}
+                />
+              )}
+            >
+              <PhotoGrid photos={shippingProofs} emptyHint="上傳寄件單或包裹照片，讓機構安心。"
+                onDeleted={() => {
                   void queryClient.invalidateQueries({ queryKey: ['claim', id, 'attachments'] })
-                }}
-              />
-            )}
-          >
-            <PhotoGrid photos={shippingProofs} emptyHint="上傳寄件單或包裹照片，讓機構安心。"
-              onDeleted={() => {
-                void queryClient.invalidateQueries({ queryKey: ['claim', id, 'attachments'] })
-              }} />
-          </Panel>
+                }} />
+            </Panel>
+          )}
 
           {feedbackPhotos.length > 0 && (
             <Panel title="機構的回饋">
@@ -221,20 +225,50 @@ function ShippingAddressPanel({ claim }: { claim: ClaimDonorView }) {
   )
 }
 
+/**
+ * 回報寄送：物流業者／追蹤碼／寄送證明照片一次送出。
+ *
+ * 照片故意不用 ImageUploader 的「選到就立刻上傳」行為——這裡要的是「按下
+ * 我已經寄出了」那一刻，照片跟物流資訊同時送出、一起檢查必填，所以先在
+ * 本地保留選到的 File，送出時才依序「上傳照片 → 呼叫 /ship」。
+ */
 function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => void }) {
   const [carrier, setCarrier] = useState('')
   const [trackingNumber, setTrackingNumber] = useState('')
+  const [photo, setPhoto] = useState<File | null>(null)
+  const [photoError, setPhotoError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const ship = useMutation({
-    mutationFn: () => api.post(`/api/claims/${claimId}/ship`, { carrier, trackingNumber }),
+    mutationFn: async () => {
+      await uploadImage('SHIPPING_PROOF', claimId, photo!)
+      return api.post(`/api/claims/${claimId}/ship`, { carrier, trackingNumber })
+    },
     onSuccess: onDone,
   })
 
+  function handleFile(file: File) {
+    const problem = validateImage(file)
+    if (problem) {
+      setPhotoError(problem)
+      return
+    }
+    setPhoto(file)
+    setPhotoError(null)
+  }
+
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    if (!photo) {
+      setPhotoError('請至少上傳一張寄送證明照片')
+      return
+    }
+    setPhotoError(null)
+    ship.mutate()
+  }
+
   return (
-    <form
-      className="space-y-4"
-      onSubmit={(event) => { event.preventDefault(); ship.mutate() }}
-    >
+    <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="物流業者" required>
           <TextInput required maxLength={60} value={carrier}
@@ -246,6 +280,24 @@ function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => void }) 
             onChange={(event) => setTrackingNumber(event.target.value)} />
         </Field>
       </div>
+      <Field label="寄送證明照片" required error={photoError ?? undefined}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept={ACCEPTED_IMAGE_TYPES.join(',')}
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) handleFile(file)
+          }}
+        />
+        <div className="flex items-center gap-3">
+          <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()}>
+            {photo ? '更換照片' : '選擇照片'}
+          </Button>
+          {photo && <span className="truncate text-sm text-slate-300">{photo.name}</span>}
+        </div>
+      </Field>
       {ship.isError && <ErrorBanner error={ship.error} />}
       <Button type="submit" disabled={ship.isPending}>
         {ship.isPending ? '送出中…' : '我已經寄出了'}

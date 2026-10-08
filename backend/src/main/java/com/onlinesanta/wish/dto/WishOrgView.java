@@ -1,8 +1,10 @@
 package com.onlinesanta.wish.dto;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
+import com.onlinesanta.attachment.dto.AttachmentView;
 import com.onlinesanta.wish.AgeRange;
 import com.onlinesanta.wish.PriceRange;
 import com.onlinesanta.wish.Wish;
@@ -26,13 +28,18 @@ public record WishOrgView(
         Instant publishedAt,
         Instant createdAt,
         Instant updatedAt,
-        String imageUrl) {
+        String imageUrl,
+        List<AttachmentView> letterPhotos) {
 
     public static WishOrgView from(Wish wish) {
-        return from(wish, null);
+        return from(wish, null, List.of());
     }
 
-    public static WishOrgView from(Wish wish, String imageUrl) {
+    /**
+     * @param letterPhotos 孩子手寫的感謝卡／願望信照片，沒有就是空清單（不是 null）。
+     *                      帶附件 id（而不只是網址），機構後台才能刪除自己上傳的照片
+     */
+    public static WishOrgView from(Wish wish, String imageUrl, List<AttachmentView> letterPhotos) {
         return new WishOrgView(
                 wish.getId(),
                 wish.getTitle(),
@@ -49,6 +56,7 @@ public record WishOrgView(
                 wish.getPublishedAt(),
                 wish.getCreatedAt(),
                 wish.getUpdatedAt(),
-                imageUrl);
+                imageUrl,
+                letterPhotos);
     }
 }

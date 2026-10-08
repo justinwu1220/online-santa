@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { api, withQuery } from '../../lib/api'
 import { formatDate } from '../../lib/format'
 import type {
-  PageResponse, WishFilterOptions, WishOrgView, WishRequestBody, WishStatus,
+  AttachmentView, PageResponse, WishFilterOptions, WishOrgView, WishRequestBody, WishStatus,
 } from '../../lib/types'
 import { EmptyState, ErrorBanner, Notice, Spinner } from '../../components/Feedback'
 import { Button, Field, Select, TextArea, TextInput } from '../../components/Form'
@@ -203,8 +203,87 @@ function WishRow({ wish, canPublish, onEdit, onChanged }: {
 
           {action.isError && <div className="mt-3"><ErrorBanner error={action.error} /></div>}
           {remove.isError && <div className="mt-3"><ErrorBanner error={remove.error} /></div>}
+
+          <LetterPhotosSection wish={wish} onChanged={onChanged} />
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * 願望信件（孩童手寫的感謝卡／願望信照片）。
+ *
+ * 刻意不放進 `wish.editable` 的判斷裡——感謝卡通常是禮物寄出/收到之後才有，
+ * 那時候願望早就不是可編輯狀態了，但機構還是要能補上這些照片。
+ */
+function LetterPhotosSection({ wish, onChanged }: { wish: WishOrgView; onChanged: () => void }) {
+  return (
+    <div className="mt-3 border-t border-slate-100 pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="text-sm font-medium text-slate-600">願望信件</h4>
+        <ImageUploader
+          purpose="WISH_LETTER"
+          targetId={wish.id}
+          label="上傳願望信件照片"
+          onUploaded={onChanged}
+        />
+      </div>
+
+      {wish.letterPhotos.length > 0 ? (
+        <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-6">
+          {wish.letterPhotos.map((photo) => (
+            <LetterPhoto key={photo.id} photo={photo} onDeleted={onChanged} />
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-sm text-slate-400">還沒有上傳願望信件照片。</p>
+      )}
+
+      <div className="mt-2">
+        <Notice tone="warning">請拍卡片內容，避免拍到孩子的臉部或完整姓名。</Notice>
+      </div>
+    </div>
+  )
+}
+
+function LetterPhoto({ photo, onDeleted }: { photo: AttachmentView; onDeleted: () => void }) {
+  const [confirming, setConfirming] = useState(false)
+
+  const remove = useMutation({
+    mutationFn: () => api.delete(`/api/attachments/${photo.id}`),
+    onSuccess: onDeleted,
+  })
+
+  return (
+    <div className="group relative overflow-hidden rounded-lg ring-1 ring-slate-200">
+      <a href={photo.url} target="_blank" rel="noreferrer">
+        <img src={photo.url} alt=""
+          className="aspect-square w-full object-cover transition-opacity group-hover:opacity-75" />
+      </a>
+
+      {confirming ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5
+          bg-black/85 p-2 text-center">
+          <p className="text-xs text-slate-200">刪除後無法復原</p>
+          {remove.isError && <p className="text-xs text-berry-300">刪除失敗，請再試一次</p>}
+          <div className="flex gap-1.5">
+            <Button variant="danger" disabled={remove.isPending}
+              onClick={() => remove.mutate()} className="px-2 py-1 text-xs">
+              {remove.isPending ? '刪除中…' : '確定刪除'}
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirming(false)} className="px-2 py-1 text-xs">
+              取消
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setConfirming(true)}
+          className="absolute right-1 top-1 rounded-md bg-black/60 px-1.5 py-0.5 text-xs
+            text-white opacity-0 transition-opacity hover:bg-berry-600 group-hover:opacity-100">
+          刪除
+        </button>
+      )}
     </div>
   )
 }
