@@ -49,8 +49,8 @@ export interface WishListView {
   categoryLabel: string
   ageRange: string
   ageRangeLabel: string
-  priceRange: string
-  priceRangeLabel: string
+  priceRange?: string
+  priceRangeLabel?: string
   childAlias: string
   interests?: string
   status: WishStatus
@@ -67,8 +67,8 @@ export interface WishPublicView {
   categoryLabel: string
   ageRange: string
   ageRangeLabel: string
-  priceRange: string
-  priceRangeLabel: string
+  priceRange?: string
+  priceRangeLabel?: string
   childAlias: string
   interests?: string
   status: WishStatus
@@ -84,7 +84,7 @@ export interface WishOrgView {
   description?: string
   category: string
   ageRange: string
-  priceRange: string
+  priceRange?: string
   childAlias: string
   interests?: string
   status: WishStatus
@@ -104,7 +104,7 @@ export interface WishRequestBody {
   title: string
   description?: string
   category: string
-  priceRange: string
+  priceRange?: string
 }
 
 export interface FilterOption {
@@ -115,7 +115,6 @@ export interface FilterOption {
 export interface WishFilterOptions {
   categories: FilterOption[]
   ageRanges: FilterOption[]
-  priceRanges: FilterOption[]
   organizations: FilterOption[]
 }
 
@@ -279,7 +278,7 @@ export interface AdminWishView {
   childAlias: string
   ageRange: string
   category: string
-  priceRange: string
+  priceRange?: string
   status: WishStatus
   organizationId: string
   organizationName: string

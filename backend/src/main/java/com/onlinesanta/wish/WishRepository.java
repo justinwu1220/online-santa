@@ -33,8 +33,8 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
      * 是同一個把關條件的兩處實作——一個管列表、一個管詳情。
      *
      * <p>不接受 {@code priceRange}——願望牆已拿掉預算篩選，這個端點不再需要它；
-     * 機構後台建立/編輯願望時的價格選單走別的路徑（{@code WishFilterOptions.priceRanges}
-     * 仍保留）。
+     * 機構後台「新增願望」也已拿掉預估價格欄位，{@code priceRange} 現在整體上
+     * 是選填欄位，不再需要一份篩選用的下拉選項。
      */
     @Query("""
             select w from Wish w

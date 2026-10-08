@@ -225,7 +225,7 @@ function WishForm({ wish, onDone, onCancel }: {
     title: wish?.title ?? '',
     description: wish?.description ?? '',
     category: wish?.category ?? 'TOY',
-    priceRange: wish?.priceRange ?? 'UNDER_500',
+    priceRange: wish?.priceRange,
   })
 
   const save = useMutation({
@@ -267,10 +267,6 @@ function WishForm({ wish, onDone, onCancel }: {
         </Field>
       </div>
 
-      <Field label="喜歡的東西" hint="讓捐贈者更好挑選，例如「喜歡畫畫和恐龍」">
-        <TextInput maxLength={500} value={form.interests ?? ''} onChange={update('interests')} />
-      </Field>
-
       <Field label="願望標題" required>
         <TextInput required maxLength={120} value={form.title}
           placeholder="一盒 48 色的色鉛筆" onChange={update('title')} />
@@ -279,24 +275,18 @@ function WishForm({ wish, onDone, onCancel }: {
       <Field label="願望說明">
         <TextArea rows={4} maxLength={5000} value={form.description ?? ''}
           onChange={update('description')} />
+        <p className="mt-1 text-xs text-slate-500">
+          可補充顏色、尺寸(衣物鞋子請註明)、款式偏好或購買連結，認領者會更好買
+        </p>
       </Field>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="分類" required>
-          <Select required value={form.category} onChange={update('category')}>
-            {options.data?.categories.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="預估價格" required>
-          <Select required value={form.priceRange} onChange={update('priceRange')}>
-            {options.data?.priceRanges.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </Select>
-        </Field>
-      </div>
+      <Field label="分類" required>
+        <Select required value={form.category} onChange={update('category')}>
+          {options.data?.categories.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </Select>
+      </Field>
 
       {save.isError && <ErrorBanner error={save.error} />}
 

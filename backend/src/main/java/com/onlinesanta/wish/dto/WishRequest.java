@@ -35,6 +35,6 @@ public record WishRequest(
         @NotNull(message = "請選擇願望分類")
         WishCategory category,
 
-        @NotNull(message = "請選擇價格區間")
+        /** 機構後台的「新增願望」已拿掉這個欄位——選填，省略時願望牆不顯示價格標籤。 */
         PriceRange priceRange) {
 }

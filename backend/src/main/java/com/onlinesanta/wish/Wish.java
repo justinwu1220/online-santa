@@ -52,7 +52,7 @@ public class Wish extends BaseEntity {
     private WishCategory category;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "price_range", nullable = false, length = 20)
+    @Column(name = "price_range", length = 20)
     private PriceRange priceRange;
 
     @Enumerated(EnumType.STRING)

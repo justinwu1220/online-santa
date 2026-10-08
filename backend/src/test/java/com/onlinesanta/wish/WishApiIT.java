@@ -65,6 +65,11 @@ class WishApiIT extends ApiIntegrationTest {
                 title, "希望有一盒 48 色的色鉛筆", WishCategory.ART, PriceRange.UNDER_500);
     }
 
+    private WishRequest wishRequestWithoutPriceRange(String title) {
+        return new WishRequest("小星", AgeRange.AGE_7_9, "喜歡畫畫和恐龍",
+                title, "希望有一盒 48 色的色鉛筆", WishCategory.ART, null);
+    }
+
     private UUID createWish(String title) throws Exception {
         return createWish(title, ORG_USER);
     }
@@ -334,6 +339,33 @@ class WishApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 
+    /**
+     * 機構後台「新增願望」拿掉預估價格欄位後，priceRange 在請求/entity/DB
+     * 都改成選填——這條驗證整條路徑真的不會炸：建立、上架、公開列表與
+     * 詳情都要正常，且 priceRange／priceRangeLabel 乾脆不出現，而不是
+     * 出現一個 null 或讓 WishListView／WishPublicView 的 getLabel() NPE。
+     */
+    @Test
+    void allowsCreatingAndPublishingAWishWithoutPriceRange() throws Exception {
+        String body = mvc.perform(as(withBody(post("/api/wishes"),
+                        wishRequestWithoutPriceRange("沒有價格的願望")), ORG_USER))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.priceRange").doesNotExist())
+                .andReturn().getResponse().getContentAsString();
+        UUID id = UUID.fromString(json.readTree(body).get("id").asText());
+
+        mvc.perform(as(post("/api/wishes/{id}/publish", id), ORG_USER))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/wishes/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.priceRangeLabel").doesNotExist());
+
+        mvc.perform(get("/api/wishes"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].priceRangeLabel").doesNotExist());
+    }
+
     @Test
     void exposesFilterOptionsForFrontend() throws Exception {
         mvc.perform(get("/api/wishes/options"))
@@ -341,7 +373,8 @@ class WishApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.categories[0].value").value("TOY"))
                 .andExpect(jsonPath("$.categories[0].label").value("玩具"))
                 .andExpect(jsonPath("$.ageRanges.length()").value(6))
-                .andExpect(jsonPath("$.priceRanges.length()").value(4))
+                // 預估價格欄位已從機構後台拿掉，這份選項不再需要存在
+                .andExpect(jsonPath("$.priceRanges").doesNotExist())
                 // 機構名稱選項：兩家已核准機構都要出現，不受目前有沒有願望影響
                 .andExpect(jsonPath("$.organizations.length()").value(2))
                 .andExpect(jsonPath("$.organizations[*].label",

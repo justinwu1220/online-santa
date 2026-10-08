@@ -98,7 +98,7 @@ export function WishDetail() {
             <Detail label="孩子" value={data.childAlias} />
             <Detail label="年齡" value={data.ageRangeLabel} />
             <Detail label="分類" value={data.categoryLabel} />
-            <Detail label="預算" value={data.priceRangeLabel} />
+            {data.priceRangeLabel && <Detail label="預算" value={data.priceRangeLabel} />}
             {data.interests && (
               <div className="col-span-2">
                 <Detail label="喜歡的東西" value={data.interests} />
