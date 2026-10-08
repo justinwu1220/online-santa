@@ -87,7 +87,7 @@ public class AttachmentService {
 
         Attachment attachment = attachments.save(Attachment.pending(
                 request.purpose(), request.targetId(), objectName,
-                request.contentType(), principal.userId()));
+                request.contentType(), principal.userId(), request.fileName()));
 
         return new UploadUrlResponse(
                 attachment.getId(), target.url(), target.contentType(), target.expiresAt());
@@ -367,7 +367,8 @@ public class AttachmentService {
                 url,
                 attachment.getContentType(),
                 attachment.getSizeBytes(),
-                attachment.getConfirmedAt());
+                attachment.getConfirmedAt(),
+                attachment.getOriginalFilename());
     }
 
     // ================================================================ 授權

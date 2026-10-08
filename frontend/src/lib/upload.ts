@@ -67,12 +67,14 @@ export async function uploadImage(
 ): Promise<AttachmentView> {
   const upload = await compressImage(file)
 
-  // 一、向後端索取限時的直傳網址
+  // 一、向後端索取限時的直傳網址。檔名用壓縮前的原始 file.name——壓縮後的
+  // upload.name 圖片一律被改成 .jpg，使用者認得的是自己選的那個檔名
   const target = await api.post<UploadUrlResponse>('/api/uploads/signed-url', {
     purpose,
     targetId,
     contentType: upload.type,
     sizeBytes: upload.size,
+    fileName: file.name,
   })
 
   // 二、直接把檔案 PUT 到儲存端。Content-Type 必須與簽章時一致，否則會被拒絕

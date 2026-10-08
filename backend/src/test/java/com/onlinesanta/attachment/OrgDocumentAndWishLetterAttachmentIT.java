@@ -101,7 +101,13 @@ class OrgDocumentAndWishLetterAttachmentIT extends ApiIntegrationTest {
     /** 走完三步驟，content type 可自訂（圖檔或 PDF）。回傳 attachmentId。 */
     private UUID uploadAs(AttachmentPurpose purpose, UUID targetId, String contentType, String userEmail)
             throws Exception {
-        var request = new UploadUrlRequest(purpose, targetId, contentType, 120_000);
+        return uploadAs(purpose, targetId, contentType, null, userEmail);
+    }
+
+    /** 同上，但可以附上原始檔名，用來驗證檔名有沒有正確存進去、讀出來。 */
+    private UUID uploadAs(AttachmentPurpose purpose, UUID targetId, String contentType, String fileName,
+            String userEmail) throws Exception {
+        var request = new UploadUrlRequest(purpose, targetId, contentType, 120_000, fileName);
         String body = mvc.perform(as(withBody(post("/api/uploads/signed-url"), request), userEmail))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
@@ -204,6 +210,23 @@ class OrgDocumentAndWishLetterAttachmentIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].url").value(Matchers.containsString("signature")))
                 .andExpect(jsonPath("$[1].contentType").value(PDF));
+    }
+
+    @Test
+    @DisplayName("文件的原始檔名會存進去，機構後台與管理員兩邊都看得到；沒給檔名時為 null")
+    void documentFileNameRoundTripsToBothOwnAndAdminView() throws Exception {
+        uploadAs(AttachmentPurpose.ORG_DOCUMENT, organization.getId(), PDF, "立案證書.pdf", ORG_USER);
+        uploadAs(AttachmentPurpose.ORG_DOCUMENT, organization.getId(), JPEG, ORG_USER); // 沒給檔名
+
+        mvc.perform(as(get("/api/organizations/me/documents"), ORG_USER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].fileName").value("立案證書.pdf"))
+                .andExpect(jsonPath("$[1].fileName").doesNotExist());
+
+        mvc.perform(as(get("/api/admin/organizations/{id}/documents", organization.getId()), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].fileName").value("立案證書.pdf"))
+                .andExpect(jsonPath("$[1].fileName").doesNotExist());
     }
 
     @Test

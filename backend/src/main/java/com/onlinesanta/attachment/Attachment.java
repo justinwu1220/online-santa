@@ -39,6 +39,14 @@ public class Attachment extends BaseEntity {
     @Column(name = "size_bytes")
     private Long sizeBytes;
 
+    /**
+     * 使用者上傳時的原始檔名，純粹給人看（監控中心／機構後台顯示用），不影響
+     * 儲存或授權邏輯——{@link #objectName} 才是實際存取用的鍵。可能是 null：
+     * 這支功能上線前就存在的舊附件沒有這項資訊。
+     */
+    @Column(name = "original_filename", length = 255)
+    private String originalFilename;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "upload_status", nullable = false, length = 20)
     private UploadStatus uploadStatus;
@@ -54,19 +62,24 @@ public class Attachment extends BaseEntity {
     }
 
     private Attachment(AttachmentPurpose purpose, UUID ownerId, String objectName,
-                       String contentType, UUID uploadedBy) {
+                       String contentType, UUID uploadedBy, String originalFilename) {
         this.purpose = purpose;
         this.ownerId = ownerId;
         this.objectName = objectName;
         this.contentType = contentType;
         this.uploadedBy = uploadedBy;
+        this.originalFilename = originalFilename;
         this.uploadStatus = UploadStatus.PENDING;
     }
 
-    /** 發出上傳網址的同時建立紀錄，此時檔案還不存在。 */
+    /**
+     * 發出上傳網址的同時建立紀錄，此時檔案還不存在。
+     *
+     * @param originalFilename 使用者端的原始檔名，選填（可能是 null）——純粹顯示用
+     */
     public static Attachment pending(AttachmentPurpose purpose, UUID ownerId, String objectName,
-                                     String contentType, UUID uploadedBy) {
-        return new Attachment(purpose, ownerId, objectName, contentType, uploadedBy);
+                                     String contentType, UUID uploadedBy, String originalFilename) {
+        return new Attachment(purpose, ownerId, objectName, contentType, uploadedBy, originalFilename);
     }
 
     /**
@@ -111,6 +124,10 @@ public class Attachment extends BaseEntity {
 
     public Long getSizeBytes() {
         return sizeBytes;
+    }
+
+    public String getOriginalFilename() {
+        return originalFilename;
     }
 
     public UploadStatus getUploadStatus() {

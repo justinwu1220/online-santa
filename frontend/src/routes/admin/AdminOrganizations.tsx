@@ -238,7 +238,7 @@ function DocumentsPanel({ organizationId }: { organizationId: string }) {
                   <a href={doc.url} target="_blank" rel="noreferrer"
                     className="inline-flex items-center gap-1.5 text-sm text-santa-700
                       hover:underline">
-                    {doc.contentType === 'application/pdf' ? '📄' : '🖼️'} 下載文件
+                    {doc.contentType === 'application/pdf' ? '📄' : '🖼️'} {doc.fileName ?? '下載文件'}
                   </a>
                 </li>
               ))}

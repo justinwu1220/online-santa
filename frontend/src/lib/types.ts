@@ -216,6 +216,8 @@ export interface AttachmentView {
   contentType: string
   sizeBytes?: number
   uploadedAt: string
+  /** 使用者上傳時的原始檔名；這支功能上線前的舊附件沒有，不存在時要有退回文字 */
+  fileName?: string
 }
 
 export interface UploadUrlResponse {
