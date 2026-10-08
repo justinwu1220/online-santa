@@ -58,15 +58,22 @@ public class AttachmentController {
     @DeleteMapping("/attachments/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "刪除附件",
-            description = "範圍限寄送證明與回饋照片。寄送證明限該筆認領的捐贈者本人，"
-                    + "回饋照片限願望所屬機構；平台管理員兩者皆可刪，用於隱私事件處置，"
-                    + "此時會寫入稽核紀錄")
+            description = "寄送證明限該筆認領的捐贈者本人、回饋照片限願望所屬機構，兩者管理員都能刪；"
+                    + "機構文件（ORG_DOCUMENT）機構自己不能刪，只有管理員能刪——審核有誤時由管理員"
+                    + "刪掉有問題的文件，機構後台既有的上傳功能名額就會自動空出來。管理員的刪除"
+                    + "一律寫入稽核紀錄")
     public void delete(@PathVariable UUID id) {
         AttachmentDeletionResult result = attachments.delete(id);
-        if (result.deletedByAdmin()) {
-            audit.record(AdminAuditAction.DELETE_ATTACHMENT, result.claimId(),
+        if (!result.deletedByAdmin()) {
+            return;
+        }
+        if (result.purpose() == AttachmentPurpose.ORG_DOCUMENT) {
+            audit.record(AdminAuditAction.DELETE_ORGANIZATION_DOCUMENT, result.ownerId(),
+                    "刪除機構文件 %s".formatted(result.attachmentId()));
+        } else {
+            audit.record(AdminAuditAction.DELETE_ATTACHMENT, result.ownerId(),
                     "刪除附件 %s（%s），所屬認領 %s".formatted(
-                            result.attachmentId(), result.purpose(), result.claimId()));
+                            result.attachmentId(), result.purpose(), result.ownerId()));
         }
     }
 }

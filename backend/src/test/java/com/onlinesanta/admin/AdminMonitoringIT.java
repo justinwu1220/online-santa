@@ -1,6 +1,7 @@
 package com.onlinesanta.admin;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -473,6 +474,23 @@ class AdminMonitoringIT extends ApiIntegrationTest {
         assertThat(logs.get(0).getTargetType()).isEqualTo(AdminAuditTargetType.ORGANIZATION);
         assertThat(logs.get(0).getTargetId()).isEqualTo(organizationA.getId());
         assertThat(logs.get(0).getDetail()).contains("甲機構", "共 1 份文件");
+    }
+
+    @Test
+    @DisplayName("管理員刪除機構文件會寫稽核，目標是機構不是認領")
+    void deletingOrganizationDocumentIsAudited() throws Exception {
+        UUID attachmentId = uploadConfirmedAttachment(
+                com.onlinesanta.attachment.AttachmentPurpose.ORG_DOCUMENT, organizationA.getId(), ORG_A);
+
+        mvc.perform(as(delete("/api/attachments/{id}", attachmentId), ADMIN))
+                .andExpect(status().isNoContent());
+
+        var logs = auditLogs.findAll();
+        assertThat(logs).hasSize(1);
+        assertThat(logs.get(0).getAction())
+                .isEqualTo(AdminAuditAction.DELETE_ORGANIZATION_DOCUMENT);
+        assertThat(logs.get(0).getTargetType()).isEqualTo(AdminAuditTargetType.ORGANIZATION);
+        assertThat(logs.get(0).getTargetId()).isEqualTo(organizationA.getId());
     }
 
     @Test

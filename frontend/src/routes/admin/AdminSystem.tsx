@@ -21,6 +21,7 @@ const ACTION_LABELS: Record<AdminAuditAction, string> = {
   SUSPEND_ORGANIZATION: '停權機構',
   REACTIVATE_ORGANIZATION: '恢復機構',
   DELETE_ATTACHMENT: '刪除附件',
+  DELETE_ORGANIZATION_DOCUMENT: '刪除機構文件',
   RUN_RELEASE_SWEEP: '執行逾期掃描',
   RUN_ATTACHMENT_CLEANUP: '執行附件清理',
   RUN_DEADLINE_REMINDERS: '執行期限提醒',
@@ -29,7 +30,7 @@ const ACTION_LABELS: Record<AdminAuditAction, string> = {
 /** 存取個資或改變隱私敏感內容的動作要標出來，這樣掃過一眼就知道哪幾筆值得細看。 */
 const SENSITIVE: AdminAuditAction[] = [
   'VIEW_CLAIM_DETAIL', 'VIEW_CLAIM_ATTACHMENTS', 'VIEW_CLAIM_MESSAGES',
-  'VIEW_ORGANIZATION_DOCUMENTS', 'DELETE_ATTACHMENT',
+  'VIEW_ORGANIZATION_DOCUMENTS', 'DELETE_ATTACHMENT', 'DELETE_ORGANIZATION_DOCUMENT',
 ]
 
 export function AdminSystem() {

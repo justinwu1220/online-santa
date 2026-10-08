@@ -234,18 +234,53 @@ function DocumentsPanel({ organizationId }: { organizationId: string }) {
           : (
             <ul className="space-y-1.5">
               {documents.data?.map((doc) => (
-                <li key={doc.id}>
-                  <a href={doc.url} target="_blank" rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm text-santa-700
-                      hover:underline">
-                    {doc.contentType === 'application/pdf' ? '📄' : '🖼️'} {doc.fileName ?? '下載文件'}
-                  </a>
-                </li>
+                <DeletableDocument key={doc.id} doc={doc}
+                  onDeleted={() => void documents.refetch()} />
               ))}
             </ul>
           )
       )}
     </div>
+  )
+}
+
+/**
+ * 機構文件機構自己不能刪，只有管理員能刪——審核發現文件有問題時，管理員
+ * 刪掉之後，機構後台既有的上傳功能名額就會自動空出來，讓機構補傳新文件。
+ */
+function DeletableDocument({ doc, onDeleted }: { doc: AttachmentView; onDeleted: () => void }) {
+  const [confirming, setConfirming] = useState(false)
+
+  const remove = useMutation({
+    mutationFn: () => api.delete(`/api/attachments/${doc.id}`),
+    onSuccess: onDeleted,
+  })
+
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-2">
+      <a href={doc.url} target="_blank" rel="noreferrer"
+        className="inline-flex items-center gap-1.5 text-sm text-santa-700 hover:underline">
+        {doc.contentType === 'application/pdf' ? '📄' : '🖼️'} {doc.fileName ?? '下載文件'}
+      </a>
+      {confirming ? (
+        <span className="flex items-center gap-2 text-xs">
+          {remove.isError && <span className="text-berry-600">刪除失敗，請再試一次</span>}
+          <button type="button" className="text-berry-600 hover:underline" disabled={remove.isPending}
+            onClick={() => remove.mutate()}>
+            {remove.isPending ? '刪除中…' : '確定刪除'}
+          </button>
+          <button type="button" className="text-slate-400 hover:underline"
+            onClick={() => setConfirming(false)}>
+            取消
+          </button>
+        </span>
+      ) : (
+        <button type="button" className="text-xs text-slate-400 hover:text-berry-600 hover:underline"
+          onClick={() => setConfirming(true)}>
+          刪除
+        </button>
+      )}
+    </li>
   )
 }
 

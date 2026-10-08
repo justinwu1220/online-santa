@@ -185,9 +185,9 @@ public class AttachmentService {
         Attachment attachment = attachments.findById(attachmentId)
                 .orElseThrow(() -> ResourceNotFoundException.of("附件", attachmentId));
 
-        requireDeletablePurpose(attachment);
-
         boolean deletedByAdmin = principal.isAdmin();
+        requireDeletablePurpose(attachment, deletedByAdmin);
+
         if (!deletedByAdmin) {
             authorizeDelete(attachment, principal);
         }
@@ -222,14 +222,18 @@ public class AttachmentService {
         attachments.delete(attachment);
     }
 
-    private void requireDeletablePurpose(Attachment attachment) {
+    private void requireDeletablePurpose(Attachment attachment, boolean deletedByAdmin) {
         if (attachment.getPurpose() == AttachmentPurpose.WISH_IMAGE) {
             throw new BusinessRuleException("ATTACHMENT_NOT_DELETABLE",
                     "願望示意圖請改用「更換示意圖」上傳新圖取代，不支援直接刪除");
         }
-        if (attachment.getPurpose() == AttachmentPurpose.ORG_DOCUMENT) {
+        // 機構自己仍然不能刪——刪除權刻意收在管理員手上：文件是核准依據的證據，
+        // 機構自行刪除等於能讓證據消失。管理員刪除後，requireWithinCountLimit 的
+        // 名額計算會自動空出來，機構後台既有的上傳功能（OrgSettings.tsx／
+        // OrgApply.tsx）就會讓「新增文件」按鈕重新出現，不需要給機構加任何畫面。
+        if (attachment.getPurpose() == AttachmentPurpose.ORG_DOCUMENT && !deletedByAdmin) {
             throw new BusinessRuleException("ATTACHMENT_NOT_DELETABLE",
-                    "機構文件請聯繫平台管理員協助處理，不支援自行刪除");
+                    "機構文件如有問題，請聯繫平台管理員協助刪除，機構無法自行刪除");
         }
     }
 

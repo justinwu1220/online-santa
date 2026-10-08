@@ -200,6 +200,32 @@ class OrgDocumentAndWishLetterAttachmentIT extends ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("管理員可以刪除機構文件，刪除後名額釋出，機構可以立刻補傳新文件")
+    void adminCanDeleteOrganizationDocumentAndFreeUpASlot() throws Exception {
+        UUID first = uploadAs(AttachmentPurpose.ORG_DOCUMENT, organization.getId(), JPEG, ORG_USER);
+        for (int i = 1; i < AttachmentPurpose.ORG_DOCUMENT.maxPerOwner(); i++) {
+            uploadAs(AttachmentPurpose.ORG_DOCUMENT, organization.getId(), JPEG, ORG_USER);
+        }
+
+        // 名額已滿，這時機構自己傳不了
+        var request = new UploadUrlRequest(AttachmentPurpose.ORG_DOCUMENT, organization.getId(), JPEG, 1_000);
+        mvc.perform(as(withBody(post("/api/uploads/signed-url"), request), ORG_USER))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("ATTACHMENT_LIMIT_REACHED"));
+
+        // 管理員刪掉有問題的那份（審核發現文件不對）
+        mvc.perform(as(delete("/api/attachments/{id}", first), ADMIN))
+                .andExpect(status().isNoContent());
+
+        // 名額空出來了，機構可以立刻補傳新文件
+        uploadAs(AttachmentPurpose.ORG_DOCUMENT, organization.getId(), PDF, ORG_USER);
+
+        mvc.perform(as(get("/api/organizations/me/documents"), ORG_USER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(AttachmentPurpose.ORG_DOCUMENT.maxPerOwner()));
+    }
+
+    @Test
     @DisplayName("機構可以在自己的後台看到自己上傳的申請文件，下載網址帶簽章")
     void organizationCanViewOwnDocuments() throws Exception {
         uploadAs(AttachmentPurpose.ORG_DOCUMENT, organization.getId(), JPEG, ORG_USER);

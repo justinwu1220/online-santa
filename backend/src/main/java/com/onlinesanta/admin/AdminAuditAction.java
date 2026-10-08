@@ -31,6 +31,9 @@ public enum AdminAuditAction {
     /** 管理員刪除附件（隱私事件處置）。目標是附件所屬的認領。 */
     DELETE_ATTACHMENT,
 
+    /** 管理員刪除機構文件——跟 DELETE_ATTACHMENT 分開記，因為目標是機構不是認領。 */
+    DELETE_ORGANIZATION_DOCUMENT,
+
     /** 手動觸發逾期釋回掃描。 */
     RUN_RELEASE_SWEEP,
 
@@ -45,7 +48,8 @@ public enum AdminAuditAction {
             case VIEW_CLAIM_DETAIL, VIEW_CLAIM_ATTACHMENTS, VIEW_CLAIM_MESSAGES, DELETE_ATTACHMENT
                     -> AdminAuditTargetType.CLAIM;
             case APPROVE_ORGANIZATION, REJECT_ORGANIZATION,
-                 SUSPEND_ORGANIZATION, REACTIVATE_ORGANIZATION, VIEW_ORGANIZATION_DOCUMENTS
+                 SUSPEND_ORGANIZATION, REACTIVATE_ORGANIZATION, VIEW_ORGANIZATION_DOCUMENTS,
+                 DELETE_ORGANIZATION_DOCUMENT
                     -> AdminAuditTargetType.ORGANIZATION;
             case RUN_RELEASE_SWEEP, RUN_ATTACHMENT_CLEANUP, RUN_DEADLINE_REMINDERS -> AdminAuditTargetType.SYSTEM;
         };
