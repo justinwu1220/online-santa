@@ -215,6 +215,7 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
     @DisplayName("捐贈者不能刪除回饋照片——那是機構上傳的")
     void donorsCannotDeleteFeedbackPhoto() throws Exception {
         UUID claimId = claimAs(publishedWish("捐贈者不能刪回饋"), DONOR);
+        uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                 new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))

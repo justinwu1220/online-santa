@@ -437,9 +437,12 @@ class AttachmentApiIT extends ApiIntegrationTest {
 
         uploadAs(AttachmentPurpose.ORG_FEEDBACK, claimId, ORG_USER);
 
+        // 這時認領底下有兩個附件（寄送證明＋回饋照片），依上傳時間排序——
+        // 回饋照片是後上傳的，排在第二個
         mvc.perform(as(get("/api/claims/{id}/attachments", claimId), DONOR))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].purpose").value("ORG_FEEDBACK"));
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[1].purpose").value("ORG_FEEDBACK"));
 
         // 公開的願望詳情不含任何回饋照片
         mvc.perform(get("/api/wishes/{id}", wishId))
