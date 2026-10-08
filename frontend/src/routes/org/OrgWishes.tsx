@@ -254,7 +254,7 @@ function WishForm({ wish, onDone, onCancel }: {
       </Notice>
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="孩子的暱稱" required hint="非真實姓名">
+        <Field label="孩子的暱稱" required inlineHint hint="非真實姓名">
           <TextInput required maxLength={50} value={form.childAlias}
             placeholder="小星" onChange={update('childAlias')} />
         </Field>
@@ -272,12 +272,10 @@ function WishForm({ wish, onDone, onCancel }: {
           placeholder="一盒 48 色的色鉛筆" onChange={update('title')} />
       </Field>
 
-      <Field label="願望說明">
+      <Field label="願望說明" inlineHint
+        hint="可補充顏色、尺寸(衣物鞋子請註明)、款式偏好或購買連結，認領者會更好買">
         <TextArea rows={4} maxLength={5000} value={form.description ?? ''}
           onChange={update('description')} />
-        <p className="mt-1 text-xs text-slate-500">
-          可補充顏色、尺寸(衣物鞋子請註明)、款式偏好或購買連結，認領者會更好買
-        </p>
       </Field>
 
       <Field label="分類" required>

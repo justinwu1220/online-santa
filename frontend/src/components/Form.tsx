@@ -9,16 +9,28 @@ const FIELD_CLASS =
   'focus:border-santa-500 focus:outline-none focus:ring-2 focus:ring-santa-100 ' +
   'disabled:bg-slate-50 disabled:text-slate-400'
 
-export function Field({ label, hint, error, required, children }: {
-  label: string; hint?: ReactNode; error?: string; required?: boolean; children: ReactNode
+export function Field({ label, hint, error, required, inlineHint, children }: {
+  label: string; hint?: ReactNode; error?: string; required?: boolean
+  /**
+   * hint 貼在標題右側同一行，取代原本另起一行的排法。用在跟別的欄位共用
+   * 一個橫向 grid、需要讓輸入框對齊同一條水平線的情境——沒有 hint 的欄位
+   * 不會因為別家多一行而被擠低。預設關閉，不影響其他沒指定的呼叫端。
+   */
+  inlineHint?: boolean
+  children: ReactNode
 }) {
   return (
     <label className="block">
       <span className="field-label text-sm font-medium text-slate-700">
         {label}
         {required && <span className="ml-0.5 text-berry-500">*</span>}
+        {hint && inlineHint && (
+          <span className="field-hint ml-2 text-xs font-normal text-slate-500">{hint}</span>
+        )}
       </span>
-      {hint && <span className="field-hint mt-0.5 block text-xs text-slate-500">{hint}</span>}
+      {hint && !inlineHint && (
+        <span className="field-hint mt-0.5 block text-xs text-slate-500">{hint}</span>
+      )}
       <div className="mt-1.5">{children}</div>
       {error && <span className="field-error mt-1 block text-xs text-berry-600">{error}</span>}
     </label>
