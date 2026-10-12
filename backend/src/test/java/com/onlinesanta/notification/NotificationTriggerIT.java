@@ -344,6 +344,20 @@ class NotificationTriggerIT extends ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("機構審核通過的通知信寄給 contactEmail，內文含核准訊息與登入連結")
+    void organizationApprovedNotificationContent() throws Exception {
+        organizationReviewedListener.onOrganizationReviewed(
+                new OrganizationReviewedEvent(organization.getId(), true));
+        awaitMailCount(1);
+
+        assertThat(fakeMailSender.sent()).singleElement().satisfies((SimpleMailMessage mail) -> {
+            assertThat(mail.getTo()).containsExactly("org-contact@example.org");
+            assertThat(mail.getSubject()).contains("核准");
+            assertThat(mail.getText()).contains("核准").contains("/org");
+        });
+    }
+
+    @Test
     @DisplayName("回饋照片通知寄給捐贈者，內文連到我的認領詳情頁")
     void feedbackPhotoNotificationContent() throws Exception {
         UUID claimId = claimAs(publishedWish("回饋內容檢查"), DONOR);
