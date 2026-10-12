@@ -67,6 +67,7 @@ export function OrgWishes() {
         wish={editing === 'new' ? null : editing}
         onDone={() => { setEditing(null); refresh() }}
         onCancel={() => setEditing(null)}
+        onWishChanged={refresh}
       />
     )
   }
@@ -203,8 +204,6 @@ function WishRow({ wish, canPublish, onEdit, onChanged }: {
 
           {action.isError && <div className="mt-3"><ErrorBanner error={action.error} /></div>}
           {remove.isError && <div className="mt-3"><ErrorBanner error={remove.error} /></div>}
-
-          <LetterPhotosSection wish={wish} onChanged={onChanged} />
         </div>
       </div>
     </div>
@@ -214,8 +213,9 @@ function WishRow({ wish, canPublish, onEdit, onChanged }: {
 /**
  * 願望信件（孩童手寫的感謝卡／願望信照片）。
  *
- * 刻意不放進 `wish.editable` 的判斷裡——感謝卡通常是禮物寄出/收到之後才有，
- * 那時候願望早就不是可編輯狀態了，但機構還是要能補上這些照片。
+ * 放在編輯表單裡，所以只有願望可編輯（wish.editable）時才能打開這裡上傳——
+ * 認領／完成之後的願望沒有「編輯」入口，連帶也上不了願望信件照片。這是已知
+ * 取捨，不是遺漏。
  */
 function LetterPhotosSection({ wish, onChanged }: { wish: WishOrgView; onChanged: () => void }) {
   return (
@@ -288,8 +288,12 @@ function LetterPhoto({ photo, onDeleted }: { photo: AttachmentView; onDeleted: (
   )
 }
 
-function WishForm({ wish, onDone, onCancel }: {
-  wish: WishOrgView | null; onDone: () => void; onCancel: () => void
+function WishForm({ wish, onDone, onCancel, onWishChanged }: {
+  wish: WishOrgView | null
+  onDone: () => void
+  onCancel: () => void
+  /** 願望信件照片上傳／刪除後呼叫——跟 onDone 分開，不能因為傳了張照片就關表單 */
+  onWishChanged: () => void
 }) {
   const options = useQuery({
     queryKey: ['wish-options'],
@@ -365,6 +369,8 @@ function WishForm({ wish, onDone, onCancel }: {
         </Select>
       </Field>
 
+      {wish && <LetterPhotosSection wish={wish} onChanged={onWishChanged} />}
+
       {save.isError && <ErrorBanner error={save.error} />}
 
       <div className="flex gap-2">
@@ -376,7 +382,8 @@ function WishForm({ wish, onDone, onCancel }: {
 
       {!wish && (
         <p className="text-sm text-slate-500">
-          建立後為草稿，回到清單即可上傳示意圖並上架。
+          建立後為草稿，回到清單即可上傳示意圖並上架；
+          之後再次進來編輯即可上傳願望信件照片。
         </p>
       )}
     </form>
