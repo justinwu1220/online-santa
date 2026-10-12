@@ -20,6 +20,12 @@ import type { AuthState } from './authContext'
 const DEV_IDENTITY_KEY = 'online-santa.dev-identity'
 const DEV_UNVERIFIED_KEY = 'online-santa.dev-unverified'
 
+// 跟 api.ts 的 BASE_URL 是同一個環境變數，刻意不 import 那個檔案的匯出——
+// api.ts 的請求流程整個綁著 AuthHeaderBridge 的「向 React context 註冊」機制，
+// registerWithPassword 裡要補寫顯示名稱時就是要繞開它（見下方說明），重複這
+// 一行比扯上那套依賴更乾淨
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   return usingFirebase
     ? <FirebaseAuthProvider>{children}</FirebaseAuthProvider>
@@ -143,6 +149,26 @@ function FirebaseAuthProvider({ children }: { children: ReactNode }) {
       const credential = await auth.createUserWithEmailAndPassword(auth.auth, email, password)
       if (displayName) {
         await auth.updateProfile(credential.user, { displayName })
+        // 不能靠「之後某次 API 請求剛好用到帶對名字的 token」：updateProfile 不會
+        // 讓已經簽發的 ID token 自動補上新的 name claim，而且 AuthHeaderBridge
+        // 此刻可能還沒因為 onAuthStateChanged 重新註冊 authHeaders，經由 api.ts
+        // 打的請求有機會還在用登入前的標頭。後端 JIT 建帳號當下若 token 沒帶名字，
+        // 就會退而求其次用 email 前半段，而且會永久存進資料庫（Google 登入沒這個
+        // 問題——它的第一個 token 一開始就帶著 Google 帳號的 name claim）。
+        //
+        // 直接用剛拿到的 user 物件自己要一個 token、打一次 PATCH /api/me/profile
+        // 覆寫，不依賴上面任何一段時序；失敗也不影響註冊本身（頂多沒能立刻修正
+        // 名字，跟修這個 bug 之前的行為一樣）。
+        try {
+          const token = await credential.user.getIdToken()
+          await fetch(`${API_BASE_URL}/api/me/profile`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ displayName }),
+          })
+        } catch (error) {
+          console.warn('註冊後補寫顯示名稱失敗，不影響註冊本身', error)
+        }
       }
       // 註冊完立刻寄驗證信。在點連結之前，後端會擋下認領與機構申請
       await auth.sendEmailVerification(credential.user)
