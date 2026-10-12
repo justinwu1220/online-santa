@@ -123,6 +123,9 @@ function ClaimCard({ claim, onChanged }: { claim: ClaimOrgView; onChanged: () =>
   const [expanded, setExpanded] = useState(false)
   const [releasing, setReleasing] = useState(false)
   const [reason, setReason] = useState('')
+  // 兩者都是單向、不可逆的狀態轉換（後端沒有任何「退回上一狀態」的端點），
+  // 一按就送出的話誤觸沒辦法復原，所以先開個確認區塊，跟「收回認領」同一套慣例
+  const [confirmingAction, setConfirmingAction] = useState<'receive' | 'complete' | null>(null)
 
   const attachments = useQuery({
     queryKey: ['claim', claim.id, 'attachments'],
@@ -133,7 +136,7 @@ function ClaimCard({ claim, onChanged }: { claim: ClaimOrgView; onChanged: () =>
   const advance = useMutation({
     mutationFn: (path: 'receive' | 'complete') =>
       api.post(`/api/organizations/me/claims/${claim.id}/${path}`),
-    onSuccess: onChanged,
+    onSuccess: () => { setConfirmingAction(null); onChanged() },
   })
 
   const release = useMutation({
@@ -183,8 +186,8 @@ function ClaimCard({ claim, onChanged }: { claim: ClaimOrgView; onChanged: () =>
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {claim.status === 'SHIPPED' && (
-          <Button disabled={advance.isPending} onClick={() => advance.mutate('receive')}>
+        {claim.status === 'SHIPPED' && confirmingAction !== 'receive' && (
+          <Button disabled={advance.isPending} onClick={() => setConfirmingAction('receive')}>
             確認收到禮物
           </Button>
         )}
@@ -197,9 +200,11 @@ function ClaimCard({ claim, onChanged }: { claim: ClaimOrgView; onChanged: () =>
               onUploaded={() =>
                 queryClient.invalidateQueries({ queryKey: ['claim', claim.id, 'attachments'] })}
             />
-            <Button disabled={advance.isPending} onClick={() => advance.mutate('complete')}>
-              完成這筆送禮
-            </Button>
+            {confirmingAction !== 'complete' && (
+              <Button disabled={advance.isPending} onClick={() => setConfirmingAction('complete')}>
+                完成這筆送禮
+              </Button>
+            )}
           </>
         )}
         {claim.status === 'CLAIMED' && !releasing && (
@@ -210,7 +215,22 @@ function ClaimCard({ claim, onChanged }: { claim: ClaimOrgView; onChanged: () =>
         </Button>
       </div>
 
-      {advance.isError && <div className="mt-3"><ErrorBanner error={advance.error} /></div>}
+      {confirmingAction && (
+        <div className="mt-4 rounded-lg bg-slate-50 p-4">
+          <p className="text-sm text-slate-600">
+            {confirmingAction === 'receive'
+              ? '確定已經收到捐贈者寄來的禮物嗎？這個動作無法復原。'
+              : '確定要完成這筆送禮嗎？完成後這筆認領就會結案，無法復原。'}
+          </p>
+          {advance.isError && <div className="mt-2"><ErrorBanner error={advance.error} /></div>}
+          <div className="mt-3 flex gap-2">
+            <Button disabled={advance.isPending} onClick={() => advance.mutate(confirmingAction)}>
+              {advance.isPending ? '處理中…' : '確定'}
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirmingAction(null)}>取消</Button>
+          </div>
+        </div>
+      )}
 
       {releasing && (
         <form

@@ -137,6 +137,8 @@ function WishRow({ wish, canPublish, onEdit, onChanged }: {
   onEdit: () => void
   onChanged: () => void
 }) {
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+
   const action = useMutation({
     mutationFn: (path: 'publish' | 'unpublish') =>
       api.post(`/api/wishes/${wish.id}/${path}`),
@@ -197,13 +199,22 @@ function WishRow({ wish, canPublish, onEdit, onChanged }: {
             )}
 
             {wish.deletable && (
-              <Button variant="ghost" disabled={remove.isPending}
-                onClick={() => remove.mutate()}>刪除</Button>
+              confirmingDelete ? (
+                <span className="flex items-center gap-2 text-sm">
+                  {remove.isError && <span className="text-berry-600">刪除失敗，請再試一次</span>}
+                  <Button variant="danger" disabled={remove.isPending}
+                    onClick={() => remove.mutate()}>
+                    {remove.isPending ? '刪除中…' : '確定刪除'}
+                  </Button>
+                  <Button variant="ghost" onClick={() => setConfirmingDelete(false)}>取消</Button>
+                </span>
+              ) : (
+                <Button variant="ghost" onClick={() => setConfirmingDelete(true)}>刪除</Button>
+              )
             )}
           </div>
 
           {action.isError && <div className="mt-3"><ErrorBanner error={action.error} /></div>}
-          {remove.isError && <div className="mt-3"><ErrorBanner error={remove.error} /></div>}
         </div>
       </div>
     </div>
