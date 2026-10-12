@@ -118,6 +118,10 @@ export function validateImage(file: File): string | null {
 // 與寄出後補傳的面板共用同一個數字
 export const MAX_SHIPPING_PROOFS = 3
 
+// 跟後端 AttachmentPurpose.WISH_LETTER.maxPerOwner() 一致，新增願望時的本機
+// 待上傳欄位跟編輯時的 LetterPhotosSection 共用同一個數字
+export const MAX_WISH_LETTERS = 3
+
 // 機構申請文件：圖檔或 PDF 皆可——任意格式會重新打開腳本/巨集偽裝檔案的風險，
 // 管理員又是全站權限最高的帳號，被釣魚的代價更高，所以限制在這個白名單內
 export const ACCEPTED_ORG_DOCUMENT_TYPES = [...ACCEPTED_IMAGE_TYPES, 'application/pdf'] as const

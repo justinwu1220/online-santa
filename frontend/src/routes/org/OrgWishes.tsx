@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api, withQuery } from '../../lib/api'
 import { formatDate } from '../../lib/format'
+import { ACCEPTED_IMAGE_TYPES, MAX_WISH_LETTERS, uploadImage, validateImage } from '../../lib/upload'
 import type {
   AttachmentView, PageResponse, WishFilterOptions, WishOrgView, WishRequestBody, WishStatus,
 } from '../../lib/types'
@@ -322,10 +323,27 @@ function WishForm({ wish, onDone, onCancel, onWishChanged }: {
     priceRange: wish?.priceRange,
   })
 
+  // 新增願望時還沒有 id，沒有地方可以掛照片，先在本機累積，等建立成功拿到
+  // id 之後再補傳——跟 OrgApply.tsx 機構文件同一個套路
+  const [letterPhotos, setLetterPhotos] = useState<File[]>([])
+  const [letterPhotoError, setLetterPhotoError] = useState<string | null>(null)
+  const letterPhotoInputRef = useRef<HTMLInputElement>(null)
+
   const save = useMutation({
-    mutationFn: () => wish
-      ? api.patch<WishOrgView>(`/api/wishes/${wish.id}`, form)
-      : api.post<WishOrgView>('/api/wishes', form),
+    mutationFn: async () => {
+      const saved = wish
+        ? await api.patch<WishOrgView>(`/api/wishes/${wish.id}`, form)
+        : await api.post<WishOrgView>('/api/wishes', form)
+      // 已知限制：願望建立成功後，若其中一張照片上傳失敗，願望本身不會被
+      // 撤銷（也不該為了一次上傳失敗撤銷整張草稿），使用者會看到錯誤，但
+      // 願望其實已經建立了，這點不在這次處理範圍內
+      if (!wish) {
+        for (const file of letterPhotos) {
+          await uploadImage('WISH_LETTER', saved.id, file)
+        }
+      }
+      return saved
+    },
     onSuccess: onDone,
   })
 
@@ -380,6 +398,56 @@ function WishForm({ wish, onDone, onCancel, onWishChanged }: {
         </Select>
       </Field>
 
+      {!wish && (
+        <Field label="願望信件照片" hint="選填，之後也可以在編輯時補上"
+          error={letterPhotoError ?? undefined}>
+          <input
+            ref={letterPhotoInputRef}
+            type="file"
+            className="hidden"
+            accept={ACCEPTED_IMAGE_TYPES.join(',')}
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (!file) return
+              if (letterPhotos.length >= MAX_WISH_LETTERS) {
+                setLetterPhotoError(`最多上傳 ${MAX_WISH_LETTERS} 張照片`)
+              } else {
+                const problem = validateImage(file)
+                if (problem) {
+                  setLetterPhotoError(problem)
+                } else {
+                  setLetterPhotos((current) => [...current, file])
+                  setLetterPhotoError(null)
+                }
+              }
+              event.target.value = ''
+            }}
+          />
+          <div className="space-y-2">
+            {letterPhotos.map((file, index) => (
+              <div key={`${file.name}-${index}`}
+                className="flex items-center justify-between gap-2 rounded-lg border
+                  border-slate-200 bg-white px-3 py-2 text-sm">
+                <span className="truncate text-slate-700">{file.name}</span>
+                <button type="button" className="text-slate-400 hover:text-berry-600"
+                  onClick={() => setLetterPhotos((current) => current.filter((_, i) => i !== index))}>
+                  移除
+                </button>
+              </div>
+            ))}
+            {letterPhotos.length < MAX_WISH_LETTERS && (
+              <Button type="button" variant="secondary"
+                onClick={() => letterPhotoInputRef.current?.click()}>
+                新增照片
+              </Button>
+            )}
+          </div>
+          <div className="mt-2">
+            <Notice tone="warning">請拍卡片內容，避免拍到孩子的臉部或完整姓名。</Notice>
+          </div>
+        </Field>
+      )}
+
       {wish && <LetterPhotosSection wish={wish} onChanged={onWishChanged} />}
 
       {save.isError && <ErrorBanner error={save.error} />}
@@ -393,8 +461,7 @@ function WishForm({ wish, onDone, onCancel, onWishChanged }: {
 
       {!wish && (
         <p className="text-sm text-slate-500">
-          建立後為草稿，回到清單即可上傳示意圖並上架；
-          之後再次進來編輯即可上傳願望信件照片。
+          建立後為草稿，回到清單即可上傳示意圖並上架。
         </p>
       )}
     </form>
