@@ -399,7 +399,7 @@ function WishForm({ wish, onDone, onCancel, onWishChanged }: {
       </Field>
 
       {!wish && (
-        <Field label="願望信件照片" hint="選填，之後也可以在編輯時補上"
+        <Field label="願望信件照片" inlineHint hint="孩子的手寫願望卡片"
           error={letterPhotoError ?? undefined}>
           <input
             ref={letterPhotoInputRef}
