@@ -230,6 +230,12 @@ function WishRow({ wish, canPublish, onEdit, onChanged }: {
  * 取捨，不是遺漏。
  */
 function LetterPhotosSection({ wish, onChanged }: { wish: WishOrgView; onChanged: () => void }) {
+  // 不能只靠 wish.letterPhotos——那是打開編輯表單那一刻的靜態快照。上傳／
+  // 刪除後呼叫 onChanged() 只會讓外層清單的查詢快取重新整理，不會讓這個
+  // 表單手上的 wish 物件跟著變新，縮圖格線會卡住看不到剛上傳或剛刪除的
+  // 結果。改成本機維護這份清單，跟新增願望時的本機 File[] 清單同一個做法。
+  const [photos, setPhotos] = useState<AttachmentView[]>(wish.letterPhotos)
+
   return (
     <div className="mt-3 border-t border-slate-100 pt-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -238,14 +244,20 @@ function LetterPhotosSection({ wish, onChanged }: { wish: WishOrgView; onChanged
           purpose="WISH_LETTER"
           targetId={wish.id}
           label="上傳願望信件照片"
-          onUploaded={onChanged}
+          onUploaded={(photo) => {
+            setPhotos((current) => [...current, photo])
+            onChanged()
+          }}
         />
       </div>
 
-      {wish.letterPhotos.length > 0 ? (
+      {photos.length > 0 ? (
         <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-6">
-          {wish.letterPhotos.map((photo) => (
-            <LetterPhoto key={photo.id} photo={photo} onDeleted={onChanged} />
+          {photos.map((photo) => (
+            <LetterPhoto key={photo.id} photo={photo} onDeleted={() => {
+              setPhotos((current) => current.filter((p) => p.id !== photo.id))
+              onChanged()
+            }} />
           ))}
         </div>
       ) : (

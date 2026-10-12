@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { ACCEPTED_IMAGE_TYPES, uploadImage, validateImage } from '../lib/upload'
-import type { AttachmentPurpose } from '../lib/types'
+import type { AttachmentPurpose, AttachmentView } from '../lib/types'
 import { Button } from './Form'
 import { ErrorBanner } from './Feedback'
 
@@ -14,7 +14,13 @@ export function ImageUploader({ purpose, targetId, label, onUploaded, disabled,
   purpose: AttachmentPurpose
   targetId: string
   label: string
-  onUploaded: () => void
+  /**
+   * 帶回剛上傳成功的附件，讓呼叫端可以直接更新自己的本機清單——只呼叫一個
+   * 沒有參數的 callback（例如重新整理外層的列表查詢）常常不夠：外層那個
+   * query 重新抓資料，不代表呼叫端手上這個元件已經拿到的物件（例如正在
+   * 編輯中的某筆資料）會跟著變新，畫面會卡住看不到剛上傳的結果。
+   */
+  onUploaded: (attachment: AttachmentView) => void
   disabled?: boolean
   /** 預設只收圖片；機構文件等非純圖片用途可傳入 ACCEPTED_ORG_DOCUMENT_TYPES */
   accept?: readonly string[]
@@ -34,8 +40,8 @@ export function ImageUploader({ purpose, targetId, label, onUploaded, disabled,
     setError(null)
     setUploading(true)
     try {
-      await uploadImage(purpose, targetId, file)
-      onUploaded()
+      const attachment = await uploadImage(purpose, targetId, file)
+      onUploaded(attachment)
     } catch (uploadError) {
       setError(uploadError)
     } finally {
