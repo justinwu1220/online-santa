@@ -14,7 +14,7 @@ public enum AttachmentPurpose {
     WISH_IMAGE(StorageBucket.PUBLIC, "wishes", 1),
 
     /** 寄送證明，由捐贈者上傳，掛在認領上。可能含姓名地址，須限時簽章才能讀。 */
-    SHIPPING_PROOF(StorageBucket.PRIVATE, "shipping-proofs", 5),
+    SHIPPING_PROOF(StorageBucket.PRIVATE, "shipping-proofs", 3),
 
     /** 送禮回饋照片，由機構上傳，掛在認領上。可能含孩童影像，敏感度最高。 */
     ORG_FEEDBACK(StorageBucket.PRIVATE, "feedback", 5),

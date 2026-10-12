@@ -114,6 +114,10 @@ export function validateImage(file: File): string | null {
   return validateFile(file, ACCEPTED_IMAGE_TYPES, MAX_IMAGE_BYTES, 'JPEG、PNG 或 WebP 圖片')
 }
 
+// 跟後端 AttachmentPurpose.SHIPPING_PROOF.maxPerOwner() 一致，回報寄送表單
+// 與寄出後補傳的面板共用同一個數字
+export const MAX_SHIPPING_PROOFS = 3
+
 // 機構申請文件：圖檔或 PDF 皆可——任意格式會重新打開腳本/巨集偽裝檔案的風險，
 // 管理員又是全站權限最高的帳號，被釣魚的代價更高，所以限制在這個白名單內
 export const ACCEPTED_ORG_DOCUMENT_TYPES = [...ACCEPTED_IMAGE_TYPES, 'application/pdf'] as const

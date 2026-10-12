@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { daysUntil, formatDate } from '../lib/format'
-import { ACCEPTED_IMAGE_TYPES, uploadImage, validateImage } from '../lib/upload'
+import { ACCEPTED_IMAGE_TYPES, MAX_SHIPPING_PROOFS, uploadImage, validateImage } from '../lib/upload'
 import type { AttachmentView, ClaimDonorView, ClaimEventView } from '../lib/types'
 import { Breadcrumb } from '../components/Breadcrumb'
 import { ErrorBanner, Notice, Spinner } from '../components/Feedback'
@@ -105,7 +105,7 @@ export function ClaimDetail() {
           {data.status !== 'CLAIMED' && (
             <Panel
               title="寄送證明"
-              action={!closed && (
+              action={!closed && shippingProofs.length < MAX_SHIPPING_PROOFS && (
                 <ImageUploader
                   purpose="SHIPPING_PROOF"
                   targetId={id}
@@ -235,31 +235,37 @@ function ShippingAddressPanel({ claim }: { claim: ClaimDonorView }) {
 function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => void }) {
   const [carrier, setCarrier] = useState('')
   const [trackingNumber, setTrackingNumber] = useState('')
-  const [photo, setPhoto] = useState<File | null>(null)
+  const [photos, setPhotos] = useState<File[]>([])
   const [photoError, setPhotoError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const ship = useMutation({
     mutationFn: async () => {
-      await uploadImage('SHIPPING_PROOF', claimId, photo!)
+      for (const photo of photos) {
+        await uploadImage('SHIPPING_PROOF', claimId, photo)
+      }
       return api.post(`/api/claims/${claimId}/ship`, { carrier, trackingNumber })
     },
     onSuccess: onDone,
   })
 
   function handleFile(file: File) {
+    if (photos.length >= MAX_SHIPPING_PROOFS) {
+      setPhotoError(`最多上傳 ${MAX_SHIPPING_PROOFS} 張照片`)
+      return
+    }
     const problem = validateImage(file)
     if (problem) {
       setPhotoError(problem)
       return
     }
-    setPhoto(file)
+    setPhotos((current) => [...current, file])
     setPhotoError(null)
   }
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    if (!photo) {
+    if (photos.length === 0) {
       setPhotoError('請至少上傳一張寄送證明照片')
       return
     }
@@ -289,13 +295,26 @@ function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => void }) 
           onChange={(event) => {
             const file = event.target.files?.[0]
             if (file) handleFile(file)
+            event.target.value = ''
           }}
         />
-        <div className="flex items-center gap-3">
-          <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()}>
-            {photo ? '更換照片' : '選擇照片'}
-          </Button>
-          {photo && <span className="truncate text-sm text-slate-300">{photo.name}</span>}
+        <div className="space-y-2">
+          {photos.map((photo, index) => (
+            <div key={`${photo.name}-${index}`}
+              className="flex items-center justify-between gap-2 rounded-lg border
+                border-white/15 bg-white/5 px-3 py-2 text-sm">
+              <span className="truncate text-slate-300">{photo.name}</span>
+              <button type="button" className="text-slate-400 hover:text-berry-400"
+                onClick={() => setPhotos((current) => current.filter((_, i) => i !== index))}>
+                移除
+              </button>
+            </div>
+          ))}
+          {photos.length < MAX_SHIPPING_PROOFS && (
+            <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()}>
+              新增照片
+            </Button>
+          )}
         </div>
       </Field>
       {ship.isError && <ErrorBanner error={ship.error} />}
