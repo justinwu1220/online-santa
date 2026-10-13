@@ -179,6 +179,8 @@ interface ClaimBase {
 }
 
 export interface ClaimDonorView extends ClaimBase {
+  ageRange: string
+  ageRangeLabel: string
   organizationName: string
   /**
    * 寄送目的地。只出現在捐贈者自己的認領上，願望牆與願望詳情沒有這兩個欄位——

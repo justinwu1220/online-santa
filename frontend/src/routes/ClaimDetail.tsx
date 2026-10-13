@@ -61,7 +61,7 @@ export function ClaimDetail() {
           <div>
             <h1 className="text-3xl font-bold text-white">{data.wishTitle}</h1>
             <p className="mt-1 text-slate-300">
-              給 {data.childAlias}・{data.organizationName}
+              給 {data.childAlias}・{data.ageRangeLabel}・{data.organizationName}
             </p>
           </div>
           <div className="flex items-center gap-2">

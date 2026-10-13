@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import com.onlinesanta.claim.Claim;
 import com.onlinesanta.claim.ClaimStatus;
+import com.onlinesanta.wish.AgeRange;
 import com.onlinesanta.wish.Wish;
 
 /**
@@ -22,6 +23,8 @@ public record ClaimDonorView(
         UUID wishId,
         String wishTitle,
         String childAlias,
+        AgeRange ageRange,
+        String ageRangeLabel,
         String organizationName,
         /** 寄送目的地。機構註冊時必填，舊資料可能為空，前端要有沒填時的說法 */
         String organizationAddress,
@@ -50,6 +53,8 @@ public record ClaimDonorView(
                 wish.getId(),
                 wish.getTitle(),
                 wish.getChildAlias(),
+                wish.getAgeRange(),
+                wish.getAgeRange().getLabel(),
                 wish.getOrganization().getName(),
                 // ClaimRepository 的 @EntityGraph 已經把 wish.organization 抓進來了，
                 // 這兩個 getter 不會多打一次查詢

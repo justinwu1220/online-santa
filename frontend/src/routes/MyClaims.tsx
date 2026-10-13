@@ -118,7 +118,7 @@ function ClaimRow({ claim }: { claim: ClaimDonorView }) {
         <div>
           <h2 className="font-semibold text-white">{claim.wishTitle}</h2>
           <p className="mt-0.5 text-sm text-slate-400">
-            給 {claim.childAlias}・{claim.organizationName}
+            給 {claim.childAlias}・{claim.ageRangeLabel}・{claim.organizationName}
           </p>
         </div>
         <div className="flex items-center gap-2">
