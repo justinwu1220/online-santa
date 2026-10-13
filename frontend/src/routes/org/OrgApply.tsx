@@ -18,6 +18,7 @@ type Form = {
   contactPerson: string
   contactEmail: string
   contactPhone: string
+  mobilePhone: string
   address: string
   preferredDeliveryTime: string
   description: string
@@ -28,7 +29,7 @@ type Draft = { form: Form; contactEmailTouched: boolean }
 const EMPTY: Draft = {
   form: {
     name: '', contactPerson: '', contactEmail: '',
-    contactPhone: '', address: '', preferredDeliveryTime: '', description: '',
+    contactPhone: '', mobilePhone: '', address: '', preferredDeliveryTime: '', description: '',
   },
   contactEmailTouched: false,
 }
@@ -160,6 +161,18 @@ function ApplyForm({ email }: { email: string }) {
     form: { ...current.form, [key]: event.target.value },
   }))
 
+  // 兩個電話至少填一個。不能靠 input 的 required——那會把「只填行動電話」
+  // 這個合法的組合也擋掉，所以照 AuthPanel 確認密碼的作法在送出時自己檢查
+  const [phoneError, setPhoneError] = useState<string | null>(null)
+
+  // 任一個電話被改動就清掉錯誤：訊息描述的是上一次送出時的狀態
+  const updatePhone = (key: 'contactPhone' | 'mobilePhone') => (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    update(key)(event)
+    setPhoneError(null)
+  }
+
   const fieldErrors = register.error instanceof ApiError ? register.error.fieldErrors : undefined
 
   if (register.isSuccess) {
@@ -191,6 +204,10 @@ function ApplyForm({ email }: { email: string }) {
           onSubmit={(event) => {
             event.preventDefault()
             if (!auth.emailVerified) return
+            if (!form.contactPhone.trim() && !form.mobilePhone.trim()) {
+              setPhoneError('請至少填寫一種聯絡電話')
+              return
+            }
             register.mutate()
           }}
         >
@@ -214,10 +231,17 @@ function ApplyForm({ email }: { email: string }) {
               }))} />
           </Field>
 
-          {/* 電話與地址必填：捐贈者認領之後會在認領詳情頁看到它們，並照著寄送 */}
-          <Field label="聯絡電話" required error={fieldErrors?.contactPhone}>
-            <TextInput required maxLength={40} placeholder="02-1234-5678"
-              value={form.contactPhone} onChange={update('contactPhone')} />
+          {/* 地址必填，電話則是兩種至少填一個：捐贈者認領之後會在認領詳情頁看到它們，
+              並照著寄送——有一支打得通的號碼就夠了 */}
+          <Field label="聯絡電話" required hint="與行動電話至少填一個，兩個都填也可以"
+            error={phoneError ?? fieldErrors?.contactPhone}>
+            <TextInput maxLength={40} placeholder="02-1234-5678"
+              value={form.contactPhone} onChange={updatePhone('contactPhone')} />
+          </Field>
+
+          <Field label="行動電話" required error={fieldErrors?.mobilePhone}>
+            <TextInput maxLength={40} placeholder="0912-345-678"
+              value={form.mobilePhone} onChange={updatePhone('mobilePhone')} />
           </Field>
 
           <Field label="收件地址" required error={fieldErrors?.address}

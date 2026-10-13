@@ -115,6 +115,7 @@ function OrganizationCard({ organization }: { organization: OrganizationReviewVi
         <Row label="承辦人" value={organization.contactPerson} />
         <Row label="聯絡信箱" value={organization.contactEmail} />
         <Row label="聯絡電話" value={organization.contactPhone} />
+        <Row label="行動電話" value={organization.mobilePhone} />
         <div className="sm:col-span-2">
           <Row label="地址" value={organization.address} />
         </div>

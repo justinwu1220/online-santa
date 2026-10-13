@@ -59,6 +59,7 @@ public class OrganizationService {
                 request.contactPerson(),
                 request.contactEmail(),
                 request.contactPhone(),
+                request.mobilePhone(),
                 request.address(),
                 request.preferredDeliveryTime(),
                 request.description()));
@@ -89,6 +90,7 @@ public class OrganizationService {
                 request.contactPerson(),
                 request.contactEmail(),
                 request.contactPhone(),
+                request.mobilePhone(),
                 request.address(),
                 request.preferredDeliveryTime(),
                 request.description());

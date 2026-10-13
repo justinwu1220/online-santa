@@ -30,6 +30,14 @@ public class Organization extends BaseEntity {
     @Column(name = "contact_phone", length = 40)
     private String contactPhone;
 
+    /**
+     * 行動電話。與 contactPhone 併存，兩者至少填一個——由 DTO 層的 @AtLeastOnePhone 把關，
+     * 這裡刻意不擋：既有機構有完全沒填電話的，大量測試資料也用 null 建機構。
+     * 資料庫同樣沒有 CHECK，原因見 V17 的註解
+     */
+    @Column(name = "mobile_phone", length = 40)
+    private String mobilePhone;
+
     @Column(length = 255)
     private String address;
 
@@ -69,12 +77,13 @@ public class Organization extends BaseEntity {
     }
 
     private Organization(String name, String contactPerson, String contactEmail,
-                         String contactPhone, String address, String preferredDeliveryTime,
-                         String description) {
+                         String contactPhone, String mobilePhone, String address,
+                         String preferredDeliveryTime, String description) {
         this.name = name;
         this.contactPerson = contactPerson;
         this.contactEmail = contactEmail;
         this.contactPhone = contactPhone;
+        this.mobilePhone = mobilePhone;
         this.address = address;
         this.preferredDeliveryTime = preferredDeliveryTime;
         this.description = description;
@@ -84,28 +93,30 @@ public class Organization extends BaseEntity {
 
     /** 自助註冊：一律從 PENDING 起算，須經管理員核准才能上架願望。 */
     public static Organization register(String name, String contactPerson, String contactEmail,
-                                        String contactPhone, String address,
+                                        String contactPhone, String mobilePhone, String address,
                                         String preferredDeliveryTime, String description) {
-        return new Organization(name, contactPerson, contactEmail, contactPhone,
+        return new Organization(name, contactPerson, contactEmail, contactPhone, mobilePhone,
                 address, preferredDeliveryTime, description);
     }
 
     /**
-     * 沒有方便收件時間時的相容建構子——大量既有測試用這個 6 參數版本當測試資料
-     * 快速建機構，不用跟著這次的新欄位一一改。
+     * 沒有行動電話與方便收件時間時的相容建構子——大量既有測試用這個 6 參數版本當測試
+     * 資料快速建機構，不用跟著這些新欄位一一改。
      */
     public static Organization register(String name, String contactPerson, String contactEmail,
                                         String contactPhone, String address, String description) {
-        return register(name, contactPerson, contactEmail, contactPhone, address, null, description);
+        return register(name, contactPerson, contactEmail, contactPhone, null, address,
+                null, description);
     }
 
     public void updateProfile(String name, String contactPerson, String contactEmail,
-                              String contactPhone, String address, String preferredDeliveryTime,
-                              String description) {
+                              String contactPhone, String mobilePhone, String address,
+                              String preferredDeliveryTime, String description) {
         this.name = name;
         this.contactPerson = contactPerson;
         this.contactEmail = contactEmail;
         this.contactPhone = contactPhone;
+        this.mobilePhone = mobilePhone;
         this.address = address;
         this.preferredDeliveryTime = preferredDeliveryTime;
         this.description = description;
@@ -197,6 +208,10 @@ public class Organization extends BaseEntity {
 
     public String getContactPhone() {
         return contactPhone;
+    }
+
+    public String getMobilePhone() {
+        return mobilePhone;
     }
 
     public String getAddress() {

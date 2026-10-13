@@ -137,6 +137,7 @@ export interface OrganizationView {
   contactPerson: string
   contactEmail: string
   contactPhone?: string
+  mobilePhone?: string
   address?: string
   preferredDeliveryTime?: string
   description?: string
@@ -189,6 +190,7 @@ export interface ClaimDonorView extends ClaimBase {
    */
   organizationAddress?: string
   organizationPhone?: string
+  organizationMobilePhone?: string
   organizationPreferredDeliveryTime?: string
 }
 

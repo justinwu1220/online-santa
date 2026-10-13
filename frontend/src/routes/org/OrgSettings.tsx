@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { api } from '../../lib/api'
+import { ApiError, api } from '../../lib/api'
 import type { AttachmentView, OrganizationView, ReleasePolicy } from '../../lib/types'
 import { ACCEPTED_ORG_DOCUMENT_TYPES, MAX_ORG_DOCUMENTS, validateOrgDocument } from '../../lib/upload'
 import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
@@ -17,6 +17,7 @@ export function OrgSettings() {
     contactPerson: organization.contactPerson ?? '',
     contactEmail: organization.contactEmail,
     contactPhone: organization.contactPhone ?? '',
+    mobilePhone: organization.mobilePhone ?? '',
     address: organization.address ?? '',
     preferredDeliveryTime: organization.preferredDeliveryTime ?? '',
     description: organization.description ?? '',
@@ -60,11 +61,32 @@ export function OrgSettings() {
     clearSaveResult()
   }
 
+  // 跟 OrgApply 一樣把後端的逐欄位錯誤接出來，但目前只接電話這一組：其他欄位都有
+  // input 的 required 先擋，拿不到後端的欄位錯誤；電話沒有（也不能有）required，
+  // 是這張表單唯一真的會從後端收到欄位錯誤的地方。其餘欄位仍然只有通用橫幅
+  const fieldErrors = save.error instanceof ApiError ? save.error.fieldErrors : undefined
+
+  const [phoneError, setPhoneError] = useState<string | null>(null)
+
+  const updatePhone = (key: 'contactPhone' | 'mobilePhone') => (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    update(key)(event)   // update() 已經會 clearSaveResult()
+    setPhoneError(null)
+  }
+
   return (
     <div className="max-w-2xl space-y-8">
       <form
         className="space-y-5"
-        onSubmit={(event) => { event.preventDefault(); save.mutate() }}
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (!form.contactPhone.trim() && !form.mobilePhone.trim()) {
+            setPhoneError('請至少填寫一種聯絡電話')
+            return
+          }
+          save.mutate()
+        }}
       >
         <h2 className="font-semibold text-slate-800">機構資料</h2>
 
@@ -76,15 +98,22 @@ export function OrgSettings() {
             value={form.contactPerson} onChange={update('contactPerson')} />
         </Field>
 
-        {/* 兩個聯絡方式併排；地址獨佔一排——它比另外兩者長得多，擠在半排會被截斷 */}
+        <Field label="聯絡信箱" required>
+          <TextInput required type="email" maxLength={255}
+            value={form.contactEmail} onChange={update('contactEmail')} />
+        </Field>
+
+        {/* 兩支電話併排——它們共用一條「至少填一個」的規則，排在同一列才看得出是一組。
+            hint 用 inlineHint，否則左欄多一行會把右邊的行動電話輸入框擠低一排 */}
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="聯絡信箱" required>
-            <TextInput required type="email" maxLength={255}
-              value={form.contactEmail} onChange={update('contactEmail')} />
+          <Field label="聯絡電話" required inlineHint hint="與行動電話至少填一個"
+            error={phoneError ?? fieldErrors?.contactPhone}>
+            <TextInput maxLength={40}
+              value={form.contactPhone} onChange={updatePhone('contactPhone')} />
           </Field>
-          <Field label="聯絡電話" required>
-            <TextInput required maxLength={40}
-              value={form.contactPhone} onChange={update('contactPhone')} />
+          <Field label="行動電話" required error={fieldErrors?.mobilePhone}>
+            <TextInput maxLength={40} placeholder="0912-345-678"
+              value={form.mobilePhone} onChange={updatePhone('mobilePhone')} />
           </Field>
         </div>
 

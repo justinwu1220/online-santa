@@ -223,9 +223,18 @@ function ShippingAddressPanel({ claim }: { claim: ClaimDonorView }) {
               <dd className="mt-0.5 font-medium text-white">{claim.organizationPhone}</dd>
             </div>
           )}
+          {/* 兩支各自判斷而不是二選一：機構兩個都填了就兩個都給——市話找不到人時
+              手機是唯一的補救，而這個面板的用途就是「把禮物寄到」需要的全部資訊 */}
+          {claim.organizationMobilePhone && (
+            <div>
+              <dt className="text-xs text-slate-400">行動電話</dt>
+              <dd className="mt-0.5 font-medium text-white">{claim.organizationMobilePhone}</dd>
+            </div>
+          )}
         </dl>
       ) : (
-        // 電話與地址在機構註冊時已是必填，但更早之前建立的機構可能沒有
+        // 地址在機構註冊時是必填，電話則是兩種至少填一個；但更早之前建立的機構
+        // 可能連地址都沒有
         <Notice tone="warning">
           這個機構還沒有填寫收件地址，請用下方的訊息詢問機構。
         </Notice>

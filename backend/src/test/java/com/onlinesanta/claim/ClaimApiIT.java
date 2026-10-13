@@ -56,9 +56,10 @@ class ClaimApiIT extends ApiIntegrationTest {
     }
 
     private Organization approvedOrganization(String name, String memberEmail) {
-        // 電話與地址現在是必填，測試資料也照著填——捐贈者的認領視圖要靠它們
-        Organization org = Organization.register(
-                name, "王承辦", "contact@example.org", "02-1234-5678", "台北市中正區某某路 1 號", null);
+        // 地址現在是必填，電話則是聯絡電話/行動電話兩者至少填一個——這裡兩支都填，
+        // 讓下面的測試能同時驗證兩支都會出現在認領者視圖裡
+        Organization org = Organization.register(name, "王承辦", "contact@example.org",
+                "02-1234-5678", "0912-345-678", "台北市中正區某某路 1 號", null, null);
         org.approve(null, "測試資料");
         organizations.save(org);
 
@@ -90,21 +91,23 @@ class ClaimApiIT extends ApiIntegrationTest {
         publishedWish("留在牆上的願望");
         UUID wishId = publishedWish("要被認領的願望");
 
-        // 捐贈者要靠這兩個欄位才知道禮物該寄去哪。在此之前只能用訊息串問機構
+        // 捐贈者要靠這些欄位才知道禮物該寄去哪、怎麼聯絡機構。在此之前只能用訊息串問機構
         mvc.perform(as(post("/api/wishes/{id}/claim", wishId), DONOR))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.organizationName").value("送禮之家"))
                 .andExpect(jsonPath("$.organizationAddress").value("台北市中正區某某路 1 號"))
-                .andExpect(jsonPath("$.organizationPhone").value("02-1234-5678"));
+                .andExpect(jsonPath("$.organizationPhone").value("02-1234-5678"))
+                .andExpect(jsonPath("$.organizationMobilePhone").value("0912-345-678"));
 
-        // 公開的願望牆只有機構名稱。這一條釘住那道界線——地址若漏進公開視圖，
-        // 等於把每一家合作機構的地址掛在首頁上。用 status=AVAILABLE 篩選，
+        // 公開的願望牆只有機構名稱。這一條釘住那道界線——地址/電話若漏進公開視圖，
+        // 等於把每一家合作機構的聯絡資料掛在首頁上。用 status=AVAILABLE 篩選，
         // 不受「願望牆預設也顯示已認領/已完成」這個範圍影響，只檢查欄位外洩
         mvc.perform(get("/api/wishes").param("status", "AVAILABLE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].organizationAddress").doesNotExist())
-                .andExpect(jsonPath("$.content[0].organizationPhone").doesNotExist());
+                .andExpect(jsonPath("$.content[0].organizationPhone").doesNotExist())
+                .andExpect(jsonPath("$.content[0].organizationMobilePhone").doesNotExist());
     }
 
     /**
