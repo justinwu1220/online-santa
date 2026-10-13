@@ -87,24 +87,12 @@ export function ClaimDetail() {
             </Panel>
           )}
 
-          {data.trackingNumber && (
-            <Panel title="寄送資訊">
-              <dl className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <dt className="text-xs text-slate-400">物流業者</dt>
-                  <dd className="mt-0.5 font-medium text-white">{data.trackingCarrier}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-400">追蹤碼</dt>
-                  <dd className="mt-0.5 font-medium text-white">{data.trackingNumber}</dd>
-                </div>
-              </dl>
-            </Panel>
-          )}
-
+          {/* 待寄送時物流業者/追蹤碼/照片三者在「回報寄送」表單一次填完；一旦寄出，
+              這三者改用這個合併後的唯讀區塊顯示——跟待寄送那邊同一組資訊，不要
+              拆成兩個區塊（寄送資訊／寄送證明）各顯示一半 */}
           {data.status !== 'CLAIMED' && (
             <Panel
-              title="寄送證明"
+              title="寄送資訊"
               action={!closed && shippingProofs.length < MAX_SHIPPING_PROOFS && (
                 <ImageUploader
                   purpose="SHIPPING_PROOF"
@@ -116,10 +104,23 @@ export function ClaimDetail() {
                 />
               )}
             >
-              <PhotoGrid photos={shippingProofs} emptyHint="上傳寄件單或包裹照片，讓機構安心。"
-                onDeleted={() => {
-                  void queryClient.invalidateQueries({ queryKey: ['claim', id, 'attachments'] })
-                }} />
+              <dl className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <dt className="text-xs text-slate-400">物流業者</dt>
+                  <dd className="mt-0.5 font-medium text-white">{data.trackingCarrier}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-slate-400">追蹤碼</dt>
+                  <dd className="mt-0.5 font-medium text-white">{data.trackingNumber}</dd>
+                </div>
+              </dl>
+
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <PhotoGrid photos={shippingProofs} emptyHint="上傳寄件單或包裹照片，讓機構安心。"
+                  onDeleted={() => {
+                    void queryClient.invalidateQueries({ queryKey: ['claim', id, 'attachments'] })
+                  }} />
+              </div>
             </Panel>
           )}
 
