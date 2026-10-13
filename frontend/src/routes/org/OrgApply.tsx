@@ -205,7 +205,7 @@ function ApplyForm({ email }: { email: string }) {
           </Field>
 
           <Field label="聯絡信箱" required error={fieldErrors?.contactEmail}
-            hint={contactEmailTouched ? undefined : '預設與帳號信箱相同，可以改'}>
+            hint="請以機構的聯絡信箱為優先">
             <TextInput required type="email" maxLength={255} value={contactEmail}
               onChange={(event) => setDraft((current) => ({
                 contactEmailTouched: true,
