@@ -18,6 +18,7 @@ export function OrgSettings() {
     contactEmail: organization.contactEmail,
     contactPhone: organization.contactPhone ?? '',
     address: organization.address ?? '',
+    preferredDeliveryTime: organization.preferredDeliveryTime ?? '',
     description: organization.description ?? '',
     releasePolicy: organization.releasePolicy,
     releaseAfterDays: organization.releaseAfterDays ?? 7,
@@ -91,6 +92,11 @@ export function OrgSettings() {
         <Field label="收件地址" required hint="捐贈者會把禮物寄到這裡，請填寫完整地址">
           <TextInput required maxLength={255}
             value={form.address} onChange={update('address')} />
+        </Field>
+        <Field label="方便收件時間" required
+          hint="讓捐贈者知道什麼時候送比較方便，例如「平日上午9:00-下午5:00」">
+          <TextInput required maxLength={255} placeholder="平日上午9:00-下午5:00"
+            value={form.preferredDeliveryTime} onChange={update('preferredDeliveryTime')} />
         </Field>
         <Field label="機構簡介">
           <TextArea rows={4} maxLength={2000}

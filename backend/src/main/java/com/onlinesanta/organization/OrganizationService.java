@@ -60,6 +60,7 @@ public class OrganizationService {
                 request.contactEmail(),
                 request.contactPhone(),
                 request.address(),
+                request.preferredDeliveryTime(),
                 request.description()));
 
         User user = users.findById(principal.userId())
@@ -89,6 +90,7 @@ public class OrganizationService {
                 request.contactEmail(),
                 request.contactPhone(),
                 request.address(),
+                request.preferredDeliveryTime(),
                 request.description());
         organization.updateReleasePolicy(request.releasePolicy(), request.releaseAfterDays());
 

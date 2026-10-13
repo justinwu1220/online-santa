@@ -29,6 +29,7 @@ public record ClaimDonorView(
         /** 寄送目的地。機構註冊時必填，舊資料可能為空，前端要有沒填時的說法 */
         String organizationAddress,
         String organizationPhone,
+        String organizationPreferredDeliveryTime,
         Instant claimedAt,
         Instant shipDeadlineAt,
         boolean overdue,
@@ -60,6 +61,7 @@ public record ClaimDonorView(
                 // 這兩個 getter 不會多打一次查詢
                 wish.getOrganization().getAddress(),
                 wish.getOrganization().getContactPhone(),
+                wish.getOrganization().getPreferredDeliveryTime(),
                 claim.getClaimedAt(),
                 claim.getShipDeadlineAt(),
                 claim.isOverdue(Instant.now()),

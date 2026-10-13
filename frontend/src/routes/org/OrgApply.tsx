@@ -19,6 +19,7 @@ type Form = {
   contactEmail: string
   contactPhone: string
   address: string
+  preferredDeliveryTime: string
   description: string
 }
 
@@ -27,7 +28,7 @@ type Draft = { form: Form; contactEmailTouched: boolean }
 const EMPTY: Draft = {
   form: {
     name: '', contactPerson: '', contactEmail: '',
-    contactPhone: '', address: '', description: '',
+    contactPhone: '', address: '', preferredDeliveryTime: '', description: '',
   },
   contactEmailTouched: false,
 }
@@ -223,6 +224,13 @@ function ApplyForm({ email }: { email: string }) {
             hint="捐贈者會把禮物寄到這裡，請填寫完整地址">
             <TextInput required maxLength={255} placeholder="台北市中正區某某路 1 號"
               value={form.address} onChange={update('address')} />
+          </Field>
+
+          <Field label="方便收件時間" required error={fieldErrors?.preferredDeliveryTime}
+            hint="讓捐贈者知道什麼時候送比較方便，例如「平日上午9:00-下午5:00」">
+            <TextInput required maxLength={255} value={form.preferredDeliveryTime}
+              placeholder="平日上午9:00-下午5:00"
+              onChange={update('preferredDeliveryTime')} />
           </Field>
 
           <Field label="機構簡介" hint="讓捐贈者了解你們服務的對象"

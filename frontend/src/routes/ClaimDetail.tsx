@@ -215,6 +215,14 @@ function ShippingAddressPanel({ claim }: { claim: ClaimDonorView }) {
               <dd className="mt-0.5 font-medium text-white">{claim.organizationPhone}</dd>
             </div>
           )}
+          {claim.organizationPreferredDeliveryTime && (
+            <div>
+              <dt className="text-xs text-slate-400">方便收件時間</dt>
+              <dd className="mt-0.5 font-medium text-white">
+                {claim.organizationPreferredDeliveryTime}
+              </dd>
+            </div>
+          )}
         </dl>
       ) : (
         // 電話與地址在機構註冊時已是必填，但更早之前建立的機構可能沒有

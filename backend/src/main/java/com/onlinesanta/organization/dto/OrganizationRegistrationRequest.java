@@ -28,6 +28,10 @@ public record OrganizationRegistrationRequest(
         @Size(max = 255, message = "地址不可超過 255 字")
         String address,
 
+        @NotBlank(message = "方便收件時間不可為空")
+        @Size(max = 255, message = "方便收件時間不可超過 255 字")
+        String preferredDeliveryTime,
+
         @Size(max = 2000, message = "機構簡介不可超過 2000 字")
         String description) {
 }

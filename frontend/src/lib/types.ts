@@ -138,6 +138,7 @@ export interface OrganizationView {
   contactEmail: string
   contactPhone?: string
   address?: string
+  preferredDeliveryTime?: string
   description?: string
   status: OrganizationStatus
   reviewNote?: string
@@ -188,6 +189,7 @@ export interface ClaimDonorView extends ClaimBase {
    */
   organizationAddress?: string
   organizationPhone?: string
+  organizationPreferredDeliveryTime?: string
 }
 
 export interface ClaimOrgView extends ClaimBase {

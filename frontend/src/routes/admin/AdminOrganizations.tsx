@@ -118,6 +118,9 @@ function OrganizationCard({ organization }: { organization: OrganizationReviewVi
         <div className="sm:col-span-2">
           <Row label="地址" value={organization.address} />
         </div>
+        <div className="sm:col-span-2">
+          <Row label="方便收件時間" value={organization.preferredDeliveryTime} />
+        </div>
         {organization.description && (
           <div className="sm:col-span-2">
             <Row label="機構簡介" value={organization.description} />

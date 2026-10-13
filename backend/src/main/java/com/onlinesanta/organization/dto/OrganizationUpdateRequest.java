@@ -38,6 +38,10 @@ public record OrganizationUpdateRequest(
         @Size(max = 255)
         String address,
 
+        @NotBlank(message = "方便收件時間不可為空")
+        @Size(max = 255, message = "方便收件時間不可超過 255 字")
+        String preferredDeliveryTime,
+
         @Size(max = 2000)
         String description,
 

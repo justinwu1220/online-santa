@@ -26,7 +26,7 @@ class OrganizationApiIT extends ApiIntegrationTest {
     private OrganizationRegistrationRequest registration(String name) {
         return new OrganizationRegistrationRequest(
                 name, "王承辦", "contact@example.org", "02-1234-5678",
-                "台北市中正區某路 1 號", "服務失依兒童的機構");
+                "台北市中正區某路 1 號", "平日上午9:00-下午5:00", "服務失依兒童的機構");
     }
 
     @Test
@@ -78,7 +78,8 @@ class OrganizationApiIT extends ApiIntegrationTest {
 
     @Test
     void reportsFieldLevelValidationErrors() throws Exception {
-        var invalid = new OrganizationRegistrationRequest("", null, "not-an-email", null, null, null);
+        var invalid = new OrganizationRegistrationRequest(
+                "", null, "not-an-email", null, null, null, null);
 
         mvc.perform(as(withBody(post("/api/organizations"), invalid), ORG_USER))
                 .andExpect(status().isBadRequest())
@@ -89,7 +90,9 @@ class OrganizationApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.fieldErrors.contactPerson").exists())
                 // 電話與地址是必填：捐贈者認領後就是照著這兩個欄位把禮物寄出去的
                 .andExpect(jsonPath("$.fieldErrors.contactPhone").exists())
-                .andExpect(jsonPath("$.fieldErrors.address").exists());
+                .andExpect(jsonPath("$.fieldErrors.address").exists())
+                // 方便收件時間同樣必填——捐贈者要靠它判斷什麼時候送比較方便
+                .andExpect(jsonPath("$.fieldErrors.preferredDeliveryTime").exists());
     }
 
     @Test
@@ -99,12 +102,48 @@ class OrganizationApiIT extends ApiIntegrationTest {
 
         // 只在註冊時擋是不夠的——機構之後在設定頁清空一樣會讓寄送地址消失
         var cleared = new OrganizationUpdateRequest(
-                "先建立起來", "王承辦", "contact@example.org", "   ", "", null, ReleasePolicy.MANUAL, null);
+                "先建立起來", "王承辦", "contact@example.org", "   ", "",
+                "平日上午9:00-下午5:00", null, ReleasePolicy.MANUAL, null);
 
         mvc.perform(as(withBody(patch("/api/organizations/me"), cleared), ORG_USER))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors.contactPhone").exists())
                 .andExpect(jsonPath("$.fieldErrors.address").exists());
+    }
+
+    @Test
+    void preferredDeliveryTimeRoundTripsThroughRegistrationAndUpdate() throws Exception {
+        mvc.perform(as(withBody(post("/api/organizations"), registration("收件時段之家")), ORG_USER))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.preferredDeliveryTime").value("平日上午9:00-下午5:00"));
+
+        mvc.perform(as(get("/api/organizations/me"), ORG_USER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.preferredDeliveryTime").value("平日上午9:00-下午5:00"));
+
+        // 機構在設定頁改一段新的時段說明，也要能存得進去、讀得回來
+        var update = new OrganizationUpdateRequest("收件時段之家", "王承辦", "contact@example.org",
+                "02-1234-5678", "台北市中正區某路 1 號", "假日全天皆可", "服務失依兒童的機構",
+                ReleasePolicy.MANUAL, null);
+
+        mvc.perform(as(withBody(patch("/api/organizations/me"), update), ORG_USER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.preferredDeliveryTime").value("假日全天皆可"));
+    }
+
+    @Test
+    void rejectsBlankPreferredDeliveryTimeOnUpdate() throws Exception {
+        mvc.perform(as(withBody(post("/api/organizations"), registration("清空收件時段之家")), ORG_USER))
+                .andExpect(status().isCreated());
+
+        // 跟電話/地址一樣：設定頁清空方便收件時間要被擋下，不能靜默存成空字串
+        var cleared = new OrganizationUpdateRequest("清空收件時段之家", "王承辦", "contact@example.org",
+                "02-1234-5678", "台北市中正區某路 1 號", "", "服務失依兒童的機構",
+                ReleasePolicy.MANUAL, null);
+
+        mvc.perform(as(withBody(patch("/api/organizations/me"), cleared), ORG_USER))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.preferredDeliveryTime").exists());
     }
 
     @Test
@@ -121,7 +160,7 @@ class OrganizationApiIT extends ApiIntegrationTest {
 
         var update = new OrganizationUpdateRequest(
                 "自動釋回之家", "王承辦", "new@example.org", "02-0000-0000",
-                "新地址", "新簡介", ReleasePolicy.AUTO, 10);
+                "新地址", "平日上午9:00-下午5:00", "新簡介", ReleasePolicy.AUTO, 10);
 
         mvc.perform(as(withBody(patch("/api/organizations/me"), update), ORG_USER))
                 .andExpect(status().isOk())
@@ -136,13 +175,13 @@ class OrganizationApiIT extends ApiIntegrationTest {
                 .andExpect(status().isCreated());
 
         var toAuto = new OrganizationUpdateRequest("切回手動之家", "王承辦", "a@example.org",
-                "02-1234-5678", "台北市中正區某路 1 號", null, ReleasePolicy.AUTO, 5);
+                "02-1234-5678", "台北市中正區某路 1 號", "平日上午9:00-下午5:00", null, ReleasePolicy.AUTO, 5);
         mvc.perform(as(withBody(patch("/api/organizations/me"), toAuto), ORG_USER))
                 .andExpect(status().isOk());
 
         // 切回 MANUAL 時必須清掉天數，否則違反 ck_org_release_after_days
         var toManual = new OrganizationUpdateRequest("切回手動之家", "王承辦", "a@example.org",
-                "02-1234-5678", "台北市中正區某路 1 號", null, ReleasePolicy.MANUAL, 5);
+                "02-1234-5678", "台北市中正區某路 1 號", "平日上午9:00-下午5:00", null, ReleasePolicy.MANUAL, 5);
         mvc.perform(as(withBody(patch("/api/organizations/me"), toManual), ORG_USER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.releasePolicy").value("MANUAL"))
@@ -155,7 +194,7 @@ class OrganizationApiIT extends ApiIntegrationTest {
                 .andExpect(status().isCreated());
 
         var invalid = new OrganizationUpdateRequest("缺天數之家", "王承辦", "a@example.org",
-                "02-1234-5678", "台北市中正區某路 1 號", null, ReleasePolicy.AUTO, null);
+                "02-1234-5678", "台北市中正區某路 1 號", "平日上午9:00-下午5:00", null, ReleasePolicy.AUTO, null);
 
         mvc.perform(as(withBody(patch("/api/organizations/me"), invalid), ORG_USER))
                 .andExpect(status().isConflict())

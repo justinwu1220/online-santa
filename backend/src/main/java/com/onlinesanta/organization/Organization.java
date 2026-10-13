@@ -33,6 +33,9 @@ public class Organization extends BaseEntity {
     @Column(length = 255)
     private String address;
 
+    @Column(name = "preferred_delivery_time", length = 255)
+    private String preferredDeliveryTime;
+
     @Column(columnDefinition = "text")
     private String description;
 
@@ -66,12 +69,14 @@ public class Organization extends BaseEntity {
     }
 
     private Organization(String name, String contactPerson, String contactEmail,
-                         String contactPhone, String address, String description) {
+                         String contactPhone, String address, String preferredDeliveryTime,
+                         String description) {
         this.name = name;
         this.contactPerson = contactPerson;
         this.contactEmail = contactEmail;
         this.contactPhone = contactPhone;
         this.address = address;
+        this.preferredDeliveryTime = preferredDeliveryTime;
         this.description = description;
         this.status = OrganizationStatus.PENDING;
         this.releasePolicy = ReleasePolicy.MANUAL;
@@ -79,18 +84,30 @@ public class Organization extends BaseEntity {
 
     /** 自助註冊：一律從 PENDING 起算，須經管理員核准才能上架願望。 */
     public static Organization register(String name, String contactPerson, String contactEmail,
-                                        String contactPhone, String address, String description) {
+                                        String contactPhone, String address,
+                                        String preferredDeliveryTime, String description) {
         return new Organization(name, contactPerson, contactEmail, contactPhone,
-                address, description);
+                address, preferredDeliveryTime, description);
+    }
+
+    /**
+     * 沒有方便收件時間時的相容建構子——大量既有測試用這個 6 參數版本當測試資料
+     * 快速建機構，不用跟著這次的新欄位一一改。
+     */
+    public static Organization register(String name, String contactPerson, String contactEmail,
+                                        String contactPhone, String address, String description) {
+        return register(name, contactPerson, contactEmail, contactPhone, address, null, description);
     }
 
     public void updateProfile(String name, String contactPerson, String contactEmail,
-                              String contactPhone, String address, String description) {
+                              String contactPhone, String address, String preferredDeliveryTime,
+                              String description) {
         this.name = name;
         this.contactPerson = contactPerson;
         this.contactEmail = contactEmail;
         this.contactPhone = contactPhone;
         this.address = address;
+        this.preferredDeliveryTime = preferredDeliveryTime;
         this.description = description;
     }
 
@@ -184,6 +201,10 @@ public class Organization extends BaseEntity {
 
     public String getAddress() {
         return address;
+    }
+
+    public String getPreferredDeliveryTime() {
+        return preferredDeliveryTime;
     }
 
     public String getDescription() {
