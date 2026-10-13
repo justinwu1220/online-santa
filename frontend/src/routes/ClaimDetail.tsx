@@ -209,18 +209,18 @@ function ShippingAddressPanel({ claim }: { claim: ClaimDonorView }) {
               {claim.organizationAddress}
             </dd>
           </div>
-          {claim.organizationPhone && (
-            <div>
-              <dt className="text-xs text-slate-400">聯絡電話</dt>
-              <dd className="mt-0.5 font-medium text-white">{claim.organizationPhone}</dd>
-            </div>
-          )}
           {claim.organizationPreferredDeliveryTime && (
             <div>
               <dt className="text-xs text-slate-400">方便收件時間</dt>
               <dd className="mt-0.5 font-medium text-white">
                 {claim.organizationPreferredDeliveryTime}
               </dd>
+            </div>
+          )}
+          {claim.organizationPhone && (
+            <div>
+              <dt className="text-xs text-slate-400">聯絡電話</dt>
+              <dd className="mt-0.5 font-medium text-white">{claim.organizationPhone}</dd>
             </div>
           )}
         </dl>
