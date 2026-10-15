@@ -223,50 +223,24 @@ function WishRow({ wish, canPublish, onEdit, onChanged }: {
 }
 
 /**
- * 願望信件（孩童手寫的感謝卡／願望信照片）。
+ * 已經確認上傳的願望信件照片縮圖格——純展示＋即時刪除。
  *
- * 放在編輯表單裡，所以只有願望可編輯（wish.editable）時才能打開這裡上傳——
- * 認領／完成之後的願望沒有「編輯」入口，連帶也上不了願望信件照片。這是已知
- * 取捨，不是遺漏。
+ * 刪除已存在的附件是立刻生效的操作，不受這次編輯的「儲存／取消」影響——跟
+ * 這裡無關的是「新增」照片：新增願望信件改由 WishForm 自己在本機暫存
+ * （見 letterPhotos），按「儲存」才真的上傳，取消就直接隨元件卸載消失，
+ * 跟新增願望時的 File[] 清單同一套邏輯，不會出現「取消後照片卻還在」的狀況。
  */
-function LetterPhotosSection({ wish, onChanged }: { wish: WishOrgView; onChanged: () => void }) {
-  // 不能只靠 wish.letterPhotos——那是打開編輯表單那一刻的靜態快照。上傳／
-  // 刪除後呼叫 onChanged() 只會讓外層清單的查詢快取重新整理，不會讓這個
-  // 表單手上的 wish 物件跟著變新，縮圖格線會卡住看不到剛上傳或剛刪除的
-  // 結果。改成本機維護這份清單，跟新增願望時的本機 File[] 清單同一個做法。
-  const [photos, setPhotos] = useState<AttachmentView[]>(wish.letterPhotos)
+function ExistingLetterPhotos({ photos, onDeleted }: {
+  photos: AttachmentView[]
+  onDeleted: (photoId: string) => void
+}) {
+  if (photos.length === 0) return null
 
   return (
-    <div className="mt-3 border-t border-slate-100 pt-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="text-sm font-medium text-slate-600">願望信件</h4>
-        <ImageUploader
-          purpose="WISH_LETTER"
-          targetId={wish.id}
-          label="上傳願望信件照片"
-          onUploaded={(photo) => {
-            setPhotos((current) => [...current, photo])
-            onChanged()
-          }}
-        />
-      </div>
-
-      {photos.length > 0 ? (
-        <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-6">
-          {photos.map((photo) => (
-            <LetterPhoto key={photo.id} photo={photo} onDeleted={() => {
-              setPhotos((current) => current.filter((p) => p.id !== photo.id))
-              onChanged()
-            }} />
-          ))}
-        </div>
-      ) : (
-        <p className="mt-2 text-sm text-slate-400">還沒有上傳願望信件照片。</p>
-      )}
-
-      <div className="mt-2">
-        <Notice tone="warning">請拍卡片內容，避免拍到孩子的臉部或完整姓名。</Notice>
-      </div>
+    <div className="mb-2 grid grid-cols-4 gap-2 sm:grid-cols-6">
+      {photos.map((photo) => (
+        <LetterPhoto key={photo.id} photo={photo} onDeleted={() => onDeleted(photo.id)} />
+      ))}
     </div>
   )
 }
@@ -335,24 +309,28 @@ function WishForm({ wish, onDone, onCancel, onWishChanged }: {
     priceRange: wish?.priceRange,
   })
 
-  // 新增願望時還沒有 id，沒有地方可以掛照片，先在本機累積，等建立成功拿到
-  // id 之後再補傳——跟 OrgApply.tsx 機構文件同一個套路
+  // 願望信件照片一律先在本機暫存，按「儲存」才真的上傳——新增願望時還沒有
+  // id，本來就只能這樣；編輯既有願望時也改成同一套，不要在選檔案的那一刻
+  // 就直接打 API：使用者選了照片卻按「取消」，不該讓那張照片已經偷偷存進
+  // 伺服器了。已經確認上傳過的照片（existingLetterPhotos）不受這個邏輯
+  // 影響，刪除那些仍然是即時生效的操作，見 ExistingLetterPhotos
+  const [existingLetterPhotos, setExistingLetterPhotos] =
+    useState<AttachmentView[]>(wish?.letterPhotos ?? [])
   const [letterPhotos, setLetterPhotos] = useState<File[]>([])
   const [letterPhotoError, setLetterPhotoError] = useState<string | null>(null)
   const letterPhotoInputRef = useRef<HTMLInputElement>(null)
+  const totalLetterPhotos = existingLetterPhotos.length + letterPhotos.length
 
   const save = useMutation({
     mutationFn: async () => {
       const saved = wish
         ? await api.patch<WishOrgView>(`/api/wishes/${wish.id}`, form)
         : await api.post<WishOrgView>('/api/wishes', form)
-      // 已知限制：願望建立成功後，若其中一張照片上傳失敗，願望本身不會被
+      // 已知限制：願望存檔成功後，若其中一張照片上傳失敗，願望本身不會被
       // 撤銷（也不該為了一次上傳失敗撤銷整張草稿），使用者會看到錯誤，但
-      // 願望其實已經建立了，這點不在這次處理範圍內
-      if (!wish) {
-        for (const file of letterPhotos) {
-          await uploadImage('WISH_LETTER', saved.id, file)
-        }
+      // 願望其實已經存檔了，這點不在這次處理範圍內
+      for (const file of letterPhotos) {
+        await uploadImage('WISH_LETTER', saved.id, file)
       }
       return saved
     },
@@ -410,57 +388,57 @@ function WishForm({ wish, onDone, onCancel, onWishChanged }: {
         </Select>
       </Field>
 
-      {!wish && (
-        <Field label="願望信件照片" inlineHint hint="孩子的手寫願望卡片"
-          error={letterPhotoError ?? undefined}>
-          <input
-            ref={letterPhotoInputRef}
-            type="file"
-            className="hidden"
-            accept={ACCEPTED_IMAGE_TYPES.join(',')}
-            onChange={(event) => {
-              const file = event.target.files?.[0]
-              if (!file) return
-              if (letterPhotos.length >= MAX_WISH_LETTERS) {
-                setLetterPhotoError(`最多上傳 ${MAX_WISH_LETTERS} 張照片`)
+      <Field label="願望信件照片" inlineHint hint="孩子的手寫願望卡片"
+        error={letterPhotoError ?? undefined}>
+        <ExistingLetterPhotos photos={existingLetterPhotos} onDeleted={(photoId) => {
+          setExistingLetterPhotos((current) => current.filter((p) => p.id !== photoId))
+          onWishChanged()
+        }} />
+        <input
+          ref={letterPhotoInputRef}
+          type="file"
+          className="hidden"
+          accept={ACCEPTED_IMAGE_TYPES.join(',')}
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (!file) return
+            if (totalLetterPhotos >= MAX_WISH_LETTERS) {
+              setLetterPhotoError(`最多上傳 ${MAX_WISH_LETTERS} 張照片`)
+            } else {
+              const problem = validateImage(file)
+              if (problem) {
+                setLetterPhotoError(problem)
               } else {
-                const problem = validateImage(file)
-                if (problem) {
-                  setLetterPhotoError(problem)
-                } else {
-                  setLetterPhotos((current) => [...current, file])
-                  setLetterPhotoError(null)
-                }
+                setLetterPhotos((current) => [...current, file])
+                setLetterPhotoError(null)
               }
-              event.target.value = ''
-            }}
-          />
-          <div className="space-y-2">
-            {letterPhotos.map((file, index) => (
-              <div key={`${file.name}-${index}`}
-                className="flex items-center justify-between gap-2 rounded-lg border
-                  border-slate-200 bg-white px-3 py-2 text-sm">
-                <span className="truncate text-slate-700">{file.name}</span>
-                <button type="button" className="text-slate-400 hover:text-berry-600"
-                  onClick={() => setLetterPhotos((current) => current.filter((_, i) => i !== index))}>
-                  移除
-                </button>
-              </div>
-            ))}
-            {letterPhotos.length < MAX_WISH_LETTERS && (
-              <Button type="button" variant="secondary"
-                onClick={() => letterPhotoInputRef.current?.click()}>
-                新增照片
-              </Button>
-            )}
-          </div>
-          <div className="mt-2">
-            <Notice tone="warning">請拍卡片內容，避免拍到孩子的臉部或完整姓名。</Notice>
-          </div>
-        </Field>
-      )}
-
-      {wish && <LetterPhotosSection wish={wish} onChanged={onWishChanged} />}
+            }
+            event.target.value = ''
+          }}
+        />
+        <div className="space-y-2">
+          {letterPhotos.map((file, index) => (
+            <div key={`${file.name}-${index}`}
+              className="flex items-center justify-between gap-2 rounded-lg border
+                border-slate-200 bg-white px-3 py-2 text-sm">
+              <span className="truncate text-slate-700">{file.name}</span>
+              <button type="button" className="text-slate-400 hover:text-berry-600"
+                onClick={() => setLetterPhotos((current) => current.filter((_, i) => i !== index))}>
+                移除
+              </button>
+            </div>
+          ))}
+          {totalLetterPhotos < MAX_WISH_LETTERS && (
+            <Button type="button" variant="secondary"
+              onClick={() => letterPhotoInputRef.current?.click()}>
+              新增照片
+            </Button>
+          )}
+        </div>
+        <div className="mt-2">
+          <Notice tone="warning">請拍卡片內容，避免拍到孩子的臉部或完整姓名。</Notice>
+        </div>
+      </Field>
 
       {save.isError && <ErrorBanner error={save.error} />}
 
