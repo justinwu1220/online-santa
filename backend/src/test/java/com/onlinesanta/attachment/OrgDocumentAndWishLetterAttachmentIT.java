@@ -278,7 +278,7 @@ class OrgDocumentAndWishLetterAttachmentIT extends ApiIntegrationTest {
     // ------------------------------------------------------------ 願望信件
 
     @Test
-    @DisplayName("任何願望狀態都能上傳願望信件照片，包含已完成的認領")
+    @DisplayName("任何願望狀態都能上傳願望信件照片，包含已完成的認領；限一張，補傳會直接取代舊照片")
     void wishLetterCanBeUploadedRegardlessOfWishStatus() throws Exception {
         UUID wishId = publishedWish("已完成的願望");
 
@@ -294,14 +294,33 @@ class OrgDocumentAndWishLetterAttachmentIT extends ApiIntegrationTest {
         mvc.perform(as(post("/api/organizations/me/claims/{id}/complete", claimId), ORG_USER))
                 .andExpect(status().isOk());
 
-        // 已完成之後還是能補傳——感謝卡通常是這個時候才有
+        // 已完成之後還是能補傳——感謝卡通常是這個時候才有；限一張，補傳直接
+        // 取代第一張，不是疊加
         uploadAs(AttachmentPurpose.WISH_LETTER, wishId, JPEG, ORG_USER);
 
         mvc.perform(get("/api/wishes/{id}", wishId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.letterPhotoUrls.length()").value(2))
+                .andExpect(jsonPath("$.letterPhotoUrls.length()").value(1))
                 .andExpect(jsonPath("$.letterPhotoUrls[0]").value(
                         Matchers.not(Matchers.containsString("signature"))));
+    }
+
+    @Test
+    @DisplayName("換新願望信件照片時舊照片連同檔案一起汰除，跟願望示意圖同一套機制")
+    void replacingTheWishLetterPhotoRemovesTheOldFile() throws Exception {
+        UUID wishId = publishedWish("換信件照片");
+
+        uploadAs(AttachmentPurpose.WISH_LETTER, wishId, JPEG, ORG_USER);
+        assertThat(fakeStorage.size()).isOne();
+
+        uploadAs(AttachmentPurpose.WISH_LETTER, wishId, JPEG, ORG_USER);
+        assertThat(fakeStorage.size())
+                .as("舊檔案應該被刪掉，不該累積")
+                .isOne();
+
+        mvc.perform(get("/api/wishes/{id}", wishId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.letterPhotoUrls.length()").value(1));
     }
 
     @Test
@@ -323,20 +342,6 @@ class OrgDocumentAndWishLetterAttachmentIT extends ApiIntegrationTest {
         mvc.perform(as(withBody(post("/api/uploads/signed-url"), request), DONOR))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.errorCode").value("NOT_ORG_MEMBER"));
-    }
-
-    @Test
-    @DisplayName("願望信件照片有數量上限")
-    void wishLetterHasACountLimit() throws Exception {
-        UUID wishId = publishedWish("信件照片數量上限");
-        for (int i = 0; i < AttachmentPurpose.WISH_LETTER.maxPerOwner(); i++) {
-            uploadAs(AttachmentPurpose.WISH_LETTER, wishId, JPEG, ORG_USER);
-        }
-
-        var request = new UploadUrlRequest(AttachmentPurpose.WISH_LETTER, wishId, JPEG, 1_000);
-        mvc.perform(as(withBody(post("/api/uploads/signed-url"), request), ORG_USER))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.errorCode").value("ATTACHMENT_LIMIT_REACHED"));
     }
 
     @Test

@@ -23,12 +23,14 @@ public enum AttachmentPurpose {
     ORG_DOCUMENT(StorageBucket.PRIVATE, "org-documents", 3),
 
     /**
-     * 孩童手寫的感謝卡／願望信照片，由機構上傳，掛在願望上。
+     * 孩童手寫的感謝卡／願望信照片，由機構上傳，掛在願望上。限一張，跟
+     * {@link #WISH_IMAGE} 同樣是「換新直接取代舊檔」（見 {@link #replacesPrevious()}），
+     * 不需要先刪除舊的才能補傳新的。
      *
      * <p>公開——跟 {@link #WISH_IMAGE} 同樣的既有例外，但機構須避免拍到孩子臉部或
      * 完整姓名，見 docs/PRIVACY.md。
      */
-    WISH_LETTER(StorageBucket.PUBLIC, "wish-letters", 3);
+    WISH_LETTER(StorageBucket.PUBLIC, "wish-letters", 1);
 
     private final StorageBucket bucket;
     private final String prefix;
