@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.onlinesanta.attachment.dto.AttachmentView;
 import com.onlinesanta.attachment.dto.UploadUrlRequest;
@@ -481,6 +482,15 @@ public class AttachmentService {
         if (purpose == AttachmentPurpose.WISH_IMAGE && !properties.wishImageEnabled()) {
             throw new ForbiddenException("WISH_IMAGE_DISABLED",
                     "目前不開放上傳願望示意圖");
+        }
+        // 公開 bucket 名稱空白代表還沒設定好（例如還沒照 DEPLOY.md 建立），
+        // 這裡先擋下來才能回一個看得懂的錯誤，而不是讓前端在簽完章之後，
+        // PUT 到一個不存在的 bucket 時收到連 CORS 都沒套用的「fetch fail」。
+        // 不只檢查 WISH_IMAGE：WISH_LETTER 也指向同一個公開 bucket，卻沒有
+        // 自己的開關可以先擋下來
+        if (purpose.bucket() == StorageBucket.PUBLIC && !StringUtils.hasText(properties.publicBucket())) {
+            throw new ForbiddenException("PUBLIC_BUCKET_NOT_CONFIGURED",
+                    "公開儲存空間尚未設定，請聯繫平台管理員");
         }
     }
 
