@@ -68,7 +68,6 @@ export function OrgWishes() {
         wish={editing === 'new' ? null : editing}
         onDone={() => { setEditing(null); refresh() }}
         onCancel={() => setEditing(null)}
-        onWishChanged={refresh}
       />
     )
   }
@@ -223,75 +222,45 @@ function WishRow({ wish, canPublish, onEdit, onChanged }: {
 }
 
 /**
- * 已經確認上傳的願望信件照片縮圖格——純展示＋即時刪除。
+ * 已存在（已確認上傳）的願望信件照片縮圖格。
  *
- * 刪除已存在的附件是立刻生效的操作，不受這次編輯的「儲存／取消」影響——跟
- * 這裡無關的是「新增」照片：新增願望信件改由 WishForm 自己在本機暫存
- * （見 letterPhotos），按「儲存」才真的上傳，取消就直接隨元件卸載消失，
- * 跟新增願望時的 File[] 清單同一套邏輯，不會出現「取消後照片卻還在」的狀況。
+ * 點「移除」只是在本機把這張照片標記為「這次編輯要移除」，不會立刻打 API
+ * ——跟新增的照片同一套邏輯，要等整個表單按下「儲存」才真的呼叫
+ * DELETE，按「取消」的話這個標記直接隨元件卸載作廢，照片原封不動。正因為
+ * 不是立即、不可逆的動作，這裡不需要像刪除已確認資料那樣另外加一層確認
+ * 對話框，點一下直接標記即可。
  */
-function ExistingLetterPhotos({ photos, onDeleted }: {
+function ExistingLetterPhotos({ photos, onRemove }: {
   photos: AttachmentView[]
-  onDeleted: (photoId: string) => void
+  onRemove: (photoId: string) => void
 }) {
   if (photos.length === 0) return null
 
   return (
     <div className="mb-2 grid grid-cols-4 gap-2 sm:grid-cols-6">
       {photos.map((photo) => (
-        <LetterPhoto key={photo.id} photo={photo} onDeleted={() => onDeleted(photo.id)} />
+        <div key={photo.id}
+          className="group relative overflow-hidden rounded-lg ring-1 ring-slate-200">
+          <a href={photo.url} target="_blank" rel="noreferrer">
+            <img src={photo.url} alt=""
+              className="aspect-square w-full object-cover transition-opacity group-hover:opacity-75" />
+          </a>
+          <button type="button" onClick={() => onRemove(photo.id)}
+            title="儲存變更後才會正式刪除"
+            className="absolute right-1 top-1 rounded-md bg-black/60 px-1.5 py-0.5 text-xs
+              text-white opacity-0 transition-opacity hover:bg-berry-600 group-hover:opacity-100">
+            移除
+          </button>
+        </div>
       ))}
     </div>
   )
 }
 
-function LetterPhoto({ photo, onDeleted }: { photo: AttachmentView; onDeleted: () => void }) {
-  const [confirming, setConfirming] = useState(false)
-
-  const remove = useMutation({
-    mutationFn: () => api.delete(`/api/attachments/${photo.id}`),
-    onSuccess: onDeleted,
-  })
-
-  return (
-    <div className="group relative overflow-hidden rounded-lg ring-1 ring-slate-200">
-      <a href={photo.url} target="_blank" rel="noreferrer">
-        <img src={photo.url} alt=""
-          className="aspect-square w-full object-cover transition-opacity group-hover:opacity-75" />
-      </a>
-
-      {confirming ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5
-          bg-black/85 p-2 text-center">
-          <p className="text-xs text-slate-200">刪除後無法復原</p>
-          {remove.isError && <p className="text-xs text-berry-300">刪除失敗，請再試一次</p>}
-          <div className="flex gap-1.5">
-            <Button variant="danger" disabled={remove.isPending}
-              onClick={() => remove.mutate()} className="px-2 py-1 text-xs">
-              {remove.isPending ? '刪除中…' : '確定刪除'}
-            </Button>
-            <Button variant="ghost" onClick={() => setConfirming(false)} className="px-2 py-1 text-xs">
-              取消
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <button type="button" onClick={() => setConfirming(true)}
-          className="absolute right-1 top-1 rounded-md bg-black/60 px-1.5 py-0.5 text-xs
-            text-white opacity-0 transition-opacity hover:bg-berry-600 group-hover:opacity-100">
-          刪除
-        </button>
-      )}
-    </div>
-  )
-}
-
-function WishForm({ wish, onDone, onCancel, onWishChanged }: {
+function WishForm({ wish, onDone, onCancel }: {
   wish: WishOrgView | null
   onDone: () => void
   onCancel: () => void
-  /** 願望信件照片上傳／刪除後呼叫——跟 onDone 分開，不能因為傳了張照片就關表單 */
-  onWishChanged: () => void
 }) {
   const options = useQuery({
     queryKey: ['wish-options'],
@@ -309,26 +278,31 @@ function WishForm({ wish, onDone, onCancel, onWishChanged }: {
     priceRange: wish?.priceRange,
   })
 
-  // 願望信件照片一律先在本機暫存，按「儲存」才真的上傳——新增願望時還沒有
-  // id，本來就只能這樣；編輯既有願望時也改成同一套，不要在選檔案的那一刻
-  // 就直接打 API：使用者選了照片卻按「取消」，不該讓那張照片已經偷偷存進
-  // 伺服器了。已經確認上傳過的照片（existingLetterPhotos）不受這個邏輯
-  // 影響，刪除那些仍然是即時生效的操作，見 ExistingLetterPhotos
-  const [existingLetterPhotos, setExistingLetterPhotos] =
-    useState<AttachmentView[]>(wish?.letterPhotos ?? [])
+  // 願望信件照片一律先在本機暫存／標記，按「儲存」才真的呼叫 API——新增
+  // 願望時還沒有 id，本來就只能這樣；編輯既有願望時也改成同一套，不要在
+  // 選檔案或點刪除的那一刻就直接打 API：使用者操作完卻按「取消」，不該讓
+  // 伺服器端已經悄悄發生變化。existingLetterPhotos 是打開表單那一刻的
+  // 靜態快照，removedPhotoIds 記錄這次編輯要移除的既有照片 id，兩者合起來
+  // 算出目前「看得到」的既有照片，而不是直接改動快照本身
+  const existingLetterPhotos = wish?.letterPhotos ?? []
+  const [removedPhotoIds, setRemovedPhotoIds] = useState<Set<string>>(new Set())
   const [letterPhotos, setLetterPhotos] = useState<File[]>([])
   const [letterPhotoError, setLetterPhotoError] = useState<string | null>(null)
   const letterPhotoInputRef = useRef<HTMLInputElement>(null)
-  const totalLetterPhotos = existingLetterPhotos.length + letterPhotos.length
+  const visibleExistingPhotos = existingLetterPhotos.filter((p) => !removedPhotoIds.has(p.id))
+  const totalLetterPhotos = visibleExistingPhotos.length + letterPhotos.length
 
   const save = useMutation({
     mutationFn: async () => {
       const saved = wish
         ? await api.patch<WishOrgView>(`/api/wishes/${wish.id}`, form)
         : await api.post<WishOrgView>('/api/wishes', form)
-      // 已知限制：願望存檔成功後，若其中一張照片上傳失敗，願望本身不會被
-      // 撤銷（也不該為了一次上傳失敗撤銷整張草稿），使用者會看到錯誤，但
-      // 願望其實已經存檔了，這點不在這次處理範圍內
+      // 已知限制：願望存檔成功後，若刪除舊照片或上傳新照片失敗，願望本身
+      // 不會被撤銷（也不該為了這類失敗撤銷整張草稿），使用者會看到錯誤，
+      // 但願望其實已經存檔了，這點不在這次處理範圍內
+      for (const photoId of removedPhotoIds) {
+        await api.delete(`/api/attachments/${photoId}`)
+      }
       for (const file of letterPhotos) {
         await uploadImage('WISH_LETTER', saved.id, file)
       }
@@ -390,9 +364,8 @@ function WishForm({ wish, onDone, onCancel, onWishChanged }: {
 
       <Field label="願望信件照片" inlineHint hint="孩子的手寫願望卡片"
         error={letterPhotoError ?? undefined}>
-        <ExistingLetterPhotos photos={existingLetterPhotos} onDeleted={(photoId) => {
-          setExistingLetterPhotos((current) => current.filter((p) => p.id !== photoId))
-          onWishChanged()
+        <ExistingLetterPhotos photos={visibleExistingPhotos} onRemove={(photoId) => {
+          setRemovedPhotoIds((current) => new Set(current).add(photoId))
         }} />
         <input
           ref={letterPhotoInputRef}
