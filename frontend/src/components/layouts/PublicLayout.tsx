@@ -12,8 +12,8 @@ import { Button } from '../Form'
  * 願望牆對所有人公開——人要先看見孩子的願望才會考慮註冊，把牆擋在登入後會直接
  * 殺掉轉換率。認領與查看紀錄才需要登入。
  *
- * 機構註冊入口放在頁尾，不放主導覽：捐贈者是主要對象，機構是少數但知道自己要找什麼。
- * 登入後機構與管理員的後台按鈕出現在右上角。
+ * 沒有頁尾。機構從頁首的「登入 / 註冊」進入，註冊時選擇機構身分；登入後機構與管理員的
+ * 後台按鈕出現在右上角。
  *
  * 視覺上是深色玻璃質感（見 docs/DESIGN.md）。深色底鋪在 fixed 圖層而不是改 body，
  * 因為機構後台與監控中心共用同一個 body，那兩個是工作介面要維持亮色。
@@ -52,16 +52,6 @@ export function PublicLayout() {
         <Outlet />
       </main>
 
-      <footer className="border-t border-white/10 bg-white/5 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6
-          text-sm text-slate-400">
-          <p>願望屬於孩子，故事屬於每一個願意伸手的人。</p>
-          {/* 直接帶到註冊分頁並預選機構身分；回頭的機構在同一頁切到「登入」即可 */}
-          <Link to="/login?tab=register&as=org" className="text-emerald-300 hover:underline">
-            我是兒童機構 →
-          </Link>
-        </div>
-      </footer>
     </div>
   )
 }
