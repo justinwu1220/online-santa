@@ -2,13 +2,13 @@
  * 願望牆專用的狀態篩選與標籤。
  *
  * 刻意獨立於 `components/StatusBadge.tsx` 的 `WISH_TONES`：後台的「已完成」是正向的
- * 綠色，願望牆這裡的配色語意不同（未認領綠／已認領黃／已完成紅——強調「還能不能
- * 認領」而不是「流程是否順利結束」），硬共用會變成後台綠字、牆上紅字的矛盾。
- * 兩套系統各自獨立維護。
+ * 綠色，願望牆這裡的配色語意不同（可認領綠／已認領黃／已完成灰——強調「還能不能
+ * 認領」而不是「流程是否順利結束」；已完成的願望不能再被認領，用灰色退到背景），
+ * 硬共用會變成牆上灰字的矛盾。兩套系統各自獨立維護。
  */
 
 export const WALL_STATUS_OPTIONS = [
-  { value: 'AVAILABLE', label: '未認領' },
+  { value: 'AVAILABLE', label: '可認領' },
   { value: 'CLAIMED', label: '已認領' },
   { value: 'FULFILLED', label: '已完成' },
 ] as const
@@ -16,7 +16,7 @@ export const WALL_STATUS_OPTIONS = [
 export type WallWishStatus = typeof WALL_STATUS_OPTIONS[number]['value']
 
 const LABELS: Record<WallWishStatus, string> = {
-  AVAILABLE: '未認領',
+  AVAILABLE: '可認領',
   CLAIMED: '已認領',
   FULFILLED: '已完成',
 }
@@ -24,7 +24,7 @@ const LABELS: Record<WallWishStatus, string> = {
 const TONES: Record<WallWishStatus, string> = {
   AVAILABLE: 'border-emerald-400/30 bg-emerald-400/15 text-emerald-200',
   CLAIMED: 'border-amber-400/30 bg-amber-400/15 text-amber-200',
-  FULFILLED: 'border-red-400/30 bg-red-400/15 text-red-200',
+  FULFILLED: 'border-slate-400/20 bg-slate-400/10 text-slate-400',
 }
 
 /**

@@ -244,6 +244,28 @@ class WishApiIT extends ApiIntegrationTest {
     }
 
     @Test
+    void ordersWallByStatusBeforePublishTime() throws Exception {
+        // 發布順序刻意與狀態優先順序相反：最舊的是可認領，最新的是已完成。
+        // 若只依發布時間新到舊排，已完成的會跑到最前面
+        createPublishedWish("較舊的可認領");
+        UUID claimed = createPublishedWish("已認領");
+        wishes.markClaimed(claimed);
+        UUID fulfilled = createPublishedWish("已完成");
+        wishes.markClaimed(fulfilled);
+        wishes.markFulfilled(fulfilled);
+        createPublishedWish("較新的可認領");
+
+        String body = mvc.perform(get("/api/wishes"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        // 可認領 → 已認領 → 已完成；同一狀態內維持發布時間新到舊
+        assertThat(json.readTree(body).get("content"))
+                .extracting(node -> node.get("title").asText())
+                .containsExactly("較新的可認領", "較舊的可認領", "已認領", "已完成");
+    }
+
+    @Test
     void filtersWishesByStatus() throws Exception {
         UUID claimed = createPublishedWish("篩選用的已認領願望");
         wishes.markClaimed(claimed);

@@ -123,20 +123,25 @@ function FilterSelect({ label, value, options, onChange }: {
  */
 function WishCard({ wish }: { wish: WishListView }) {
   const statusTag = wallStatusTag(wish.status)
+  // 已完成的願望不能再認領：整張卡片退成灰色，沒有浮起與放大的互動回饋。
+  // 仍然可以點進去看故事，只是視覺上明確告訴人「這張已經結束了」
+  const done = wish.status === 'FULFILLED'
 
   return (
     <Link
       to={`/wishes/${wish.id}`}
-      className="glass-card-interactive group flex items-start gap-3 p-3.5"
+      className={`group flex items-start gap-3 p-3.5 ${
+        done ? 'glass-card opacity-60 grayscale transition-opacity hover:opacity-80'
+          : 'glass-card-interactive'}`}
     >
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg
-        bg-white/5 text-xl transition-transform group-hover:scale-110">
+      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg
+        bg-white/5 text-xl transition-transform ${done ? '' : 'group-hover:scale-110'}`}>
         {wishIcon(wish.category)}
       </div>
 
       <div className="min-w-0 flex-1">
-        <h2 className="truncate text-sm font-bold text-white transition-colors
-          group-hover:text-emerald-200">
+        <h2 className={`truncate text-sm font-bold transition-colors ${
+          done ? 'text-slate-400' : 'text-white group-hover:text-emerald-200'}`}>
           {wish.title}
         </h2>
         {/* 只顯示暱稱與年齡區間——系統裡本來就沒有孩子的真實姓名 */}
@@ -145,8 +150,9 @@ function WishCard({ wish }: { wish: WishListView }) {
         </p>
 
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5
-            text-[11px] font-medium text-emerald-200">
+          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+            done ? 'border-slate-400/20 bg-slate-400/10 text-slate-400'
+              : 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200'}`}>
             {wish.categoryLabel}
           </span>
           {statusTag && (

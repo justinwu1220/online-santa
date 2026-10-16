@@ -32,6 +32,10 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
      * 願望繼續掛在牆上。這裡跟 {@link com.onlinesanta.wish.Wish#isPubliclyVisible()}
      * 是同一個把關條件的兩處實作——一個管列表、一個管詳情。
      *
+     * <p>排序：先依狀態（可認領 → 已認領 → 已完成），同一狀態內再依 Pageable 帶的排序
+     * （預設發布時間新到舊）。狀態排序寫在查詢裡而不是靠呼叫端傳 sort：它是願望牆的
+     * 固定規則，而且跨頁也要成立——可認領的永遠排在前面，不會因為翻頁又冒出來。
+     *
      * <p>不接受 {@code priceRange}——願望牆已拿掉預算篩選，這個端點不再需要它；
      * 機構後台「新增願望」也已拿掉預估價格欄位，{@code priceRange} 現在整體上
      * 是選填欄位，不再需要一份篩選用的下拉選項。
@@ -44,6 +48,11 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
               and (:organizationId is null or o.id = :organizationId)
               and (:category is null or w.category = :category)
               and (:ageRange is null or w.ageRange = :ageRange)
+            order by case w.status
+                       when com.onlinesanta.wish.WishStatus.AVAILABLE then 0
+                       when com.onlinesanta.wish.WishStatus.CLAIMED then 1
+                       else 2
+                     end
             """)
     Page<Wish> search(@Param("statuses") Collection<WishStatus> statuses,
                       @Param("organizationId") UUID organizationId,
