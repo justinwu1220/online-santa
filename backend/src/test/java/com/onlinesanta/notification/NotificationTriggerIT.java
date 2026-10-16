@@ -20,7 +20,7 @@ import com.onlinesanta.admin.dto.ReviewDecisionRequest;
 import com.onlinesanta.admin.dto.ReviewReasonRequest;
 import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.attachment.dto.UploadUrlRequest;
-import com.onlinesanta.claim.dto.ShipRequest;
+import com.onlinesanta.support.ShipRequests;
 import com.onlinesanta.event.ClaimCreatedEvent;
 import com.onlinesanta.event.FeedbackPhotoConfirmedEvent;
 import com.onlinesanta.event.NewMessageEvent;
@@ -252,7 +252,7 @@ class NotificationTriggerIT extends ApiIntegrationTest {
         UUID claimId = claimAs(wishId, DONOR);
         uploadAndConfirm(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
+                ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
                 .andExpect(status().isOk());
 

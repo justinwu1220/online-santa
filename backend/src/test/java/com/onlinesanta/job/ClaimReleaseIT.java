@@ -20,7 +20,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
 import com.onlinesanta.attachment.AttachmentPurpose;
-import com.onlinesanta.claim.dto.ShipRequest;
+import com.onlinesanta.support.ShipRequests;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.organization.ReleasePolicy;
@@ -216,7 +216,7 @@ class ClaimReleaseIT extends ApiIntegrationTest {
         UUID claimId = claim(publishedWish(autoOrganization, "已經寄了"), DONOR);
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
+                ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
         makeOverdue(claimId);
 
         // 東西已經在路上了，逾期的定義是「沒寄」而不是「沒送達」

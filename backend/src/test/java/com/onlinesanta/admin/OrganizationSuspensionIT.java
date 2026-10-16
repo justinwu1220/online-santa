@@ -16,7 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.onlinesanta.admin.dto.ReviewDecisionRequest;
 import com.onlinesanta.admin.dto.ReviewReasonRequest;
 import com.onlinesanta.attachment.AttachmentPurpose;
-import com.onlinesanta.claim.dto.ShipRequest;
+import com.onlinesanta.support.ShipRequests;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.support.ApiIntegrationTest;
@@ -136,7 +136,7 @@ class OrganizationSuspensionIT extends ApiIntegrationTest {
 
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                        new ShipRequest("郵局", "R123")), DONOR))
+                        ShipRequests.of("郵局", "R123")), DONOR))
                 .andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
                 .andExpect(status().isOk());

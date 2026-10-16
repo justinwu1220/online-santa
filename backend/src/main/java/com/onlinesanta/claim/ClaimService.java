@@ -169,7 +169,8 @@ public class ClaimService {
             throw new BusinessRuleException("SHIPPING_PROOF_REQUIRED", "請先上傳至少一張寄送證明照片");
         }
 
-        claim.markShipped(request.carrier(), request.trackingNumber());
+        claim.markShipped(request.carrier(), request.trackingNumber(), request.giftDescription(),
+                request.giftQuantity(), request.giftPrice(), request.shippedOn());
         record(claim, ClaimEventType.SHIPPED, principal.userId(),
                 "%s %s".formatted(request.carrier(), request.trackingNumber()));
         return claim;

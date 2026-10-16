@@ -23,7 +23,7 @@ import jakarta.persistence.PersistenceContext;
 import com.onlinesanta.admin.AdminAuditAction;
 import com.onlinesanta.admin.AdminAuditLogRepository;
 import com.onlinesanta.attachment.AttachmentPurpose;
-import com.onlinesanta.claim.dto.ShipRequest;
+import com.onlinesanta.support.ShipRequests;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.support.ApiIntegrationTest;
@@ -207,7 +207,7 @@ class DeadlineReminderIT extends ApiIntegrationTest {
         setShipDeadline(claimId, Instant.now().plus(1, ChronoUnit.DAYS));
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
+                ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
 
         mvc.perform(as(post("/api/admin/jobs/send-deadline-reminders"), ADMIN))
                 .andExpect(status().isOk())

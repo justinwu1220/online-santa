@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api, withQuery } from '../../lib/api'
-import { daysUntil, formatDate } from '../../lib/format'
+import { daysUntil, formatDate, formatPlainDate } from '../../lib/format'
 import type { AttachmentView, ClaimOrgView, ClaimStatus, PageResponse } from '../../lib/types'
 import { EmptyState, ErrorBanner, Notice, Spinner } from '../../components/Feedback'
 import { Button, Field, Select, TextInput } from '../../components/Form'
@@ -178,6 +178,15 @@ function ClaimCard({ claim, onChanged }: { claim: ClaimOrgView; onChanged: () =>
         )}
         {claim.trackingNumber && `・${claim.trackingCarrier} ${claim.trackingNumber}`}
       </p>
+
+      {claim.giftDescription && (
+        <p className="mt-2 text-sm text-slate-600">
+          禮物：{claim.giftDescription}
+          {claim.giftQuantity != null && `・${claim.giftQuantity} 份`}
+          {claim.giftPrice != null && `・${claim.giftPrice.toLocaleString('zh-TW')} 元`}
+          {claim.shippedOn && `・${formatPlainDate(claim.shippedOn)}寄出`}
+        </p>
+      )}
 
       {claim.donorMessage && (
         <p className="mt-3 rounded-lg bg-santa-50 px-3 py-2 text-sm text-slate-700">

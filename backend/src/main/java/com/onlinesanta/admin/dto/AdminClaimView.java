@@ -1,6 +1,7 @@
 package com.onlinesanta.admin.dto;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import com.onlinesanta.claim.Claim;
@@ -32,6 +33,10 @@ public record AdminClaimView(
         Instant completedAt,
         String trackingCarrier,
         String trackingNumber,
+        String giftDescription,
+        Integer giftQuantity,
+        Integer giftPrice,
+        LocalDate shippedOn,
         String releaseReason) {
 
     public static AdminClaimView from(Claim claim) {
@@ -54,6 +59,10 @@ public record AdminClaimView(
                 claim.getCompletedAt(),
                 claim.getTrackingCarrier(),
                 claim.getTrackingNumber(),
+                claim.getGiftDescription(),
+                claim.getGiftQuantity(),
+                claim.getGiftPrice(),
+                claim.getShippedOn(),
                 claim.getReleaseReason());
     }
 }

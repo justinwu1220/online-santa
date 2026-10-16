@@ -19,7 +19,7 @@ import com.onlinesanta.admin.AdminAuditLogRepository;
 import com.onlinesanta.admin.AdminAuditTargetType;
 import com.onlinesanta.attachment.dto.UploadUrlRequest;
 import com.onlinesanta.claim.dto.ReleaseRequest;
-import com.onlinesanta.claim.dto.ShipRequest;
+import com.onlinesanta.support.ShipRequests;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.storage.ObjectStorage;
@@ -129,7 +129,7 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
     private void shipReceiveComplete(UUID claimId) throws Exception {
         uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
+                ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
                 .andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/complete", claimId), ORG_USER))
@@ -183,7 +183,7 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
         UUID claimId = claimAs(publishedWish("回饋照片"), DONOR);
         uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
+                ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
                 .andExpect(status().isOk());
 
@@ -202,7 +202,7 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
         UUID claimId = claimAs(publishedWish("不是你家的回饋"), DONOR);
         uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
+                ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
                 .andExpect(status().isOk());
         Uploaded uploaded = uploadAs(AttachmentPurpose.ORG_FEEDBACK, claimId, ORG_USER);
@@ -217,7 +217,7 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
         UUID claimId = claimAs(publishedWish("捐贈者不能刪回饋"), DONOR);
         uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
+                ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
                 .andExpect(status().isOk());
         Uploaded uploaded = uploadAs(AttachmentPurpose.ORG_FEEDBACK, claimId, ORG_USER);
@@ -254,7 +254,7 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
         // 這裡要測的是「刪除會寫稽核」，不是寄送證明的必填規則本身
         uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
+                ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
                 .andExpect(status().isOk());
         Uploaded feedback = uploadAs(AttachmentPurpose.ORG_FEEDBACK, claimId, ORG_USER);

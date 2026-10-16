@@ -22,7 +22,7 @@ import jakarta.persistence.PersistenceContext;
 
 import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.claim.dto.ReleaseRequest;
-import com.onlinesanta.claim.dto.ShipRequest;
+import com.onlinesanta.support.ShipRequests;
 import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
@@ -109,7 +109,7 @@ class ClaimAnnualStatsApiIT extends ApiIntegrationTest {
     private void completeFully(UUID claimId, String donorEmail) throws Exception {
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, donorEmail);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                        new ShipRequest("郵局", "R123")), donorEmail))
+                        ShipRequests.of("郵局", "R123")), donorEmail))
                 .andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
                 .andExpect(status().isOk());

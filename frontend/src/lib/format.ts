@@ -8,6 +8,28 @@ export function formatDate(iso?: string) {
   })
 }
 
+/**
+ * 只有日期、沒有時間的值（後端的 LocalDate，如「寄出日期」）。
+ *
+ * 不能交給 formatDate：`new Date('2026-10-16')` 會被當成 UTC 午夜，再轉成當地時區，
+ * 在 UTC 以西的地方會顯示成前一天。這裡直接拆出年月日，不經過時區換算。
+ */
+export function formatPlainDate(ymd?: string) {
+  if (!ymd) return '—'
+  const [year, month, day] = ymd.split('-').map(Number)
+  return new Date(year, month - 1, day).toLocaleDateString('zh-TW', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  })
+}
+
+/** 今天（當地時區）的 YYYY-MM-DD，給 `<input type="date">` 的預設值與 max 用。 */
+export function todayPlainDate() {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
 export function formatDateTime(iso?: string) {
   if (!iso) return '—'
   return new Date(iso).toLocaleString('zh-TW', {

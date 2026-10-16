@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../lib/api'
-import { daysUntil, formatDate } from '../lib/format'
+import { daysUntil, formatDate, formatPlainDate, todayPlainDate } from '../lib/format'
 import { ACCEPTED_IMAGE_TYPES, MAX_SHIPPING_PROOFS, uploadImage, validateImage } from '../lib/upload'
 import type { AttachmentView, ClaimDonorView, ClaimEventView } from '../lib/types'
 import { Breadcrumb } from '../components/Breadcrumb'
@@ -113,6 +113,32 @@ export function ClaimDetail() {
                   <dt className="text-xs text-slate-400">追蹤碼</dt>
                   <dd className="mt-0.5 font-medium text-white">{data.trackingNumber}</dd>
                 </div>
+                {data.giftDescription && (
+                  <div className="col-span-2">
+                    <dt className="text-xs text-slate-400">實際禮物內容</dt>
+                    <dd className="mt-0.5 font-medium text-white">{data.giftDescription}</dd>
+                  </div>
+                )}
+                {data.giftQuantity != null && (
+                  <div>
+                    <dt className="text-xs text-slate-400">數量</dt>
+                    <dd className="mt-0.5 font-medium text-white">{data.giftQuantity} 份</dd>
+                  </div>
+                )}
+                {data.giftPrice != null && (
+                  <div>
+                    <dt className="text-xs text-slate-400">禮物價格</dt>
+                    <dd className="mt-0.5 font-medium text-white">
+                      {data.giftPrice.toLocaleString('zh-TW')} 元
+                    </dd>
+                  </div>
+                )}
+                {data.shippedOn && (
+                  <div>
+                    <dt className="text-xs text-slate-400">寄出日期</dt>
+                    <dd className="mt-0.5 font-medium text-white">{formatPlainDate(data.shippedOn)}</dd>
+                  </div>
+                )}
               </dl>
 
               <div className="mt-4 border-t border-white/10 pt-4">
@@ -244,7 +270,7 @@ function ShippingAddressPanel({ claim }: { claim: ClaimDonorView }) {
 }
 
 /**
- * 回報寄送：物流業者／追蹤碼／寄送證明照片一次送出。
+ * 回報寄送：物流業者／追蹤碼／禮物資訊／寄件單或包裹照片一次送出。
  *
  * 照片故意不用 ImageUploader 的「選到就立刻上傳」行為——這裡要的是「按下
  * 我已經寄出了」那一刻，照片跟物流資訊同時送出、一起檢查必填，所以先在
@@ -253,6 +279,11 @@ function ShippingAddressPanel({ claim }: { claim: ClaimDonorView }) {
 function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => void }) {
   const [carrier, setCarrier] = useState('')
   const [trackingNumber, setTrackingNumber] = useState('')
+  const [giftDescription, setGiftDescription] = useState('')
+  // 數字欄位用字串存：輸入到一半（空字串）不該被硬轉成 0
+  const [giftQuantity, setGiftQuantity] = useState('')
+  const [giftPrice, setGiftPrice] = useState('')
+  const [shippedOn, setShippedOn] = useState(todayPlainDate)
   const [photos, setPhotos] = useState<File[]>([])
   const [photoError, setPhotoError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -262,7 +293,14 @@ function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => void }) 
       for (const photo of photos) {
         await uploadImage('SHIPPING_PROOF', claimId, photo)
       }
-      return api.post(`/api/claims/${claimId}/ship`, { carrier, trackingNumber })
+      return api.post(`/api/claims/${claimId}/ship`, {
+        carrier,
+        trackingNumber,
+        giftDescription,
+        giftQuantity: Number(giftQuantity),
+        giftPrice: Number(giftPrice),
+        shippedOn,
+      })
     },
     onSuccess: onDone,
   })
@@ -284,7 +322,7 @@ function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => void }) 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     if (photos.length === 0) {
-      setPhotoError('請至少上傳一張寄送證明照片')
+      setPhotoError('請至少上傳一張寄件單或包裹照片')
       return
     }
     setPhotoError(null)
@@ -304,7 +342,34 @@ function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => void }) 
             onChange={(event) => setTrackingNumber(event.target.value)} />
         </Field>
       </div>
-      <Field label="寄送證明照片" required error={photoError ?? undefined}>
+      <div className="grid gap-4 sm:grid-cols-[1fr_9rem]">
+        <Field label="實際禮物內容" required>
+          <TextInput required maxLength={200} value={giftDescription}
+            placeholder="例如：繪本三本與文具組"
+            onChange={(event) => setGiftDescription(event.target.value)} />
+        </Field>
+        <Field label="數量" required>
+          <UnitInput unit="份" min={1} max={9999} value={giftQuantity}
+            onChange={setGiftQuantity} />
+        </Field>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="禮物價格" required inlineHint hint="以發票資訊為主">
+          <UnitInput unit="元" min={0} max={10000000} value={giftPrice}
+            onChange={setGiftPrice} />
+        </Field>
+        <Field label="寄出日期" required>
+          <TextInput required type="date" max={todayPlainDate()} value={shippedOn}
+            onChange={(event) => setShippedOn(event.target.value)} />
+        </Field>
+      </div>
+      {/* 不用 Field：它是 <label>，點到標籤範圍內任何地方都會被轉給裡面隱藏的
+          file input，結果點同一列就開啟檔案選擇。這裡改成 div，只有按鈕會觸發 */}
+      <div>
+        <span className="field-label text-sm font-medium text-slate-700">
+          上傳寄件單或包裹照片<span className="ml-0.5 text-berry-500">*</span>
+        </span>
+        <div className="mt-1.5">
         <input
           ref={fileInputRef}
           type="file"
@@ -334,12 +399,39 @@ function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => void }) 
             </Button>
           )}
         </div>
-      </Field>
+        </div>
+        {photoError && (
+          <span className="field-error mt-1 block text-xs text-berry-600">{photoError}</span>
+        )}
+      </div>
       {ship.isError && <ErrorBanner error={ship.error} />}
       <Button type="submit" disabled={ship.isPending}>
         {ship.isPending ? '送出中…' : '我已經寄出了'}
       </Button>
     </form>
+  )
+}
+
+/**
+ * 只能輸入整數的欄位，右側固定顯示單位。
+ *
+ * type="number" 仍然允許輸入 e、+、-、小數點，所以 onChange 再把非數字濾掉；
+ * 瀏覽器原生的 min/max 驗證留在送出時把關。
+ */
+function UnitInput({ unit, min, max, value, onChange }: {
+  unit: string; min: number; max: number
+  value: string; onChange: (next: string) => void
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <TextInput required type="number" inputMode="numeric" step={1} min={min} max={max}
+        value={value}
+        onKeyDown={(event) => {
+          if (['e', 'E', '+', '-', '.'].includes(event.key)) event.preventDefault()
+        }}
+        onChange={(event) => onChange(event.target.value.replace(/\D/g, ''))} />
+      <span className="shrink-0 text-sm text-slate-300">{unit}</span>
+    </div>
   )
 }
 

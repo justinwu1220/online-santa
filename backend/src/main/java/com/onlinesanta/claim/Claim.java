@@ -1,6 +1,7 @@
 package com.onlinesanta.claim;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import com.onlinesanta.common.BaseEntity;
@@ -77,6 +78,21 @@ public class Claim extends BaseEntity {
     @Column(name = "tracking_number", length = 80)
     private String trackingNumber;
 
+    @Column(name = "gift_description", length = 200)
+    private String giftDescription;
+
+    /** 份數，單位固定為「份」 */
+    @Column(name = "gift_quantity")
+    private Integer giftQuantity;
+
+    /** 新台幣整數 */
+    @Column(name = "gift_price")
+    private Integer giftPrice;
+
+    /** 捐贈者填的實際寄出日；與 shippedAt（回報的時間）不同 */
+    @Column(name = "shipped_on")
+    private LocalDate shippedOn;
+
     @Column(name = "donor_message", length = 500)
     private String donorMessage;
 
@@ -113,10 +129,15 @@ public class Claim extends BaseEntity {
 
     // ------------------------------------------------------------ 狀態流轉
 
-    public void markShipped(String carrier, String trackingNumber) {
+    public void markShipped(String carrier, String trackingNumber, String giftDescription,
+                            int giftQuantity, int giftPrice, LocalDate shippedOn) {
         transitionTo(ClaimStatus.SHIPPED);
         this.trackingCarrier = carrier;
         this.trackingNumber = trackingNumber;
+        this.giftDescription = giftDescription;
+        this.giftQuantity = giftQuantity;
+        this.giftPrice = giftPrice;
+        this.shippedOn = shippedOn;
         this.shippedAt = Instant.now();
     }
 
@@ -219,6 +240,22 @@ public class Claim extends BaseEntity {
 
     public String getTrackingCarrier() {
         return trackingCarrier;
+    }
+
+    public String getGiftDescription() {
+        return giftDescription;
+    }
+
+    public Integer getGiftQuantity() {
+        return giftQuantity;
+    }
+
+    public Integer getGiftPrice() {
+        return giftPrice;
+    }
+
+    public LocalDate getShippedOn() {
+        return shippedOn;
     }
 
     public String getTrackingNumber() {

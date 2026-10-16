@@ -2,7 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { formatDateTime } from '../../lib/format'
+import { formatDateTime, formatPlainDate } from '../../lib/format'
 import type {
   AdminClaimView, AdminMessageView, AttachmentView, ClaimEventView,
 } from '../../lib/types'
@@ -74,6 +74,16 @@ export function AdminClaimDetail() {
           {data.trackingNumber && (
             <Row label="物流" value={`${data.trackingCarrier} ${data.trackingNumber}`} />
           )}
+          {data.giftDescription && (
+            <div className="sm:col-span-2 lg:col-span-3">
+              <Row label="禮物內容" value={data.giftDescription} />
+            </div>
+          )}
+          {data.giftQuantity != null && <Row label="數量" value={`${data.giftQuantity} 份`} />}
+          {data.giftPrice != null && (
+            <Row label="禮物價格" value={`${data.giftPrice.toLocaleString('zh-TW')} 元`} />
+          )}
+          {data.shippedOn && <Row label="寄出日期" value={formatPlainDate(data.shippedOn)} />}
           {data.releaseReason && (
             <div className="sm:col-span-2 lg:col-span-3">
               <Row label="結束原因" value={data.releaseReason} />

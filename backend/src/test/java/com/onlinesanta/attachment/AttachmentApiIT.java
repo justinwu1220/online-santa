@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.onlinesanta.attachment.dto.UploadUrlRequest;
-import com.onlinesanta.claim.dto.ShipRequest;
+import com.onlinesanta.support.ShipRequests;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.storage.ObjectStorage;
@@ -431,7 +431,7 @@ class AttachmentApiIT extends ApiIntegrationTest {
         UUID claimId = claimAs(wishId, DONOR);
         uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                new ShipRequest("郵局", "R123")), DONOR)).andExpect(status().isOk());
+                ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
                 .andExpect(status().isOk());
 

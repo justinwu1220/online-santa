@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -14,7 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.claim.dto.ReleaseRequest;
-import com.onlinesanta.claim.dto.ShipRequest;
+import com.onlinesanta.support.ShipRequests;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.organization.ReleasePolicy;
@@ -213,16 +215,24 @@ class ClaimApiIT extends ApiIntegrationTest {
 
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                        new ShipRequest("黑貓宅急便", "TW1234567890")), DONOR))
+                        ShipRequests.of("黑貓宅急便", "TW1234567890")), DONOR))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SHIPPED"))
                 .andExpect(jsonPath("$.trackingNumber").value("TW1234567890"))
+                .andExpect(jsonPath("$.giftDescription").value("繪本與文具組"))
+                .andExpect(jsonPath("$.giftQuantity").value(1))
+                .andExpect(jsonPath("$.giftPrice").value(500))
+                .andExpect(jsonPath("$.shippedOn").value(LocalDate.now().toString()))
                 .andExpect(jsonPath("$.shippedAt").exists());
 
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RECEIVED"))
-                .andExpect(jsonPath("$.donorName").value("熱心民眾"));
+                .andExpect(jsonPath("$.donorName").value("熱心民眾"))
+                // 機構收貨時要能核對禮物
+                .andExpect(jsonPath("$.giftDescription").value("繪本與文具組"))
+                .andExpect(jsonPath("$.giftQuantity").value(1))
+                .andExpect(jsonPath("$.giftPrice").value(500));
 
         mvc.perform(as(post("/api/organizations/me/claims/{id}/complete", claimId), ORG_USER))
                 .andExpect(status().isOk())
@@ -245,16 +255,54 @@ class ClaimApiIT extends ApiIntegrationTest {
         UUID claimId = claimAs(publishedWish("還沒有證明照片"), DONOR);
 
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                        new ShipRequest("黑貓宅急便", "TW000")), DONOR))
+                        ShipRequests.of("黑貓宅急便", "TW000")), DONOR))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("SHIPPING_PROOF_REQUIRED"));
 
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
 
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                        new ShipRequest("黑貓宅急便", "TW000")), DONOR))
+                        ShipRequests.of("黑貓宅急便", "TW000")), DONOR))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SHIPPED"));
+    }
+
+    @Test
+    @DisplayName("回報寄送缺少禮物資訊或內容不合理會被拒絕")
+    void shippingRejectsMissingOrInvalidGiftDetails() throws Exception {
+        UUID claimId = claimAs(publishedWish("禮物資訊驗證"), DONOR);
+        uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
+
+        // 只有物流資訊：四個新欄位都必填
+        mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
+                        Map.of("carrier", "郵局", "trackingNumber", "R1")), DONOR))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.fieldErrors.giftDescription").exists())
+                .andExpect(jsonPath("$.fieldErrors.giftQuantity").exists())
+                .andExpect(jsonPath("$.fieldErrors.giftPrice").exists())
+                .andExpect(jsonPath("$.fieldErrors.shippedOn").exists());
+
+        // 數量 0、價格為負、寄出日期是明天
+        mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
+                        Map.of("carrier", "郵局", "trackingNumber", "R1",
+                                "giftDescription", "繪本", "giftQuantity", 0,
+                                "giftPrice", -1,
+                                "shippedOn", LocalDate.now().plusDays(1).toString())), DONOR))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.giftQuantity").exists())
+                .andExpect(jsonPath("$.fieldErrors.giftPrice").exists())
+                .andExpect(jsonPath("$.fieldErrors.shippedOn").exists());
+
+        // 價格 0 是合法的（自家物資）
+        mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
+                        Map.of("carrier", "郵局", "trackingNumber", "R1",
+                                "giftDescription", "繪本", "giftQuantity", 2,
+                                "giftPrice", 0,
+                                "shippedOn", LocalDate.now().toString())), DONOR))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.giftQuantity").value(2))
+                .andExpect(jsonPath("$.giftPrice").value(0));
     }
 
     @Test
@@ -263,7 +311,7 @@ class ClaimApiIT extends ApiIntegrationTest {
         UUID claimId = claimAs(publishedWish("歷程"), DONOR);
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                new ShipRequest("郵局", "R123")), DONOR));
+                ShipRequests.of("郵局", "R123")), DONOR));
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER));
 
         mvc.perform(as(get("/api/claims/{id}/timeline", claimId), DONOR))
@@ -318,7 +366,7 @@ class ClaimApiIT extends ApiIntegrationTest {
         UUID claimId = claimAs(publishedWish("已寄出"), DONOR);
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                new ShipRequest("郵局", "R999")), DONOR)).andExpect(status().isOk());
+                ShipRequests.of("郵局", "R999")), DONOR)).andExpect(status().isOk());
 
         mvc.perform(as(withBody(post("/api/organizations/me/claims/{id}/release", claimId),
                         new ReleaseRequest("想收回")), ORG_USER))
@@ -352,7 +400,7 @@ class ClaimApiIT extends ApiIntegrationTest {
                 .andExpect(status().isNotFound());
 
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                        new ShipRequest("郵局", "R000")), OTHER_DONOR))
+                        ShipRequests.of("郵局", "R000")), OTHER_DONOR))
                 .andExpect(status().isNotFound());
     }
 

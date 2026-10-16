@@ -22,7 +22,7 @@ import jakarta.persistence.PersistenceContext;
 
 import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.claim.dto.ReleaseRequest;
-import com.onlinesanta.claim.dto.ShipRequest;
+import com.onlinesanta.support.ShipRequests;
 import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.support.ApiIntegrationTest;
 import com.onlinesanta.support.TestJwtSupport;
@@ -125,7 +125,7 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
         UUID claim1 = claimAs(wish1, DONOR);
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claim1, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claim1),
-                        new ShipRequest("郵局", "R1")), DONOR)).andExpect(status().isOk());
+                        ShipRequests.of("郵局", "R1")), DONOR)).andExpect(status().isOk());
         completeFully(claim1, ORG_A);
 
         UUID wish2 = publishedWish(organizationA, "願望二");
@@ -179,7 +179,7 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
         UUID claimId = claimAs(wishId, DONOR);
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                        new ShipRequest("郵局", "R1")), DONOR)).andExpect(status().isOk());
+                        ShipRequests.of("郵局", "R1")), DONOR)).andExpect(status().isOk());
         completeFully(claimId, ORG_A);
 
         Instant claimedAt = TaiwanYear.startOf(2025).plus(360, ChronoUnit.DAYS);
@@ -264,7 +264,7 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
         UUID claimId = claimAs(publishedWish(organizationA, "甲機構的認領"), DONOR);
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                        new ShipRequest("郵局", "R1")), DONOR)).andExpect(status().isOk());
+                        ShipRequests.of("郵局", "R1")), DONOR)).andExpect(status().isOk());
         completeFully(claimId, ORG_A);
 
         int thisYear = TaiwanYear.currentYear();

@@ -177,6 +177,12 @@ interface ClaimBase {
   completedAt?: string
   trackingCarrier?: string
   trackingNumber?: string
+  /** 回報寄送時填寫的禮物資訊。舊資料沒有 */
+  giftDescription?: string
+  giftQuantity?: number
+  giftPrice?: number
+  /** 實際寄出日，YYYY-MM-DD */
+  shippedOn?: string
   donorMessage?: string
   releaseReason?: string
   unreadMessageCount: number
@@ -323,6 +329,10 @@ export interface AdminClaimView {
   completedAt?: string
   trackingCarrier?: string
   trackingNumber?: string
+  giftDescription?: string
+  giftQuantity?: number
+  giftPrice?: number
+  shippedOn?: string
   releaseReason?: string
 }
 
