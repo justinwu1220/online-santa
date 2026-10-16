@@ -56,6 +56,7 @@ function ProfileForm({ profile }: { profile: UserProfile }) {
   const queryClient = useQueryClient()
   const [form, setForm] = useState({
     displayName: profile.displayName,
+    name: profile.name ?? '',
     phone: profile.phone ?? '',
   })
 
@@ -93,8 +94,22 @@ function ProfileForm({ profile }: { profile: UserProfile }) {
     >
       <h2 className="font-semibold text-white">基本資料</h2>
 
+      <div className="space-y-2">
+        <Field label="真實姓名" error={fieldErrors?.name}
+          hint="用於捐贈收據與向衛福部申報的徵信名冊，不會顯示在網站上">
+          <TextInput maxLength={100} autoComplete="name"
+            value={form.name} onChange={update('name')} />
+        </Field>
+        <button type="button"
+          onClick={() => { setForm((current) => ({ ...current, name: '善心人士' })); clearSaveResult() }}
+          className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm
+            text-slate-200 transition-colors hover:border-white/20 hover:bg-white/10">
+          使用善心人士名義
+        </button>
+      </div>
+
       <Field label="用戶名稱" required error={fieldErrors?.displayName}
-        hint="認領願望時，機構端會看到這個名稱">
+        hint="機構和孩子看到的名字，可以用暱稱">
         <TextInput required maxLength={100}
           value={form.displayName} onChange={update('displayName')} />
       </Field>

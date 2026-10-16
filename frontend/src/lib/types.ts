@@ -19,6 +19,8 @@ export interface CurrentUser {
 /** 個人檔案設定頁使用的自身資料，見 GET/PATCH /api/me/profile */
 export interface UserProfile {
   displayName: string
+  /** 真實姓名，用於捐贈收據與徵信名冊。既有帳號可能沒有 */
+  name?: string
   phone?: string
   email: string
   emailVerified: boolean

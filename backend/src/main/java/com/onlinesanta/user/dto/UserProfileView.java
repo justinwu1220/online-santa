@@ -11,12 +11,13 @@ import com.onlinesanta.user.User;
  */
 public record UserProfileView(
         String displayName,
+        String name,
         String phone,
         String email,
         boolean emailVerified) {
 
     public static UserProfileView from(User user, boolean emailVerified) {
         return new UserProfileView(
-                user.getDisplayName(), user.getPhone(), user.getEmail(), emailVerified);
+                user.getDisplayName(), user.getName(), user.getPhone(), user.getEmail(), emailVerified);
     }
 }

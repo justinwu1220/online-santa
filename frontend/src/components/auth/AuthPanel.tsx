@@ -34,6 +34,8 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [confirmError, setConfirmError] = useState<string | null>(null)
+  const [name, setName] = useState('')
+  const [nameError, setNameError] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState('')
   const [displayNameError, setDisplayNameError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -48,6 +50,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
     setConfirmPassword('')
     setConfirmError(null)
     setDisplayNameError(null)
+    setNameError(null)
   }
 
   /** 使用者主動切換分頁：先前的加入意圖作廢（自動切換不走這裡） */
@@ -132,6 +135,10 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
     }
 
     if (registering) {
+      if (role === 'donor' && !name.trim()) {
+        setNameError('請輸入真實姓名，不想具名請按「使用善心人士名義」')
+        return
+      }
       if (role === 'donor' && !displayName.trim()) {
         setDisplayNameError('請輸入顯示名稱')
         return
@@ -143,7 +150,8 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
       onJoinIntent?.(role)
       // 機構的承辦人姓名在下一步跟機構資料一起填——它是機構的欄位，不是帳號的
       void run(() => auth.registerWithPassword(
-        email, password, role === 'donor' ? displayName.trim() : undefined))
+        email, password, role === 'donor' ? displayName.trim() : undefined,
+        role === 'donor' ? name.trim() : undefined))
       return
     }
 
@@ -205,7 +213,28 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
           )}
 
           {usingFirebase && registering && role === 'donor' && (
-            <Field label="顯示名稱" required hint="機構聯繫你時會看到這個名字"
+            <div className="space-y-2">
+              <Field label="真實姓名" required
+                hint="用於捐贈收據與向衛福部申報的徵信名冊，不會顯示在網站上"
+                error={nameError ?? undefined}>
+                <TextInput required maxLength={100} autoComplete="name" value={name}
+                  placeholder="王大明"
+                  onChange={(event) => {
+                    setName(event.target.value)
+                    setNameError(null)
+                  }} />
+              </Field>
+              <button type="button"
+                onClick={() => { setName('善心人士'); setNameError(null) }}
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm
+                  text-slate-200 transition-colors hover:border-white/20 hover:bg-white/10">
+                使用善心人士名義
+              </button>
+            </div>
+          )}
+
+          {usingFirebase && registering && role === 'donor' && (
+            <Field label="顯示名稱" required hint="機構和孩子看到的名字，可以用暱稱"
               error={displayNameError ?? undefined}>
               <TextInput required maxLength={100} value={displayName}
                 placeholder="王小明"

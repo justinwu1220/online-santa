@@ -26,6 +26,7 @@ class MeProfileApiIT extends ApiIntegrationTest {
                 // 不是這個端點自己做的事
                 .andExpect(jsonPath("$.displayName").value(USER))
                 .andExpect(jsonPath("$.emailVerified").value(true))
+                .andExpect(jsonPath("$.name").doesNotExist())
                 .andExpect(jsonPath("$.phone").doesNotExist());
     }
 
@@ -33,16 +34,18 @@ class MeProfileApiIT extends ApiIntegrationTest {
     void updatesDisplayNameAndPhone() throws Exception {
         mvc.perform(as(get("/api/me"), USER)).andExpect(status().isOk());
 
-        var update = new UserProfileUpdateRequest("王小明", "0912-345-678");
+        var update = new UserProfileUpdateRequest("王小明", "王大明", "0912-345-678");
 
         mvc.perform(as(withBody(patch("/api/me/profile"), update), USER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.displayName").value("王小明"))
+                .andExpect(jsonPath("$.name").value("王大明"))
                 .andExpect(jsonPath("$.phone").value("0912-345-678"));
 
         mvc.perform(as(get("/api/me/profile"), USER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.displayName").value("王小明"))
+                .andExpect(jsonPath("$.name").value("王大明"))
                 .andExpect(jsonPath("$.phone").value("0912-345-678"));
     }
 
@@ -50,7 +53,7 @@ class MeProfileApiIT extends ApiIntegrationTest {
     void rejectsBlankDisplayName() throws Exception {
         mvc.perform(as(get("/api/me"), USER)).andExpect(status().isOk());
 
-        var invalid = new UserProfileUpdateRequest("   ", null);
+        var invalid = new UserProfileUpdateRequest("   ", null, null);
 
         mvc.perform(as(withBody(patch("/api/me/profile"), invalid), USER))
                 .andExpect(status().isBadRequest())
@@ -63,7 +66,7 @@ class MeProfileApiIT extends ApiIntegrationTest {
         mvc.perform(asUnverified(get("/api/me"), "unverified@example.com"))
                 .andExpect(status().isOk());
 
-        var update = new UserProfileUpdateRequest("未驗證的人", null);
+        var update = new UserProfileUpdateRequest("未驗證的人", null, null);
 
         mvc.perform(asUnverified(withBody(patch("/api/me/profile"), update),
                         "unverified@example.com"))

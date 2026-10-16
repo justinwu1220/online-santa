@@ -9,6 +9,10 @@ public record UserProfileUpdateRequest(
         @Size(max = 100, message = "用戶名稱長度不可超過 100 字")
         String displayName,
 
+        /** 真實姓名。選填：既有帳號與機構成員沒有這個資料，不該因此無法儲存其他欄位 */
+        @Size(max = 100, message = "真實姓名長度不可超過 100 字")
+        String name,
+
         @Size(max = 40, message = "連絡電話長度不可超過 40 字")
         String phone) {
 }

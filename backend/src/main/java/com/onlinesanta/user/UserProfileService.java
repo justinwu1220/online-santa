@@ -38,7 +38,7 @@ public class UserProfileService {
     public UserProfileView updateMine(UserProfileUpdateRequest request) {
         AppPrincipal principal = currentUser.require();
         User user = loadUser(principal.userId());
-        user.updateProfile(request.displayName(), request.phone());
+        user.updateProfile(request.displayName(), request.name(), request.phone());
         return UserProfileView.from(user, principal.emailVerified());
     }
 

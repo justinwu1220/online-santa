@@ -144,7 +144,7 @@ function FirebaseAuthProvider({ children }: { children: ReactNode }) {
   }, [auth])
 
   const registerWithPassword = useCallback(
-    async (email: string, password: string, displayName?: string) => {
+    async (email: string, password: string, displayName?: string, name?: string) => {
       if (!auth) return
       const credential = await auth.createUserWithEmailAndPassword(auth.auth, email, password)
       if (displayName) {
@@ -164,7 +164,7 @@ function FirebaseAuthProvider({ children }: { children: ReactNode }) {
           await fetch(`${API_BASE_URL}/api/me/profile`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ displayName }),
+            body: JSON.stringify({ displayName, name }),
           })
         } catch (error) {
           console.warn('註冊後補寫顯示名稱失敗，不影響註冊本身', error)

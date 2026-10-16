@@ -32,7 +32,9 @@ export interface AuthState {
   signIn: (email?: string) => Promise<void>
   signInWithPassword: (email: string, password: string) => Promise<void>
   /** 註冊並自動寄出驗證信 */
-  registerWithPassword: (email: string, password: string, displayName?: string) => Promise<void>
+  registerWithPassword: (
+    email: string, password: string, displayName?: string, name?: string,
+  ) => Promise<void>
   sendPasswordReset: (email: string) => Promise<void>
   resendVerification: () => Promise<void>
   /** 使用者在另一個分頁點完驗證信後，重新讀取狀態 */

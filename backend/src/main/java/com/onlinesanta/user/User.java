@@ -30,6 +30,13 @@ public class User extends BaseEntity {
     @Column(name = "display_name", length = 100)
     private String displayName;
 
+    /**
+     * 真實姓名，用於捐贈收據與徵信名冊。不是 displayName——後者會顯示給機構，
+     * 這個欄位不得出現在任何對外的回應裡，只有本人的個人檔案看得到。
+     */
+    @Column(length = 100)
+    private String name;
+
     @Column(length = 40)
     private String phone;
 
@@ -95,8 +102,9 @@ public class User extends BaseEntity {
     }
 
     /** 使用者於個人檔案頁自行維護的資料。 */
-    public void updateProfile(String displayName, String phone) {
+    public void updateProfile(String displayName, String name, String phone) {
         this.displayName = displayName;
+        this.name = name == null || name.isBlank() ? null : name.trim();
         this.phone = phone;
     }
 
@@ -123,6 +131,10 @@ public class User extends BaseEntity {
 
     public String getDisplayName() {
         return displayName;
+    }
+
+    public String getName() {
+        return name;
     }
 
     public String getPhone() {
