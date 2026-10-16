@@ -7,11 +7,10 @@ import { ConsoleLayout } from '../../components/layouts/ConsoleLayout'
 /**
  * 監控中心的外框。
  *
- * 主網站沒有任何連往這裡的連結——要進來只能直接輸入網址。這不是安全機制
- * （真正的保護是後端的 hasRole('ADMIN')），只是減少誤闖。這一條說的是「進來」
- * 的方向；logo 區塊的平台名稱那一半是刻意反過來的「離開」出口，見
- * ConsoleLayout 裡的說明——homePath 這裡仍然給 /admin（後台名稱那一半用），
- * 不是說監控中心完全不能連回主網站。
+ * 入口是管理員登入後在願望牆頁首看到的「監控中心」按鈕，一般使用者看不到。這不是
+ * 安全機制（真正的保護是後端的 hasRole('ADMIN')）。logo 區塊的平台名稱那一半是
+ * 「離開」出口，見 ConsoleLayout 裡的說明——homePath 這裡仍然給 /admin（後台名稱
+ * 那一半用）。
  */
 export function AdminLayout() {
   // 待審核數放在導覽上，管理員一進來就看得到有事要處理

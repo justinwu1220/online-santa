@@ -1,13 +1,16 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../lib/authContext'
 import { PLATFORM_NAME, pageTitle } from '../lib/brand'
-import { AuthPanel } from '../components/auth/AuthPanel'
+import { AuthPanel, type JoinRole } from '../components/auth/AuthPanel'
 import { Snowfall } from '../components/Snowfall'
 import { Spinner } from '../components/Feedback'
 
 /**
- * 主網站的登入頁。
+ * 全站唯一的登入／註冊頁，認領者、機構、管理員都從這裡進來。
+ *
+ * 登入後一律回願望牆（或 `?next=` 指定的地方），後台由頁首的按鈕進入。
+ * 例外是剛註冊機構帳號的人：直接接著填機構資料，否則他會落在一個沒有機構的空帳號上。
  *
  * 已登入的人直接導回原本要去的地方——這一頁只是通道，不該卡住任何人。
  *
@@ -18,6 +21,11 @@ export function LoginPage() {
   const { email, loading } = useAuth()
   const [searchParams] = useSearchParams()
   const next = searchParams.get('next')
+  const initialTab = searchParams.get('tab') === 'register' ? 'register' : 'signIn'
+  const initialRole: JoinRole | null = initialTab === 'register' && searchParams.get('as') === 'org'
+    ? 'org' : null
+  // 在送出動作之前就設定好（見 AuthPanel）：登入一成功頁面就會重新 render 並導走
+  const [joinIntent, setJoinIntent] = useState<JoinRole | null>(null)
 
   useEffect(() => {
     document.title = pageTitle('登入')
@@ -25,7 +33,9 @@ export function LoginPage() {
   }, [])
 
   if (loading) return <Spinner />
-  if (email) return <Navigate to={next ?? '/'} replace />
+  if (email) {
+    return <Navigate to={joinIntent === 'org' ? '/org/apply' : next ?? '/'} replace />
+  }
 
   return (
     <div className="theme-night flex min-h-screen items-center justify-center px-4 py-10
@@ -46,8 +56,9 @@ export function LoginPage() {
 
         <div className="glass-card p-8">
           <AuthPanel
-            hint="登入後就能認領願望，並追蹤寄送進度。"
-            registerHint="建立帳號之後，你就能挑一個孩子的願望來實現。"
+            initialTab={initialTab}
+            initialRole={initialRole}
+            onJoinIntent={setJoinIntent}
           />
         </div>
 

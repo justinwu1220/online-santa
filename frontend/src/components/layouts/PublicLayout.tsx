@@ -12,8 +12,8 @@ import { Button } from '../Form'
  * 願望牆對所有人公開——人要先看見孩子的願望才會考慮註冊，把牆擋在登入後會直接
  * 殺掉轉換率。認領與查看紀錄才需要登入。
  *
- * 機構入口放在頁尾，不放主導覽：捐贈者是主要對象，機構是少數但知道自己要找什麼。
- * 監控中心完全不出現在這裡。
+ * 機構註冊入口放在頁尾，不放主導覽：捐贈者是主要對象，機構是少數但知道自己要找什麼。
+ * 登入後機構與管理員的後台按鈕出現在右上角。
  *
  * 視覺上是深色玻璃質感（見 docs/DESIGN.md）。深色底鋪在 fixed 圖層而不是改 body，
  * 因為機構後台與監控中心共用同一個 body，那兩個是工作介面要維持亮色。
@@ -56,9 +56,8 @@ export function PublicLayout() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6
           text-sm text-slate-400">
           <p>願望屬於孩子，故事屬於每一個願意伸手的人。</p>
-          {/* 指向 /org/login 而非直接進註冊頁：那一頁未登入時是「登入／申請」的
-              選擇畫面，兩種人都有路走。直接送去註冊頁會讓回頭的機構找不到登入 */}
-          <Link to="/org/login" className="text-emerald-300 hover:underline">
+          {/* 直接帶到註冊分頁並預選機構身分；回頭的機構在同一頁切到「登入」即可 */}
+          <Link to="/login?tab=register&as=org" className="text-emerald-300 hover:underline">
             我是兒童機構 →
           </Link>
         </div>
@@ -72,6 +71,10 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'
   }`
 
+const consoleButtonClass = `rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-2
+  text-sm font-bold text-emerald-100 backdrop-blur-md transition-colors
+  hover:border-emerald-400/50 hover:bg-emerald-500/25 hover:text-white`
+
 function AuthControls() {
   const { email, loading, signOut } = useAuth()
   const me = useCurrentUser()
@@ -84,10 +87,13 @@ function AuthControls() {
   if (email) {
     return (
       <div className="flex items-center gap-3">
-        {/* 機構成員誤入主網站時，給他一條回後台的路。用生效角色判斷——
-            信箱還沒驗證的人進不了後台，這時給連結只會把他彈回登入頁 */}
+        {/* 登入後一律落在願望牆，機構與管理員從這裡進後台。用生效角色判斷——
+            信箱還沒驗證的人進不了後台，這時給按鈕只會把他彈回來 */}
         {effectiveRoleOf(me.data) === 'ORG_MEMBER' && (
-          <Link to="/org" className="text-sm text-emerald-300 hover:underline">機構後台</Link>
+          <Link to="/org" className={consoleButtonClass}>機構後台</Link>
+        )}
+        {effectiveRoleOf(me.data) === 'ADMIN' && (
+          <Link to="/admin" className={consoleButtonClass}>監控中心</Link>
         )}
         {/* 帳號圖示取代原本直接顯示 email 的做法：點進去是個人檔案頁，
             title 帶 email 讓 hover 還看得到自己是誰 */}
@@ -115,12 +121,7 @@ function AuthControls() {
   return (
     // 玻璃質感而非實心漸層：頁首整條是半透明的，一顆飽和的按鈕會從那層玻璃上浮出來。
     // 綠色而非紅色——與站內的主要按鈕一致，紅色在這套配色裡只代表危險與逾期
-    <Link
-      to={`/login?next=${next}`}
-      className="rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-sm
-        font-bold text-emerald-100 backdrop-blur-md transition-colors
-        hover:border-emerald-400/50 hover:bg-emerald-500/25 hover:text-white"
-    >
+    <Link to={`/login?next=${next}`} className={consoleButtonClass}>
       登入 / 註冊
     </Link>
   )

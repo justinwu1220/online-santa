@@ -68,7 +68,7 @@ export function OrgApply() {
 
   if (auth.loading) return <Spinner />
   // 還沒有帳號：回步驟一
-  if (!auth.email) return <Navigate to="/org/register" replace />
+  if (!auth.email) return <Navigate to="/login?tab=register&as=org" replace />
 
   if (me.isLoading) return <Spinner label="確認身分" />
   if (me.isError) {

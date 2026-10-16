@@ -11,14 +11,14 @@ import { ErrorBanner, Notice, Spinner } from './Feedback'
  * 三種狀態都要處理好，否則會出現很糟的閃爍：身分還沒查回來時顯示 spinner，
  * 不能先閃一次「無權限」；查不到身分（後端掛了）要說出來，不能靜靜地擋住。
  *
- * @param loginPath 未登入時導向哪個登入頁。三個區域各有自己的入口
- * @param wrongRole 角色不符時的行為。後台用 `redirect` 把人擋回自己的登入頁，
- *                  主網站用預設的 `explain`——機構成員來看自己的認領頁並沒有走錯
- *                  入口，把他彈到登入頁只會莫名其妙
+ * 未登入一律導到 `/login`，登入後再回到原本要去的地方。
+ *
+ * @param wrongRole 角色不符時的行為。後台用 `redirect` 送回願望牆——不能送回登入頁，
+ *                  登入頁看到已登入的人會導回 next，兩邊會互相導向形成無限重導。
+ *                  主網站用預設的 `explain`——機構成員來看自己的認領頁並沒有走錯入口
  */
-export function RequireRole({ role, loginPath, wrongRole = 'explain', children }: {
+export function RequireRole({ role, wrongRole = 'explain', children }: {
   role: UserRole
-  loginPath: string
   wrongRole?: 'explain' | 'redirect'
   children: ReactNode
 }) {
@@ -29,7 +29,7 @@ export function RequireRole({ role, loginPath, wrongRole = 'explain', children }
   if (!email) {
     // 帶上原本要去的地方，登入後才回得來
     const next = encodeURIComponent(location.pathname + location.search)
-    return <Navigate to={`${loginPath}?next=${next}`} replace />
+    return <Navigate to={`/login?next=${next}`} replace />
   }
 
   if (me.isLoading) {
@@ -49,9 +49,7 @@ export function RequireRole({ role, loginPath, wrongRole = 'explain', children }
 
   if (actual !== role) {
     if (wrongRole === 'redirect') {
-      // 登入頁必須自己也懂角色，否則兩邊會互相導向形成無限重導
-      const next = encodeURIComponent(location.pathname + location.search)
-      return <Navigate to={`${loginPath}?next=${next}`} replace />
+      return <Navigate to="/" replace />
     }
     return <WrongRole actual={actual} expected={role} />
   }

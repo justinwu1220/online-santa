@@ -78,7 +78,7 @@ React 19 + TypeScript + Vite + Tailwind v4，涵蓋願望牆、認領流程、�
 | Firebase | 設定了 `VITE_FIREBASE_API_KEY` 與 `VITE_FIREBASE_PROJECT_ID` | `Authorization: Bearer <ID token>` |
 | 開發 | 未設定 Firebase | `X-Dev-User-Email` |
 
-登入方式有 email/密碼與 Google 兩種，三個入口都適用。
+登入方式為 email/密碼。三種角色（認領者、機構、管理員）統一從 `/login` 登入，註冊時選擇認領者或機構身分；登入後回到願望牆，機構與管理員從右上角按鈕進入後台。
 
 ### 信箱驗證
 
