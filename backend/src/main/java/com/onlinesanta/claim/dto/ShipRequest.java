@@ -2,12 +2,13 @@ package com.onlinesanta.claim.dto;
 
 import java.time.LocalDate;
 
+import com.onlinesanta.common.NotFutureInTaiwan;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 
 /** 捐贈者回報寄送資訊。禮物資訊供機構收貨時核對，全部必填。 */
@@ -37,7 +38,7 @@ public record ShipRequest(
         Integer giftPrice,
 
         @NotNull(message = "請選擇寄出日期")
-        @PastOrPresent(message = "寄出日期不可是未來的日期")
+        @NotFutureInTaiwan(message = "寄出日期不可是未來的日期")
         LocalDate shippedOn,
 
         /** 捐贈收據資料。選填：null 代表不申請；有值時每個欄位都必填，且要先上傳發票證明 */

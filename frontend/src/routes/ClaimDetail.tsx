@@ -401,33 +401,34 @@ function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => void }) 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="物流業者" required>
+        <Field label="物流業者" required error={fieldErrors?.carrier}>
           <TextInput required maxLength={60} value={carrier}
             placeholder="黑貓宅急便、郵局…"
             onChange={(event) => setCarrier(event.target.value)} />
         </Field>
-        <Field label="追蹤碼" required>
+        <Field label="追蹤碼" required error={fieldErrors?.trackingNumber}>
           <TextInput required maxLength={80} value={trackingNumber}
             onChange={(event) => setTrackingNumber(event.target.value)} />
         </Field>
       </div>
       <div className="grid gap-4 sm:grid-cols-[1fr_9rem]">
-        <Field label="實際禮物內容" required>
+        <Field label="實際禮物內容" required error={fieldErrors?.giftDescription}>
           <TextInput required maxLength={200} value={giftDescription}
             placeholder="例如：繪本三本與文具組"
             onChange={(event) => setGiftDescription(event.target.value)} />
         </Field>
-        <Field label="數量" required>
+        <Field label="數量" required error={fieldErrors?.giftQuantity}>
           <UnitInput unit="份" min={1} max={9999} value={giftQuantity}
             onChange={setGiftQuantity} />
         </Field>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="禮物價格" required inlineHint hint="以發票資訊為主">
+        <Field label="禮物價格" required inlineHint hint="以發票資訊為主"
+          error={fieldErrors?.giftPrice}>
           <UnitInput unit="元" min={0} max={10000000} value={giftPrice}
             onChange={setGiftPrice} />
         </Field>
-        <Field label="寄出日期" required>
+        <Field label="寄出日期" required error={fieldErrors?.shippedOn}>
           <TextInput required type="date" max={todayPlainDate()} value={shippedOn}
             onChange={(event) => setShippedOn(event.target.value)} />
         </Field>

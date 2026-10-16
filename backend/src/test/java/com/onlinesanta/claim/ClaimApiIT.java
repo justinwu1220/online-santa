@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.claim.dto.ReleaseRequest;
+import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.support.ShipRequests;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
@@ -222,7 +223,7 @@ class ClaimApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.giftDescription").value("繪本與文具組"))
                 .andExpect(jsonPath("$.giftQuantity").value(1))
                 .andExpect(jsonPath("$.giftPrice").value(500))
-                .andExpect(jsonPath("$.shippedOn").value(LocalDate.now().toString()))
+                .andExpect(jsonPath("$.shippedOn").value(LocalDate.now(TaiwanYear.ZONE).toString()))
                 .andExpect(jsonPath("$.shippedAt").exists());
 
         mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
@@ -288,7 +289,7 @@ class ClaimApiIT extends ApiIntegrationTest {
                         Map.of("carrier", "郵局", "trackingNumber", "R1",
                                 "giftDescription", "繪本", "giftQuantity", 0,
                                 "giftPrice", -1,
-                                "shippedOn", LocalDate.now().plusDays(1).toString())), DONOR))
+                                "shippedOn", LocalDate.now(TaiwanYear.ZONE).plusDays(1).toString())), DONOR))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors.giftQuantity").exists())
                 .andExpect(jsonPath("$.fieldErrors.giftPrice").exists())
@@ -299,7 +300,7 @@ class ClaimApiIT extends ApiIntegrationTest {
                         Map.of("carrier", "郵局", "trackingNumber", "R1",
                                 "giftDescription", "繪本", "giftQuantity", 2,
                                 "giftPrice", 0,
-                                "shippedOn", LocalDate.now().toString())), DONOR))
+                                "shippedOn", LocalDate.now(TaiwanYear.ZONE).toString())), DONOR))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.giftQuantity").value(2))
                 .andExpect(jsonPath("$.giftPrice").value(0));

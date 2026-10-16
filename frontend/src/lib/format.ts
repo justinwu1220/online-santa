@@ -22,12 +22,15 @@ export function formatPlainDate(ymd?: string) {
   })
 }
 
-/** 今天（當地時區）的 YYYY-MM-DD，給 `<input type="date">` 的預設值與 max 用。 */
+/**
+ * 今天（台灣時區）的 YYYY-MM-DD，給 `<input type="date">` 的預設值與 max 用。
+ *
+ * 固定用 Asia/Taipei 而不是瀏覽器的時區：後端判斷「日期不可是未來」也是以台灣的今天為準，
+ * 兩邊要同一個標準，不然人在境外時預設值會被後端擋下。
+ */
 export function todayPlainDate() {
-  const now = new Date()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${now.getFullYear()}-${month}-${day}`
+  // en-CA 的日期格式剛好是 YYYY-MM-DD
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' })
 }
 
 export function formatDateTime(iso?: string) {
