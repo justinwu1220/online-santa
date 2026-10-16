@@ -45,6 +45,8 @@ public record ClaimDonorView(
         Integer giftPrice,
         LocalDate shippedOn,
         String donorMessage,
+        /** 是否申請了捐贈收據（只有旗標，收據資料不在這裡） */
+        boolean receiptRequested,
         String releaseReason,
         long unreadMessageCount) {
 
@@ -82,6 +84,7 @@ public record ClaimDonorView(
                 claim.getGiftPrice(),
                 claim.getShippedOn(),
                 claim.getDonorMessage(),
+                claim.isReceiptRequested(),
                 claim.getReleaseReason(),
                 unreadMessageCount);
     }

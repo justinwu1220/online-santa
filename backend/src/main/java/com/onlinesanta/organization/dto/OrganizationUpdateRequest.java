@@ -14,7 +14,6 @@ import jakarta.validation.constraints.Size;
  *
  * <p>審核狀態不在其中——那只能由平台管理員變更（M3）。
  */
-@AtLeastOnePhone
 public record OrganizationUpdateRequest(
         @NotBlank(message = "機構名稱不可為空")
         @Size(max = 120)
@@ -29,12 +28,12 @@ public record OrganizationUpdateRequest(
         @Size(max = 255)
         String contactEmail,
 
-        // 跟註冊時一致：兩種電話至少填一個（@AtLeastOnePhone），不是各自必填，
-        // 否則機構在設定頁想只留手機、清掉市話會被擋下來。地址則維持個別必填
-        // ——少了它，捐贈者的認領詳情頁就顯示不出寄送地址
+        // 跟註冊時一致：只有行動電話必填，聯絡電話選填，機構想清掉市話不會被擋。
+        // 地址維持個別必填——少了它，捐贈者的認領詳情頁就顯示不出寄送地址
         @Size(max = 40)
         String contactPhone,
 
+        @NotBlank(message = "行動電話不可為空")
         @Size(max = 40, message = "行動電話不可超過 40 字")
         String mobilePhone,
 
@@ -55,5 +54,5 @@ public record OrganizationUpdateRequest(
         /** 僅 releasePolicy = AUTO 時有意義；MANUAL 時會被忽略。 */
         @Min(value = 1, message = "寬限天數至少 1 天")
         @Max(value = 60, message = "寬限天數最多 60 天")
-        Integer releaseAfterDays) implements AtLeastOnePhone.Phones {
+        Integer releaseAfterDays) {
 }

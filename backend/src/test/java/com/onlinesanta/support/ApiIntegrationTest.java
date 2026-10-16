@@ -14,7 +14,9 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.onlinesanta.attachment.Attachment;
 import com.onlinesanta.attachment.AttachmentPurpose;
+import com.onlinesanta.attachment.AttachmentRepository;
 import com.onlinesanta.attachment.dto.UploadUrlRequest;
 import com.onlinesanta.storage.ObjectStorage;
 
@@ -36,6 +38,20 @@ public abstract class ApiIntegrationTest extends PostgresIntegrationTest {
 
     @Autowired
     protected ObjectStorage storage;
+
+    @Autowired
+    private AttachmentRepository attachmentRepository;
+
+    /**
+     * 直接寫入一份已確認的機構證明文件。給沒有機構成員、無法走上傳流程的測試機構用
+     * （核准前要求至少有一份文件）。
+     */
+    protected void givenConfirmedOrganizationDocument(UUID organizationId) {
+        Attachment document = Attachment.pending(AttachmentPurpose.ORG_DOCUMENT, organizationId,
+                "org-documents/" + UUID.randomUUID() + ".jpg", "image/jpeg", null, null);
+        document.confirm("image/jpeg", 120_000);
+        attachmentRepository.save(document);
+    }
 
     /**
      * 以指定的 email 作為操作者發送請求。
@@ -73,7 +89,13 @@ public abstract class ApiIntegrationTest extends PostgresIntegrationTest {
      */
     protected UUID uploadConfirmedAttachment(AttachmentPurpose purpose, UUID targetId, String userEmail)
             throws Exception {
-        var request = new UploadUrlRequest(purpose, targetId, "image/jpeg", 120_000);
+        return uploadConfirmedAttachment(purpose, targetId, userEmail, "image/jpeg");
+    }
+
+    /** 同上，可指定內容類型（例如測試 PDF）。 */
+    protected UUID uploadConfirmedAttachment(AttachmentPurpose purpose, UUID targetId, String userEmail,
+                                             String contentType) throws Exception {
+        var request = new UploadUrlRequest(purpose, targetId, contentType, 120_000);
         String body = mvc.perform(as(withBody(post("/api/uploads/signed-url"), request), userEmail))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
@@ -85,7 +107,7 @@ public abstract class ApiIntegrationTest extends PostgresIntegrationTest {
                 uploadUrl.indexOf(purpose.prefix()), uploadUrl.indexOf('?'));
 
         ((InMemoryObjectStorage) storage)
-                .simulateUpload(purpose.bucket(), objectName, "image/jpeg", 120_000);
+                .simulateUpload(purpose.bucket(), objectName, contentType, 120_000);
 
         mvc.perform(as(post("/api/attachments/{id}/confirm", attachmentId), userEmail))
                 .andExpect(status().isOk());

@@ -133,6 +133,15 @@ export const MAX_ORG_DOCUMENT_BYTES = MAX_IMAGE_BYTES
 // 日後改了後端卻漏改其中一處前端
 export const MAX_ORG_DOCUMENTS = 3
 
+// 捐贈收據的發票證明：電子發票常是 PDF，所以圖檔與 PDF 都收。跟後端
+// AttachmentPurpose.RECEIPT_PROOF 一致（私密 bucket，只有管理員看得到）
+export const ACCEPTED_RECEIPT_PROOF_TYPES = [...ACCEPTED_IMAGE_TYPES, 'application/pdf'] as const
+export const MAX_RECEIPT_PROOFS = 3
+
+export function validateReceiptProof(file: File): string | null {
+  return validateFile(file, ACCEPTED_RECEIPT_PROOF_TYPES, MAX_IMAGE_BYTES, '圖檔（JPEG/PNG/WebP）或 PDF')
+}
+
 export function validateOrgDocument(file: File): string | null {
   return validateFile(file, ACCEPTED_ORG_DOCUMENT_TYPES, MAX_ORG_DOCUMENT_BYTES, '圖檔（JPEG/PNG/WebP）或 PDF')
 }

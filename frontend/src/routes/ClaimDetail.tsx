@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { api } from '../lib/api'
+import { ApiError, api } from '../lib/api'
 import { daysUntil, formatDate, formatPlainDate, todayPlainDate } from '../lib/format'
-import { ACCEPTED_IMAGE_TYPES, MAX_SHIPPING_PROOFS, uploadImage, validateImage } from '../lib/upload'
-import type { AttachmentView, ClaimDonorView, ClaimEventView } from '../lib/types'
+import {
+  ACCEPTED_IMAGE_TYPES, ACCEPTED_RECEIPT_PROOF_TYPES, MAX_RECEIPT_PROOFS, MAX_SHIPPING_PROOFS,
+  uploadImage, validateImage, validateReceiptProof,
+} from '../lib/upload'
+import type { AttachmentView, ClaimDonorView, ClaimEventType, ClaimEventView, ClaimStatus } from '../lib/types'
 import { Breadcrumb } from '../components/Breadcrumb'
 import { ErrorBanner, Notice, Spinner } from '../components/Feedback'
 import { Button, Field, TextInput } from '../components/Form'
@@ -139,6 +142,12 @@ export function ClaimDetail() {
                     <dd className="mt-0.5 font-medium text-white">{formatPlainDate(data.shippedOn)}</dd>
                   </div>
                 )}
+                {data.receiptRequested && (
+                  <div>
+                    <dt className="text-xs text-slate-400">捐贈收據</dt>
+                    <dd className="mt-0.5 font-medium text-white">已申請</dd>
+                  </div>
+                )}
               </dl>
 
               <div className="mt-4 border-t border-white/10 pt-4">
@@ -172,7 +181,7 @@ export function ClaimDetail() {
 
         <Panel title="進度">
           {timeline.isLoading ? <Spinner label="載入歷程" /> : (
-            <Timeline events={timeline.data ?? []} />
+            <Timeline events={timeline.data ?? []} pendingSteps={pendingStepsFor(data.status)} />
           )}
         </Panel>
       </div>
@@ -192,6 +201,24 @@ function Panel({ title, action, children }: {
       {children}
     </section>
   )
+}
+
+/** 認領的主流程。每一步對應一個歷程事件，順序就是實際會走的順序。 */
+const CLAIM_FLOW: { status: ClaimStatus; event: ClaimEventType }[] = [
+  { status: 'CLAIMED', event: 'CLAIMED' },
+  { status: 'SHIPPED', event: 'SHIPPED' },
+  { status: 'RECEIVED', event: 'RECEIVED' },
+  { status: 'COMPLETED', event: 'COMPLETED' },
+]
+
+/**
+ * 還沒走到的步驟。認領已經結束（收回、逾期自動收回、取消）時流程不可能再往下走，
+ * 就不列——狀態不在主流程裡的一律回傳空陣列。
+ */
+function pendingStepsFor(status: ClaimStatus): ClaimEventType[] {
+  const current = CLAIM_FLOW.findIndex((step) => step.status === status)
+  if (current < 0) return []
+  return CLAIM_FLOW.slice(current + 1).map((step) => step.event)
 }
 
 function ShipDeadlineNotice({ deadline }: { deadline?: string }) {
@@ -269,12 +296,17 @@ function ShippingAddressPanel({ claim }: { claim: ClaimDonorView }) {
   )
 }
 
+const RECEIPT_ID_PATTERN = /^([A-Za-z][A-Da-d0-9]\d{8}|\d{8})$/
+
 /**
- * 回報寄送：物流業者／追蹤碼／禮物資訊／寄件單或包裹照片一次送出。
+ * 回報寄送：物流業者／追蹤碼／禮物資訊／寄件單或包裹照片（以及選填的捐贈收據）一次送出。
  *
  * 照片故意不用 ImageUploader 的「選到就立刻上傳」行為——這裡要的是「按下
  * 我已經寄出了」那一刻，照片跟物流資訊同時送出、一起檢查必填，所以先在
  * 本地保留選到的 File，送出時才依序「上傳照片 → 呼叫 /ship」。
+ *
+ * 送出前有一道二次確認：回報寄送與捐贈收據資料送出後都無法更改，要讓人在按下去之前
+ * 最後確認一次，尤其是需要收據的人。
  */
 function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => void }) {
   const [carrier, setCarrier] = useState('')
@@ -286,12 +318,32 @@ function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => void }) 
   const [shippedOn, setShippedOn] = useState(todayPlainDate)
   const [photos, setPhotos] = useState<File[]>([])
   const [photoError, setPhotoError] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // 捐贈收據：預設關閉，開啟後下面這些全部必填
+  const [receiptEnabled, setReceiptEnabled] = useState(false)
+  const [receipt, setReceipt] = useState({ name: '', idNumber: '', email: '', address: '' })
+  const [receiptProofs, setReceiptProofs] = useState<File[]>([])
+  const [receiptProofError, setReceiptProofError] = useState<string | null>(null)
+  const [idNumberError, setIdNumberError] = useState<string | null>(null)
+
+  const [confirming, setConfirming] = useState(false)
+  // 已經上傳成功的檔案。送出失敗（例如後端驗證沒過）後使用者修正再送，
+  // 不能把同一批檔案再傳一次——附件有張數上限，重傳會把名額吃光
+  const uploaded = useRef(new Set<File>())
 
   const ship = useMutation({
     mutationFn: async () => {
       for (const photo of photos) {
+        if (uploaded.current.has(photo)) continue
         await uploadImage('SHIPPING_PROOF', claimId, photo)
+        uploaded.current.add(photo)
+      }
+      if (receiptEnabled) {
+        for (const proof of receiptProofs) {
+          if (uploaded.current.has(proof)) continue
+          await uploadImage('RECEIPT_PROOF', claimId, proof)
+          uploaded.current.add(proof)
+        }
       }
       return api.post(`/api/claims/${claimId}/ship`, {
         carrier,
@@ -300,33 +352,50 @@ function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => void }) 
         giftQuantity: Number(giftQuantity),
         giftPrice: Number(giftPrice),
         shippedOn,
+        receipt: receiptEnabled
+          ? { ...receipt, idNumber: receipt.idNumber.trim().toUpperCase() }
+          : undefined,
       })
     },
     onSuccess: onDone,
+    // 失敗就收起確認區塊，讓使用者看到錯誤並回頭修正
+    onError: () => setConfirming(false),
   })
 
-  function handleFile(file: File) {
-    if (photos.length >= MAX_SHIPPING_PROOFS) {
-      setPhotoError(`最多上傳 ${MAX_SHIPPING_PROOFS} 張照片`)
-      return
-    }
-    const problem = validateImage(file)
-    if (problem) {
-      setPhotoError(problem)
-      return
-    }
-    setPhotos((current) => [...current, file])
-    setPhotoError(null)
-  }
+  const fieldErrors = ship.error instanceof ApiError ? ship.error.fieldErrors : undefined
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    let valid = true
+
     if (photos.length === 0) {
       setPhotoError('請至少上傳一張寄件單或包裹照片')
-      return
+      valid = false
     }
+    if (receiptEnabled) {
+      if (!RECEIPT_ID_PATTERN.test(receipt.idNumber.trim())) {
+        setIdNumberError('格式不正確：身分證字號為 1 個英文字母加 9 碼數字，統一編號為 8 碼數字')
+        valid = false
+      }
+      if (receiptProofs.length === 0) {
+        setReceiptProofError('請至少上傳一份紙本或電子發票證明')
+        valid = false
+      }
+    }
+    if (!valid) return
+
     setPhotoError(null)
-    ship.mutate()
+    setReceiptProofError(null)
+    setIdNumberError(null)
+    ship.reset()
+    setConfirming(true)
+  }
+
+  const updateReceipt = (key: keyof typeof receipt) => (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    setReceipt((current) => ({ ...current, [key]: event.target.value }))
+    if (key === 'idNumber') setIdNumberError(null)
   }
 
   return (
@@ -363,18 +432,151 @@ function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => void }) 
             onChange={(event) => setShippedOn(event.target.value)} />
         </Field>
       </div>
-      {/* 不用 Field：它是 <label>，點到標籤範圍內任何地方都會被轉給裡面隱藏的
-          file input，結果點同一列就開啟檔案選擇。這裡改成 div，只有按鈕會觸發 */}
-      <div>
-        <span className="field-label text-sm font-medium text-slate-700">
-          上傳寄件單或包裹照片<span className="ml-0.5 text-berry-500">*</span>
-        </span>
-        <div className="mt-1.5">
+
+      <FilePicker
+        label="上傳寄件單或包裹照片"
+        buttonLabel="新增照片"
+        files={photos}
+        onChange={setPhotos}
+        max={MAX_SHIPPING_PROOFS}
+        accept={ACCEPTED_IMAGE_TYPES}
+        validate={validateImage}
+        error={photoError}
+        onError={setPhotoError}
+      />
+
+      <div className="space-y-4 rounded-lg border border-white/10 bg-white/5 p-4">
+        <label className="flex items-start gap-2.5 text-sm text-slate-200">
+          <input type="checkbox" className="mt-0.5" checked={receiptEnabled}
+            onChange={(event) => setReceiptEnabled(event.target.checked)} />
+          <span>
+            <span className="font-medium text-white">我需要捐贈收據</span>
+            <span className="mt-0.5 block text-xs text-slate-400">
+              填寫的資料只有平台管理員看得到，機構看不到。
+            </span>
+          </span>
+        </label>
+
+        {receiptEnabled && (
+          <div className="space-y-4">
+            <Field label="姓名或公司名稱" required hint="需與報稅身分一致"
+              error={fieldErrors?.['receipt.name']}>
+              <TextInput required maxLength={100} value={receipt.name}
+                onChange={updateReceipt('name')} />
+            </Field>
+            <Field label="身分證字號或統一編號" required
+              hint="個人填身分證字號，公司填統一編號"
+              error={idNumberError ?? fieldErrors?.['receipt.idNumber']}>
+              <TextInput required maxLength={10} autoComplete="off" value={receipt.idNumber}
+                onChange={updateReceipt('idNumber')} />
+            </Field>
+            <Field label="電子信箱" required hint="電子收據會寄到這裡"
+              error={fieldErrors?.['receipt.email']}>
+              <TextInput required type="email" maxLength={255} value={receipt.email}
+                onChange={updateReceipt('email')} />
+            </Field>
+            <Field label="收件地址" required
+              hint="需要紙本收據時用。預設寄電子檔，改紙本請聯繫 onlinesanta2026@gmail.com"
+              error={fieldErrors?.['receipt.address']}>
+              <TextInput required maxLength={255} value={receipt.address}
+                onChange={updateReceipt('address')} />
+            </Field>
+            <FilePicker
+              label="上傳紙本或電子發票證明"
+              buttonLabel="新增檔案"
+              files={receiptProofs}
+              onChange={setReceiptProofs}
+              max={MAX_RECEIPT_PROOFS}
+              accept={ACCEPTED_RECEIPT_PROOF_TYPES}
+              validate={validateReceiptProof}
+              error={receiptProofError}
+              onError={setReceiptProofError}
+            />
+          </div>
+        )}
+      </div>
+
+      {ship.isError && <ErrorBanner error={ship.error} />}
+
+      {confirming ? (
+        <div className="space-y-3 rounded-lg border border-amber-400/30 bg-amber-400/10 p-4">
+          <p className="text-sm font-medium text-white">確定要送出回報寄送嗎？</p>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-slate-200">
+            <li>送出後<strong>無法更改</strong>，請再確認物流與禮物資訊都正確。</li>
+            {receiptEnabled ? (
+              <li>
+                你有申請捐贈收據，請確實填寫姓名、身分證字號或統一編號、電子信箱、
+                收件地址並附上發票證明——這些資料送出後<strong>無法更改</strong>，
+                填錯會影響收據開立，如需更正只能聯繫 onlinesanta2026@gmail.com。
+              </li>
+            ) : (
+              <li>
+                如果需要捐贈收據，請先按「返回修改」，勾選「我需要捐贈收據」並填寫相關資料；
+                送出後就無法再補申請。
+              </li>
+            )}
+          </ul>
+          <div className="flex gap-2">
+            <Button type="button" disabled={ship.isPending} onClick={() => ship.mutate()}>
+              {ship.isPending ? '送出中…' : '確定送出'}
+            </Button>
+            <Button type="button" variant="ghost" disabled={ship.isPending}
+              onClick={() => setConfirming(false)}>
+              返回修改
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button type="submit">我已經寄出了</Button>
+      )}
+    </form>
+  )
+}
+
+/**
+ * 本地選檔的清單：選到的檔案先留在前端，等整張表單送出才一起上傳。
+ *
+ * 不用 Field：它是 <label>，點到標籤範圍內任何地方都會被轉給裡面隱藏的 file input，
+ * 結果點同一列就開啟檔案選擇。這裡用 div，只有按鈕會觸發。
+ */
+function FilePicker({ label, buttonLabel, files, onChange, max, accept, validate, error, onError }: {
+  label: string
+  buttonLabel: string
+  files: File[]
+  onChange: (next: File[]) => void
+  max: number
+  accept: readonly string[]
+  validate: (file: File) => string | null
+  error: string | null
+  onError: (message: string | null) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  function handleFile(file: File) {
+    if (files.length >= max) {
+      onError(`最多上傳 ${max} 個檔案`)
+      return
+    }
+    const problem = validate(file)
+    if (problem) {
+      onError(problem)
+      return
+    }
+    onChange([...files, file])
+    onError(null)
+  }
+
+  return (
+    <div>
+      <span className="field-label text-sm font-medium text-slate-700">
+        {label}<span className="ml-0.5 text-berry-500">*</span>
+      </span>
+      <div className="mt-1.5">
         <input
-          ref={fileInputRef}
+          ref={inputRef}
           type="file"
           className="hidden"
-          accept={ACCEPTED_IMAGE_TYPES.join(',')}
+          accept={accept.join(',')}
           onChange={(event) => {
             const file = event.target.files?.[0]
             if (file) handleFile(file)
@@ -382,33 +584,26 @@ function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => void }) 
           }}
         />
         <div className="space-y-2">
-          {photos.map((photo, index) => (
-            <div key={`${photo.name}-${index}`}
+          {files.map((file, index) => (
+            <div key={`${file.name}-${index}`}
               className="flex items-center justify-between gap-2 rounded-lg border
                 border-white/15 bg-white/5 px-3 py-2 text-sm">
-              <span className="truncate text-slate-300">{photo.name}</span>
+              <span className="truncate text-slate-300">{file.name}</span>
               <button type="button" className="text-slate-400 hover:text-berry-400"
-                onClick={() => setPhotos((current) => current.filter((_, i) => i !== index))}>
+                onClick={() => onChange(files.filter((_, i) => i !== index))}>
                 移除
               </button>
             </div>
           ))}
-          {photos.length < MAX_SHIPPING_PROOFS && (
-            <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()}>
-              新增照片
+          {files.length < max && (
+            <Button type="button" variant="secondary" onClick={() => inputRef.current?.click()}>
+              {buttonLabel}
             </Button>
           )}
         </div>
-        </div>
-        {photoError && (
-          <span className="field-error mt-1 block text-xs text-berry-600">{photoError}</span>
-        )}
       </div>
-      {ship.isError && <ErrorBanner error={ship.error} />}
-      <Button type="submit" disabled={ship.isPending}>
-        {ship.isPending ? '送出中…' : '我已經寄出了'}
-      </Button>
-    </form>
+      {error && <span className="field-error mt-1 block text-xs text-berry-600">{error}</span>}
+    </div>
   )
 }
 

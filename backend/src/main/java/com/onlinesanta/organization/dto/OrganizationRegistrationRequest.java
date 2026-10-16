@@ -4,7 +4,6 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-@AtLeastOnePhone
 public record OrganizationRegistrationRequest(
         @NotBlank(message = "機構名稱不可為空")
         @Size(max = 120, message = "機構名稱不可超過 120 字")
@@ -19,13 +18,12 @@ public record OrganizationRegistrationRequest(
         @Size(max = 255)
         String contactEmail,
 
-        // 電話從「單一必填」改成「兩種至少填一個」：小型機構常常只有承辦人的手機，
-        // 大型機構只公布總機。單一欄位的 @NotBlank 會把合法的那一半擋掉，
-        // 所以必填性上移到類別層級的 @AtLeastOnePhone，這裡只留長度上限。
-        // 地址仍然是個別必填——捐贈者沒有它就寄不出去
+        // 只有行動電話必填：承辦人的手機是平台與捐贈者最穩定的聯絡方式，
+        // 聯絡電話（市話）選填。地址同樣個別必填——捐贈者沒有它就寄不出去
         @Size(max = 40, message = "聯絡電話不可超過 40 字")
         String contactPhone,
 
+        @NotBlank(message = "行動電話不可為空")
         @Size(max = 40, message = "行動電話不可超過 40 字")
         String mobilePhone,
 
@@ -38,5 +36,5 @@ public record OrganizationRegistrationRequest(
         String preferredDeliveryTime,
 
         @Size(max = 2000, message = "機構簡介不可超過 2000 字")
-        String description) implements AtLeastOnePhone.Phones {
+        String description) {
 }

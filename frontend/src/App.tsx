@@ -15,6 +15,7 @@ import { MyClaims } from './routes/MyClaims'
 import { MyProfile } from './routes/MyProfile'
 import { NotFound } from './routes/NotFound'
 import { OrgApply } from './routes/org/OrgApply'
+import { OrgClaimDetail } from './routes/org/OrgClaimDetail'
 import { OrgClaims } from './routes/org/OrgClaims'
 import { OrgDashboard } from './routes/org/OrgDashboard'
 import { OrgLayout } from './routes/org/OrgLayout'
@@ -83,6 +84,7 @@ export default function App() {
         <Route index element={<OrgDashboard />} />
         <Route path="wishes" element={<OrgWishes />} />
         <Route path="claims" element={<OrgClaims />} />
+        <Route path="claims/:id" element={<OrgClaimDetail />} />
         <Route path="overdue" element={<OrgClaims overdueOnly />} />
         <Route path="annual" element={
           <Suspense fallback={<Spinner label="載入年度回顧" />}>

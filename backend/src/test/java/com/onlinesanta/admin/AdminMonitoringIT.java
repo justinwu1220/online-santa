@@ -331,6 +331,36 @@ class AdminMonitoringIT extends ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("認領清單可以只看申請了捐贈收據的，並能與其他篩選併用")
+    void claimListFiltersByReceiptRequested() throws Exception {
+        UUID withReceipt = claim(publishedWish(organizationA, "要收據"));
+        UUID withReceiptOverdue = claim(publishedWish(organizationA, "要收據且逾期"));
+        UUID withoutReceipt = claim(publishedWish(organizationA, "不要收據"));
+        entityManager.flush();
+        jdbc.update("UPDATE claims SET receipt_requested = true WHERE id IN (?, ?)",
+                withReceipt, withReceiptOverdue);
+        entityManager.clear();
+        makeOverdue(withReceiptOverdue);
+        makeOverdue(withoutReceipt);
+
+        mvc.perform(as(get("/api/admin/claims").param("receipt", "true"), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[*].receiptRequested").value(
+                        org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is(true))));
+
+        // 與逾期併用：要收據且逾期，只剩一筆
+        mvc.perform(as(get("/api/admin/claims")
+                        .param("receipt", "true").param("overdue", "true"), ADMIN))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].wishTitle").value("要收據且逾期"));
+
+        // 不帶 receipt 就是全部
+        mvc.perform(as(get("/api/admin/claims"), ADMIN))
+                .andExpect(jsonPath("$.totalElements").value(3));
+    }
+
+    @Test
     @DisplayName("逾期清單也能加 year 篩選")
     void overdueListFiltersByYearToo() throws Exception {
         UUID overdueThisYear = claim(publishedWish(organizationA, "今年逾期"));
@@ -523,6 +553,7 @@ class AdminMonitoringIT extends ApiIntegrationTest {
     void reviewDecisionsAreAudited() throws Exception {
         Organization pending = organizations.save(
                 Organization.register("待審之家", "王承辦", "pending@example.org", null, null, null));
+        givenConfirmedOrganizationDocument(pending.getId());
 
         mvc.perform(as(post("/api/admin/organizations/{id}/approve", pending.getId()), ADMIN))
                 .andExpect(status().isOk());

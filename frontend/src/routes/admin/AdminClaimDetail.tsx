@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { formatDateTime, formatPlainDate } from '../../lib/format'
 import type {
-  AdminClaimView, AdminMessageView, AttachmentView, ClaimEventView,
+  AdminClaimView, AdminMessageView, AttachmentView, ClaimEventView, ClaimReceiptView,
 } from '../../lib/types'
 import { ConsolePanel } from '../../components/layouts/ConsoleLayout'
 import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
@@ -84,6 +84,7 @@ export function AdminClaimDetail() {
             <Row label="禮物價格" value={`${data.giftPrice.toLocaleString('zh-TW')} 元`} />
           )}
           {data.shippedOn && <Row label="寄出日期" value={formatPlainDate(data.shippedOn)} />}
+          {data.receiptRequested && <Row label="捐贈收據" value="已申請（內容在下方面板載入）" />}
           {data.releaseReason && (
             <div className="sm:col-span-2 lg:col-span-3">
               <Row label="結束原因" value={data.releaseReason} />
@@ -96,6 +97,8 @@ export function AdminClaimDetail() {
         <MessagesPanel claimId={id} />
         <AttachmentPanel claimId={id} />
       </div>
+
+      {data.receiptRequested && <ReceiptPanel claimId={id} />}
 
       <ConsolePanel title="歷程">
         {timeline.isLoading
@@ -253,6 +256,92 @@ function AttachmentPanel({ claimId }: { claimId: string }) {
           )
       )}
     </ConsolePanel>
+  )
+}
+
+/**
+ * 捐贈收據資料：姓名、身分證字號／統一編號、信箱、地址與發票證明。
+ *
+ * 只有管理員看得到（機構與捐贈者端都沒有這個型別）。比照對話與附件要按鈕才載入：
+ * 身分證字號是系統裡最敏感的個資之一，載入時後端會另外寫入一筆 VIEW_CLAIM_RECEIPT
+ * 稽核紀錄，讓「看收據資料」成為一個明確的動作，而不是打開頁面的副作用。
+ */
+function ReceiptPanel({ claimId }: { claimId: string }) {
+  const receipt = useQuery({
+    queryKey: ['admin-claim', claimId, 'receipt'],
+    queryFn: () => api.get<ClaimReceiptView>(`/api/admin/claims/${claimId}/receipt`),
+    enabled: false,
+    // 個資不要留在快取裡：離開頁面再回來就要重新載入（也重新寫一筆稽核）
+    gcTime: 0,
+  })
+
+  return (
+    <ConsolePanel
+      title="捐贈收據"
+      action={
+        !receipt.isFetched && (
+          <button
+            type="button"
+            onClick={() => void receipt.refetch()}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium
+              text-slate-700 hover:bg-slate-50"
+          >
+            載入捐贈收據資料
+          </button>
+        )
+      }
+    >
+      {!receipt.isFetched && (
+        <p className="text-sm text-slate-500">
+          含身分證字號或統一編號等個資，只有管理員看得到。
+          <strong>載入會另外寫入一筆稽核紀錄。</strong>
+        </p>
+      )}
+
+      {receipt.isFetching && <Spinner label="載入捐贈收據資料" />}
+      {receipt.isError && <ErrorBanner error={receipt.error} />}
+
+      {receipt.isFetched && !receipt.isFetching && receipt.data && (
+        <div className="space-y-4">
+          <dl className="grid gap-4 text-sm sm:grid-cols-2">
+            <Row label="姓名或公司名稱" value={receipt.data.name} />
+            <Row label="身分證字號或統一編號" value={receipt.data.idNumber} />
+            <Row label="電子信箱" value={receipt.data.email} />
+            <Row label="收件地址" value={receipt.data.address} />
+          </dl>
+
+          <div>
+            <p className="mb-1.5 text-xs text-slate-500">發票證明</p>
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+              {receipt.data.proofs.map((proof) => (
+                <ReceiptProofTile key={proof.id} proof={proof} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </ConsolePanel>
+  )
+}
+
+/** 發票證明可能是 PDF：圖片顯示縮圖，PDF 顯示檔名連結。 */
+function ReceiptProofTile({ proof }: { proof: AttachmentView }) {
+  if (proof.contentType === 'application/pdf') {
+    return (
+      <a href={proof.url} target="_blank" rel="noreferrer"
+        className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg
+          bg-slate-50 p-2 text-center text-xs text-slate-600 ring-1 ring-slate-200
+          hover:bg-slate-100">
+        <span aria-hidden className="text-2xl">📄</span>
+        <span className="line-clamp-2 break-all">{proof.fileName ?? 'PDF'}</span>
+      </a>
+    )
+  }
+  return (
+    <a href={proof.url} target="_blank" rel="noreferrer"
+      className="overflow-hidden rounded-lg ring-1 ring-slate-200">
+      <img src={proof.url} alt="" className="aspect-square w-full object-cover" />
+    </a>
   )
 }
 

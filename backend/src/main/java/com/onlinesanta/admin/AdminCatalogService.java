@@ -10,16 +10,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.onlinesanta.admin.dto.AdminMessageView;
+import com.onlinesanta.admin.dto.ClaimReceiptView;
 import com.onlinesanta.attachment.AttachmentService;
 import com.onlinesanta.attachment.dto.AttachmentView;
 import com.onlinesanta.claim.Claim;
 import com.onlinesanta.claim.ClaimEvent;
 import com.onlinesanta.claim.ClaimEventRepository;
 import com.onlinesanta.claim.ClaimRepository;
+import com.onlinesanta.claim.ClaimSpecifications;
 import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.message.MessageRepository;
+import com.onlinesanta.receipt.ClaimReceiptService;
 import com.onlinesanta.wish.Wish;
 import com.onlinesanta.wish.WishRepository;
 import com.onlinesanta.wish.WishStatus;
@@ -44,19 +47,22 @@ public class AdminCatalogService {
     private final MessageRepository messages;
     private final AttachmentService attachments;
     private final AdminAuditService audit;
+    private final ClaimReceiptService receipts;
 
     public AdminCatalogService(WishRepository wishes,
                                ClaimRepository claims,
                                ClaimEventRepository claimEvents,
                                MessageRepository messages,
                                AttachmentService attachments,
-                               AdminAuditService audit) {
+                               AdminAuditService audit,
+                               ClaimReceiptService receipts) {
         this.wishes = wishes;
         this.claims = claims;
         this.claimEvents = claimEvents;
         this.messages = messages;
         this.attachments = attachments;
         this.audit = audit;
+        this.receipts = receipts;
     }
 
     // ---------------------------------------------------------------- 願望
@@ -84,28 +90,18 @@ public class AdminCatalogService {
 
     /**
      * @param year 選填的年度篩選（台北日曆年，以 {@code claimedAt} 歸年——cohort 制，
-     *             與年度統計口徑一致）。null 代表不篩選，可與 status／overdueOnly
-     *             任意組合
+     *             與年度統計口徑一致）。null 代表不篩選
+     * @param receiptOnly 只看申請了捐贈收據的認領。狀態、逾期、年度、收據四個篩選可以任意組合
      */
     @Transactional(readOnly = true)
-    public Page<Claim> listClaims(ClaimStatus status, boolean overdueOnly, Integer year, Pageable pageable) {
-        if (year == null) {
-            if (overdueOnly) {
-                return claims.findAllOverdue(Instant.now(), pageable);
-            }
-            return status == null
-                    ? claims.findAllBy(pageable)
-                    : claims.findByStatus(status, pageable);
-        }
-
-        Instant from = TaiwanYear.startOf(year);
-        Instant to = TaiwanYear.endOf(year);
-        if (overdueOnly) {
-            return claims.findOverdueAndClaimedAtRange(Instant.now(), from, to, pageable);
-        }
-        return status == null
-                ? claims.findByClaimedAtRange(from, to, pageable)
-                : claims.findByStatusAndClaimedAtRange(status, from, to, pageable);
+    public Page<Claim> listClaims(ClaimStatus status, boolean overdueOnly, Integer year,
+                                  boolean receiptOnly, Pageable pageable) {
+        Instant from = year == null ? null : TaiwanYear.startOf(year);
+        Instant to = year == null ? null : TaiwanYear.endOf(year);
+        return claims.findAll(
+                ClaimSpecifications.forAdminList(
+                        status, overdueOnly, Instant.now(), from, to, receiptOnly),
+                pageable);
     }
 
     /**
@@ -170,5 +166,29 @@ public class AdminCatalogService {
                         claim.getWish().getTitle(),
                         views.size()));
         return views;
+    }
+
+    /**
+     * 這筆認領的捐贈收據資料——身分證字號／統一編號（解密後）、姓名、信箱、地址與發票證明。
+     *
+     * <p>系統裡最敏感的個資之一，只有這個管理端點讀得到，每次讀取都寫入稽核。
+     * 稽核的 detail 只記機構與願望，<strong>不記證號</strong>：稽核紀錄本身不該成為
+     * 另一個存放個資的地方。
+     */
+    @Transactional
+    public ClaimReceiptView receiptOf(UUID claimId) {
+        Claim claim = claims.findWithDetailsById(claimId)
+                .orElseThrow(() -> ResourceNotFoundException.of("認領", claimId));
+
+        // 沒申請就 404，而且不寫稽核——沒有任何個資被看到
+        ClaimReceiptService.ReceiptData data = receipts.read(claimId);
+        List<AttachmentView> proofs = attachments.receiptProofs(claimId);
+
+        audit.record(AdminAuditAction.VIEW_CLAIM_RECEIPT, claimId,
+                "%s / %s，發票證明 %d 個檔案".formatted(
+                        claim.getWish().getOrganization().getName(),
+                        claim.getWish().getTitle(),
+                        proofs.size()));
+        return ClaimReceiptView.of(data, proofs);
     }
 }

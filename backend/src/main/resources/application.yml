@@ -74,6 +74,10 @@ app:
       - image/webp
     # 僅 dev-storage profile 使用
     local-storage-dir: ${LOCAL_STORAGE_DIR:./.local-storage}
+  receipt:
+    # 捐贈收據裡身分證字號／統一編號的加密金鑰（base64 的 32 bytes）。
+    # 正式環境必填；本機與測試留空會用內建的開發金鑰。金鑰遺失就解不開已存的證號
+    encryption-key: ${RECEIPT_ENCRYPTION_KEY:}
   internal-jobs:
     # Cloud Scheduler 的 OIDC token 必須以本服務網址為 audience，
     # 且由指定的服務帳號簽發，兩者缺一不可。

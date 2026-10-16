@@ -276,6 +276,18 @@ body {
   @apply bg-white/15;
 }
 
+.theme-night .timeline-dot-pending {
+  @apply border-slate-500 bg-transparent;
+}
+
+.theme-night .timeline-line-pending {
+  @apply bg-white/10;
+}
+
+.theme-night .timeline-title-pending {
+  @apply text-slate-500;
+}
+
 .theme-night .timeline-title {
   @apply text-slate-100;
 }

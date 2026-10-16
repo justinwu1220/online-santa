@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.onlinesanta.admin.dto.AdminClaimView;
 import com.onlinesanta.admin.dto.AdminMessageView;
 import com.onlinesanta.admin.dto.AdminWishView;
+import com.onlinesanta.admin.dto.ClaimReceiptView;
 import com.onlinesanta.attachment.dto.AttachmentView;
 import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.claim.dto.ClaimEventView;
@@ -54,14 +55,16 @@ public class AdminCatalogController {
 
     @GetMapping("/claims")
     @Operation(summary = "跨機構認領清單",
-            description = "可用 status 篩選、overdue=true 只看逾期、year 依 claimedAt 的台北日曆年篩選，三者可任意組合")
+            description = "可用 status 篩選、overdue=true 只看逾期、year 依 claimedAt 的台北日曆年篩選、"
+                    + "receipt=true 只看申請了捐贈收據的，四者可任意組合")
     public PageResponse<AdminClaimView> claims(
             @RequestParam(required = false) ClaimStatus status,
             @RequestParam(defaultValue = "false") boolean overdue,
             @RequestParam(required = false) Integer year,
+            @RequestParam(defaultValue = "false") boolean receipt,
             @PageableDefault(size = 20, sort = "claimedAt") Pageable pageable) {
         return PageResponse.of(
-                catalog.listClaims(status, overdue, year, pageable), AdminClaimView::from);
+                catalog.listClaims(status, overdue, year, receipt, pageable), AdminClaimView::from);
     }
 
     @GetMapping("/claims/{id}")
@@ -88,5 +91,13 @@ public class AdminCatalogController {
             description = "含寄送證明與可能有孩童影像的回饋照片。**這個操作會寫入稽核紀錄**")
     public List<AttachmentView> attachments(@PathVariable UUID id) {
         return catalog.attachmentsOf(id);
+    }
+
+    @GetMapping("/claims/{id}/receipt")
+    @Operation(summary = "認領的捐贈收據資料",
+            description = "含身分證字號／統一編號（解密後）、姓名、信箱、地址與發票證明。"
+                    + "只有管理員讀得到，機構看不到。沒有申請回 404。**這個操作會寫入稽核紀錄**")
+    public ClaimReceiptView receipt(@PathVariable UUID id) {
+        return catalog.receiptOf(id);
     }
 }

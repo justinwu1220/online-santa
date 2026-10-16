@@ -61,19 +61,8 @@ export function OrgSettings() {
     clearSaveResult()
   }
 
-  // 跟 OrgApply 一樣把後端的逐欄位錯誤接出來，但目前只接電話這一組：其他欄位都有
-  // input 的 required 先擋，拿不到後端的欄位錯誤；電話沒有（也不能有）required，
-  // 是這張表單唯一真的會從後端收到欄位錯誤的地方。其餘欄位仍然只有通用橫幅
+  // 跟 OrgApply 一樣把後端的逐欄位錯誤接出來，讓電話的錯誤落在對應的欄位上
   const fieldErrors = save.error instanceof ApiError ? save.error.fieldErrors : undefined
-
-  const [phoneError, setPhoneError] = useState<string | null>(null)
-
-  const updatePhone = (key: 'contactPhone' | 'mobilePhone') => (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    update(key)(event)   // update() 已經會 clearSaveResult()
-    setPhoneError(null)
-  }
 
   return (
     <div className="max-w-2xl space-y-8">
@@ -81,10 +70,6 @@ export function OrgSettings() {
         className="space-y-5"
         onSubmit={(event) => {
           event.preventDefault()
-          if (!form.contactPhone.trim() && !form.mobilePhone.trim()) {
-            setPhoneError('請至少填寫一種聯絡電話')
-            return
-          }
           save.mutate()
         }}
       >
@@ -103,17 +88,15 @@ export function OrgSettings() {
             value={form.contactEmail} onChange={update('contactEmail')} />
         </Field>
 
-        {/* 兩支電話併排——它們共用一條「至少填一個」的規則，排在同一列才看得出是一組。
-            hint 用 inlineHint，否則左欄多一行會把右邊的行動電話輸入框擠低一排 */}
+        {/* 兩支電話併排：行動電話必填、排在前面，聯絡電話（市話）選填 */}
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="聯絡電話" required inlineHint hint="與行動電話至少填一個"
-            error={phoneError ?? fieldErrors?.contactPhone}>
-            <TextInput maxLength={40}
-              value={form.contactPhone} onChange={updatePhone('contactPhone')} />
-          </Field>
           <Field label="行動電話" required error={fieldErrors?.mobilePhone}>
-            <TextInput maxLength={40} placeholder="0912-345-678"
-              value={form.mobilePhone} onChange={updatePhone('mobilePhone')} />
+            <TextInput required maxLength={40} placeholder="0912-345-678"
+              value={form.mobilePhone} onChange={update('mobilePhone')} />
+          </Field>
+          <Field label="聯絡電話" error={fieldErrors?.contactPhone}>
+            <TextInput maxLength={40} placeholder="02-1234-5678"
+              value={form.contactPhone} onChange={update('contactPhone')} />
           </Field>
         </div>
 

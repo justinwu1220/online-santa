@@ -127,6 +127,7 @@ export function AdminClaims() {
   const status = (searchParams.get('status') ?? '') as ClaimStatus | ''
   const overdueOnly = searchParams.get('overdue') === 'true'
   const year = searchParams.get('year') ?? ''
+  const receiptOnly = searchParams.get('receipt') === 'true'
 
   // 年度下拉的選項搭 AdminLayout 本來就會打的 /api/admin/stats 一起拿，
   // 同一個 queryKey 會共用快取，不必為這個下拉多開一支端點或多一次往返
@@ -137,19 +138,20 @@ export function AdminClaims() {
   })
 
   const claims = useQuery({
-    queryKey: ['admin-claims', status, overdueOnly, year, page],
+    queryKey: ['admin-claims', status, overdueOnly, year, receiptOnly, page],
     queryFn: () => api.get<PageResponse<AdminClaimView>>(
       withQuery('/api/admin/claims', {
         status: overdueOnly ? undefined : status,
         overdue: overdueOnly ? 'true' : undefined,
         year: year || undefined,
+        receipt: receiptOnly ? 'true' : undefined,
         page,
         size: 20,
       })),
   })
 
-  /** status／overdue／year 各自獨立存在網址上，換一個篩選不該把另一個洗掉。 */
-  const setFilter = (key: 'status' | 'overdue' | 'year', value: string) => {
+  /** status／overdue／year／receipt 各自獨立存在網址上，換一個篩選不該把另一個洗掉。 */
+  const setFilter = (key: 'status' | 'overdue' | 'year' | 'receipt', value: string) => {
     const next = new URLSearchParams(searchParams)
     if (value) next.set(key, value)
     else next.delete(key)
@@ -193,6 +195,14 @@ export function AdminClaims() {
               <option key={y} value={y}>{y}</option>
             ))}
           </Select>
+          <Select
+            className="w-36"
+            value={receiptOnly ? 'true' : ''}
+            onChange={(event) => setFilter('receipt', event.target.value)}
+          >
+            <option value="">捐贈收據：全部</option>
+            <option value="true">需要捐贈收據</option>
+          </Select>
         </div>
       }
     >
@@ -227,6 +237,12 @@ export function AdminClaims() {
                     <span className="flex items-center gap-1.5">
                       <ClaimStatusBadge status={claim.status} />
                       {claim.overdue && <OverdueBadge />}
+                      {claim.receiptRequested && (
+                        <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium
+                          text-sky-700">
+                          需收據
+                        </span>
+                      )}
                     </span>
                   </Td>
                   <Td className="text-slate-400">{formatDate(claim.claimedAt)}</Td>

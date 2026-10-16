@@ -200,6 +200,8 @@ export interface ClaimDonorView extends ClaimBase {
   organizationPhone?: string
   organizationMobilePhone?: string
   organizationPreferredDeliveryTime?: string
+  /** 是否申請了捐贈收據。只有旗標，收據內容只有管理員看得到 */
+  receiptRequested: boolean
 }
 
 export interface ClaimOrgView extends ClaimBase {
@@ -222,6 +224,7 @@ export interface ClaimEventView {
 
 export type AttachmentPurpose =
   | 'WISH_IMAGE' | 'SHIPPING_PROOF' | 'ORG_FEEDBACK' | 'ORG_DOCUMENT' | 'WISH_LETTER'
+  | 'RECEIPT_PROOF'
 
 export interface AttachmentView {
   id: string
@@ -333,7 +336,18 @@ export interface AdminClaimView {
   giftQuantity?: number
   giftPrice?: number
   shippedOn?: string
+  /** 是否申請了捐贈收據；內容要用專用端點讀取（會寫稽核） */
+  receiptRequested: boolean
   releaseReason?: string
+}
+
+/** 管理員讀到的捐贈收據資料。身分證字號／統一編號是解密後的明文，機構與捐贈者端沒有這個型別。 */
+export interface ClaimReceiptView {
+  name: string
+  idNumber: string
+  email: string
+  address: string
+  proofs: AttachmentView[]
 }
 
 export type AdminMessageSenderRole = 'DONOR' | 'ORGANIZATION'
@@ -436,6 +450,7 @@ export interface PlatformMonthlyStats {
 
 export type AdminAuditAction =
   | 'VIEW_CLAIM_DETAIL' | 'VIEW_CLAIM_ATTACHMENTS' | 'VIEW_CLAIM_MESSAGES'
+  | 'VIEW_CLAIM_RECEIPT'
   | 'APPROVE_ORGANIZATION' | 'REJECT_ORGANIZATION' | 'VIEW_ORGANIZATION_DOCUMENTS'
   | 'SUSPEND_ORGANIZATION' | 'REACTIVATE_ORGANIZATION'
   | 'DELETE_ATTACHMENT' | 'DELETE_ORGANIZATION_DOCUMENT'

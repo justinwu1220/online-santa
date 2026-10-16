@@ -232,6 +232,18 @@ printf '%s' '你的密碼' | \
   gcloud secrets create online-santa-db-password --data-file=-
 ```
 
+**捐贈收據的加密金鑰**也放這裡（`deploy.yml` 會把它掛成環境變數 `RECEIPT_ENCRYPTION_KEY`）。
+它用來加密收據裡的身分證字號／統一編號，**部署前一定要先建好，不然後端起不來**
+（`prod` 沒有金鑰會直接啟動失敗，這是刻意的）：
+
+```bash
+openssl rand -base64 32 | tr -d '\n' | \
+  gcloud secrets create online-santa-receipt-key --data-file=-
+```
+
+> **這把金鑰要另外備份**（例如存進密碼管理器）。金鑰遺失，或之後換了一把，已經存進資料庫的
+> 身分證字號就全部解不開。不要輪替，除非先寫好把舊資料用舊金鑰解開再用新金鑰重新加密的遷移。
+
 ### 3.5 Cloud Run 的執行身分
 
 ```bash

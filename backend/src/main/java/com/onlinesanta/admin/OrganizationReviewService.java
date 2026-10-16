@@ -64,6 +64,12 @@ public class OrganizationReviewService {
         Organization organization = organizationService.getById(organizationId);
 
         requireAwaitingDecision(organization);
+        // 申請表要求上傳證明文件，但機構是先建立再上傳，建立當下後端擋不住；
+        // 核准前再確認一次，避免有人繞過前端、沒附任何文件就拿到上架權限
+        if (!attachments.hasOrganizationDocument(organizationId)) {
+            throw new BusinessRuleException("ORG_DOCUMENT_REQUIRED",
+                    "這個機構還沒有上傳任何證明文件，無法核准");
+        }
         organization.approve(admin.userId(), request.note());
         audit.record(AdminAuditAction.APPROVE_ORGANIZATION, organizationId, organization.getName());
         eventPublisher.publishEvent(new OrganizationReviewedEvent(organizationId, true));

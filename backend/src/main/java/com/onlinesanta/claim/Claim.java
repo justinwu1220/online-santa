@@ -93,6 +93,13 @@ public class Claim extends BaseEntity {
     @Column(name = "shipped_on")
     private LocalDate shippedOn;
 
+    /**
+     * 是否申請了捐贈收據。只是旗標，收據資料本身在 {@code claim_receipts}——
+     * 刻意不放進這個實體，機構端與捐贈者端的回應都從這裡轉出，資料不在就帶不出去。
+     */
+    @Column(name = "receipt_requested", nullable = false)
+    private boolean receiptRequested;
+
     @Column(name = "donor_message", length = 500)
     private String donorMessage;
 
@@ -139,6 +146,10 @@ public class Claim extends BaseEntity {
         this.giftPrice = giftPrice;
         this.shippedOn = shippedOn;
         this.shippedAt = Instant.now();
+    }
+
+    public void markReceiptRequested() {
+        this.receiptRequested = true;
     }
 
     public void markReceived() {
@@ -240,6 +251,10 @@ public class Claim extends BaseEntity {
 
     public String getTrackingCarrier() {
         return trackingCarrier;
+    }
+
+    public boolean isReceiptRequested() {
+        return receiptRequested;
     }
 
     public String getGiftDescription() {

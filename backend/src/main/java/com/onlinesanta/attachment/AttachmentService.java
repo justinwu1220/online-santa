@@ -236,6 +236,11 @@ public class AttachmentService {
             throw new BusinessRuleException("ATTACHMENT_NOT_DELETABLE",
                     "機構文件如有問題，請聯繫平台管理員協助刪除，機構無法自行刪除");
         }
+        // 發票證明是申報收據的依據，同樣收在管理員手上，捐贈者送出後不能自行刪除
+        if (attachment.getPurpose() == AttachmentPurpose.RECEIPT_PROOF && !deletedByAdmin) {
+            throw new BusinessRuleException("ATTACHMENT_NOT_DELETABLE",
+                    "發票證明送出後無法自行刪除，如需更正請聯繫平台管理員");
+        }
     }
 
     private void authorizeDelete(Attachment attachment, AppPrincipal principal) {
@@ -265,6 +270,8 @@ public class AttachmentService {
                     "requireDeletablePurpose 應該已經擋掉 WISH_IMAGE");
             case ORG_DOCUMENT -> throw new IllegalStateException(
                     "requireDeletablePurpose 應該已經擋掉 ORG_DOCUMENT");
+            case RECEIPT_PROOF -> throw new IllegalStateException(
+                    "requireDeletablePurpose 應該已經擋掉 RECEIPT_PROOF");
         }
     }
 
@@ -331,6 +338,13 @@ public class AttachmentService {
                         Collectors.mapping(this::toView, Collectors.toList())));
     }
 
+    /** 機構有沒有至少一份已確認的證明文件。核准前的檢查用，不必簽網址。 */
+    @Transactional(readOnly = true)
+    public boolean hasOrganizationDocument(UUID organizationId) {
+        return attachments.countByPurposeAndOwnerIdAndUploadStatus(
+                AttachmentPurpose.ORG_DOCUMENT, organizationId, UploadStatus.CONFIRMED) > 0;
+    }
+
     /**
      * 機構申請時附上的立案證明文件，供管理員審核使用。私密 bucket，{@code toView}
      * 會自動簽出限時下載網址。
@@ -355,6 +369,27 @@ public class AttachmentService {
         return attachments.findByPurposeInAndOwnerIdAndUploadStatusOrderByCreatedAtAsc(
                         List.of(AttachmentPurpose.SHIPPING_PROOF, AttachmentPurpose.ORG_FEEDBACK),
                         claimId, UploadStatus.CONFIRMED)
+                .stream()
+                .map(this::toView)
+                .toList();
+    }
+
+    /** 這筆認領已確認的發票證明數量。ClaimService 在回報寄送時用它檢查有沒有附證明。 */
+    @Transactional(readOnly = true)
+    public long confirmedReceiptProofCount(UUID claimId) {
+        return attachments.countByPurposeAndOwnerIdAndUploadStatus(
+                AttachmentPurpose.RECEIPT_PROOF, claimId, UploadStatus.CONFIRMED);
+    }
+
+    /**
+     * 某筆認領的發票證明。<strong>只有管理端點能呼叫</strong>：機構看不到收據資料，
+     * 所以這些檔案刻意不在 {@link #claimAttachments} 裡（那支同時給捐贈者與機構用）。
+     * 呼叫端必須自己寫稽核紀錄。
+     */
+    @Transactional(readOnly = true)
+    public List<AttachmentView> receiptProofs(UUID claimId) {
+        return attachments.findByPurposeInAndOwnerIdAndUploadStatusOrderByCreatedAtAsc(
+                        List.of(AttachmentPurpose.RECEIPT_PROOF), claimId, UploadStatus.CONFIRMED)
                 .stream()
                 .map(this::toView)
                 .toList();
@@ -391,6 +426,7 @@ public class AttachmentService {
             case ORG_FEEDBACK -> authorizeOrganizationFeedback(targetId, principal);
             case ORG_DOCUMENT -> authorizeOrgDocument(targetId, principal);
             case WISH_LETTER -> authorizeWishLetter(targetId, principal);
+            case RECEIPT_PROOF -> authorizeReceiptProof(targetId, principal);
         }
     }
 
@@ -445,6 +481,15 @@ public class AttachmentService {
         requireStatusIn(claim, "上傳寄送證明", ClaimStatus.CLAIMED, ClaimStatus.SHIPPED);
     }
 
+    /** 跟寄送證明同一套規則：只有該筆認領的捐贈者，在回報寄送之前（含當下）能上傳。 */
+    private void authorizeReceiptProof(UUID claimId, AppPrincipal principal) {
+        Claim claim = findClaim(claimId);
+        if (!claim.isOwnedBy(principal.userId())) {
+            throw ResourceNotFoundException.of("認領", claimId);
+        }
+        requireStatusIn(claim, "上傳發票證明", ClaimStatus.CLAIMED, ClaimStatus.SHIPPED);
+    }
+
     private void authorizeOrganizationFeedback(UUID claimId, AppPrincipal principal) {
         UUID organizationId = currentUser.requireOrganizationId();
         Claim claim = findClaim(claimId);
@@ -495,13 +540,15 @@ public class AttachmentService {
     }
 
     /**
-     * 內容類型檢查依用途而定——只有 {@code ORG_DOCUMENT}（法人登記證書等）另外
-     * 開放 PDF，不動 {@code app.storage.allowed-content-types} 這個全站共用的設定，
-     * 其餘用途維持純圖檔。
+     * 內容類型檢查依用途而定——{@code ORG_DOCUMENT}（法人登記證書等）與
+     * {@code RECEIPT_PROOF}（電子發票常是 PDF）另外開放 PDF，不動
+     * {@code app.storage.allowed-content-types} 這個全站共用的設定，其餘用途維持純圖檔。
      */
     private void requireAllowedContentType(AttachmentPurpose purpose, String contentType) {
+        boolean pdfAllowed = purpose == AttachmentPurpose.ORG_DOCUMENT
+                || purpose == AttachmentPurpose.RECEIPT_PROOF;
         boolean allowed = properties.allows(contentType)
-                || (purpose == AttachmentPurpose.ORG_DOCUMENT && "application/pdf".equals(contentType));
+                || (pdfAllowed && "application/pdf".equals(contentType));
         if (!allowed) {
             throw new BusinessRuleException("UNSUPPORTED_CONTENT_TYPE",
                     "只接受 %s；不支援 SVG 等可夾帶腳本的格式"

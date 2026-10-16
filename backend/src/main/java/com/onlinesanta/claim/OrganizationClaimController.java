@@ -69,6 +69,15 @@ public class OrganizationClaimController {
         return withUnreadCounts(claims.listOverdueForMyOrganization(pageable));
     }
 
+    @GetMapping("/{id}")
+    @Operation(summary = "單筆認領詳情", description = "只能看自己機構的認領，其他一律 404")
+    public ClaimOrgView getOne(@PathVariable UUID id) {
+        Claim claim = claims.getForMyOrganization(id);
+        long unread = messages.unreadCounts(List.of(id), currentUser.require().userId())
+                .getOrDefault(id, 0L);
+        return ClaimOrgView.from(claim, unread);
+    }
+
     private PageResponse<ClaimOrgView> withUnreadCounts(Page<Claim> page) {
         Map<UUID, Long> unread = messages.unreadCounts(
                 page.getContent().stream().map(Claim::getId).toList(),

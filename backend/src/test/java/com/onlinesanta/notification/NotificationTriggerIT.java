@@ -215,6 +215,7 @@ class NotificationTriggerIT extends ApiIntegrationTest {
         Organization pending = Organization.register(
                 "待審機構", "王承辦", "pending@example.org", null, null, null);
         organizations.save(pending);
+        givenConfirmedOrganizationDocument(pending.getId());
 
         mvc.perform(as(withBody(post("/api/admin/organizations/{id}/approve", pending.getId()),
                         new ReviewDecisionRequest("證件齊全")), ADMIN))

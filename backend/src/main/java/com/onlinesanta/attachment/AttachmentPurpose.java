@@ -30,7 +30,14 @@ public enum AttachmentPurpose {
      * <p>公開——跟 {@link #WISH_IMAGE} 同樣的既有例外，但機構須避免拍到孩子臉部或
      * 完整姓名，見 docs/PRIVACY.md。
      */
-    WISH_LETTER(StorageBucket.PUBLIC, "wish-letters", 1);
+    WISH_LETTER(StorageBucket.PUBLIC, "wish-letters", 1),
+
+    /**
+     * 捐贈收據的發票證明（紙本或電子發票），由捐贈者在回報寄送時上傳，掛在認領上。
+     * 含身分與消費資訊，私密。<strong>只有平台管理員讀得到</strong>——機構看不到，
+     * 所以不在 {@code AttachmentService.claimAttachments} 的清單裡，由專用方法讀取。
+     */
+    RECEIPT_PROOF(StorageBucket.PRIVATE, "receipt-proofs", 3);
 
     private final StorageBucket bucket;
     private final String prefix;

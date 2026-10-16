@@ -31,8 +31,8 @@ public class Organization extends BaseEntity {
     private String contactPhone;
 
     /**
-     * 行動電話。與 contactPhone 併存，兩者至少填一個——由 DTO 層的 @AtLeastOnePhone 把關，
-     * 這裡刻意不擋：既有機構有完全沒填電話的，大量測試資料也用 null 建機構。
+     * 行動電話。註冊與更新時必填（DTO 層的 @NotBlank 把關），contactPhone 則是選填。
+     * 這裡刻意不擋：既有機構有完全沒填行動電話的，大量測試資料也用 null 建機構。
      * 資料庫同樣沒有 CHECK，原因見 V17 的註解
      */
     @Column(name = "mobile_phone", length = 40)

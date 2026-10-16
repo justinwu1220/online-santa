@@ -88,10 +88,8 @@ class OrganizationApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.fieldErrors.contactEmail").exists())
                 // 承辦人是審核與聯繫的窗口，也必填
                 .andExpect(jsonPath("$.fieldErrors.contactPerson").exists())
-                // 電話從 @NotBlank 改成類別層級的 @AtLeastOnePhone：兩支都空才報錯，
-                // 但 key 仍然掛在 contactPhone 上（AtLeastOnePhone.Validator 刻意
-                // addPropertyNode 到這個欄位），地址則仍是個別必填
-                .andExpect(jsonPath("$.fieldErrors.contactPhone").exists())
+                // 行動電話必填（聯絡電話選填），地址同樣個別必填
+                .andExpect(jsonPath("$.fieldErrors.mobilePhone").exists())
                 .andExpect(jsonPath("$.fieldErrors.address").exists())
                 // 方便收件時間同樣必填——捐贈者要靠它判斷什麼時候送比較方便
                 .andExpect(jsonPath("$.fieldErrors.preferredDeliveryTime").exists());
@@ -103,21 +101,20 @@ class OrganizationApiIT extends ApiIntegrationTest {
                 .andExpect(status().isCreated());
 
         // 只在註冊時擋是不夠的——機構之後在設定頁清空一樣會讓寄送地址消失；
-        // 電話兩支都清空（mobilePhone 也是空字串）才會觸發 @AtLeastOnePhone
+        // 行動電話清空會被擋（聯絡電話則可以空）
         var cleared = new OrganizationUpdateRequest(
                 "先建立起來", "王承辦", "contact@example.org", "   ", "", "",
                 "平日上午9:00-下午5:00", null, ReleasePolicy.MANUAL, null);
 
         mvc.perform(as(withBody(patch("/api/organizations/me"), cleared), ORG_USER))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.fieldErrors.contactPhone").exists())
+                .andExpect(jsonPath("$.fieldErrors.mobilePhone").exists())
                 .andExpect(jsonPath("$.fieldErrors.address").exists());
     }
 
     @Test
     void acceptsRegistrationWithOnlyMobilePhone() throws Exception {
-        // 只有手機的小型機構是真實情境，必須過——這是電話從 @NotBlank 搬到
-        // 類別層級 @AtLeastOnePhone 的理由
+        // 只有手機的小型機構是真實情境，必須過——聯絡電話是選填
         var mobileOnly = new OrganizationRegistrationRequest(
                 "只有手機之家", "王承辦", "contact@example.org", null, "0912-345-678",
                 "台北市中正區某路 1 號", "平日上午9:00-下午5:00", null);
@@ -129,19 +126,17 @@ class OrganizationApiIT extends ApiIntegrationTest {
     }
 
     @Test
-    void rejectsRegistrationWithNeitherPhone() throws Exception {
-        // 空白字串而不是 null——前端清空時送的就是 ''，不是 null
-        var noPhone = new OrganizationRegistrationRequest(
-                "沒有電話之家", "王承辦", "contact@example.org", "   ", "",
+    void rejectsRegistrationWithoutMobilePhone() throws Exception {
+        // 空白字串而不是 null——前端清空時送的就是 ''，不是 null。
+        // 只填聯絡電話也不行：行動電話才是必填
+        var landlineOnly = new OrganizationRegistrationRequest(
+                "只有市話之家", "王承辦", "contact@example.org", "02-1234-5678", "",
                 "台北市中正區某路 1 號", "平日上午9:00-下午5:00", null);
 
-        // key 必須是 contactPhone：類別層級約束預設的違規是 path 為空的 ObjectError，
-        // 而 GlobalExceptionHandler 只讀 getFieldErrors()，會被整個丟掉——這一條
-        // 釘住 AtLeastOnePhone.Validator 裡 addPropertyNode("contactPhone") 有沒有生效
-        mvc.perform(as(withBody(post("/api/organizations"), noPhone), ORG_USER))
+        mvc.perform(as(withBody(post("/api/organizations"), landlineOnly), ORG_USER))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorCode").value("VALIDATION_FAILED"))
-                .andExpect(jsonPath("$.fieldErrors.contactPhone").exists());
+                .andExpect(jsonPath("$.fieldErrors.mobilePhone").exists());
     }
 
     @Test
@@ -185,18 +180,18 @@ class OrganizationApiIT extends ApiIntegrationTest {
     }
 
     @Test
-    void rejectsUpdateWithBothPhonesBlank() throws Exception {
+    void rejectsUpdateWithBlankMobilePhone() throws Exception {
         mvc.perform(as(withBody(post("/api/organizations"), registration("兩支都清空之家")), ORG_USER))
                 .andExpect(status().isCreated());
 
-        // 只在註冊時擋不夠：機構在設定頁把兩支電話都清空，捐贈者就完全聯絡不到人
+        // 只在註冊時擋不夠：機構在設定頁把行動電話清空，平台與捐贈者就少了最穩定的聯絡方式
         var bothBlank = new OrganizationUpdateRequest("兩支都清空之家", "王承辦", "contact@example.org",
                 "", "", "台北市中正區某路 1 號", "平日上午9:00-下午5:00",
                 "服務失依兒童的機構", ReleasePolicy.MANUAL, null);
 
         mvc.perform(as(withBody(patch("/api/organizations/me"), bothBlank), ORG_USER))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.fieldErrors.contactPhone").exists());
+                .andExpect(jsonPath("$.fieldErrors.mobilePhone").exists());
     }
 
     @Test

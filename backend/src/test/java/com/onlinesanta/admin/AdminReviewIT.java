@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import com.onlinesanta.admin.dto.ReviewDecisionRequest;
 import com.onlinesanta.admin.dto.ReviewReasonRequest;
+import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.organization.dto.OrganizationRegistrationRequest;
 import com.onlinesanta.support.ApiIntegrationTest;
 import com.onlinesanta.wish.AgeRange;
@@ -26,7 +27,15 @@ class AdminReviewIT extends ApiIntegrationTest {
     private static final String ORG_USER = "applicant@example.org";
     private static final String DONOR = "bystander@example.com";
 
+    /** 註冊機構，並附上一份已確認的證明文件（核准的前提）。 */
     private UUID registerOrganization(String name, String memberEmail) throws Exception {
+        UUID orgId = registerOrganizationWithoutDocument(name, memberEmail);
+        uploadConfirmedAttachment(AttachmentPurpose.ORG_DOCUMENT, orgId, memberEmail);
+        return orgId;
+    }
+
+    private UUID registerOrganizationWithoutDocument(String name, String memberEmail)
+            throws Exception {
         var request = new OrganizationRegistrationRequest(
                 name, "王承辦", "contact@example.org", "02-1234-5678", "0912-345-678", "台北市",
                 "平日上午9:00-下午5:00", "服務失依兒童");
@@ -152,6 +161,22 @@ class AdminReviewIT extends ApiIntegrationTest {
                 .andExpect(status().isBadRequest());
 
         // 核准不受影響，附註依然選填
+        mvc.perform(as(post("/api/admin/organizations/{id}/approve", orgId), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"));
+    }
+
+    @Test
+    @DisplayName("沒有證明文件的機構不能核准")
+    void approvalRequiresAnOrganizationDocument() throws Exception {
+        UUID orgId = registerOrganizationWithoutDocument("沒附文件之家", ORG_USER);
+
+        mvc.perform(as(post("/api/admin/organizations/{id}/approve", orgId), ADMIN))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("ORG_DOCUMENT_REQUIRED"));
+
+        // 補上文件之後就能核准
+        uploadConfirmedAttachment(AttachmentPurpose.ORG_DOCUMENT, orgId, ORG_USER);
         mvc.perform(as(post("/api/admin/organizations/{id}/approve", orgId), ADMIN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("APPROVED"));

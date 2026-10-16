@@ -106,11 +106,13 @@ jobs:
             GCS_PRIVATE_BUCKET=${{ vars.GCS_PRIVATE_BUCKET }}
             INTERNAL_JOB_AUDIENCE=${{ vars.INTERNAL_JOB_AUDIENCE }}
             SCHEDULER_SERVICE_ACCOUNT=${{ vars.SCHEDULER_SERVICE_ACCOUNT }}
-          # 資料庫連線資訊放 Secret Manager，不進環境變數的明文設定
+          # 資料庫連線資訊與捐贈收據的加密金鑰放 Secret Manager，不進環境變數的明文設定。
+          # online-santa-receipt-key 要先建好（見 docs/DEPLOY.md 3.4），沒有它後端啟動就會失敗
           secrets: |
             DB_URL=online-santa-db-url:latest
             DB_USERNAME=online-santa-db-username:latest
             DB_PASSWORD=online-santa-db-password:latest
+            RECEIPT_ENCRYPTION_KEY=online-santa-receipt-key:latest
 
       - name: 確認服務起得來
         run: |

@@ -424,6 +424,32 @@ class ClaimApiIT extends ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("機構看得到自己的單筆認領（含回報的禮物資訊），別家機構看不到")
+    void organizationCanReadItsOwnSingleClaimOnly() throws Exception {
+        UUID claimId = claimAs(publishedWish("機構單筆詳情"), DONOR);
+        uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
+        mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
+                        ShipRequests.of("郵局", "R777")), DONOR))
+                .andExpect(status().isOk());
+
+        mvc.perform(as(get("/api/organizations/me/claims/{id}", claimId), ORG_USER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(claimId.toString()))
+                .andExpect(jsonPath("$.status").value("SHIPPED"))
+                .andExpect(jsonPath("$.donorName").value("熱心民眾"))
+                .andExpect(jsonPath("$.trackingNumber").value("R777"))
+                .andExpect(jsonPath("$.giftDescription").value("繪本與文具組"))
+                .andExpect(jsonPath("$.giftPrice").value(500));
+
+        // 別家機構一律 404，不承認這筆認領存在
+        mvc.perform(as(get("/api/organizations/me/claims/{id}", claimId), OTHER_ORG_USER))
+                .andExpect(status().isNotFound());
+        // 捐贈者不是機構，沒有機構身分
+        mvc.perform(as(get("/api/organizations/me/claims/{id}", claimId), DONOR))
+                .andExpect(status().is4xxClientError());
+    }
+
+    @Test
     @DisplayName("捐贈者的視圖不含其他捐贈者的個資")
     void donorViewDoesNotExposeOtherDonorsInformation() throws Exception {
         UUID claimId = claimAs(publishedWish("個資檢查"), DONOR);

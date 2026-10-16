@@ -25,6 +25,7 @@ import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.event.ClaimCreatedEvent;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.ReleasePolicy;
+import com.onlinesanta.receipt.ClaimReceiptService;
 import com.onlinesanta.user.User;
 import com.onlinesanta.user.UserRepository;
 import com.onlinesanta.wish.Wish;
@@ -47,6 +48,7 @@ public class ClaimService {
     private final CurrentUserService currentUser;
     private final ClaimProperties properties;
     private final ApplicationEventPublisher eventPublisher;
+    private final ClaimReceiptService receipts;
 
     public ClaimService(ClaimRepository claims,
                         ClaimEventRepository events,
@@ -55,7 +57,8 @@ public class ClaimService {
                         AttachmentRepository attachments,
                         CurrentUserService currentUser,
                         ClaimProperties properties,
-                        ApplicationEventPublisher eventPublisher) {
+                        ApplicationEventPublisher eventPublisher,
+                        ClaimReceiptService receipts) {
         this.claims = claims;
         this.events = events;
         this.wishes = wishes;
@@ -64,6 +67,7 @@ public class ClaimService {
         this.currentUser = currentUser;
         this.properties = properties;
         this.eventPublisher = eventPublisher;
+        this.receipts = receipts;
     }
 
     // ================================================================ 認領
@@ -169,6 +173,18 @@ public class ClaimService {
             throw new BusinessRuleException("SHIPPING_PROOF_REQUIRED", "請先上傳至少一張寄送證明照片");
         }
 
+        if (request.receipt() != null) {
+            // 申請捐贈收據一定要附發票證明。檔案是先上傳的，這裡確認至少有一個已確認的
+            long receiptProofs = attachments.countByPurposeAndOwnerIdAndUploadStatus(
+                    AttachmentPurpose.RECEIPT_PROOF, claimId, UploadStatus.CONFIRMED);
+            if (receiptProofs == 0) {
+                throw new BusinessRuleException("RECEIPT_PROOF_REQUIRED",
+                        "申請捐贈收據請先上傳紙本或電子發票證明");
+            }
+            receipts.save(claimId, request.receipt());
+            claim.markReceiptRequested();
+        }
+
         claim.markShipped(request.carrier(), request.trackingNumber(), request.giftDescription(),
                 request.giftQuantity(), request.giftPrice(), request.shippedOn());
         record(claim, ClaimEventType.SHIPPED, principal.userId(),
@@ -211,6 +227,12 @@ public class ClaimService {
         claim.markReceived();
         record(claim, ClaimEventType.RECEIVED, principal.userId(), null);
         return claim;
+    }
+
+    /** 機構看自己願望底下的單筆認領。別家機構的認領一律 404，不洩漏它存在。 */
+    @Transactional(readOnly = true)
+    public Claim getForMyOrganization(UUID claimId) {
+        return findOwnedByOrganization(claimId, currentUser.requireOrganizationId());
     }
 
     @Transactional

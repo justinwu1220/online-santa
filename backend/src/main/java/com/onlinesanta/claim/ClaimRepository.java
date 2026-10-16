@@ -8,12 +8,14 @@ import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface ClaimRepository extends JpaRepository<Claim, UUID> {
+public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecificationExecutor<Claim> {
 
     /** 每位民眾同時進行中的認領數上限檢查。 */
     long countByDonorIdAndStatusIn(UUID donorId, Collection<ClaimStatus> statuses);
@@ -21,27 +23,18 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID> {
     @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
     Optional<Claim> findWithDetailsById(UUID id);
 
-    /** 監控中心的跨機構檢視。 */
+    /**
+     * 監控中心的認領清單。篩選條件見 {@link ClaimSpecifications}。覆寫是為了掛上
+     * EntityGraph，列表每一列都要顯示願望、機構與捐贈者，不掛的話會 N+1。
+     */
+    @Override
     @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
-    Page<Claim> findAllBy(Pageable pageable);
-
-    @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
-    Page<Claim> findByStatus(ClaimStatus status, Pageable pageable);
-
-    /** 監控中心的逾期清單（跨機構）。 */
-    @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
-    @Query("""
-            select c from Claim c
-            where c.status = com.onlinesanta.claim.ClaimStatus.CLAIMED
-              and c.shipDeadlineAt is not null
-              and c.shipDeadlineAt < :now
-            """)
-    Page<Claim> findAllOverdue(@Param("now") Instant now, Pageable pageable);
+    Page<Claim> findAll(Specification<Claim> spec, Pageable pageable);
 
     /**
      * 寄送期限快到、還沒寄過提醒信的認領。供 {@code DeadlineReminderService} 的每日
      * 排程使用。半開區間 {@code [from, to)}：{@code from} 是「現在」（已經逾期的不算，
-     * 那是 {@link #findAllOverdue} 與逾期釋回排程的職責），{@code to} 是提醒窗口的
+     * 那是 {@code ClaimSpecifications} 的逾期條件 與逾期釋回排程的職責），{@code to} 是提醒窗口的
      * 終點（現在 + 2 天）。
      */
     @EntityGraph(attributePaths = {"wish", "donor"})
@@ -53,43 +46,6 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID> {
               and c.deadlineReminderSentAt is null
             """)
     List<Claim> findNeedingDeadlineReminder(@Param("from") Instant from, @Param("to") Instant to);
-
-    // ================================================================ 監控中心「全站認領」的年度篩選
-    //
-    // 以 claimedAt 的台北日曆年篩選，與年度統計的 cohort 口徑一致（認領的歸屬時間
-    // 就是 claimedAt，不是 createdAt）。比照本分支已知的坑：不用
-    // (:year is null or ...) 的 nullable-filter，Service 依「有無 year」分流成
-    // 明確的方法，這裡的參數一定有值，用 >= / < 半開區間。
-
-    @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
-    @Query("select c from Claim c where c.claimedAt >= :from and c.claimedAt < :to")
-    Page<Claim> findByClaimedAtRange(@Param("from") Instant from, @Param("to") Instant to,
-                                     Pageable pageable);
-
-    @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
-    @Query("""
-            select c from Claim c
-             where c.status = :status
-               and c.claimedAt >= :from
-               and c.claimedAt < :to
-            """)
-    Page<Claim> findByStatusAndClaimedAtRange(@Param("status") ClaimStatus status,
-                                              @Param("from") Instant from, @Param("to") Instant to,
-                                              Pageable pageable);
-
-    /** 逾期清單加年度篩選：同 {@link #findAllOverdue}，多帶 claimedAt 區間。 */
-    @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
-    @Query("""
-            select c from Claim c
-            where c.status = com.onlinesanta.claim.ClaimStatus.CLAIMED
-              and c.shipDeadlineAt is not null
-              and c.shipDeadlineAt < :now
-              and c.claimedAt >= :from
-              and c.claimedAt < :to
-            """)
-    Page<Claim> findOverdueAndClaimedAtRange(@Param("now") Instant now,
-                                             @Param("from") Instant from, @Param("to") Instant to,
-                                             Pageable pageable);
 
     /** 依狀態分組計數，供監控中心的統計使用。 */
     @Query("select c.status, count(c) from Claim c group by c.status")

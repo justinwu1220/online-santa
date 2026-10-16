@@ -1,15 +1,14 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api, withQuery } from '../../lib/api'
-import { daysUntil, formatDate, formatPlainDate } from '../../lib/format'
-import type { AttachmentView, ClaimOrgView, ClaimStatus, PageResponse } from '../../lib/types'
+import { daysUntil, formatDate } from '../../lib/format'
+import type { ClaimOrgView, ClaimStatus, PageResponse } from '../../lib/types'
 import { EmptyState, ErrorBanner, Notice, Spinner } from '../../components/Feedback'
-import { Button, Field, Select, TextInput } from '../../components/Form'
-import { ImageUploader } from '../../components/ImageUploader'
-import { MessageThread } from '../../components/MessageThread'
+import { Select } from '../../components/Form'
 import { Pagination } from '../../components/Pagination'
 import { ClaimStatusBadge, OverdueBadge } from '../../components/StatusBadge'
+import { ReceiveGiftControl } from './ReceiveGiftControl'
 
 const STATUS_FILTERS: { value: ClaimStatus | ''; label: string }[] = [
   { value: '', label: '全部' },
@@ -119,40 +118,21 @@ export function OrgClaims({ overdueOnly = false }: { overdueOnly?: boolean }) {
 }
 
 function ClaimCard({ claim, onChanged }: { claim: ClaimOrgView; onChanged: () => void }) {
-  const queryClient = useQueryClient()
-  const [expanded, setExpanded] = useState(false)
-  const [releasing, setReleasing] = useState(false)
-  const [reason, setReason] = useState('')
-  // 兩者都是單向、不可逆的狀態轉換（後端沒有任何「退回上一狀態」的端點），
-  // 一按就送出的話誤觸沒辦法復原，所以先開個確認區塊，跟「收回認領」同一套慣例
-  const [confirmingAction, setConfirmingAction] = useState<'receive' | 'complete' | null>(null)
-
-  const attachments = useQuery({
-    queryKey: ['claim', claim.id, 'attachments'],
-    queryFn: () => api.get<AttachmentView[]>(`/api/claims/${claim.id}/attachments`),
-    enabled: expanded,
-  })
-
-  const advance = useMutation({
-    mutationFn: (path: 'receive' | 'complete') =>
-      api.post(`/api/organizations/me/claims/${claim.id}/${path}`),
-    onSuccess: () => { setConfirmingAction(null); onChanged() },
-  })
-
-  const release = useMutation({
-    mutationFn: () => api.post(`/api/organizations/me/claims/${claim.id}/release`,
-      reason.trim() ? { reason: reason.trim() } : undefined),
-    onSuccess: () => { setReleasing(false); onChanged() },
-  })
-
   const remaining = daysUntil(claim.shipDeadlineAt)
-  const closed = ['COMPLETED', 'RELEASED', 'CANCELLED'].includes(claim.status)
 
   return (
-    <div className="rounded-xl bg-white p-5 ring-1 ring-santa-100">
+    // relative：標題連結用 after 偽元素撐滿整張卡片，點卡片任何地方都進詳情；
+    // 卡片上的按鈕要 relative z-10 才不會被蓋住
+    <div className="relative rounded-xl bg-white p-5 ring-1 ring-santa-100 transition-shadow
+      hover:ring-santa-300">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="font-semibold text-slate-800">{claim.wishTitle}</h3>
+          <h3 className="font-semibold text-slate-800">
+            <Link to={`/org/claims/${claim.id}`}
+              className="after:absolute after:inset-0 after:content-[''] hover:underline">
+              {claim.wishTitle}
+            </Link>
+          </h3>
           <p className="mt-0.5 text-sm text-slate-500">
             給 {claim.childAlias}・認領者 {claim.donorName ?? claim.donorEmail}
           </p>
@@ -179,203 +159,10 @@ function ClaimCard({ claim, onChanged }: { claim: ClaimOrgView; onChanged: () =>
         {claim.trackingNumber && `・${claim.trackingCarrier} ${claim.trackingNumber}`}
       </p>
 
-      {claim.giftDescription && (
-        <p className="mt-2 text-sm text-slate-600">
-          禮物：{claim.giftDescription}
-          {claim.giftQuantity != null && `・${claim.giftQuantity} 份`}
-          {claim.giftPrice != null && `・${claim.giftPrice.toLocaleString('zh-TW')} 元`}
-          {claim.shippedOn && `・${formatPlainDate(claim.shippedOn)}寄出`}
-        </p>
-      )}
-
-      {claim.donorMessage && (
-        <p className="mt-3 rounded-lg bg-santa-50 px-3 py-2 text-sm text-slate-700">
-          捐贈者留言：{claim.donorMessage}
-        </p>
-      )}
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {claim.status === 'SHIPPED' && confirmingAction !== 'receive' && (
-          <Button disabled={advance.isPending} onClick={() => setConfirmingAction('receive')}>
-            確認收到禮物
-          </Button>
-        )}
-        {claim.status === 'RECEIVED' && (
-          <>
-            <ImageUploader
-              purpose="ORG_FEEDBACK"
-              targetId={claim.id}
-              label="上傳回饋照片"
-              onUploaded={() =>
-                queryClient.invalidateQueries({ queryKey: ['claim', claim.id, 'attachments'] })}
-            />
-            {confirmingAction !== 'complete' && (
-              <Button disabled={advance.isPending} onClick={() => setConfirmingAction('complete')}>
-                完成這筆送禮
-              </Button>
-            )}
-          </>
-        )}
-        {claim.status === 'CLAIMED' && !releasing && (
-          <Button variant="secondary" onClick={() => setReleasing(true)}>收回認領</Button>
-        )}
-        <Button variant="ghost" onClick={() => setExpanded((current) => !current)}>
-          {expanded ? '收合' : '對話與照片'}
-        </Button>
-      </div>
-
-      {confirmingAction && (
-        <div className="mt-4 rounded-lg bg-slate-50 p-4">
-          <p className="text-sm text-slate-600">
-            {confirmingAction === 'receive'
-              ? '確定已經收到捐贈者寄來的禮物嗎？這個動作無法復原。'
-              : '確定要完成這筆送禮嗎？完成後這筆認領就會結案，無法復原。'}
-          </p>
-          {advance.isError && <div className="mt-2"><ErrorBanner error={advance.error} /></div>}
-          <div className="mt-3 flex gap-2">
-            <Button disabled={advance.isPending} onClick={() => advance.mutate(confirmingAction)}>
-              {advance.isPending ? '處理中…' : '確定'}
-            </Button>
-            <Button variant="ghost" onClick={() => setConfirmingAction(null)}>取消</Button>
-          </div>
+      {claim.status === 'SHIPPED' && (
+        <div className="relative z-10 mt-4 flex flex-wrap items-center gap-2">
+          <ReceiveGiftControl claim={claim} onChanged={onChanged} />
         </div>
-      )}
-
-      {releasing && (
-        <form
-          className="mt-4 space-y-3 rounded-lg bg-slate-50 p-4"
-          onSubmit={(event) => { event.preventDefault(); release.mutate() }}
-        >
-          <Field label="收回原因" hint="會記錄在歷程中，捐贈者看得到">
-            <TextInput maxLength={255} value={reason}
-              placeholder="逾期未寄送，聯繫不上"
-              onChange={(event) => setReason(event.target.value)} />
-          </Field>
-          {release.isError && <ErrorBanner error={release.error} />}
-          <div className="flex gap-2">
-            <Button variant="danger" type="submit" disabled={release.isPending}>
-              {release.isPending ? '處理中…' : '確定收回'}
-            </Button>
-            <Button variant="ghost" onClick={() => setReleasing(false)}>取消</Button>
-          </div>
-          <p className="text-xs text-slate-500">收回後願望會立刻回到願望牆。</p>
-        </form>
-      )}
-
-      {expanded && (
-        <div className="mt-5 space-y-5 border-t border-santa-100 pt-5">
-          <div>
-            <h4 className="mb-2 text-sm font-medium text-slate-700">附件</h4>
-            {attachments.isLoading
-              ? <Spinner label="載入附件" />
-              : <AttachmentGroups attachments={attachments.data ?? []}
-                  onDeleted={() =>
-                    queryClient.invalidateQueries({ queryKey: ['claim', claim.id, 'attachments'] })} />}
-          </div>
-
-          <div>
-            <h4 className="mb-2 text-sm font-medium text-slate-700">與捐贈者對話</h4>
-            <MessageThread claimId={claim.id} closed={closed} />
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/**
- * 附件依上傳者分成兩組，不要混在同一格——寄送證明是認領人上傳的，回饋照片是
- * 機構自己上傳的，混在一起會看不出哪張是誰放的（比照捐贈者端 ClaimDetail.tsx
- * 的分組方式，WISH_IMAGE 不會出現在這個端點，篩選寫明確一點以防萬一）。
- */
-function AttachmentGroups({ attachments, onDeleted }: {
-  attachments: AttachmentView[]; onDeleted: () => void
-}) {
-  const shippingProofs = attachments.filter((a) => a.purpose === 'SHIPPING_PROOF')
-  const feedbackPhotos = attachments.filter((a) => a.purpose === 'ORG_FEEDBACK')
-
-  if (shippingProofs.length === 0 && feedbackPhotos.length === 0) {
-    return <p className="text-sm text-slate-500">還沒有任何照片。</p>
-  }
-
-  return (
-    <div className="space-y-4">
-      <AttachmentGroup title="寄送證明" photos={shippingProofs}
-        emptyHint="認領人還沒上傳寄送證明。" />
-      {/* 回饋照片是機構自己上傳的，才能刪；寄送證明是認領人上傳的，機構只能看 */}
-      <AttachmentGroup title="回饋照片" photos={feedbackPhotos}
-        emptyHint="還沒有回饋照片。" onDeleted={onDeleted} />
-    </div>
-  )
-}
-
-function AttachmentGroup({ title, photos, emptyHint, onDeleted }: {
-  title: string; photos: AttachmentView[]; emptyHint: string; onDeleted?: () => void
-}) {
-  return (
-    <div>
-      <p className="mb-1.5 text-xs font-medium text-slate-500">{title}</p>
-      {photos.length === 0 ? (
-        <p className="text-sm text-slate-400">{emptyHint}</p>
-      ) : (
-        <div className="grid grid-cols-4 gap-3">
-          {photos.map((photo) => (
-            onDeleted
-              ? <DeletablePhoto key={photo.id} photo={photo} onDeleted={onDeleted} />
-              : <PhotoTile key={photo.id} photo={photo} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function PhotoTile({ photo }: { photo: AttachmentView }) {
-  return (
-    <a href={photo.url} target="_blank" rel="noreferrer"
-      className="overflow-hidden rounded-lg ring-1 ring-santa-100">
-      <img src={photo.url} alt="" className="aspect-square w-full object-cover" />
-    </a>
-  )
-}
-
-function DeletablePhoto({ photo, onDeleted }: { photo: AttachmentView; onDeleted: () => void }) {
-  const [confirming, setConfirming] = useState(false)
-
-  const remove = useMutation({
-    mutationFn: () => api.delete(`/api/attachments/${photo.id}`),
-    onSuccess: onDeleted,
-  })
-
-  return (
-    <div className="group relative overflow-hidden rounded-lg ring-1 ring-santa-100">
-      <a href={photo.url} target="_blank" rel="noreferrer">
-        <img src={photo.url} alt=""
-          className="aspect-square w-full object-cover transition-opacity group-hover:opacity-75" />
-      </a>
-
-      {confirming ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5
-          bg-white/95 p-2 text-center">
-          <p className="text-xs text-slate-600">刪除後無法復原</p>
-          {remove.isError && <p className="text-xs text-berry-600">刪除失敗，請再試一次</p>}
-          <div className="flex gap-1.5">
-            <Button variant="danger" disabled={remove.isPending}
-              onClick={() => remove.mutate()} className="px-2 py-1 text-xs">
-              {remove.isPending ? '刪除中…' : '確定刪除'}
-            </Button>
-            <Button variant="ghost" onClick={() => setConfirming(false)} className="px-2 py-1 text-xs">
-              取消
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <button type="button" onClick={() => setConfirming(true)}
-          className="absolute right-1 top-1 rounded-md bg-white/90 px-1.5 py-0.5 text-xs
-            text-slate-600 opacity-0 shadow transition-opacity hover:bg-berry-500
-            hover:text-white group-hover:opacity-100">
-          刪除
-        </button>
       )}
     </div>
   )

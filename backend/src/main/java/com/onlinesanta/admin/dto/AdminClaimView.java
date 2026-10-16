@@ -37,6 +37,8 @@ public record AdminClaimView(
         Integer giftQuantity,
         Integer giftPrice,
         LocalDate shippedOn,
+        /** 是否申請了捐贈收據。收據資料本身要走專用端點讀取（會寫稽核） */
+        boolean receiptRequested,
         String releaseReason) {
 
     public static AdminClaimView from(Claim claim) {
@@ -63,6 +65,7 @@ public record AdminClaimView(
                 claim.getGiftQuantity(),
                 claim.getGiftPrice(),
                 claim.getShippedOn(),
+                claim.isReceiptRequested(),
                 claim.getReleaseReason());
     }
 }
