@@ -107,14 +107,14 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
     needText('shippedOn', shippedOn, '寄出日期')
     if (photos.length === 0) found.photos = '請至少上傳一個檔案'
     if (receiptEnabled) {
-      needText('receipt.name', receipt.name, '姓名或公司名稱')
+      needText('receipt.name', receipt.name, '收據抬頭')
       if (!receipt.idNumber.trim()) found['receipt.idNumber'] = '請填寫身分證字號或統一編號'
       else if (!RECEIPT_ID_PATTERN.test(receipt.idNumber.trim())) {
         found['receipt.idNumber'] = '格式不正確：身分證字號為 1 個英文字母加 9 碼數字，統一編號為 8 碼數字'
       }
-      if (!receipt.email.trim()) found['receipt.email'] = '請填寫電子信箱'
+      if (!receipt.email.trim()) found['receipt.email'] = '請填寫收據寄送信箱'
       else if (!/^\S+@\S+\.\S+$/.test(receipt.email.trim())) found['receipt.email'] = '請確認信箱格式'
-      needText('receipt.address', receipt.address, '收件地址')
+      needText('receipt.address', receipt.address, '收據寄送地址')
       if (receiptProofs.length === 0) found.receiptProofs = '請至少上傳一個檔案'
     }
 
@@ -222,7 +222,7 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
               <div>
                 <div className="receipt__fields">
                   <div className="form-grid">
-                    <FormField label="姓名或公司名稱" required={receiptEnabled} span={3}
+                    <FormField label="收據抬頭" required={receiptEnabled} span={3}
                       hint="真實姓名或單位全銜，需與報稅身分一致" error={errors['receipt.name'] ?? fieldErrors?.['receipt.name']}>
                       <Input required={receiptEnabled} maxLength={100} value={receipt.name}
                         onChange={updateReceipt('name')} />
@@ -233,19 +233,19 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
                       <Input required={receiptEnabled} maxLength={10} autoComplete="off"
                         value={receipt.idNumber} onChange={updateReceipt('idNumber')} />
                     </FormField>
-                    <FormField label="電子信箱" required={receiptEnabled} span={3}
+                    <FormField label="收據寄送信箱" required={receiptEnabled} span={3}
                       hint="電子收據會寄到這裡" error={errors['receipt.email'] ?? fieldErrors?.['receipt.email']}>
                       <Input required={receiptEnabled} type="email" maxLength={255}
                         value={receipt.email} onChange={updateReceipt('email')} />
                     </FormField>
-                    <FormField label="收件地址" required={receiptEnabled} span={3}
+                    <FormField label="收據寄送地址" required={receiptEnabled} span={3}
                       hint="預設寄電子檔；要紙本請寫信到 onlinesanta2026@gmail.com"
                       error={errors['receipt.address'] ?? fieldErrors?.['receipt.address']}>
                       <Input required={receiptEnabled} maxLength={255}
                         value={receipt.address} onChange={updateReceipt('address')} />
                     </FormField>
                     <FilePicker
-                      label="上傳紙本或電子發票證明"
+                      label="紙本或電子發票"
                       buttonText="新增檔案"
                       icon={<FileUp className="icon" aria-hidden />}
                       hint="供協會核對時價；請先遮住與這次捐贈無關的個人資料"
