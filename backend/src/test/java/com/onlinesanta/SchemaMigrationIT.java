@@ -68,10 +68,5 @@ class SchemaMigrationIT extends PostgresIntegrationTest {
                 "SELECT column_name FROM information_schema.columns WHERE table_name = 'wishes'",
                 String.class);
         assertThat(wishColumns).contains("avatar");
-
-        String nullable = jdbc.queryForObject(
-                "SELECT is_nullable FROM information_schema.columns "
-                        + "WHERE table_name = 'wishes' AND column_name = 'category'", String.class);
-        assertThat(nullable).as("1018 新版起禮物分類不再必填").isEqualTo("YES");
     }
 }

@@ -43,7 +43,7 @@ public record WishListView(
                 wish.getTitle(),
                 wish.getDescription(),
                 wish.getCategory(),
-                wish.getCategory() != null ? wish.getCategory().getLabel() : null,
+                wish.getCategory().getLabel(),
                 wish.getAgeRange(),
                 wish.getAgeRange().getLabel(),
                 wish.getPriceRange(),

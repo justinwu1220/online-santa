@@ -51,9 +51,8 @@ public class Wish extends BaseEntity {
     @Column(nullable = false, length = 30)
     private String avatar;
 
-    /** 1018 新版起機構表單已無此欄位，舊資料保留；新願望為 null。 */
     @Enumerated(EnumType.STRING)
-    @Column(length = 30)
+    @Column(nullable = false, length = 30)
     private WishCategory category;
 
     @Enumerated(EnumType.STRING)
