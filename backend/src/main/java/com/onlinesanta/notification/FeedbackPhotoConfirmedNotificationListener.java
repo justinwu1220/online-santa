@@ -30,11 +30,11 @@ public class FeedbackPhotoConfirmedNotificationListener {
     }
 
     private void notify(Claim claim) {
-        String subject = "「%s」的機構回饋照片來囉".formatted(claim.getWish().getTitle());
+        String subject = "「%s」的機構收件證明來囉".formatted(claim.getWish().getTitle());
         String body = """
                 您好，
 
-                您送出的「%s」，機構上傳了送禮回饋照片，一起看看孩子收到禮物的樣子吧：
+                您送出的「%s」，機構上傳了收件證明，確認您送出的禮物已經送達，一起看看孩子收到禮物的樣子吧：
                 %s/me/claims/%s
 
                 線上聖誕老人
