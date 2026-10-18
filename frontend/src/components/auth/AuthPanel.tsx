@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronRight, Eye, EyeOff, Gift, House } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Eye, EyeOff, Gift, Heart, House } from 'lucide-react'
 import { useState } from 'react'
 import { describeAuthError, useAuth, usingFirebase } from '../../lib/authContext'
 import { FormField, Input } from '../ui/Fields'
@@ -252,6 +252,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
               </FormField>
               <button type="button" className="btn btn--sm kind-btn"
                 onClick={() => { setName('善心人士'); setNameError(null) }}>
+                <Heart className="icon" aria-hidden />
                 使用善心人士名義
               </button>
             </div>
@@ -334,8 +335,9 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
 
           {usingFirebase && registering && (
             <p className="auth-note">
-              註冊後我們會寄一封驗證信。點擊信中的連結之後才能認領願望或申請成為合作機構
-              ——機構需要靠這個信箱聯繫你。
+              {role === 'org'
+                ? '註冊後我們會寄一封驗證信。完成驗證後才能送出機構申請——機構需要靠這個信箱聯繫你。'
+                : '註冊後我們會寄一封驗證信。點信中的連結之後，才能認領願望。'}
             </p>
           )}
 
