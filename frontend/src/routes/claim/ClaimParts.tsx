@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { Check, Clock, Copy, Paperclip } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
 import { api } from '../../lib/api'
-import { formatDate, formatDateTime, formatPlainDate } from '../../lib/format'
+import { formatDate, formatDateTime } from '../../lib/format'
 import type { AttachmentView, ClaimDonorView } from '../../lib/types'
 import { ACCEPTED_IMAGE_TYPES, MAX_SHIPPING_PROOFS, uploadImage, validateImage } from '../../lib/upload'
 import { Dialog } from '../../components/ui/Dialog'
@@ -148,14 +148,18 @@ export function ShipSummary({ claim, proofs, closed, onChanged }: {
         <div><dt>物流業者</dt><dd>{claim.trackingCarrier}</dd></div>
         <div><dt>追蹤碼</dt><dd>{claim.trackingNumber}</dd></div>
         {claim.giftDescription && (
-          <div className="c-full"><dt>實際寄出的禮物</dt><dd>{claim.giftDescription}</dd></div>
+          <div><dt>實際寄出的禮物</dt><dd>{claim.giftDescription}</dd></div>
         )}
         {claim.giftQuantity != null && <div><dt>數量</dt><dd>{claim.giftQuantity} 份</dd></div>}
         {claim.giftPrice != null && (
           <div><dt>禮物價格</dt><dd>{claim.giftPrice.toLocaleString('zh-TW')} 元</dd></div>
         )}
-        {claim.shippedOn && <div><dt>寄出日期</dt><dd>{formatPlainDate(claim.shippedOn)}</dd></div>}
-        <div><dt>捐贈收據</dt><dd>{claim.receiptRequested ? '已申請' : '未申請'}</dd></div>
+        {claim.shippedOn && <div><dt>寄出日期</dt><dd>{claim.shippedOn.replaceAll('-', '/')}</dd></div>}
+        <div><dt>寄件照片</dt><dd>{proofs.length} 張</dd></div>
+        <div>
+          <dt>捐贈收據</dt>
+          <dd>{claim.receiptRequested ? '需要（已提供開據資料）' : '不需要另外索取'}</dd>
+        </div>
       </dl>
 
       <div style={{ marginTop: 18 }}>
@@ -167,7 +171,10 @@ export function ShipSummary({ claim, proofs, closed, onChanged }: {
           </div>
         )}
       </div>
-      <p className="ship-note">回報送出後無法修改；需要更正請在下方與機構對話聯繫。</p>
+      {/* 機構確認收到之後就不再提示修改 */}
+      {claim.status === 'SHIPPED' && (
+        <p className="ship-note">資料需要修改的話，請在下方對話告訴機構或寫信給我們。</p>
+      )}
     </StepPanel>
   )
 }
