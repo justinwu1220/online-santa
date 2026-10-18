@@ -1,6 +1,6 @@
 import { Gift, Mail, X, ZoomIn } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { avatarFor } from '../lib/avatar'
+import { avatarSrc } from '../lib/avatar'
 import type { PublicStatus } from '../lib/wishStatus'
 import type { WishPublicView } from '../lib/types'
 import { Dialog } from './ui/Dialog'
@@ -62,7 +62,7 @@ export function WishFeature({ wish, statusKey, statusLabel, footer, orgAnchor }:
 
       <aside className="info">
         <div className="who">
-          <img className="avatar" src={avatarFor(wish.id, wish.ageRange)} alt="" width={80} height={80} />
+          <img className="avatar" src={avatarSrc(wish.avatar)} alt="" width={80} height={80} />
           <div className="who__text">
             <div className="who__name-row">
               <span className="who__name">{wish.childAlias}</span>
@@ -84,8 +84,8 @@ export function WishFeature({ wish, statusKey, statusLabel, footer, orgAnchor }:
             <Gift className="icon" aria-hidden />
             <span>{wish.title}</span>
           </p>
-          {wish.description && (
-            <p className="gift-note" style={{ whiteSpace: 'pre-wrap' }}>{wish.description}</p>
+          {(wish.note || wish.description) && (
+            <p className="gift-note" style={{ whiteSpace: 'pre-wrap' }}>{wish.note || wish.description}</p>
           )}
           {wish.interests && <p className="gift-note">孩子喜歡：{wish.interests}</p>}
         </div>

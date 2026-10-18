@@ -57,6 +57,10 @@ export interface WishListView {
   priceRangeLabel?: string
   childAlias: string
   interests?: string
+  /** 孩子口吻的一句話（20 字內），舊資料沒有 */
+  note?: string
+  /** 頭貼檔名，建立願望時存下，位於 /avatars/ */
+  avatar: string
   status: WishStatus
   publishedAt?: string
   organizationId: string
@@ -75,6 +79,8 @@ export interface WishPublicView {
   priceRangeLabel?: string
   childAlias: string
   interests?: string
+  note?: string
+  avatar: string
   status: WishStatus
   publishedAt?: string
   organizationId: string
@@ -197,6 +203,7 @@ interface ClaimBase {
 export interface ClaimDonorView extends ClaimBase {
   ageRange: string
   ageRangeLabel: string
+  avatar: string
   organizationName: string
   /** 機構簡介（機構設定），沒填為 undefined */
   organizationDescription?: string

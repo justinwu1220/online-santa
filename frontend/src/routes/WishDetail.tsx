@@ -4,7 +4,7 @@ import { OrgPhoto, OrgSiteLink } from '../components/OrgBits'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ApiError, api } from '../lib/api'
-import { avatarFor } from '../lib/avatar'
+import { avatarSrc } from '../lib/avatar'
 import { formatDate } from '../lib/format'
 import { useAuth } from '../lib/authContext'
 import type { ClaimDonorView, WishPublicView } from '../lib/types'
@@ -132,7 +132,7 @@ export function WishDetail() {
   const status = publicStatusOf(data.status)
   const available = data.status === 'AVAILABLE'
   const isDonor = effectiveRoleOf(me.data) === 'DONOR'
-  const avatar = avatarFor(data.id, data.ageRange)
+  const avatar = avatarSrc(data.avatar)
   // 認領當下才會算出真正的期限；這裡用同一個天數預告，日期與認領後看到的一致
   // 按「認領這個願望」：還沒同意目前版本的須知就先跳出同意視窗，同意後才進認領確認
   function startClaim() {

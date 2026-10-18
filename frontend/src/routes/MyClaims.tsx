@@ -3,7 +3,7 @@ import { Gift } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, withQuery } from '../lib/api'
-import { avatarFor } from '../lib/avatar'
+import { avatarSrc } from '../lib/avatar'
 import { useAuth } from '../lib/authContext'
 import { daysUntil, formatDate } from '../lib/format'
 import { useListEntry } from '../lib/useEntryAnimation'
@@ -86,7 +86,7 @@ function ClaimCard({ claim }: { claim: ClaimDonorView }) {
       <span className="status-tab">{tab.label}</span>
 
       <div className="who">
-        <img className="avatar" src={avatarFor(claim.wishId, claim.ageRange)} alt="" width={64} height={64} />
+        <img className="avatar" src={avatarSrc(claim.avatar)} alt="" width={64} height={64} />
         <div className="who__text">
           <div className="who__name-row">
             <span className="who__name">{claim.childAlias}</span>
