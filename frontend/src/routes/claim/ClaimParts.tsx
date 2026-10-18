@@ -152,18 +152,21 @@ export function ShipSummary({ claim, proofs }: {
           <div><dt>禮物價格</dt><dd>{claim.giftPrice.toLocaleString('zh-TW')} 元</dd></div>
         )}
         {claim.shippedOn && <div><dt>寄出日期</dt><dd>{claim.shippedOn.replaceAll('-', '/')}</dd></div>}
-        <div><dt>寄件照片</dt><dd>{proofs.length} 張</dd></div>
+        {/* 照片放在「寄件照片」底下，整列寬；回報送出後只能檢視，不能刪除或補傳 */}
+        <div className="c-full">
+          <dt>寄件照片</dt>
+          <dd>
+            {proofs.length} 張
+            {proofs.length > 0 && (
+              <div style={{ marginTop: 10 }}><ProofGrid photos={proofs} emptyHint="" /></div>
+            )}
+          </dd>
+        </div>
         <div>
           <dt>捐贈收據</dt>
           <dd>{claim.receiptRequested ? '需要（已提供開據資料）' : '不需要另外索取'}</dd>
         </div>
       </dl>
-
-      <div style={{ marginTop: 18 }}>
-        <p style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--fg-muted)' }}>寄件單或包裹照片</p>
-        {/* 回報送出後只能檢視，不能刪除或補傳 */}
-        <ProofGrid photos={proofs} emptyHint="" />
-      </div>
       {/* 機構確認收到之後就不再提示修改 */}
       {claim.status === 'SHIPPED' && (
         <p className="ship-note">資料需要修改的話，請在下方對話告訴機構或寫信給我們。</p>
