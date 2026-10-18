@@ -85,7 +85,22 @@ function DevAuthProvider({ children }: { children: ReactNode }) {
     signIn,
     // 開發模式沒有真的密碼，登入頁也不會顯示密碼欄位；這些退化成一般的身分切換
     signInWithPassword: async (nextEmail) => { await signIn(nextEmail) },
-    registerWithPassword: async (nextEmail) => { await signIn(nextEmail) },
+    // 開發模式的註冊：密碼完全不使用（只讓註冊畫面和正式環境一樣），但姓名要存。
+    // 直接帶 X-Dev-User-Email 打 PATCH /api/me/profile，不靠 context 的 authHeaders——
+    // 剛 signIn 時 state 還沒更新，請求可能還在用登入前的標頭
+    registerWithPassword: async (nextEmail, _password, displayName, name) => {
+      await signIn(nextEmail)
+      if (!displayName) return
+      try {
+        await fetch(`${API_BASE_URL}/api/me/profile`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-Dev-User-Email': nextEmail.trim() },
+          body: JSON.stringify({ displayName, name }),
+        })
+      } catch (error) {
+        console.warn('開發模式註冊後寫入姓名失敗，不影響註冊本身', error)
+      }
+    },
     sendPasswordReset: async () => {},
     resendVerification: async () => setDevUnverified(false),
     refreshVerification: async () => {},

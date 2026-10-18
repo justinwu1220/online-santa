@@ -140,9 +140,9 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
   function submit(event: React.FormEvent) {
     event.preventDefault()
 
-    if (!usingFirebase) {
-      // 開發模式：身分只由 email 指定，沒有密碼
-      onJoinIntent?.(registering ? role : null)
+    if (!usingFirebase && !registering) {
+      // 開發模式登入：身分只由 email 指定，沒有密碼
+      onJoinIntent?.(null)
       void run(() => auth.signIn(email))
       return
     }
@@ -234,11 +234,11 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
         <form className="auth-form" onSubmit={submit}>
           {!usingFirebase && (
             <p className="auth-msg">
-              開發模式：未設定 Firebase，輸入任何 email 即可登入，沒有任何驗證。
+              開發模式：未設定 Firebase，輸入任何 email 即可登入，沒有任何驗證。註冊時密碼只用來檢查畫面、不會驗證，姓名則會儲存。
             </p>
           )}
 
-          {usingFirebase && registering && role === 'donor' && (
+          {registering && role === 'donor' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <FormField label="真實姓名" required
                 hint="用於捐贈收據與向衛福部申報的徵信名冊，不會顯示在網站上"
@@ -257,7 +257,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
             </div>
           )}
 
-          {usingFirebase && registering && role === 'donor' && (
+          {registering && role === 'donor' && (
             <FormField label="顯示名稱" required hint="機構和孩子看到的名字，可以用暱稱"
               error={displayNameError}>
               <Input required maxLength={100} value={displayName} placeholder="王小明"
@@ -274,7 +274,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
               onChange={(event) => setEmail(event.target.value)} />
           </FormField>
 
-          {usingFirebase && (
+          {(usingFirebase || registering) && (
             <FormField label="密碼" required hint={registering ? '至少 6 個字元' : undefined}>
               <span className="pw-wrap">
                 <Input
@@ -296,7 +296,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
             </FormField>
           )}
 
-          {usingFirebase && registering && (
+          {registering && (
             <FormField label="確認密碼" required error={confirmError}>
               <Input
                 type={showPassword ? 'text' : 'password'}
