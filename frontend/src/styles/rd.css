@@ -469,27 +469,6 @@
   .dialog h2 { margin: 0 0 10px; font-size: 22px; font-weight: 900; line-height: 1.4; }
   .dialog p a { color: #a7f3d0; }
   .dialog p { margin: 0 0 10px; font-size: 15px; line-height: 1.75; color: var(--fg-4); text-wrap: pretty; }
-  /* 首次登入說明「開始之前」（prototype.html 622–641 行） */
-  .onboard{width:min(580px,calc(100vw - 32px));padding:28px;max-height:calc(100dvh - 32px);overflow:auto}
-  .onboard[open]{display:flex;flex-direction:column;gap:16px}
-  .onboard__top{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .onboard__brand{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:900}
-  .onboard__step{font-size:13px;font-weight:700;letter-spacing:.08em;color:#6ee7b7;font-variant-numeric:tabular-nums}
-  .onboard__illo{height:clamp(170px,32vh,250px);display:flex;align-items:center;justify-content:center;border-radius:20px;background:radial-gradient(circle at 50% 60%,rgba(30,58,138,.35),transparent 70%)}
-  .onboard__illo svg{height:100%;width:auto;max-width:100%;display:block}
-  .onboard__text{display:flex;flex-direction:column;gap:10px;min-height:118px}
-  .onboard__text h2{margin:0;font-size:clamp(22px,3.6vw,30px);font-weight:900;line-height:1.3;letter-spacing:.03em;text-wrap:balance}
-  .onboard__text p{margin:0;font-size:15px;line-height:1.8;color:var(--fg-4);text-wrap:pretty}
-  .onboard__text b{color:var(--fg);font-weight:700}
-  .onboard__foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-  .onboard__dots{display:flex;gap:6px;align-items:center}
-  .onboard__dots i{display:block;width:8px;height:8px;border-radius:999px;background:rgba(255,255,255,.18);transition:width .25s ease,background-color .25s ease}
-  .onboard__dots i.on{width:22px;background:#6ee7b7}
-  .onboard__actions{display:flex;gap:10px;margin-left:auto}
-  .onboard__actions .btn{height:48px}
-  .onboard__actions .btn--primary{padding:0 24px;font-size:15px}
-  .onboard__actions [hidden]{display:none}
-  @media (max-width:480px){.onboard{padding:22px}.onboard__actions{width:100%}.onboard__actions .btn{flex:1}}
   /* 標頭右上角的 ⓘ：重看首次登入說明 */
   .account__info { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg-3); display: grid; place-items: center; cursor: pointer; padding: 0; }
   .account__info:hover { background: rgba(255, 255, 255, .14); color: var(--fg); }
@@ -538,6 +517,28 @@
     .terms__actions .btn--primary{flex:1 1 100%;order:3}
   }
   .link-btn { border: 0; background: transparent; color: #fde68a; font: inherit; font-size: 13px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 8px 6px; }
+  /* 必須排在上面 .terms,.onboard{padding:0} 之後，padding 才不會被它蓋掉 */
+  /* 首次登入說明「開始之前」（prototype.html 622–641 行） */
+  .onboard{width:min(580px,calc(100vw - 32px));padding:28px;max-height:calc(100dvh - 32px);overflow:auto}
+  .onboard[open]{display:flex;flex-direction:column;gap:16px}
+  .onboard__top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .onboard__brand{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:900}
+  .onboard__step{font-size:13px;font-weight:700;letter-spacing:.08em;color:#6ee7b7;font-variant-numeric:tabular-nums}
+  .onboard__illo{height:clamp(170px,32vh,250px);display:flex;align-items:center;justify-content:center;border-radius:20px;background:radial-gradient(circle at 50% 60%,rgba(30,58,138,.35),transparent 70%)}
+  .onboard__illo svg{height:100%;width:auto;max-width:100%;display:block}
+  .onboard__text{display:flex;flex-direction:column;gap:10px;min-height:118px}
+  .onboard__text h2{margin:0;font-size:clamp(22px,3.6vw,30px);font-weight:900;line-height:1.3;letter-spacing:.03em;text-wrap:balance}
+  .onboard__text p{margin:0;font-size:15px;line-height:1.8;color:var(--fg-4);text-wrap:pretty}
+  .onboard__text b{color:var(--fg);font-weight:700}
+  .onboard__foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .onboard__dots{display:flex;gap:6px;align-items:center}
+  .onboard__dots i{display:block;width:8px;height:8px;border-radius:999px;background:rgba(255,255,255,.18);transition:width .25s ease,background-color .25s ease}
+  .onboard__dots i.on{width:22px;background:#6ee7b7}
+  .onboard__actions{display:flex;gap:10px;margin-left:auto}
+  .onboard__actions .btn{height:48px}
+  .onboard__actions .btn--primary{padding:0 24px;font-size:15px}
+  .onboard__actions [hidden]{display:none}
+  @media (max-width:480px){.onboard{padding:22px}.onboard__actions{width:100%}.onboard__actions .btn{flex:1}}
   /* 放在 .link-btn 之後：原型裡 .terms__top 排在 .link-btn 後面才得以覆蓋它的顏色 */
   .terms__top.link-btn { margin-right: auto; text-decoration: none; color: #6ee7b7; }
   .link-btn:disabled { color: #a39066; text-decoration: none; cursor: default; }
