@@ -2,14 +2,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
+import { pendingStepsFor } from '../../lib/claimFlow'
 import { daysUntil, formatDate, formatDateTime, formatPlainDate } from '../../lib/format'
-import type { AttachmentView, ClaimOrgView } from '../../lib/types'
+import type { AttachmentView, ClaimEventView, ClaimOrgView } from '../../lib/types'
 import { Breadcrumb } from '../../components/Breadcrumb'
 import { ErrorBanner, Spinner } from '../../components/Feedback'
 import { Button, Field, TextInput } from '../../components/Form'
 import { ImageUploader } from '../../components/ImageUploader'
 import { MessageThread } from '../../components/MessageThread'
 import { ClaimStatusBadge, OverdueBadge } from '../../components/StatusBadge'
+import { Timeline } from '../../components/Timeline'
 import { AttachmentGroups } from './orgClaimAttachments'
 import { ReceiveGiftControl } from './ReceiveGiftControl'
 
@@ -34,7 +36,16 @@ export function OrgClaimDetail() {
     enabled: claim.isSuccess,
   })
 
+  // 歷程端點本來就允許「該筆認領的捐贈者與願望所屬機構」，別家機構一律 404
+  const timeline = useQuery({
+    queryKey: ['claim', id, 'timeline'],
+    queryFn: () => api.get<ClaimEventView[]>(`/api/claims/${id}/timeline`),
+    enabled: claim.isSuccess,
+  })
+
   function refresh() {
+    // 確認收到、完成、收回之後進度要立刻更新
+    void queryClient.invalidateQueries({ queryKey: ['claim', id, 'timeline'] })
     void queryClient.invalidateQueries({ queryKey: ['claims'] })
     void queryClient.invalidateQueries({ queryKey: ['org-wishes'] })
   }
@@ -70,6 +81,12 @@ export function OrgClaimDetail() {
               <p className="mt-4 rounded-lg bg-santa-50 px-3 py-2 text-sm text-slate-700">
                 捐贈者留言：{data.donorMessage}
               </p>
+            )}
+          </Panel>
+
+          <Panel title="進度">
+            {timeline.isLoading ? <Spinner label="載入歷程" /> : (
+              <Timeline events={timeline.data ?? []} pendingSteps={pendingStepsFor(data.status)} />
             )}
           </Panel>
 

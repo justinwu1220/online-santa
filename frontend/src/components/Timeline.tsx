@@ -4,8 +4,9 @@ import { CLAIM_EVENT_LABELS, formatDateTime } from '../lib/format'
 /**
  * 認領歷程。事件由後端寫入，只增不改。
  *
- * @param pendingSteps 還沒走到的步驟，排在已發生事件之後，以灰色空心圓圈與灰色文字顯示。
- *                     只有認領者自己的頁面會傳——管理員看的是實際發生過的紀錄
+ * @param pendingSteps 還沒走到的步驟，排在已發生事件之後，以灰色空心圓圈與灰色文字顯示
+ *                     （圓圈與已發生事件的圓點同樣大小）。認領者與機構的詳情頁會傳——
+ *                     管理員看的是實際發生過的紀錄，不傳
  */
 export function Timeline({ events, pendingSteps = [] }: {
   events: ClaimEventView[]
@@ -42,8 +43,9 @@ export function Timeline({ events, pendingSteps = [] }: {
       {pendingSteps.map((step, index) => (
         <li key={`pending-${step}`} className="flex gap-3">
           <div className="flex flex-col items-center">
-            {/* 空心圓圈比已發生事件的實心小圓點大一些，一眼就能分出「還沒到」 */}
-            <span className="timeline-dot-pending mt-1 h-3 w-3 shrink-0 rounded-full border
+            {/* 跟已發生事件的圓點同樣大小、同樣的上邊距，圓心才會對齊同一條線；
+                以空心灰色表示還沒到。邊框含在 8px 之內（border-box），外徑與實心圓點相同 */}
+            <span className="timeline-dot-pending mt-1.5 h-2 w-2 shrink-0 rounded-full border
               border-slate-400" />
             {index < pendingSteps.length - 1 && (
               <span className="timeline-line-pending w-px flex-1 bg-slate-300" />
