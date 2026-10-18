@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { Check, Clock, Copy } from 'lucide-react'
+import { CalendarCheck, Check, Clock, Copy } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { api } from '../../lib/api'
 import { formatDate, formatDateTime } from '../../lib/format'
@@ -326,7 +326,7 @@ export function DeadlineBar({ claim, remaining }: { claim: ClaimDonorView; remai
   const copy = claim.status === 'SHIPPED'
     ? ['已回報寄送', '等機構確認收到禮物，機構收到後會更新進度。']
     : claim.status === 'RECEIVED'
-      ? ['機構已收到禮物', '機構正在確認，完成後這筆認領就結案了。']
+      ? ['機構已經收到禮物了', `禮物會在聖誕節前交到${claim.childAlias}手上，謝謝你。`]
       : claim.status === 'COMPLETED'
         ? ['流程完成', '謝謝你，孩子收到了你的心意。']
         : null
@@ -334,7 +334,7 @@ export function DeadlineBar({ claim, remaining }: { claim: ClaimDonorView; remai
 
   return (
     <div className="deadline" data-tone="ok">
-      <Check className="icon" aria-hidden />
+      <CalendarCheck className="icon" aria-hidden />
       <p className="deadline__text" style={{ margin: 0 }}>
         <strong>{copy[0]}</strong>
         <small>{copy[1]}</small>
