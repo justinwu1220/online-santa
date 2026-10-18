@@ -168,7 +168,7 @@ export function WishDetail() {
             <span>給 {data.childAlias}・{data.organizationName}</span>
           </div>
         </div>
-        <p>認領後請於期限內寄出禮物，逾期機構可能會收回讓其他人認領。</p>
+        <p>認領後會看到機構的收件資訊與寄出期限，我們會陪你完成每一步。</p>
         <TextArea rows={3} maxLength={500} value={message}
           placeholder="想對孩子說的話（選填）"
           onChange={(event) => setMessage(event.target.value)} />
@@ -223,7 +223,7 @@ function ClaimZone({ available, status, loggedIn, verified, isDonor, wishId, suc
         <Link className="cta" to={`/login?next=${encodeURIComponent(`/wishes/${wishId}`)}`}>
           登入後認領這個願望
         </Link>
-        <p className="cta-help">登入或註冊之後就能認領，登入後會回到這一頁。</p>
+        <p className="cta-help">認領後會看到機構的收件資訊與寄出期限，我們會陪你完成每一步。</p>
       </div>
     )
   }
