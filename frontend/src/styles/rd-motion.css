@@ -32,10 +32,10 @@
   .fx svg { display: block; width: 100%; height: 100%; }
 
   /* ---------- 對話框：開啟由下 18px 浮上並放大；遮罩的淡入淡出只用 CSS ---------- */
-  .dialog[open], .letter-dialog[open] { animation: rd-dialog-in .34s var(--ease-out); }
-  .dialog[open]::backdrop, .letter-dialog[open]::backdrop { animation: rd-backdrop-in .26s ease-out; }
-  .dialog.is-closing, .letter-dialog.is-closing { animation: rd-dialog-out .2s ease-in forwards; }
-  .dialog.is-closing::backdrop, .letter-dialog.is-closing::backdrop { animation: rd-backdrop-out .2s ease-in forwards; }
+  .dialog[open], .letter-dialog[open], .terms[open] { animation: rd-dialog-in .34s var(--ease-out); }
+  .dialog[open]::backdrop, .letter-dialog[open]::backdrop, .terms[open]::backdrop { animation: rd-backdrop-in .26s ease-out; }
+  .dialog.is-closing, .letter-dialog.is-closing, .terms.is-closing { animation: rd-dialog-out .2s ease-in forwards; }
+  .dialog.is-closing::backdrop, .letter-dialog.is-closing::backdrop, .terms.is-closing::backdrop { animation: rd-backdrop-out .2s ease-in forwards; }
 
   .toast { animation: rd-toast-in .28s var(--ease-out); }
 

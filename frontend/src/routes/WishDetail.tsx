@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ApiError, api } from '../lib/api'
 import { avatarFor } from '../lib/avatar'
+import { formatDate } from '../lib/format'
 import { useAuth } from '../lib/authContext'
 import type { ClaimDonorView, WishPublicView } from '../lib/types'
 import {
@@ -15,7 +16,7 @@ import { useDetailEntry } from '../lib/useEntryAnimation'
 import { publicStatusOf } from '../lib/wishStatus'
 import { WishFeature } from '../components/WishFeature'
 import { Dialog } from '../components/ui/Dialog'
-import { TextArea } from '../components/ui/Fields'
+import { DonorTermsLink } from '../components/terms/DonorTermsLink'
 import { ErrorNotice, Spinner } from '../components/ui/Spinner'
 
 export function WishDetail() {
@@ -24,8 +25,9 @@ export function WishDetail() {
   const queryClient = useQueryClient()
   const { email, emailVerified } = useAuth()
   const me = useCurrentUser()
-  const [message, setMessage] = useState('')
   const [confirming, setConfirming] = useState(false)
+  // 打開確認視窗的當下時間，用來預告寄出日期（render 中不直接讀現在時間）
+  const [confirmedAt, setConfirmedAt] = useState(0)
   const [claimedOk, setClaimedOk] = useState(false)
   const location = useLocation()
   const root = useRef<HTMLDivElement>(null)
@@ -38,8 +40,7 @@ export function WishDetail() {
   })
 
   const claim = useMutation({
-    mutationFn: () => api.post<ClaimDonorView>(`/api/wishes/${id}/claim`,
-      message.trim() ? { donorMessage: message.trim() } : undefined),
+    mutationFn: () => api.post<ClaimDonorView>(`/api/wishes/${id}/claim`),
     onSuccess: (created) => {
       setConfirming(false)
       void celebrate(created.id)
@@ -120,6 +121,8 @@ export function WishDetail() {
   const available = data.status === 'AVAILABLE'
   const isDonor = effectiveRoleOf(me.data) === 'DONOR'
   const avatar = avatarFor(data.id, data.ageRange)
+  // 認領當下才會算出真正的期限；這裡用同一個天數預告，日期與認領後看到的一致
+  const shipBy = formatDate(new Date(confirmedAt + data.shipDeadlineDays * 86_400_000).toISOString())
 
   return (
     <div data-status={status.key} ref={root}>
@@ -144,7 +147,7 @@ export function WishDetail() {
             isDonor={isDonor}
             wishId={id}
             success={claimedOk}
-            onClaim={() => setConfirming(true)}
+            onClaim={() => { setConfirmedAt(Date.now()); setConfirming(true) }}
           />
         )}
       />
@@ -168,10 +171,11 @@ export function WishDetail() {
             <span>給 {data.childAlias}・{data.organizationName}</span>
           </div>
         </div>
-        <p>認領後會看到機構的收件資訊與寄出期限，我們會陪你完成每一步。</p>
-        <TextArea rows={3} maxLength={500} value={message}
-          placeholder="想對孩子說的話（選填）"
-          onChange={(event) => setMessage(event.target.value)} />
+        <p>
+          認領後，網站會提供機構的收件地址，請在 <strong>{shipBy}</strong> 前把禮物寄出，
+          寄出後回來回報寄送資訊。
+        </p>
+        <p>認領前請再看一次<DonorTermsLink />。</p>
         {claim.isError && <div style={{ marginTop: 12 }}><ClaimError error={claim.error} /></div>}
         <div className="dialog__actions">
           <button type="button" className="btn btn--ghost" disabled={claim.isPending}

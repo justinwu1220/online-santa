@@ -80,6 +80,8 @@ export interface WishPublicView {
   imageUrl?: string
   /** 孩子手寫的感謝卡／願望信照片，沒有就是空陣列（不是 undefined） */
   letterPhotoUrls: string[]
+  /** 認領後預計要在幾天內寄出（依機構的逾期處理設定），認領前用來預告寄出日期 */
+  shipDeadlineDays: number
 }
 
 export interface WishOrgView {
