@@ -33,9 +33,15 @@ public record WishPublicView(
         Instant publishedAt,
         UUID organizationId,
         String organizationName,
+        /** 機構在「機構設定」填的簡介，願望頁的「這份願望來自」區塊顯示；沒填為 null */
+        String organizationDescription,
         String imageUrl,
         List<String> letterPhotoUrls,
         int shipDeadlineDays) {
+
+    private static String blankToNull(String text) {
+        return text == null || text.isBlank() ? null : text.trim();
+    }
 
     public static WishPublicView from(Wish wish) {
         return from(wish, null, List.of(), 0);
@@ -64,6 +70,7 @@ public record WishPublicView(
                 wish.getPublishedAt(),
                 wish.getOrganization().getId(),
                 wish.getOrganization().getName(),
+                blankToNull(wish.getOrganization().getDescription()),
                 imageUrl,
                 letterPhotoUrls,
                 shipDeadlineDays);

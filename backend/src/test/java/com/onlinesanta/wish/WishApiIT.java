@@ -327,6 +327,33 @@ class WishApiIT extends ApiIntegrationTest {
     }
 
     @Test
+    void publicDetailShowsTheOrganizationIntroductionWhenFilled() throws Exception {
+        UUID wish = createPublishedWish("看機構簡介");
+
+        // 測試機構建立時填的簡介
+        mvc.perform(get("/api/wishes/{id}", wish))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.organizationDescription").value("測試機構"));
+
+        Organization organization = organizations.findById(orgId).orElseThrow();
+        organization.updateProfile(organization.getName(), "王承辦", "contact@example.org",
+                "02-1234-5678", null, "台北市中正區某某路 1 號", null, "  我們陪伴弱勢家庭的孩子。  ");
+        organizations.save(organization);
+
+        mvc.perform(get("/api/wishes/{id}", wish))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.organizationDescription").value("我們陪伴弱勢家庭的孩子。"));
+
+        // 清空簡介：欄位不出現（前端因此不渲染那一段）
+        organization.updateProfile(organization.getName(), "王承辦", "contact@example.org",
+                "02-1234-5678", null, "台北市中正區某某路 1 號", null, "   ");
+        organizations.save(organization);
+        mvc.perform(get("/api/wishes/{id}", wish))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.organizationDescription").doesNotExist());
+    }
+
+    @Test
     void publicDetailAnnouncesTheShipDeadlineDaysTheClaimWillGet() throws Exception {
         UUID wish = createPublishedWish("預告寄出天數");
 

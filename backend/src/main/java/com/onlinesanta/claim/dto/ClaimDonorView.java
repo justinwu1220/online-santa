@@ -27,6 +27,8 @@ public record ClaimDonorView(
         AgeRange ageRange,
         String ageRangeLabel,
         String organizationName,
+        /** 機構簡介（機構設定），認領頁右欄的機構小卡顯示；沒填為 null */
+        String organizationDescription,
         /** 寄送目的地。機構註冊時必填，舊資料可能為空，前端要有沒填時的說法 */
         String organizationAddress,
         String organizationPhone,
@@ -65,6 +67,9 @@ public record ClaimDonorView(
                 wish.getAgeRange(),
                 wish.getAgeRange().getLabel(),
                 wish.getOrganization().getName(),
+                wish.getOrganization().getDescription() == null
+                        || wish.getOrganization().getDescription().isBlank()
+                        ? null : wish.getOrganization().getDescription().trim(),
                 // ClaimRepository 的 @EntityGraph 已經把 wish.organization 抓進來了，
                 // 這兩個 getter 不會多打一次查詢
                 wish.getOrganization().getAddress(),

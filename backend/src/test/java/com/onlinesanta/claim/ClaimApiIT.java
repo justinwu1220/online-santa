@@ -98,6 +98,8 @@ class ClaimApiIT extends ApiIntegrationTest {
         mvc.perform(as(post("/api/wishes/{id}/claim", wishId), DONOR))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.organizationName").value("送禮之家"))
+                // 沒填簡介時不出現這個欄位
+                .andExpect(jsonPath("$.organizationDescription").doesNotExist())
                 .andExpect(jsonPath("$.organizationAddress").value("台北市中正區某某路 1 號"))
                 .andExpect(jsonPath("$.organizationPhone").value("02-1234-5678"))
                 .andExpect(jsonPath("$.organizationMobilePhone").value("0912-345-678"));
