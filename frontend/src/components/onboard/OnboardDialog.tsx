@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { burst, center, EASE_OUT, reducedMotion, wait } from '../../lib/motion'
 import { Dialog } from '../ui/Dialog'
 import type { OnboardCard } from './onboardContent'
@@ -12,12 +12,19 @@ import type { OnboardCard } from './onboardContent'
  *
  * 內容（`cards`、`illustrations`）是我們自己的靜態資料，所以插圖與說明裡的 <b> 直接以 HTML 渲染。
  */
-export function OnboardDialog({ open, cards, illustrations, dismissible, onClose, onFinish }: {
+export function OnboardDialog({
+  open, cards, illustrations, dismissible, links, onClose, onFinish,
+}: {
   open: boolean
   cards: OnboardCard[]
   illustrations: Record<string, string>
   /** 可以用 Esc／點背景關閉（重看時為 true） */
   dismissible: boolean
+  /**
+   * 說明文字裡的某段文字換成可互動的元件（例如把《認領者參與須知》換成會開啟須知的連結）。
+   * key 是要被取代的原文，出現幾次就換幾次。
+   */
+  links?: Record<string, ReactNode>
   onClose: () => void
   /** 看完最後一張（關閉動畫之前呼叫；呼叫端負責關掉、記錄、顯示提示） */
   onFinish: () => void
@@ -107,7 +114,7 @@ export function OnboardDialog({ open, cards, illustrations, dismissible, onClose
           dangerouslySetInnerHTML={{ __html: illustrations[card.illo] ?? '' }} />
         <div ref={text} className="onboard__text">
           <h2 id="ob-title">{card.title}</h2>
-          <p dangerouslySetInnerHTML={{ __html: card.sub }} />
+          <p>{renderSub(card.sub, links)}</p>
         </div>
         <div className="onboard__foot">
           <div className="onboard__dots" aria-hidden="true">
@@ -124,4 +131,19 @@ export function OnboardDialog({ open, cards, illustrations, dismissible, onClose
       </div>
     </Dialog>
   )
+}
+
+/**
+ * 說明文字是我們自己的靜態 HTML（含 <b>）。把 `links` 指定的原文挖出來換成元件，
+ * 其餘片段照 HTML 渲染。
+ */
+function renderSub(sub: string, links?: Record<string, ReactNode>): ReactNode {
+  const tokens = Object.keys(links ?? {})
+  if (!links || tokens.length === 0) return <span dangerouslySetInnerHTML={{ __html: sub }} />
+  const pattern = new RegExp(`(${tokens.map((token) => token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`)
+  return sub.split(pattern).map((part, i) => (
+    <Fragment key={i}>
+      {part in links ? links[part] : <span dangerouslySetInnerHTML={{ __html: part }} />}
+    </Fragment>
+  ))
 }

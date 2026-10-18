@@ -6,6 +6,7 @@ import { useDonorTerms } from '../../lib/terms'
 import { useCurrentUser } from '../../lib/useCurrentUser'
 import { useMyProfile } from '../../lib/useMyProfile'
 import { useToast } from '../ui/toastContext'
+import { DonorTermsLink } from '../terms/DonorTermsLink'
 import { OnboardContext, type OnboardApi } from './onboardContext'
 import { OnboardDialog } from './OnboardDialog'
 import { DONOR_ONBOARD_CARDS, DONOR_ONBOARD_ILLUSTRATIONS } from './onboardContent'
@@ -64,6 +65,8 @@ export function OnboardHost({ children }: { children: ReactNode }) {
         illustrations={DONOR_ONBOARD_ILLUSTRATIONS}
         // 第一次看不能略過；使用者自己按 ⓘ 重看時可以直接關掉
         dismissible={manual && !auto}
+        // 說明裡提到的《認領者參與須知》點了就開啟須知全文（疊在這個彈窗上方）
+        links={{ '《認領者參與須知》': <DonorTermsLink /> }}
         onClose={() => setManual(false)}
         onFinish={finish}
       />
