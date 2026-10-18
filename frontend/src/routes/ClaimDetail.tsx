@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, Gift } from 'lucide-react'
+import { ChevronRight, Gift, MessageCircle } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
@@ -16,7 +16,7 @@ import { Chat } from '../components/ui/Chat'
 import { ErrorNotice, Spinner } from '../components/ui/Spinner'
 import { useToast } from '../components/ui/toastContext'
 import {
-  AddressPanel, CancelPanel, DeadlineBar, ProgressSteps, ProofGrid, ShipSummary, StepPanel,
+  AddressPanel, CancelPanel, DeadlineBar, ProgressSteps, ReceiptProofPanel, ShipSummary, StepPanel,
 } from './claim/ClaimParts'
 import { ShipForm } from './claim/ShipForm'
 
@@ -177,14 +177,9 @@ export function ClaimDetail() {
               <ShipSummary claim={data} proofs={shippingProofs} />
             )}
 
-            {feedbackPhotos.length > 0 && (
-              <section className="panel">
-                <div className="panel__head"><h2 className="panel__title">機構收件證明</h2></div>
-                <ProofGrid photos={feedbackPhotos} emptyHint="" />
-              </section>
-            )}
+            <ReceiptProofPanel claim={data} proofs={feedbackPhotos} />
 
-            <StepPanel no={3} title="有問題就問機構">
+            <StepPanel icon={<MessageCircle className="icon" />} title="有問題就問機構">
               <Chat claimId={id} closed={closed} counterpart={data.organizationName} />
             </StepPanel>
           </div>

@@ -9,9 +9,13 @@ import { FormField, Input } from '../../components/ui/Fields'
 import { ErrorNotice } from '../../components/ui/Spinner'
 import { useToast } from '../../components/ui/toastContext'
 
-/** 步驟面板：編號圓章（完成後變綠底打勾）＋標題。 */
-export function StepPanel({ no, done, title, action, children }: {
-  no: number
+/**
+ * 步驟面板：編號圓章（完成後變綠底打勾）＋標題。
+ * 不屬於流程的輔助面板（例如隨時可用的對話）傳 `icon` 而不是 `no`：圓章裡放圖示，沒有編號也不打勾。
+ */
+export function StepPanel({ no, icon, done, title, action, children }: {
+  no?: number
+  icon?: ReactNode
   done?: boolean
   title: string
   action?: ReactNode
@@ -20,9 +24,13 @@ export function StepPanel({ no, done, title, action, children }: {
   return (
     <section className="panel">
       <div className="panel__head">
-        <span className={`step-no${done ? ' is-done' : ''}`}>
-          {done ? <Check className="icon" aria-hidden /> : no}
-        </span>
+        {icon ? (
+          <span className="step-no step-no--icon" aria-hidden>{icon}</span>
+        ) : (
+          <span className={`step-no${done ? ' is-done' : ''}`}>
+            {done ? <Check className="icon" aria-hidden /> : no}
+          </span>
+        )}
         <h2 className="panel__title">{title}</h2>
         {action}
       </div>
@@ -129,6 +137,39 @@ export function AddressPanel({ claim, done }: { claim: ClaimDonorView; done: boo
       ) : (
         // 更早之前建立的機構可能連地址都沒有
         <div className="notice notice--warn">這個機構還沒有填寫收件地址，請用下方的訊息詢問機構。</div>
+      )}
+    </StepPanel>
+  )
+}
+
+/**
+ * ③ 機構確認收到：機構收到包裹後上傳的「收件證明」。一開始就顯示（等待中），讓人知道流程最後會有證明。
+ *
+ * - 待寄送／已寄出：灰字說明等待中。
+ * - 機構已確認收到（RECEIVED／COMPLETED）：打勾，顯示確認日期與收件證明照片（唯讀）。
+ * - 已收回／已取消：這筆認領已經結束，沒有後續，整塊不顯示。
+ */
+export function ReceiptProofPanel({ claim, proofs }: { claim: ClaimDonorView; proofs: AttachmentView[] }) {
+  if (claim.status === 'RELEASED' || claim.status === 'CANCELLED') return null
+  const received = claim.status === 'RECEIVED' || claim.status === 'COMPLETED'
+
+  return (
+    <StepPanel no={3} done={received} title="機構確認收到">
+      {received ? (
+        <>
+          <p style={{ margin: '0 0 12px', fontSize: 15, color: 'var(--fg-3)' }}>
+            機構已於 {formatDate(claim.receivedAt)} 確認收到禮物。
+          </p>
+          {proofs.length > 0
+            ? <ProofGrid photos={proofs} emptyHint="" />
+            : <p style={{ margin: 0, fontSize: 14, color: 'var(--fg-muted)' }}>機構沒有附上收件證明照片。</p>}
+        </>
+      ) : (
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, color: 'var(--fg-muted)' }}>
+          {claim.status === 'SHIPPED'
+            ? '禮物在路上了，機構收到後會在這裡上傳收件證明。'
+            : '機構收到禮物後，會在這裡上傳收件證明，讓你知道禮物平安送達。'}
+        </p>
       )}
     </StepPanel>
   )
