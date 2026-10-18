@@ -1,5 +1,5 @@
-# --- 內部規劃文件（不進 repo）---
-docs/IMPLEMENTATION_PLAN.md
+# --- 文件與設計稿（只留在本機，不進 repo）---
+docs/
 
 # --- Java / Maven ---
 target/
@@ -51,6 +51,3 @@ Thumbs.db
 # --- Logs ---
 *.log
 npm-debug.log*
-
-# 之後的樣式參考資料，只留在本機
-docs/style/
