@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, ChevronRight } from 'lucide-react'
+import { OrgPhoto, OrgSiteButton } from '../components/OrgBits'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ApiError, api } from '../lib/api'
@@ -152,7 +153,9 @@ export function WishDetail() {
         <div className="org__body">
           <span className="org__eyebrow">這份願望來自</span>
           <h2 className="org__name">{data.organizationName}</h2>
+          <OrgSiteButton />
         </div>
+        <OrgPhoto />
       </section>
 
       <Dialog open={confirming} onClose={() => !claim.isPending && setConfirming(false)}

@@ -10,6 +10,7 @@ import type { AttachmentView, ClaimDonorView, WishPublicView } from '../lib/type
 import { useDetailEntry } from '../lib/useEntryAnimation'
 import { useMyProfile } from '../lib/useMyProfile'
 import { claimTabOf } from '../lib/wishStatus'
+import { OrgPhoto, OrgSiteButton } from '../components/OrgBits'
 import { WishFeature } from '../components/WishFeature'
 import { Chat } from '../components/ui/Chat'
 import { ErrorNotice, Spinner } from '../components/ui/Spinner'
@@ -186,9 +187,11 @@ export function ClaimDetail() {
 
           <div className="task__side">
             <section className="panel">
+              <OrgPhoto mini />
               <p className="progress__label">寄往</p>
               <h2 className="mini-org__name">{data.organizationName}</h2>
               <p className="mini-org__line">給 {data.childAlias}・{data.ageRangeLabel}</p>
+              <div style={{ marginTop: 12 }}><OrgSiteButton /></div>
             </section>
             {data.status === 'CLAIMED' && <CancelPanel claimId={id} onCancelled={cancelled} />}
           </div>

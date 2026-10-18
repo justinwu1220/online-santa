@@ -256,6 +256,16 @@
   .org__body { flex: 999 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
   .org__eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .12em; color: var(--fg-muted); }
   .org__name { margin: 0; font-size: 26px; font-weight: 900; }
+  .org__photo { flex: 0 1 360px; min-width: 260px; height: 240px; border-radius: 20px; overflow: hidden; background: rgba(148, 163, 184, .18); }
+  .org__photo img { width: 100%; height: 100%; object-fit: cover; }
+  .org__photo--empty { display: flex; flex-direction: column; gap: 8px; align-items: center; justify-content: center; border: 2px dashed rgba(148, 163, 184, .4); color: var(--fg-4); font-size: 15px; font-weight: 700; }
+  .org__link { align-self: flex-start; }
+  .org__link-wrap { align-self: flex-start; display: inline-flex; cursor: not-allowed; }
+  .org__link-wrap .org__link { pointer-events: none; }
+  .mini-org__photo { height: 150px; border-radius: 18px; margin-bottom: 16px; overflow: hidden; background: rgba(148, 163, 184, .14); }
+  .mini-org__photo img { width: 100%; height: 100%; object-fit: cover; }
+  .mini-org__photo--empty { display: flex; flex-direction: column; gap: 6px; align-items: center; justify-content: center; border: 2px dashed rgba(148, 163, 184, .4); color: var(--fg-4); font-size: 14px; font-weight: 700; }
+  @media (max-width: 600px) { .org__photo { flex-basis: 100%; min-width: 0; height: 200px; } }
   .org__intro { margin: 0; font-size: 16px; line-height: 1.85; color: var(--fg-4); }
 
   /* 放大閱讀信件 */
