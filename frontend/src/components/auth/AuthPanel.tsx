@@ -1,8 +1,9 @@
-import { ArrowLeft, ChevronRight, Eye, EyeOff, Gift, Heart, House } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Eye, EyeOff, Gift, House } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { describeAuthError, useAuth, usingFirebase } from '../../lib/authContext'
 import { termsFlow } from '../../lib/terms'
+import { KIND_NAME, KindNameButton } from './KindNameButton'
 import { SentScreen } from './SentScreen'
 import { TermsDialog } from '../terms/TermsDialog'
 import { DONOR_TERMS } from '../terms/termsContent'
@@ -302,11 +303,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
                     setNameError(null)
                   }} />
               </FormField>
-              <button type="button" className="btn btn--sm kind-btn"
-                onClick={() => { setName('善心人士'); setNameError(null) }}>
-                <Heart className="icon" aria-hidden />
-                使用善心人士名義
-              </button>
+              <KindNameButton onPick={() => { setName(KIND_NAME); setNameError(null) }} />
             </div>
           )}
 

@@ -470,6 +470,10 @@
   .dialog h2 { margin: 0 0 10px; font-size: 22px; font-weight: 900; line-height: 1.4; }
   .dialog p a { color: #a7f3d0; }
   .dialog p { margin: 0 0 10px; font-size: 15px; line-height: 1.75; color: var(--fg-4); text-wrap: pretty; }
+  /* 標籤（prototype.html 的 .badge；個人資料頁的驗證狀態用） */
+  .badge { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; vertical-align: middle; }
+  .badge--ok { background: rgba(110, 231, 183, .14); color: #a7f3d0; }
+  .badge--warn { background: rgba(250, 204, 21, .16); color: #fde68a; }
   /* 標頭右上角的 ⓘ：重看首次登入說明 */
   .account__info { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg-3); display: grid; place-items: center; cursor: pointer; padding: 0; }
   .account__info:hover { background: rgba(255, 255, 255, .14); color: var(--fg); }
