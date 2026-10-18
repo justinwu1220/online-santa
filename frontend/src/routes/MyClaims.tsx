@@ -6,6 +6,7 @@ import { api, withQuery } from '../lib/api'
 import { avatarFor } from '../lib/avatar'
 import { useAuth } from '../lib/authContext'
 import { daysUntil, formatDate } from '../lib/format'
+import { useListEntry } from '../lib/useEntryAnimation'
 import type { ClaimDonorView, DonorAnnualSummary, PageResponse } from '../lib/types'
 import { claimTabOf } from '../lib/wishStatus'
 import { Pager } from '../components/ui/Pager'
@@ -31,6 +32,8 @@ export function MyClaims() {
       withQuery('/api/claims/me/annual-summary', { year: year === '' ? undefined : year })),
     enabled: Boolean(email),
   })
+
+  useListEntry('/me/claims', Boolean(claims.data))
 
   if (!email) {
     return <div className="notice notice--info" style={{ marginTop: 40 }}>請先在右上角登入，才能查看自己的認領。</div>

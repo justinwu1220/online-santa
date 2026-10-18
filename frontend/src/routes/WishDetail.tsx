@@ -1,12 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight } from 'lucide-react'
-import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Check, ChevronRight } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ApiError, api } from '../lib/api'
 import { avatarFor } from '../lib/avatar'
 import { useAuth } from '../lib/authContext'
 import type { ClaimDonorView, WishPublicView } from '../lib/types'
+import {
+  burst, center, isCurrentNav, markSpecialNavigation, reducedMotion, rise, startNav, wait,
+} from '../lib/motion'
 import { effectiveRoleOf, useCurrentUser } from '../lib/useCurrentUser'
+import { useDetailEntry } from '../lib/useEntryAnimation'
 import { publicStatusOf } from '../lib/wishStatus'
 import { WishFeature } from '../components/WishFeature'
 import { Dialog } from '../components/ui/Dialog'
@@ -21,6 +25,11 @@ export function WishDetail() {
   const me = useCurrentUser()
   const [message, setMessage] = useState('')
   const [confirming, setConfirming] = useState(false)
+  const [claimedOk, setClaimedOk] = useState(false)
+  const location = useLocation()
+  const root = useRef<HTMLDivElement>(null)
+  // 從「取消認領」回來：標籤彈回、認領按鈕區浮上（SPEC 11.4），不是一般的進場
+  const arrivedByCancel = Boolean((location.state as { cancelled?: boolean } | null)?.cancelled)
 
   const wish = useQuery({
     queryKey: ['wish', id],
@@ -31,10 +40,8 @@ export function WishDetail() {
     mutationFn: () => api.post<ClaimDonorView>(`/api/wishes/${id}/claim`,
       message.trim() ? { donorMessage: message.trim() } : undefined),
     onSuccess: (created) => {
-      void queryClient.invalidateQueries({ queryKey: ['wishes'] })
-      void queryClient.invalidateQueries({ queryKey: ['claims'] })
       setConfirming(false)
-      navigate(`/me/claims/${created.id}`)
+      void celebrate(created.id)
     },
     onError: (error) => {
       // 搶輸了：立刻把這一頁的願望狀態更新成最新的，
@@ -45,6 +52,51 @@ export function WishDetail() {
       }
     },
   })
+
+  /**
+   * 認領成功動畫（SPEC 11.3）：資料在 POST 成功當下已經寫入，這裡只是疊上去的效果。
+   * 按鈕變金色「✓ 認領成功」並彈一下、散出星星；650ms 後換到認領後頁面（那一頁接著播緞帶與蝴蝶結）。
+   * 願望與認領的查詢延到換頁前才重新抓——太早的話，這一頁的按鈕會在動畫中途被換掉。
+   */
+  async function celebrate(claimId: string) {
+    const serial = startNav()
+    setClaimedOk(true)
+    const button = document.getElementById('claim-cta')
+    if (button && !reducedMotion()) {
+      burst(...center(button), 22, 140)
+      button.animate(
+        [{ transform: 'scale(1)' }, { transform: 'scale(1.04)' }, { transform: 'scale(1)' }],
+        { duration: 420, easing: 'ease-out' })
+    }
+    await wait(reducedMotion() ? 0 : 650)
+    void queryClient.invalidateQueries({ queryKey: ['wishes'] })
+    void queryClient.invalidateQueries({ queryKey: ['claims'] })
+    void queryClient.invalidateQueries({ queryKey: ['wish', id] })
+    // 中途已經換到別頁（連點、按上一頁）：資料已經寫入，不要再硬把人拉過去
+    if (!isCurrentNav(serial)) return
+    markSpecialNavigation()
+    navigate(`/me/claims/${claimId}`, { state: { celebrate: true } })
+  }
+
+  // 進場：拆信轉場過來要對齊遮罩淡出的時間點；直接開網址只讓大卡片浮上
+  useDetailEntry(root, wish.isSuccess, !arrivedByCancel)
+
+  useEffect(() => {
+    if (!arrivedByCancel || !wish.data || !root.current) return
+    if (!reducedMotion()) {
+      root.current.querySelector('.status-tab')?.animate(
+        [
+          { opacity: 0, transform: 'scale(.6)' },
+          { opacity: 1, transform: 'scale(1.12)', offset: 0.6 },
+          { opacity: 1, transform: 'none' },
+        ],
+        { duration: 480, delay: 200, easing: 'ease-out', fill: 'backwards' })
+      rise([root.current.querySelector('.info > :last-child')], { delay: 280, stagger: 0, dist: 14, dur: 480 })
+    }
+    // 把「剛取消」的標記清掉，重新整理就不會再播一次
+    markSpecialNavigation()
+    navigate(location.pathname, { replace: true, state: null })
+  }, [arrivedByCancel, wish.data, navigate, location.pathname])
 
   if (wish.isLoading) return <Spinner label="載入願望" />
   if (wish.isError) {
@@ -69,7 +121,7 @@ export function WishDetail() {
   const avatar = avatarFor(data.id, data.ageRange)
 
   return (
-    <div data-status={status.key}>
+    <div data-status={status.key} ref={root}>
       {/* 願望連結常被分享出去，直接落在這一頁的人沒有上一頁可回 */}
       <nav className="crumbs" aria-label="麵包屑">
         <Link to="/">願望牆</Link>
@@ -90,6 +142,7 @@ export function WishDetail() {
             verified={emailVerified}
             isDonor={isDonor}
             wishId={id}
+            success={claimedOk}
             onClaim={() => setConfirming(true)}
           />
         )}
@@ -136,16 +189,18 @@ export function WishDetail() {
  * 資訊欄最下方的行動區，依狀態與使用者身分決定。
  * 機構與管理員帳號不能認領（SPEC 15.9）：按鈕停用，說明原因；後端也會拒絕。
  */
-function ClaimZone({ available, status, loggedIn, verified, isDonor, wishId, onClaim }: {
+function ClaimZone({ available, status, loggedIn, verified, isDonor, wishId, success, onClaim }: {
   available: boolean
   status: 'open' | 'claimed' | 'done'
   loggedIn: boolean
   verified: boolean
   isDonor: boolean
   wishId: string
+  /** 認領剛成功：按鈕變金色「✓ 認領成功」 */
+  success?: boolean
   onClaim: () => void
 }) {
-  if (!available) {
+  if (!available && !success) {
     return status === 'claimed' ? (
       <div className="notice notice--claimed">
         這個願望已經被認領了，正在等待禮物寄出。
@@ -181,8 +236,9 @@ function ClaimZone({ available, status, loggedIn, verified, isDonor, wishId, onC
 
   return (
     <div>
-      <button type="button" className="cta" disabled={!isDonor} onClick={onClaim}>
-        認領這個願望
+      <button type="button" id="claim-cta" className={`cta${success ? ' is-success' : ''}`}
+        disabled={!isDonor || success} onClick={onClaim}>
+        {success ? <><Check className="icon" aria-hidden />認領成功</> : '認領這個願望'}
       </button>
       <p className="cta-help">
         {isDonor

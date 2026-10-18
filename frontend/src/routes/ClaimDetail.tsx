@@ -1,9 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Gift } from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
+import { playCancelOut, playCelebration } from '../lib/claimMotion'
 import { daysUntil } from '../lib/format'
+import { clearEffects, isCurrentNav, markSpecialNavigation, startNav } from '../lib/motion'
 import type { AttachmentView, ClaimDonorView, WishPublicView } from '../lib/types'
+import { useDetailEntry } from '../lib/useEntryAnimation'
 import { useMyProfile } from '../lib/useMyProfile'
 import { claimTabOf } from '../lib/wishStatus'
 import { WishFeature } from '../components/WishFeature'
@@ -27,6 +31,10 @@ export function ClaimDetail() {
   const queryClient = useQueryClient()
   const toast = useToast()
   const profile = useMyProfile()
+  const location = useLocation()
+  const root = useRef<HTMLDivElement>(null)
+  // 剛認領成功換過來：播緞帶與蝴蝶結（SPEC 11.3），這一頁就不再播一般的進場
+  const celebrate = Boolean((location.state as { celebrate?: boolean } | null)?.celebrate)
 
   const claim = useQuery({
     queryKey: ['claim', id],
@@ -45,6 +53,18 @@ export function ClaimDetail() {
     queryKey: ['claim', id, 'attachments'],
     queryFn: () => api.get<AttachmentView[]>(`/api/claims/${id}/attachments`),
   })
+
+  // 願望大卡片要等公開的願望資料到了（成功或失敗）才算準備好，否則動畫會播在稍後被換掉的暫代版面上
+  const ready = claim.isSuccess && !wish.isLoading
+  useDetailEntry(root, ready, !celebrate)
+
+  useEffect(() => {
+    if (!celebrate || !ready || !root.current) return
+    playCelebration(root.current)
+    // 把「剛認領」的標記清掉，重新整理就不會再播一次
+    markSpecialNavigation()
+    navigate(location.pathname, { replace: true, state: null })
+  }, [celebrate, ready, navigate, location.pathname])
 
   function refreshAll() {
     void queryClient.invalidateQueries({ queryKey: ['claim', id] })
@@ -66,15 +86,24 @@ export function ClaimDetail() {
   const shipped = data.status !== 'CLAIMED' && data.trackingNumber != null
   const nickname = profile.data?.displayName
 
-  function cancelled() {
+  /**
+   * 取消認領（SPEC 11.2、11.4）：資料在確認當下已經改回可認領。先播「緞帶解開、禮物收回」，
+   * 這段時間不重新抓這筆認領（否則版面會在動畫中途被重繪）；播完回到詳細頁，標籤彈回、
+   * 認領按鈕浮上，並顯示紅色提示。
+   */
+  async function cancelled() {
+    const serial = startNav()
+    if (root.current) await playCancelOut(root.current)
+    if (!isCurrentNav(serial)) return
+    clearEffects()
     refreshAll()
-    // 願望立刻回到願望牆：回到詳細頁，並以紅色提示告知（SPEC 11.2）
+    markSpecialNavigation()
+    navigate(`/wishes/${data.wishId}`, { state: { cancelled: true } })
     toast.show('已取消認領，這個願望已經回到願望牆', 'danger')
-    navigate(`/wishes/${data.wishId}`)
   }
 
   return (
-    <div data-mine="true">
+    <div data-mine="true" ref={root}>
       <nav className="crumbs" aria-label="麵包屑">
         <Link to="/me/claims">我的認領</Link>
         <ChevronRight className="icon" size={14} aria-hidden />

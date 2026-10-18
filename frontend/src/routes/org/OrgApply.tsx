@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { ApiError, api } from '../../lib/api'
 import { useAuth } from '../../lib/authContext'
+import { usePageEnter } from '../../lib/useEntryAnimation'
 import { pageTitle } from '../../lib/brand'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
 import { ACCEPTED_ORG_DOCUMENT_TYPES, MAX_ORG_DOCUMENTS, uploadImage, validateOrgDocument } from '../../lib/upload'
@@ -61,6 +62,8 @@ export function OrgApply() {
   const auth = useAuth()
   const me = useCurrentUser()
 
+  usePageEnter()
+
   useEffect(() => {
     document.title = pageTitle('機構申請')
     return () => { document.title = pageTitle() }
@@ -105,6 +108,13 @@ export function OrgApply() {
 function ApplyForm({ email }: { email: string }) {
   const auth = useAuth()
   const queryClient = useQueryClient()
+
+  // 進度條第二段從 0 長到 100%（0.7s，SPEC 12.4）
+  useEffect(() => {
+    document.querySelector('.apply__bar i:last-child')?.animate(
+      [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }],
+      { duration: 700, delay: 150, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'backwards' })
+  }, [])
 
   const draftKey = draftKeyFor(email)
   // 在初始化函式裡讀，而不是在 effect 裡 setState——後者會多一次 render，

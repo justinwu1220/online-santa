@@ -4,6 +4,7 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../lib/authContext'
 import { PLATFORM_NAME, pageTitle } from '../lib/brand'
 import { AuthPanel, type JoinRole } from '../components/auth/AuthPanel'
+import { usePageEnter } from '../lib/useEntryAnimation'
 import { Snowfall } from '../components/Snowfall'
 import { Spinner } from '../components/ui/Spinner'
 
@@ -26,6 +27,8 @@ export function LoginPage() {
     ? 'org' : null
   // 在送出動作之前就設定好（見 AuthPanel）：登入一成功頁面就會重新 render 並導走
   const [joinIntent, setJoinIntent] = useState<JoinRole | null>(null)
+
+  usePageEnter(!loading)
 
   useEffect(() => {
     document.title = pageTitle('登入')

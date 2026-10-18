@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, withQuery } from '../lib/api'
 import { avatarFor } from '../lib/avatar'
+import { useListEntry } from '../lib/useEntryAnimation'
 import type { PageResponse, WishFilterOptions, WishListView } from '../lib/types'
 import { publicStatusOf, WALL_STATUS_OPTIONS } from '../lib/wishStatus'
 import { EmptyBox, ErrorNotice, Spinner } from '../components/ui/Spinner'
@@ -33,6 +34,9 @@ export function WishWall() {
     queryFn: () => api.get<PageResponse<WishListView>>(
       withQuery('/api/wishes', { ...filters, page, size: 20 })),
   })
+
+  // 從詳細頁回來：還原捲動位置並淡入（SPEC 6.2）
+  useListEntry('/', Boolean(wishes.data))
 
   function updateFilter(key: keyof Filters, value: string) {
     setFilters((current) => ({ ...current, [key]: value }))

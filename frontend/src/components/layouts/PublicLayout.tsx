@@ -7,6 +7,7 @@ import { PLATFORM_NAME } from '../../lib/brand'
 import type { ClaimDonorView, PageResponse } from '../../lib/types'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
 import { Snowfall } from '../Snowfall'
+import { TransitionProvider } from '../transition/TransitionProvider'
 import { ToastProvider } from '../ui/Toast'
 import { VerifyBar } from '../ui/VerifyBar'
 
@@ -26,16 +27,18 @@ export function PublicLayout() {
     <div className="rd">
       <Snowfall />
       <ToastProvider>
-        <SiteHeader />
-        {!usingFirebase && (
-          <div className="bar bar--dev">
-            開發模式：未設定 Firebase，身分僅由 <code>X-Dev-User-Email</code> 標頭指定，沒有任何驗證。
-          </div>
-        )}
-        <VerifyBar />
-        <main className="page">
-          <Outlet />
-        </main>
+        <TransitionProvider>
+          <SiteHeader />
+          {!usingFirebase && (
+            <div className="bar bar--dev">
+              開發模式：未設定 Firebase，身分僅由 <code>X-Dev-User-Email</code> 標頭指定，沒有任何驗證。
+            </div>
+          )}
+          <VerifyBar />
+          <main className="page">
+            <Outlet />
+          </main>
+        </TransitionProvider>
       </ToastProvider>
     </div>
   )

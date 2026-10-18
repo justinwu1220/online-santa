@@ -2,6 +2,7 @@ import { ArrowLeft, ChevronRight, Eye, EyeOff, Gift, House } from 'lucide-react'
 import { useState } from 'react'
 import { describeAuthError, useAuth, usingFirebase } from '../../lib/authContext'
 import { FormField, Input } from '../ui/Fields'
+import { SlideSwap } from '../ui/SlideSwap'
 
 type Mode = 'signIn' | 'register' | 'reset'
 export type JoinRole = 'donor' | 'org'
@@ -88,7 +89,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
 
   if (usingFirebase && mode === 'reset') {
     return (
-      <div className="auth-body">
+      <SlideSwap screen="reset" order={2} className="auth-body">
         <div className="screen-head">
           <h2>重設密碼</h2>
         </div>
@@ -117,7 +118,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
             <ArrowLeft className="icon" aria-hidden />回到登入
           </button>
         </form>
-      </div>
+      </SlideSwap>
     )
   }
 
@@ -163,7 +164,8 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
   const showForm = !registering || role !== null
 
   return (
-    <div className="auth-body">
+    <SlideSwap screen={chooseRole ? 'register' : registering ? 'register:role' : 'signIn'}
+      order={chooseRole ? 1 : registering ? 2 : 0} className="auth-body">
       {/* 第二頁不放分頁列：版面留給表單，要回頭用「上一步」 */}
       {(!registering || chooseRole) && (
         <div className="seg" role="tablist" data-active={registering ? 'register' : 'signIn'}>
@@ -338,6 +340,6 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
           )}
         </form>
       )}
-    </div>
+    </SlideSwap>
   )
 }

@@ -268,7 +268,7 @@ export function ProgressSteps({ claim }: { claim: ClaimDonorView }) {
 
   if (progress === null) {
     return (
-      <div>
+      <div className="progress">
         <p className="progress__label">你的進度</p>
         <div className="notice notice--done" style={{ fontSize: 14 }}>
           {claim.status === 'RELEASED' ? '機構已收回這筆認領。' : '你已取消這筆認領。'}
@@ -286,7 +286,7 @@ export function ProgressSteps({ claim }: { claim: ClaimDonorView }) {
   ]
 
   return (
-    <div>
+    <div className="progress">
       <p className="progress__label">你的進度</p>
       <ol className="steps">
         {steps.map((step, index) => {

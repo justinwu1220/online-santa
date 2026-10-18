@@ -75,7 +75,10 @@
   color: var(--fg);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
-  background: radial-gradient(ellipse at top, var(--bg-glow) 0%, var(--bg-900) 45%, var(--bg-950) 100%) fixed;
+  /* 光暈是半透明的，底下一定要有實色的深色底：舊的後台 body 是淺色，
+     少了這一層，光暈會疊在近乎白色的底上、頂部亮一大片（原型的 body 底下是深色 html） */
+  background: radial-gradient(ellipse at top, var(--bg-glow) 0%, var(--bg-900) 45%, var(--bg-950) 100%) fixed,
+    var(--bg-950);
 
   img { display: block; }
   a { color: #a7f3d0; }
@@ -256,6 +259,9 @@
   .org__intro { margin: 0; font-size: 16px; line-height: 1.85; color: var(--fg-4); }
 
   /* 放大閱讀信件 */
+  /* Tailwind 的 preflight 把所有元素（含 dialog）的 margin 歸零，原生 modal dialog 靠
+     margin:auto 置中的預設就失效了，會貼在左上角——要自己補回來 */
+  .dialog, .letter-dialog { margin: auto; }
   .letter-dialog { width: min(920px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 0; border: 0; border-radius: 24px; background: #fbf8f1; color: #1f2937; }
   .letter-dialog::backdrop { background: rgba(2, 6, 23, .82); }
   .letter-dialog__body { position: relative; height: min(80vh, 900px); }
