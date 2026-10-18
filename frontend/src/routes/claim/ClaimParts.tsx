@@ -288,7 +288,7 @@ export function ProgressSteps({ claim }: { claim: ClaimDonorView }) {
   const steps = [
     { label: '認領願望', at: claim.claimedAt },
     { label: '寄出禮物', at: claim.shippedAt },
-    { label: '機構收到', at: claim.receivedAt },
+    { label: '機構確認收到', at: claim.receivedAt },
     { label: '流程完成', at: claim.completedAt },
   ]
 
