@@ -59,7 +59,7 @@
 @keyframes rd-toast-in { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .rd .env-overlay { transition: none; }
+  .rd .env-overlay { display: none; }
   .rd .dialog[open], .rd .letter-dialog[open], .rd .toast { animation: none; }
   .rd .dialog[open]::backdrop, .rd .letter-dialog[open]::backdrop { animation: none; }
 }

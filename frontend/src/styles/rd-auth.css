@@ -17,6 +17,7 @@
   .seg__thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 999px; background: rgba(255, 255, 255, .12); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); transition: transform .34s var(--ease-out); }
   .seg[data-active="register"] .seg__thumb { transform: translateX(100%); }
 
+  .auth-body { position: relative; }
   .auth-form { display: flex; flex-direction: column; gap: 18px; }
   .auth-form .btn--primary { width: 100%; margin-top: 4px; }
   .auth-note { margin: 0; font-size: 13px; line-height: 1.75; color: var(--fg-muted); text-wrap: pretty; }

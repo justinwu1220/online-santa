@@ -64,7 +64,7 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
       return true
     }
 
-    async function openWish(to: string) {
+    async function openWish(to: string, child: string | undefined) {
       const serial = startNav()
       const element = overlay.current
       if (reducedMotion() || !element) {
@@ -75,6 +75,8 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
       if (isListPath(pathRef.current)) saveScroll(pathRef.current)
       clearEffects()
       markSpecialNavigation()
+      const label = element.querySelector('.env__label')
+      if (label) label.textContent = child ? `打開${child}的信` : '打開信件'
 
       // 1. 遮罩在列表上淡入（0.22s），頁首不被蓋住
       resetOverlay()
@@ -140,7 +142,7 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
 
       event.preventDefault()
       event.stopPropagation()
-      if (anchor.classList.contains('wish-card')) void openWish(to)
+      if (anchor.classList.contains('wish-card')) void openWish(to, anchor.dataset.child)
       else void leavePage(to)
     }
 

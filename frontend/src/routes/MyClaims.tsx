@@ -111,6 +111,7 @@ function ClaimCard({ claim }: { claim: ClaimDonorView }) {
     <Link
       to={`/me/claims/${claim.id}`}
       className="wish-card"
+      data-child={claim.childAlias}
       data-status={tab.key}
       aria-label={`${claim.childAlias}，${claim.ageRangeLabel}，${claim.organizationName}，${claim.wishTitle}，${tab.label}`}
     >

@@ -138,6 +138,7 @@ function WishCard({ wish }: { wish: WishListView }) {
     <Link
       to={`/wishes/${wish.id}`}
       className="wish-card"
+      data-child={wish.childAlias}
       data-status={status.key}
       aria-label={`${wish.childAlias}，${wish.ageRangeLabel}，${wish.organizationName}，想要${wish.title}，${status.label}`}
     >

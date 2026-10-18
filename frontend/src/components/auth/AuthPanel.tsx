@@ -2,7 +2,7 @@ import { ArrowLeft, ChevronRight, Eye, EyeOff, Gift, House } from 'lucide-react'
 import { useState } from 'react'
 import { describeAuthError, useAuth, usingFirebase } from '../../lib/authContext'
 import { FormField, Input } from '../ui/Fields'
-import { SlideSwap } from '../ui/SlideSwap'
+import { useSlideSwap } from '../ui/SlideSwap'
 
 type Mode = 'signIn' | 'register' | 'reset'
 export type JoinRole = 'donor' | 'org'
@@ -30,6 +30,9 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
   const auth = useAuth()
   const [mode, setMode] = useState<Mode>(initialTab)
   const [role, setRole] = useState<JoinRole | null>(initialRole)
+  // 膠囊滑塊跟著手勢先動，所以和實際換內容的 mode 分開記
+  const [seg, setSeg] = useState<'signIn' | 'register'>(initialTab === 'register' ? 'register' : 'signIn')
+  const { body, swap } = useSlideSwap()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -44,9 +47,20 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  function switchMode(next: Mode) {
+  function switchMode(next: Mode, message: string | null = null) {
+    const dir = next === 'signIn' ? -1 : 1
+    void swap(dir, () => applyMode(next, message),
+      () => { if (next !== 'reset') setSeg(next) })
+  }
+
+  /** 換到另一個身分選擇／表單步驟（往下一步向左滑、回上一步向右滑） */
+  function changeRole(next: JoinRole | null) {
+    void swap(next === null ? -1 : 1, () => setRole(next))
+  }
+
+  function applyMode(next: Mode, message: string | null) {
     setMode(next)
-    setError(null)
+    setError(message)
     setNotice(null)
     // 確認密碼欄只在註冊模式出現，殘留的值與錯誤沒有意義，切回來也該是空白的
     setConfirmPassword('')
@@ -73,8 +87,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
         && (caught as { code?: string })?.code === 'auth/email-already-in-use') {
         // 就地切成登入，不要把人趕去別的地方重打一次信箱。
         // 身分意圖保留著，登入後仍然會接著走機構申請的下一步
-        switchMode('signIn')
-        setError('這個信箱已經有帳號了。輸入密碼登入之後就能繼續下一步。')
+        switchMode('signIn', '這個信箱已經有帳號了。輸入密碼登入之後就能繼續下一步。')
       } else {
         setError(describeAuthError(caught))
       }
@@ -89,7 +102,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
 
   if (usingFirebase && mode === 'reset') {
     return (
-      <SlideSwap screen="reset" order={2} className="auth-body">
+      <div ref={body} className="auth-body">
         <div className="screen-head">
           <h2>重設密碼</h2>
         </div>
@@ -118,7 +131,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
             <ArrowLeft className="icon" aria-hidden />回到登入
           </button>
         </form>
-      </SlideSwap>
+      </div>
     )
   }
 
@@ -164,11 +177,10 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
   const showForm = !registering || role !== null
 
   return (
-    <SlideSwap screen={chooseRole ? 'register' : registering ? 'register:role' : 'signIn'}
-      order={chooseRole ? 1 : registering ? 2 : 0} className="auth-body">
+    <div ref={body} className="auth-body">
       {/* 第二頁不放分頁列：版面留給表單，要回頭用「上一步」 */}
       {(!registering || chooseRole) && (
-        <div className="seg" role="tablist" data-active={registering ? 'register' : 'signIn'}>
+        <div className="seg" role="tablist" data-active={seg}>
           <span className="seg__thumb" aria-hidden />
           <button type="button" role="tab" aria-selected={!registering}
             onClick={() => userSwitchMode('signIn')}>登入</button>
@@ -181,7 +193,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
         <>
           <h2 className="role-title">你想用什麼身分加入？</h2>
           <div className="role">
-            <button type="button" className="role-card" onClick={() => setRole('donor')}>
+            <button type="button" className="role-card" onClick={() => changeRole('donor')}>
               <span className="role-card__icon"><Gift className="icon" aria-hidden /></span>
               <span>
                 <strong>我要認領願望</strong>
@@ -189,7 +201,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
               </span>
               <ChevronRight className="role-card__go icon" aria-hidden />
             </button>
-            <button type="button" className="role-card role-card--org" onClick={() => setRole('org')}>
+            <button type="button" className="role-card role-card--org" onClick={() => changeRole('org')}>
               <span className="role-card__icon"><House className="icon" aria-hidden /></span>
               <span>
                 <strong>我是社福機構或學校</strong>
@@ -328,7 +340,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
           )}
 
           {registering && role !== null && (
-            <button type="button" className="back-link" onClick={() => setRole(null)}>
+            <button type="button" className="back-link" onClick={() => changeRole(null)}>
               <ArrowLeft className="icon" aria-hidden />上一步
             </button>
           )}
@@ -340,6 +352,6 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
           )}
         </form>
       )}
-    </SlideSwap>
+    </div>
   )
 }
