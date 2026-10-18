@@ -54,6 +54,10 @@ public class User extends BaseEntity {
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
+    /** 看完首次登入說明的時間；null 表示還沒看過。 */
+    @Column(name = "onboarded_at")
+    private Instant onboardedAt;
+
     protected User() {
         // JPA
     }
@@ -95,6 +99,17 @@ public class User extends BaseEntity {
     public void joinOrganization(UUID organizationId) {
         this.role = UserRole.ORG_MEMBER;
         this.organizationId = organizationId;
+    }
+
+    /** 看完首次登入說明。重複呼叫不改變第一次的時間。 */
+    public void markOnboarded(Instant at) {
+        if (onboardedAt == null) {
+            this.onboardedAt = at;
+        }
+    }
+
+    public boolean isOnboarded() {
+        return onboardedAt != null;
     }
 
     public void recordLogin(Instant at) {

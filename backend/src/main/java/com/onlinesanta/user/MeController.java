@@ -2,6 +2,7 @@ package com.onlinesanta.user;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,6 +40,12 @@ public class MeController {
     @Operation(summary = "取得自己的個人檔案")
     public UserProfileView getProfile() {
         return profile.getMine();
+    }
+
+    @PostMapping("/onboarded")
+    @Operation(summary = "記錄已看完首次登入說明", description = "冪等，重複呼叫不會改變第一次的時間")
+    public UserProfileView markOnboarded() {
+        return profile.markOnboardedMine();
     }
 
     @PatchMapping("/profile")

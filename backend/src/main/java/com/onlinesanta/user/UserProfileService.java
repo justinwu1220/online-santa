@@ -1,5 +1,6 @@
 package com.onlinesanta.user;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -39,6 +40,15 @@ public class UserProfileService {
         AppPrincipal principal = currentUser.require();
         User user = loadUser(principal.userId());
         user.updateProfile(request.displayName(), request.name(), request.phone());
+        return UserProfileView.from(user, principal.emailVerified());
+    }
+
+    /** 記錄看完首次登入說明。冪等：看過的人再呼叫不會改變時間。 */
+    @Transactional
+    public UserProfileView markOnboardedMine() {
+        AppPrincipal principal = currentUser.require();
+        User user = loadUser(principal.userId());
+        user.markOnboarded(Instant.now());
         return UserProfileView.from(user, principal.emailVerified());
     }
 

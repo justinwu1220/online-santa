@@ -2,6 +2,7 @@ package com.onlinesanta.user;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -28,6 +29,30 @@ class MeProfileApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.emailVerified").value(true))
                 .andExpect(jsonPath("$.name").doesNotExist())
                 .andExpect(jsonPath("$.phone").doesNotExist());
+    }
+
+    @Test
+    void newAccountHasNotSeenTheOnboardingUntilItIsMarked() throws Exception {
+        mvc.perform(as(get("/api/me"), USER)).andExpect(status().isOk());
+
+        mvc.perform(as(get("/api/me/profile"), USER))
+                .andExpect(jsonPath("$.onboarded").value(false));
+
+        mvc.perform(as(post("/api/me/onboarded"), USER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.onboarded").value(true));
+
+        // 冪等：看過的人再呼叫一次不出錯，狀態維持已看過
+        mvc.perform(as(post("/api/me/onboarded"), USER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.onboarded").value(true));
+        mvc.perform(as(get("/api/me/profile"), USER))
+                .andExpect(jsonPath("$.onboarded").value(true));
+    }
+
+    @Test
+    void onboardingRequiresLogin() throws Exception {
+        mvc.perform(post("/api/me/onboarded")).andExpect(status().isUnauthorized());
     }
 
     @Test

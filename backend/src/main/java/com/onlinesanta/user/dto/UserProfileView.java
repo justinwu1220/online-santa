@@ -14,10 +14,13 @@ public record UserProfileView(
         String name,
         String phone,
         String email,
-        boolean emailVerified) {
+        boolean emailVerified,
+        /** 已看完首次登入說明；false 的新帳號在信箱驗證完成後會跳出說明彈窗 */
+        boolean onboarded) {
 
     public static UserProfileView from(User user, boolean emailVerified) {
         return new UserProfileView(
-                user.getDisplayName(), user.getName(), user.getPhone(), user.getEmail(), emailVerified);
+                user.getDisplayName(), user.getName(), user.getPhone(), user.getEmail(), emailVerified,
+                user.isOnboarded());
     }
 }
