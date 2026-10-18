@@ -148,11 +148,18 @@ public class ClaimService {
      * 天數在認領當下就固定下來，機構事後調整設定不影響既有認領。
      */
     private Instant calculateShipDeadline(Organization organization) {
-        int days = organization.getReleasePolicy() == ReleasePolicy.AUTO
+        return Instant.now().plus(shipDeadlineDays(organization), ChronoUnit.DAYS);
+    }
+
+    /**
+     * 這個機構的認領者要在幾天內寄出。認領當下據此算出期限，公開的願望詳情也用它預告日期，
+     * 兩處共用同一個規則才不會預告的和實際的不同。
+     */
+    public int shipDeadlineDays(Organization organization) {
+        return organization.getReleasePolicy() == ReleasePolicy.AUTO
                 && organization.getReleaseAfterDays() != null
                 ? organization.getReleaseAfterDays()
                 : properties.defaultReleaseAfterDays();
-        return Instant.now().plus(days, ChronoUnit.DAYS);
     }
 
     // ================================================================ 捐贈者的操作

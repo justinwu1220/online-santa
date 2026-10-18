@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
+import com.onlinesanta.organization.ReleasePolicy;
 import com.onlinesanta.support.ApiIntegrationTest;
 import com.onlinesanta.support.TestJwtSupport;
 import com.onlinesanta.user.User;
@@ -323,6 +324,25 @@ class WishApiIT extends ApiIntegrationTest {
 
         mvc.perform(get("/api/wishes/{id}", draft))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void publicDetailAnnouncesTheShipDeadlineDaysTheClaimWillGet() throws Exception {
+        UUID wish = createPublishedWish("預告寄出天數");
+
+        // 機構沒設自動釋回：用全站預設天數
+        mvc.perform(get("/api/wishes/{id}", wish))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.shipDeadlineDays").value(7));
+
+        // 機構設了自動釋回：用機構自己的天數（與認領時算期限的是同一個規則）
+        Organization organization = organizations.findById(orgId).orElseThrow();
+        organization.updateReleasePolicy(ReleasePolicy.AUTO, 3);
+        organizations.save(organization);
+
+        mvc.perform(get("/api/wishes/{id}", wish))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.shipDeadlineDays").value(3));
     }
 
     @Test

@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.onlinesanta.attachment.AttachmentService;
+import com.onlinesanta.claim.ClaimService;
 import com.onlinesanta.common.PageResponse;
 import com.onlinesanta.wish.dto.WishFilterOptions;
 import com.onlinesanta.wish.dto.WishListView;
@@ -43,10 +44,12 @@ public class WishController {
 
     private final WishService wishes;
     private final AttachmentService attachments;
+    private final ClaimService claims;
 
-    public WishController(WishService wishes, AttachmentService attachments) {
+    public WishController(WishService wishes, AttachmentService attachments, ClaimService claims) {
         this.wishes = wishes;
         this.attachments = attachments;
+        this.claims = claims;
     }
 
     // ---------------------------------------------------------------- 公開瀏覽
@@ -76,8 +79,10 @@ public class WishController {
     @GetMapping("/{id}")
     @Operation(summary = "願望詳情")
     public WishPublicView getOne(@PathVariable UUID id) {
+        Wish wish = wishes.getPublicById(id);
         return WishPublicView.from(
-                wishes.getPublicById(id), attachments.wishImageUrl(id), attachments.wishLetterUrls(id));
+                wish, attachments.wishImageUrl(id), attachments.wishLetterUrls(id),
+                claims.shipDeadlineDays(wish.getOrganization()));
     }
 
     // ---------------------------------------------------------------- 機構操作

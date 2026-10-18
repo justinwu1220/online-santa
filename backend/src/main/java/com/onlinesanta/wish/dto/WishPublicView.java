@@ -34,17 +34,20 @@ public record WishPublicView(
         UUID organizationId,
         String organizationName,
         String imageUrl,
-        List<String> letterPhotoUrls) {
+        List<String> letterPhotoUrls,
+        int shipDeadlineDays) {
 
     public static WishPublicView from(Wish wish) {
-        return from(wish, null, List.of());
+        return from(wish, null, List.of(), 0);
     }
 
     /**
      * @param imageUrl        禮物示意圖網址，沒有圖時為 null
      * @param letterPhotoUrls 孩子手寫的感謝卡／願望信照片，沒有就是空清單（不是 null）
+     * @param shipDeadlineDays 認領後預計要在幾天內寄出（依機構的逾期處理設定），供認領前預告日期
      */
-    public static WishPublicView from(Wish wish, String imageUrl, List<String> letterPhotoUrls) {
+    public static WishPublicView from(
+            Wish wish, String imageUrl, List<String> letterPhotoUrls, int shipDeadlineDays) {
         return new WishPublicView(
                 wish.getId(),
                 wish.getTitle(),
@@ -62,6 +65,7 @@ public record WishPublicView(
                 wish.getOrganization().getId(),
                 wish.getOrganization().getName(),
                 imageUrl,
-                letterPhotoUrls);
+                letterPhotoUrls,
+                shipDeadlineDays);
     }
 }
