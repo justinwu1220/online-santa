@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { FileUp, ImagePlus, X } from 'lucide-react'
+import { FileUp, ImagePlus, Lock, X } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
 import { ApiError, api } from '../../lib/api'
 import { todayPlainDate } from '../../lib/format'
@@ -169,7 +169,13 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
                 onChange={(event) => setReceiptEnabled(event.target.checked)} />
               <span>
                 <span className="receipt__title">我需要捐贈收據</span>
-                <span className="receipt__hint">填寫的資料只有平台管理員看得到，機構看不到。</span>
+                <span className="receipt__hint">
+                  <Lock className="icon" aria-hidden />
+                  <span>
+                    勾選後填寫的資料只有平台管理員與協會開據人員看得到，機構看不到。
+                    沒勾選時，協會仍會依你註冊的捐贈人姓名（或「善心人士」）開立收據。
+                  </span>
+                </span>
               </span>
             </label>
             <div className="receipt__more" inert={!receiptEnabled}>
