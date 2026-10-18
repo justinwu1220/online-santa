@@ -97,10 +97,17 @@ export function ClaimDetail() {
     if (root.current) await playCancelOut(root.current)
     if (!isCurrentNav(serial)) return
     clearEffects()
-    refreshAll()
+    // 願望已經回到「可認領」：願望詳細頁、願望牆、我的認領都要重抓。先等願望詳細頁抓完再換頁，
+    // 否則會先顯示快取裡的「已認領」再閃成「可認領」；這筆認領本身等換頁之後才重抓，
+    // 否則動畫剛播完就先被重繪成已取消的樣子
+    void queryClient.invalidateQueries({ queryKey: ['wishes'] })
+    void queryClient.invalidateQueries({ queryKey: ['claims'] })
+    await queryClient.invalidateQueries({ queryKey: ['wish', data.wishId] })
+    if (!isCurrentNav(serial)) return
     markSpecialNavigation()
     navigate(`/wishes/${data.wishId}`, { state: { cancelled: true } })
     toast.show('已取消認領，這個願望已經回到願望牆', 'danger')
+    refreshAll()
   }
 
   return (
