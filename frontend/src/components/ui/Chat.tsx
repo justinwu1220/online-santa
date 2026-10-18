@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Send } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { formatDateTime } from '../../lib/format'
@@ -105,8 +106,8 @@ export function Chat({ claimId, closed, counterpart }: {
           />
           {send.isError && <ErrorNotice error={send.error} />}
           <div className="chat-form__row">
-            <p>Ctrl／⌘ ＋ Enter 可直接送出</p>
             <button type="submit" className="btn" disabled={!draft.trim() || send.isPending}>
+              <Send className="icon" aria-hidden />
               {send.isPending ? '傳送中…' : '傳送'}
             </button>
           </div>
