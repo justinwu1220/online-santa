@@ -1,10 +1,9 @@
 import { useMutation } from '@tanstack/react-query'
-import { Check, Clock, Copy, Paperclip } from 'lucide-react'
-import { useRef, useState, type ReactNode } from 'react'
+import { Check, Clock, Copy } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { api } from '../../lib/api'
 import { formatDate, formatDateTime } from '../../lib/format'
 import type { AttachmentView, ClaimDonorView } from '../../lib/types'
-import { ACCEPTED_IMAGE_TYPES, MAX_SHIPPING_PROOFS, uploadImage, validateImage } from '../../lib/upload'
 import { Dialog } from '../../components/ui/Dialog'
 import { FormField, Input } from '../../components/ui/Fields'
 import { ErrorNotice } from '../../components/ui/Spinner'
@@ -136,11 +135,9 @@ export function AddressPanel({ claim, done }: { claim: ClaimDonorView; done: boo
 }
 
 /** 已回報寄送的摘要（物流、追蹤碼、禮物、數量、價格、日期、照片、是否索取收據）。 */
-export function ShipSummary({ claim, proofs, closed, onChanged }: {
+export function ShipSummary({ claim, proofs }: {
   claim: ClaimDonorView
   proofs: AttachmentView[]
-  closed: boolean
-  onChanged: () => void
 }) {
   return (
     <StepPanel no={2} done title="已回報寄送">
@@ -164,54 +161,14 @@ export function ShipSummary({ claim, proofs, closed, onChanged }: {
 
       <div style={{ marginTop: 18 }}>
         <p style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--fg-muted)' }}>寄件單或包裹照片</p>
-        <ProofGrid photos={proofs} emptyHint="上傳寄件單或包裹照片，讓機構安心。" onChanged={onChanged} deletable />
-        {!closed && proofs.length < MAX_SHIPPING_PROOFS && (
-          <div style={{ marginTop: 10 }}>
-            <UploadButton claimId={claim.id} onUploaded={onChanged} />
-          </div>
-        )}
+        {/* 回報送出後只能檢視，不能刪除或補傳 */}
+        <ProofGrid photos={proofs} emptyHint="" />
       </div>
       {/* 機構確認收到之後就不再提示修改 */}
       {claim.status === 'SHIPPED' && (
         <p className="ship-note">資料需要修改的話，請在下方對話告訴機構或寫信給我們。</p>
       )}
     </StepPanel>
-  )
-}
-
-/** 寄出後補傳寄件照片（選到就立刻上傳）。 */
-function UploadButton({ claimId, onUploaded }: { claimId: string; onUploaded: () => void }) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<unknown>(null)
-  const input = useRef<HTMLInputElement>(null)
-
-  async function handle(file: File) {
-    const problem = validateImage(file)
-    if (problem) { setError(new Error(problem)); return }
-    setError(null)
-    setBusy(true)
-    try {
-      await uploadImage('SHIPPING_PROOF', claimId, file)
-      onUploaded()
-    } catch (caught) {
-      setError(caught)
-    } finally {
-      setBusy(false)
-      if (input.current) input.current.value = ''
-    }
-  }
-
-  return (
-    <div>
-      <span className="upload__btn" aria-busy={busy}>
-        <Paperclip className="icon" aria-hidden />
-        {busy ? '上傳中…' : '補傳照片'}
-        <input ref={input} type="file" accept={ACCEPTED_IMAGE_TYPES.join(',')} disabled={busy}
-          aria-label="補傳寄件單或包裹照片"
-          onChange={(event) => { const file = event.target.files?.[0]; if (file) void handle(file) }} />
-      </span>
-      {error != null && <div style={{ marginTop: 8 }}><ErrorNotice error={error} /></div>}
-    </div>
   )
 }
 

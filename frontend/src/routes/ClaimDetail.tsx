@@ -174,7 +174,7 @@ export function ClaimDetail() {
             {/* 待寄送時物流業者／追蹤碼／照片在「回報寄送」表單一次填完；一旦寄出，
                 改用這個合併後的唯讀摘要顯示，不要拆成兩個區塊各顯示一半 */}
             {shipped && (
-              <ShipSummary claim={data} proofs={shippingProofs} closed={closed} onChanged={refreshAll} />
+              <ShipSummary claim={data} proofs={shippingProofs} />
             )}
 
             {feedbackPhotos.length > 0 && (
