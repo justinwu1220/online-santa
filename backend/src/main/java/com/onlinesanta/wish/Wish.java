@@ -47,8 +47,17 @@ public class Wish extends BaseEntity {
     @Column(columnDefinition = "text")
     private String description;
 
-    @Enumerated(EnumType.STRING)
+    /** 孩子口吻的一句話（20 字內），顯示在願望標題下方。 */
+    @Column(length = 60)
+    private String note;
+
+    /** 頭貼檔名，建立時挑一次（見 {@link WishAvatar}）。 */
     @Column(nullable = false, length = 30)
+    private String avatar;
+
+    /** 1018 新版起機構表單已無此欄位，舊資料保留；新願望為 null。 */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
     private WishCategory category;
 
     @Enumerated(EnumType.STRING)
@@ -85,6 +94,7 @@ public class Wish extends BaseEntity {
         this.category = category;
         this.priceRange = priceRange;
         this.status = WishStatus.DRAFT;
+        this.avatar = WishAvatar.pick(ageRange);
     }
 
     /**
@@ -109,6 +119,7 @@ public class Wish extends BaseEntity {
                               String title, String description,
                               WishCategory category, PriceRange priceRange) {
         requireEditable("修改");
+        this.avatar = WishAvatar.afterEdit(this.avatar, this.ageRange, ageRange);
         this.childAlias = childAlias;
         this.ageRange = ageRange;
         this.interests = interests;
@@ -116,6 +127,11 @@ public class Wish extends BaseEntity {
         this.description = description;
         this.category = category;
         this.priceRange = priceRange;
+    }
+
+    public void changeNote(String note) {
+        requireEditable("修改");
+        this.note = note == null || note.isBlank() ? null : note.trim();
     }
 
     /** 上架：草稿或已下架的願望都可以（重新）公開。 */
@@ -187,6 +203,14 @@ public class Wish extends BaseEntity {
 
     public String getDescription() {
         return description;
+    }
+
+    public String getNote() {
+        return note;
+    }
+
+    public String getAvatar() {
+        return avatar;
     }
 
     public WishCategory getCategory() {

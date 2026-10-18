@@ -27,7 +27,7 @@ class SchemaMigrationIT extends PostgresIntegrationTest {
 
         assertThat(tables).contains(
                 "organizations", "users", "wishes", "claims",
-                "claim_events", "attachments", "messages");
+                "claim_events", "attachments", "messages", "terms_consents");
     }
 
     @Test
@@ -55,5 +55,23 @@ class SchemaMigrationIT extends PostgresIntegrationTest {
                 .doesNotContain("child_name", "full_name", "birth_date", "birthday",
                         "child_photo", "photo_url", "national_id", "school_name");
         assertThat(columns).contains("child_alias", "age_range");
+    }
+
+    @Test
+    void usersHaveOnboardedAtAndWishesHaveAvatarAndNote() {
+        List<String> userColumns = jdbc.queryForList(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'",
+                String.class);
+        assertThat(userColumns).contains("onboarded_at");
+
+        List<String> wishColumns = jdbc.queryForList(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'wishes'",
+                String.class);
+        assertThat(wishColumns).contains("avatar", "note");
+
+        String nullable = jdbc.queryForObject(
+                "SELECT is_nullable FROM information_schema.columns "
+                        + "WHERE table_name = 'wishes' AND column_name = 'category'", String.class);
+        assertThat(nullable).as("1018 新版起禮物分類不再必填").isEqualTo("YES");
     }
 }

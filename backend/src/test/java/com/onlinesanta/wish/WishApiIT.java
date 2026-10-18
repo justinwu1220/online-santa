@@ -310,7 +310,7 @@ class WishApiIT extends ApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].organizationName").value("已核准之家"))
                 .andExpect(jsonPath("$.content[0].childAlias").value("小星"))
-                .andExpect(jsonPath("$.content[0].ageRangeLabel").value("7-9 歲"))
+                .andExpect(jsonPath("$.content[0].ageRangeLabel").value("7–9 歲"))
                 // 機構專屬欄位不得出現在公開視圖
                 .andExpect(jsonPath("$.content[0].version").doesNotExist())
                 .andExpect(jsonPath("$.content[0].editable").doesNotExist())
@@ -393,7 +393,7 @@ class WishApiIT extends ApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
 
-        mvc.perform(get("/api/wishes").param("ageRange", "AGE_16_18"))
+        mvc.perform(get("/api/wishes").param("ageRange", "AGE_16_PLUS"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(0));
     }
@@ -474,5 +474,79 @@ class WishApiIT extends ApiIntegrationTest {
         mvc.perform(as(get("/api/organizations/me/wishes"), OTHER_ORG_USER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    // ------------------------------------------------------------ 1018 新版：年齡六組、頭貼、說明
+
+    @Test
+    void ageOptionsAreTheSixGroupsFromTheDesign() throws Exception {
+        mvc.perform(get("/api/wishes/options"))
+                .andExpect(jsonPath("$.ageRanges[*].label", org.hamcrest.Matchers.contains(
+                        "0–3 歲", "4–6 歲", "7–9 歲", "10–12 歲", "13–15 歲", "16 歲以上")))
+                .andExpect(jsonPath("$.ageRanges[5].value").value("AGE_16_PLUS"));
+    }
+
+    @Test
+    void avatarIsPickedOnceAtCreationAndStaysTheSameEverywhere() throws Exception {
+        UUID id = createPublishedWish("頭貼固定");
+        String created = wishes.findById(id).orElseThrow().getAvatar();
+        assertThat(created).matches("(boy|girl)\\d\\.(jpg|png)");
+
+        // 修改內容（年齡沒有跨過 0–3 歲）不重挑
+        mvc.perform(as(withBody(patch("/api/wishes/{id}", id), wishRequestWithAge("頭貼固定", AgeRange.AGE_10_12, null)),
+                ORG_USER)).andExpect(status().isOk());
+        assertThat(wishes.findById(id).orElseThrow().getAvatar()).isEqualTo(created);
+
+        // 公開清單與詳情都回同一張
+        mvc.perform(get("/api/wishes/{id}", id)).andExpect(jsonPath("$.avatar").value(created));
+        mvc.perform(get("/api/wishes")).andExpect(jsonPath("$.content[0].avatar").value(created));
+    }
+
+    @Test
+    void avatarIsPickedAgainOnlyWhenAgeCrossesTheBabyBoundary() throws Exception {
+        UUID id = createWish("跨過嬰幼兒");
+        String kid = wishes.findById(id).orElseThrow().getAvatar();
+        assertThat(kid).doesNotStartWith("baby");
+
+        mvc.perform(as(withBody(patch("/api/wishes/{id}", id), wishRequestWithAge("跨過嬰幼兒", AgeRange.AGE_0_3, null)),
+                ORG_USER)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.avatar").value(org.hamcrest.Matchers.startsWith("baby")));
+
+        String baby = wishes.findById(id).orElseThrow().getAvatar();
+        // 0–3 歲之內再改（其實同組）不重挑
+        mvc.perform(as(withBody(patch("/api/wishes/{id}", id), wishRequestWithAge("跨過嬰幼兒", AgeRange.AGE_0_3, "改一下說明")),
+                ORG_USER)).andExpect(status().isOk());
+        assertThat(wishes.findById(id).orElseThrow().getAvatar()).isEqualTo(baby);
+
+        mvc.perform(as(withBody(patch("/api/wishes/{id}", id), wishRequestWithAge("跨過嬰幼兒", AgeRange.AGE_4_6, null)),
+                ORG_USER)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.avatar").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.startsWith("baby"))));
+    }
+
+    @Test
+    void noteIsOptionalAtMostTwentyCharactersAndShownPublicly() throws Exception {
+        UUID id = createWish("有說明");
+        String note = "我想要藍色的，跑步才會像風一樣快！";
+        mvc.perform(as(withBody(patch("/api/wishes/{id}", id), wishRequestWithAge("有說明", AgeRange.AGE_7_9, note)),
+                ORG_USER)).andExpect(status().isOk()).andExpect(jsonPath("$.note").value(note));
+        mvc.perform(as(post("/api/wishes/{id}/publish", id), ORG_USER)).andExpect(status().isOk());
+        mvc.perform(get("/api/wishes/{id}", id)).andExpect(jsonPath("$.note").value(note));
+
+        mvc.perform(as(withBody(patch("/api/wishes/{id}", id),
+                wishRequestWithAge("有說明", AgeRange.AGE_7_9, "一二三四五六七八九十一二三四五六七八九十一")), ORG_USER))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void categoryIsNoLongerRequired() throws Exception {
+        WishRequest request = new WishRequest("小星", AgeRange.AGE_7_9, null, "不填分類", null, null, null, null);
+        mvc.perform(as(withBody(post("/api/wishes"), request), ORG_USER))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.category").doesNotExist());
+    }
+
+    private WishRequest wishRequestWithAge(String title, AgeRange age, String note) {
+        return new WishRequest("小星", age, "喜歡畫畫和恐龍", title, "希望有一盒 48 色的色鉛筆",
+                note, WishCategory.ART, null);
     }
 }

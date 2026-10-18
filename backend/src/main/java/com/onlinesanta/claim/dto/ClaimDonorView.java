@@ -26,6 +26,8 @@ public record ClaimDonorView(
         String childAlias,
         AgeRange ageRange,
         String ageRangeLabel,
+        /** 願望的頭貼檔名（建立願望時存下來的） */
+        String avatar,
         String organizationName,
         /** 機構簡介（機構設定），認領頁右欄的機構小卡顯示；沒填為 null */
         String organizationDescription,
@@ -66,6 +68,7 @@ public record ClaimDonorView(
                 wish.getChildAlias(),
                 wish.getAgeRange(),
                 wish.getAgeRange().getLabel(),
+                wish.getAvatar(),
                 wish.getOrganization().getName(),
                 wish.getOrganization().getDescription() == null
                         || wish.getOrganization().getDescription().isBlank()
