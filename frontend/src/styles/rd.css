@@ -506,6 +506,8 @@
     .terms__actions .btn--primary{flex:1 1 100%;order:3}
   }
   .link-btn { border: 0; background: transparent; color: #fde68a; font: inherit; font-size: 13px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 8px 6px; }
+  /* 放在 .link-btn 之後：原型裡 .terms__top 排在 .link-btn 後面才得以覆蓋它的顏色 */
+  .terms__top.link-btn { margin-right: auto; text-decoration: none; color: #6ee7b7; }
   .link-btn:disabled { color: #a39066; text-decoration: none; cursor: default; }
   /* 句子裡的行內連結：沿用內文大小與連結色，不要變成按鈕大小 */
   .terms-link { border: 0; background: transparent; padding: 0; font: inherit; color: #a7f3d0; cursor: pointer; }
