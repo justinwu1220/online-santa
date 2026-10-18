@@ -50,7 +50,7 @@ API 文件：<http://localhost:8080/swagger-ui.html>
 | | 路徑 | 進入方式 |
 |---|---|---|
 | **主網站** | `/` | 願望牆公開瀏覽，右上角登入後可認領與查看紀錄 |
-| **機構後台** | `/org` | 主網站頁尾的「我是兒童機構」進入，導覽列**不含願望牆** |
+| **機構後台** | `/org` | 在 `/login` 註冊時選機構身分，或機構帳號登入後從右上角「機構後台」進入，導覽列**不含願望牆** |
 | **監控中心** | `/admin` | 任何地方都沒有連結，直接輸入網址 |
 
 > 監控中心不列出入口只是減少誤闖，**網址不是安全邊界** —— 真正的保護是後端的
@@ -61,7 +61,7 @@ API 文件：<http://localhost:8080/swagger-ui.html>
 
 ### 管理員的稽核軌跡
 
-管理員為了處理申訴需要跨機構檢視，看得到捐贈者個資與含孩童影像的回饋照片。
+管理員為了處理申訴需要跨機構檢視，看得到捐贈者個資與含孩童影像的收件證明。
 「能看」與「看了不留痕跡」是兩件事——每次存取單筆認領詳情或附件都寫入
 `admin_audit_logs`，且這份紀錄在 `/admin/system` 對所有管理員公開。
 
@@ -93,8 +93,9 @@ React 19 + TypeScript + Vite + Tailwind v4，涵蓋願望牆、認領流程、�
 管理員或機構權限不該還能使用。授權一律看 `effectiveRole()`，不看資料庫的 `role`
 ——有兩套認定就遲早會有一套漏掉。
 
-開發模式讓整個專案不需要任何雲端資源就能跑起來——`npm run dev` 後在右上角輸入
-任意 email 即可切換身分。Firebase SDK 以動態 import 載入，沒設定時不會進入打包結果。
+開發模式讓整個專案不需要任何雲端資源就能跑起來——`npm run dev` 後到 `/login`，輸入
+任意 email 即可登入或切換身分。開發模式的註冊會顯示所有欄位（含密碼），但密碼不驗證，
+只用來檢查畫面；姓名與顯示名稱會儲存。Firebase SDK 以動態 import 載入，沒設定時不會進入打包結果。
 
 ## 本地開發的身分模擬
 
@@ -126,6 +127,25 @@ APP_ADMIN_EMAILS=you@example.com ./mvnw spring-boot:run
 > **Windows 使用者注意**：Git Bash 把命令列參數傳給 `curl.exe` 時會破壞 UTF-8，
 > 含中文的 JSON 請寫成檔案再以 `--data-binary @body.json` 送出。
 
+## 介面與設計系統
+
+公開頁（願望牆、詳情、登入註冊、我的認領、個人資料）使用深色玻璃風格的自製設計系統：
+`frontend/src/styles/` 下的 `rd.css`（變數與元件）、`rd-auth.css`（登入註冊）、
+`rd-motion.css`（動畫），全部限定在 `.rd` 範圍內；轉場與動畫工具在 `lib/motion.ts`。
+機構與管理員後台暫時仍是舊樣式，之後會改版。
+
+## 須知同意與首次登入說明
+
+- **認領者參與須知**：註冊與認領前必須同意。同意紀錄存在 `terms_consents`（只增不改，
+  每次同意新增一列：使用者、須知、版本、時間），是否需要重新同意看「最新一筆的版本是否
+  等於目前版本」。
+- **改版須知時**必須同時改兩處，否則前端會顯示「網站內容已更新，請重新整理」並拒絕同意：
+  後端 `app.terms.donor-version`（`application.yml`／環境變數 `APP_TERMS_DONOR_VERSION`）與
+  前端 `DONOR_TERMS.version`（`components/terms/termsContent.tsx`）。
+- **首次登入說明**（「開始之前」）看完後記錄在 `users.onboarded_at`，之後不再自動跳出；
+  標頭的 ⓘ 可重看。
+- **捐贈收據**：認領者回報寄送時可申請，個資加密儲存，僅管理員可在稽核下檢視。
+
 ## 圖片上傳
 
 依敏感度分成兩個 bucket：
@@ -133,7 +153,7 @@ APP_ADMIN_EMAILS=you@example.com ./mvnw spring-boot:run
 | Bucket | 內容 | 存取方式 |
 |---|---|---|
 | 公開 | 禮物示意圖 | 固定網址，無需簽章 |
-| 私密 | 寄送證明、送禮回饋照片 | 限時簽章網址（10 分鐘） |
+| 私密 | 寄送證明、收件證明 | 限時簽章網址（10 分鐘） |
 
 上傳走三步驟，檔案不經過 API：
 
@@ -145,8 +165,6 @@ POST /api/attachments/{id}/confirm → 後端向儲存端查證後標記完成
 
 本機開發啟用 `dev-storage` profile（隨 `local` 自動帶出），檔案存在
 `backend/.local-storage/`，不需要 GCP 專案就能跑完整個流程。
-
-隱私規範見 [docs/PRIVACY.md](docs/PRIVACY.md)。
 
 ## 逾期認領的處理
 
@@ -172,7 +190,7 @@ Cloud Run 是 scale-to-zero 的，沒有常駐行程，`@Scheduled` 不會可靠
 推到 `main` 就會自動部署（`.github/workflows/deploy.yml`）：測試 → 建置映像檔 →
 Cloud Run → Firebase Hosting。認證走 Workload Identity Federation，不使用 JSON 金鑰。
 
-雲端資源的手動前置步驟見 **[docs/DEPLOY.md](docs/DEPLOY.md)**。
+雲端資源的手動前置步驟與備份、隱私規範等維運文件只存在維護者本機，不在 repo 內。
 
 ### 冷啟動
 
@@ -196,7 +214,9 @@ Cloud Run 是 scale-to-zero 的，映像檔用 AppCDS 把啟動路徑上的類�
 | `APP_ALLOWED_ORIGINS` | 允許跨來源請求的前端網域 |
 | `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | Neon PostgreSQL 連線資訊 |
 | `GCS_PUBLIC_BUCKET` | 公開 bucket 名稱（禮物示意圖） |
-| `GCS_PRIVATE_BUCKET` | 私密 bucket 名稱（寄送證明、回饋照片） |
+| `GCS_PRIVATE_BUCKET` | 私密 bucket 名稱（寄送證明、收件證明） |
+| `RECEIPT_ENCRYPTION_KEY` | 捐贈收據個資的加密金鑰（後端啟動必要） |
+| `APP_TERMS_DONOR_VERSION` | 目前《認領者參與須知》版本（見下） |
 | `INTERNAL_JOB_AUDIENCE` | Cloud Scheduler OIDC token 的 audience，設為本服務網址 |
 | `SCHEDULER_SERVICE_ACCOUNT` | 允許觸發排程的服務帳號 email |
 
@@ -212,7 +232,6 @@ Cloud Run 是 scale-to-zero 的，映像檔用 AppCDS 把啟動路徑上的類�
 ```
 backend/    Spring Boot API（package-by-feature）
 frontend/   React + Vite 前端
-docs/       架構決策紀錄、隱私規範、部署手冊
 ```
 
 ## 設計重點
