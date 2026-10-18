@@ -23,6 +23,7 @@ import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.event.ClaimCreatedEvent;
+import com.onlinesanta.message.SystemMessageService;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.ReleasePolicy;
 import com.onlinesanta.receipt.ClaimReceiptService;
@@ -51,6 +52,7 @@ public class ClaimService {
     private final ApplicationEventPublisher eventPublisher;
     private final ClaimReceiptService receipts;
     private final TermsService terms;
+    private final SystemMessageService systemMessages;
 
     public ClaimService(ClaimRepository claims,
                         ClaimEventRepository events,
@@ -61,7 +63,8 @@ public class ClaimService {
                         ClaimProperties properties,
                         ApplicationEventPublisher eventPublisher,
                         ClaimReceiptService receipts,
-                        TermsService terms) {
+                        TermsService terms,
+                        SystemMessageService systemMessages) {
         this.claims = claims;
         this.events = events;
         this.wishes = wishes;
@@ -72,6 +75,7 @@ public class ClaimService {
         this.eventPublisher = eventPublisher;
         this.receipts = receipts;
         this.terms = terms;
+        this.systemMessages = systemMessages;
     }
 
     // ================================================================ 認領
@@ -127,6 +131,7 @@ public class ClaimService {
                 claimedWish, donor, policy, deadline, request.donorMessage()));
 
         record(claim, ClaimEventType.CLAIMED, principal.userId(), null);
+        systemMessages.claimCreated(claim);
         // 通知機構有人認領了——監聽端用 AFTER_COMMIT，交易若回滾就不會寄信
         eventPublisher.publishEvent(new ClaimCreatedEvent(claim.getId()));
         return claim;
@@ -201,6 +206,7 @@ public class ClaimService {
                 request.giftQuantity(), request.giftPrice(), request.shippedOn());
         record(claim, ClaimEventType.SHIPPED, principal.userId(),
                 "%s %s".formatted(request.carrier(), request.trackingNumber()));
+        systemMessages.shipmentReported(claim);
         return claim;
     }
 
@@ -213,6 +219,7 @@ public class ClaimService {
         claim.cancel(request.reason());
         returnWishToWall(claim);
         record(claim, ClaimEventType.CANCELLED, principal.userId(), request.reason());
+        systemMessages.claimCancelled(claim);
         return claim;
     }
 

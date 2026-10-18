@@ -473,11 +473,13 @@ class AdminMonitoringIT extends ApiIntegrationTest {
 
         mvc.perform(as(get("/api/admin/claims/{id}/messages", claimId), ADMIN))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].senderRole").value("DONOR"))
-                .andExpect(jsonPath("$[0].body").value("這週末可以寄出嗎？"))
-                .andExpect(jsonPath("$[1].senderRole").value("ORGANIZATION"))
-                .andExpect(jsonPath("$[1].body").value("可以，麻煩您了"))
+                // 第 0 則是認領當下機構的招呼
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].senderRole").value("ORGANIZATION"))
+                .andExpect(jsonPath("$[1].senderRole").value("DONOR"))
+                .andExpect(jsonPath("$[1].body").value("這週末可以寄出嗎？"))
+                .andExpect(jsonPath("$[2].senderRole").value("ORGANIZATION"))
+                .andExpect(jsonPath("$[2].body").value("可以，麻煩您了"))
                 // 不帶發言者身分——沒有使用者 id、email 等欄位
                 .andExpect(jsonPath("$[0].senderUserId").doesNotExist())
                 .andExpect(jsonPath("$[0].donorEmail").doesNotExist());
@@ -485,7 +487,7 @@ class AdminMonitoringIT extends ApiIntegrationTest {
         var logs = auditLogs.findAll();
         assertThat(logs).hasSize(1);
         assertThat(logs.get(0).getAction()).isEqualTo(AdminAuditAction.VIEW_CLAIM_MESSAGES);
-        assertThat(logs.get(0).getDetail()).contains("共 2 則");
+        assertThat(logs.get(0).getDetail()).contains("共 3 則");
     }
 
     @Test

@@ -13,6 +13,7 @@ import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.organization.dto.OrganizationRegistrationRequest;
 import com.onlinesanta.organization.dto.OrganizationUpdateRequest;
+import com.onlinesanta.message.TeamChatService;
 import com.onlinesanta.terms.TermsService;
 import com.onlinesanta.user.User;
 import com.onlinesanta.user.UserRepository;
@@ -24,15 +25,18 @@ public class OrganizationService {
     private final UserRepository users;
     private final CurrentUserService currentUser;
     private final TermsService terms;
+    private final TeamChatService teamChat;
 
     public OrganizationService(OrganizationRepository organizations,
                                UserRepository users,
                                CurrentUserService currentUser,
-                               TermsService terms) {
+                               TermsService terms,
+                               TeamChatService teamChat) {
         this.organizations = organizations;
         this.users = users;
         this.currentUser = currentUser;
         this.terms = terms;
+        this.teamChat = teamChat;
     }
 
     /**
@@ -75,6 +79,7 @@ public class OrganizationService {
         User user = users.findById(principal.userId())
                 .orElseThrow(() -> ResourceNotFoundException.of("使用者", principal.userId()));
         user.joinOrganization(organization.getId());
+        teamChat.greetNewOrganization(organization.getId());
 
         return organization;
     }

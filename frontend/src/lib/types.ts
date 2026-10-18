@@ -269,10 +269,32 @@ export interface UploadUrlResponse {
   expiresAt: string
 }
 
+/** USER＝一般對話；WELCOME＝認領當下機構的招呼；SYSTEM＝系統通知（只有機構的願望對話裡有） */
+export type MessageKind = 'USER' | 'SYSTEM' | 'WELCOME'
+
 export interface MessageView {
   id: number
   body: string
   fromMe: boolean
+  read: boolean
+  sentAt: string
+  kind: MessageKind
+}
+
+/** 機構看一個願望的對話：系統通知和目前認領者的訊息交錯在同一條時間線上。 */
+export interface WishConversation {
+  /** 目前認領者的顯示名稱；還沒有人認領為 undefined */
+  claimantName?: string
+  canSend: boolean
+  unread: number
+  messages: MessageView[]
+}
+
+/** 與平台團隊的一則訊息 */
+export interface TeamMessageView {
+  id: number
+  body: string
+  fromTeam: boolean
   read: boolean
   sentAt: string
 }

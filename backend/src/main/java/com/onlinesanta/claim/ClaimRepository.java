@@ -17,6 +17,9 @@ import org.springframework.data.repository.query.Param;
 
 public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecificationExecutor<Claim> {
 
+    /** 願望目前佔用中的那一筆認領（最多一筆，由 uq_active_claim_per_wish 保證）。 */
+    Optional<Claim> findFirstByWishIdAndStatusIn(UUID wishId, Collection<ClaimStatus> statuses);
+
     /** 每位民眾同時進行中的認領數上限檢查。 */
     long countByDonorIdAndStatusIn(UUID donorId, Collection<ClaimStatus> statuses);
 

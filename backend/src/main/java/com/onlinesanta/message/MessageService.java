@@ -1,6 +1,7 @@
 package com.onlinesanta.message;
 
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,10 +47,12 @@ public class MessageService {
     @Transactional(readOnly = true)
     public List<MessageView> list(UUID claimId) {
         AppPrincipal viewer = currentUser.require();
-        claims.getVisibleById(claimId);
+        Claim claim = claims.getVisibleById(claimId);
+        boolean viewerIsOrganization = !claim.isOwnedBy(viewer.userId());
 
-        return messages.findByClaimIdOrderByCreatedAtAsc(claimId).stream()
-                .map(message -> MessageView.from(message, viewer.userId()))
+        return messages.findByClaimIdAndKindInOrderByCreatedAtAscIdAsc(
+                        claimId, EnumSet.of(MessageKind.USER, MessageKind.WELCOME)).stream()
+                .map(message -> MessageView.from(message, viewer.userId(), viewerIsOrganization))
                 .toList();
     }
 
@@ -70,14 +73,14 @@ public class MessageService {
         boolean recipientHasUnreadFromSender = messages
                 .countByClaimIdAndReadAtIsNullAndSenderUserId(claimId, sender.userId()) > 0;
 
-        Message message = messages.save(
-                Message.from(claimId, sender.userId(), request.body().strip()));
+        Message message = messages.save(Message.user(
+                claim.getWish().getId(), claimId, sender.userId(), request.body().strip()));
 
         if (!recipientHasUnreadFromSender) {
             eventPublisher.publishEvent(new NewMessageEvent(claimId, sender.userId()));
         }
 
-        return MessageView.from(message, sender.userId());
+        return MessageView.from(message, sender.userId(), !claim.isOwnedBy(sender.userId()));
     }
 
     /**

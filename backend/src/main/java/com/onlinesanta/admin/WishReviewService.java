@@ -11,6 +11,7 @@ import com.onlinesanta.auth.AppPrincipal;
 import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.event.WishReviewedEvent;
+import com.onlinesanta.message.SystemMessageService;
 import com.onlinesanta.wish.Wish;
 import com.onlinesanta.wish.WishRepository;
 
@@ -27,13 +28,16 @@ public class WishReviewService {
     private final CurrentUserService currentUser;
     private final AdminAuditService audit;
     private final ApplicationEventPublisher eventPublisher;
+    private final SystemMessageService systemMessages;
 
     public WishReviewService(WishRepository wishes, CurrentUserService currentUser,
-                             AdminAuditService audit, ApplicationEventPublisher eventPublisher) {
+                             AdminAuditService audit, ApplicationEventPublisher eventPublisher,
+                             SystemMessageService systemMessages) {
         this.wishes = wishes;
         this.currentUser = currentUser;
         this.audit = audit;
         this.eventPublisher = eventPublisher;
+        this.systemMessages = systemMessages;
     }
 
     @Transactional
@@ -42,6 +46,7 @@ public class WishReviewService {
         Wish wish = find(wishId);
         wish.approve(admin.userId());
         audit.record(AdminAuditAction.APPROVE_WISH, wishId, wish.getTitle());
+        systemMessages.wishApproved(wishId);
         eventPublisher.publishEvent(new WishReviewedEvent(wishId, true, null));
         return wish;
     }
@@ -53,6 +58,7 @@ public class WishReviewService {
         String reason = request.note().trim();
         wish.reject(admin.userId(), reason);
         audit.record(AdminAuditAction.REJECT_WISH, wishId, wish.getTitle());
+        systemMessages.wishRejected(wishId, reason);
         eventPublisher.publishEvent(new WishReviewedEvent(wishId, false, reason));
         return wish;
     }

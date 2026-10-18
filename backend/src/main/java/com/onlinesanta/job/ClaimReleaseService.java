@@ -16,6 +16,7 @@ import com.onlinesanta.claim.ClaimEventRepository;
 import com.onlinesanta.claim.ClaimEventType;
 import com.onlinesanta.claim.ClaimRepository;
 import com.onlinesanta.job.dto.ReleaseSweepResult;
+import com.onlinesanta.message.SystemMessageService;
 import com.onlinesanta.organization.ReleasePolicy;
 import com.onlinesanta.wish.WishRepository;
 
@@ -43,13 +44,16 @@ public class ClaimReleaseService {
     private final ClaimRepository claims;
     private final ClaimEventRepository events;
     private final WishRepository wishes;
+    private final SystemMessageService systemMessages;
 
     public ClaimReleaseService(ClaimRepository claims,
                                ClaimEventRepository events,
-                               WishRepository wishes) {
+                               WishRepository wishes,
+                               SystemMessageService systemMessages) {
         this.claims = claims;
         this.events = events;
         this.wishes = wishes;
+        this.systemMessages = systemMessages;
     }
 
     /**
@@ -71,9 +75,14 @@ public class ClaimReleaseService {
                 claim.release(AUTO_RELEASE_REASON);
                 events.save(ClaimEvent.bySystem(
                         claim.getId(), ClaimEventType.RELEASED_AUTO, AUTO_RELEASE_REASON));
+                systemMessages.autoReleased(claim);
                 releasedWishIds.add(claim.getWish().getId());
             } else {
-                // 手動政策：只留在後台的逾期清單裡，等機構自己決定
+                // 手動政策：只留在後台的逾期清單裡，等機構自己決定；系統通知只發一次
+                if (!claim.isOverdueNotified()) {
+                    systemMessages.shipDeadlinePassed(claim);
+                    claim.markOverdueNotified();
+                }
                 flaggedOnly++;
             }
         }

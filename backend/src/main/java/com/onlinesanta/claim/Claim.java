@@ -112,6 +112,10 @@ public class Claim extends BaseEntity {
     @Column(name = "deadline_reminder_sent_at")
     private Instant deadlineReminderSentAt;
 
+    /** 「我自己決定」政策的機構已經收到逾期的系統通知（只通知一次）。 */
+    @Column(name = "overdue_notified_at")
+    private Instant overdueNotifiedAt;
+
     @Version
     @Column(nullable = false)
     private long version;
@@ -287,5 +291,13 @@ public class Claim extends BaseEntity {
 
     public long getVersion() {
         return version;
+    }
+
+    public void markOverdueNotified() {
+        this.overdueNotifiedAt = Instant.now();
+    }
+
+    public boolean isOverdueNotified() {
+        return overdueNotifiedAt != null;
     }
 }

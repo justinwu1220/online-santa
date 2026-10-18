@@ -96,16 +96,19 @@ class MessageApiIT extends ApiIntegrationTest {
 
         mvc.perform(as(get("/api/claims/{id}/messages", claimId), DONOR))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].body").value("禮物我已經買好了，這週會寄出"))
-                .andExpect(jsonPath("$[0].fromMe").value(true))
-                .andExpect(jsonPath("$[1].fromMe").value(false));
+                // 第 0 則是認領當下機構的招呼
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].kind").value("WELCOME"))
+                .andExpect(jsonPath("$[1].body").value("禮物我已經買好了，這週會寄出"))
+                .andExpect(jsonPath("$[1].fromMe").value(true))
+                .andExpect(jsonPath("$[2].fromMe").value(false));
 
         // 同一份對話，從機構那一側看 fromMe 會相反
         mvc.perform(as(get("/api/claims/{id}/messages", claimId), ORG_USER))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].fromMe").value(false))
-                .andExpect(jsonPath("$[1].fromMe").value(true));
+                .andExpect(jsonPath("$[0].fromMe").value(true))
+                .andExpect(jsonPath("$[1].fromMe").value(false))
+                .andExpect(jsonPath("$[2].fromMe").value(true));
     }
 
     @Test

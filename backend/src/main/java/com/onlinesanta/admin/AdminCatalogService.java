@@ -137,7 +137,10 @@ public class AdminCatalogService {
         Claim claim = claims.findWithDetailsById(claimId)
                 .orElseThrow(() -> ResourceNotFoundException.of("認領", claimId));
 
-        List<AdminMessageView> views = messages.findByClaimIdOrderByCreatedAtAsc(claimId).stream()
+        List<AdminMessageView> views = messages.findByClaimIdAndKindInOrderByCreatedAtAscIdAsc(
+                        claimId, java.util.EnumSet.of(
+                                com.onlinesanta.message.MessageKind.USER,
+                                com.onlinesanta.message.MessageKind.WELCOME)).stream()
                 .map(message -> AdminMessageView.from(message, claim.getDonor().getId()))
                 .toList();
 
