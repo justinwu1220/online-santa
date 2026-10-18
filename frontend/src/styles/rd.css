@@ -486,6 +486,10 @@
   .terms__doc p{margin:0 0 10px}
   .terms__doc ol,.terms__doc ul{margin:0 0 10px;padding-left:1.5em}
   .terms__doc li{margin:0 0 6px}
+  /* Tailwind 的預設樣式清掉了清單符號；原型沒有這層重設，所以要補回瀏覽器預設的編號與圓點 */
+  .terms__doc ol{list-style:decimal}
+  .terms__doc ul{list-style:disc}
+  .terms__doc ul ul{list-style:circle}
   .terms__doc ul ul{margin-top:6px}
   .terms__doc a{color:#6ee7b7}
   .terms__doc .os-end{margin-top:22px;text-align:center;font-size:13px;color:#6ee7b7}
