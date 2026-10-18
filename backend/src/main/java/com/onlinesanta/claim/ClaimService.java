@@ -26,6 +26,7 @@ import com.onlinesanta.event.ClaimCreatedEvent;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.ReleasePolicy;
 import com.onlinesanta.receipt.ClaimReceiptService;
+import com.onlinesanta.terms.TermsService;
 import com.onlinesanta.user.User;
 import com.onlinesanta.user.UserRepository;
 import com.onlinesanta.wish.Wish;
@@ -49,6 +50,7 @@ public class ClaimService {
     private final ClaimProperties properties;
     private final ApplicationEventPublisher eventPublisher;
     private final ClaimReceiptService receipts;
+    private final TermsService terms;
 
     public ClaimService(ClaimRepository claims,
                         ClaimEventRepository events,
@@ -58,7 +60,8 @@ public class ClaimService {
                         CurrentUserService currentUser,
                         ClaimProperties properties,
                         ApplicationEventPublisher eventPublisher,
-                        ClaimReceiptService receipts) {
+                        ClaimReceiptService receipts,
+                        TermsService terms) {
         this.claims = claims;
         this.events = events;
         this.wishes = wishes;
@@ -68,6 +71,7 @@ public class ClaimService {
         this.properties = properties;
         this.eventPublisher = eventPublisher;
         this.receipts = receipts;
+        this.terms = terms;
     }
 
     // ================================================================ 認領
@@ -98,6 +102,7 @@ public class ClaimService {
                 .orElseThrow(() -> ResourceNotFoundException.of("願望", wishId));
         Organization organization = wish.getOrganization();
 
+        terms.requireUpToDateForClaim(principal.userId());
         requireWithinDonorQuota(principal.userId());
 
         if (wishes.markClaimed(wishId) == 0) {

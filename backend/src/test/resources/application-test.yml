@@ -6,6 +6,10 @@ spring:
     enabled: true
 
 app:
+  terms:
+    donor-version: 'v6（2026-10-16）'
+    # 既有的認領相關測試不處理同意；TermsApiIT 自己打開
+    enforce-on-claim: false
   storage:
     public-bucket: test-public
     # 測試涵蓋整條示意圖路徑，這裡一律開啟；正式環境的預設是關閉
