@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { CalendarCheck, Check, Clock, Copy } from 'lucide-react'
+import { CalendarCheck, Check, Copy } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { api } from '../../lib/api'
 import { formatDate, formatDateTime } from '../../lib/format'
@@ -303,7 +303,7 @@ export function DeadlineBar({ claim, remaining }: { claim: ClaimDonorView; remai
     const late = remaining !== null && remaining < 0
     return (
       <div className="deadline" data-tone={late ? 'late' : undefined}>
-        <Clock className="icon" aria-hidden />
+        <CalendarCheck className="icon" aria-hidden />
         <p className="deadline__text" style={{ margin: 0 }}>
           {late ? (
             <>
@@ -317,18 +317,20 @@ export function DeadlineBar({ claim, remaining }: { claim: ClaimDonorView; remai
             </>
           )}
         </p>
-        {remaining !== null && !late && <span className="deadline__days">還有 {remaining} 天</span>}
+        {remaining !== null && !late && (
+          <span className="deadline__days">{remaining === 0 ? '今天截止' : `還有 ${remaining} 天`}</span>
+        )}
         {late && <span className="deadline__days">逾期</span>}
       </div>
     )
   }
 
   const copy = claim.status === 'SHIPPED'
-    ? ['已回報寄送', '等機構確認收到禮物，機構收到後會更新進度。']
+    ? ['禮物已經寄出，等機構確認收到', '機構收到包裹後會在這裡確認。']
     : claim.status === 'RECEIVED'
       ? ['機構已經收到禮物了', `禮物會在聖誕節前交到${claim.childAlias}手上，謝謝你。`]
       : claim.status === 'COMPLETED'
-        ? ['流程完成', '謝謝你，孩子收到了你的心意。']
+        ? [`流程完成，謝謝你成為${claim.childAlias}的聖誕老人`, '需要捐贈收據的話，收據開立後會寄到你填寫的信箱。']
         : null
   if (!copy) return null
 
