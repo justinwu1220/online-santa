@@ -538,10 +538,11 @@ class WishApiIT extends ApiIntegrationTest {
     }
 
     @Test
-    void categoryIsStillRequired() throws Exception {
+    void categoryIsNoLongerRequired() throws Exception {
         WishRequest request = new WishRequest("小星", AgeRange.AGE_7_9, null, "不填分類", null, null, null);
         mvc.perform(as(withBody(post("/api/wishes"), request), ORG_USER))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.category").doesNotExist());
     }
 
     private WishRequest wishRequestWithAge(String title, AgeRange age, String note) {

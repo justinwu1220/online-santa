@@ -60,7 +60,7 @@ public record WishPublicView(
                 wish.getTitle(),
                 wish.getDescription(),
                 wish.getCategory(),
-                wish.getCategory().getLabel(),
+                wish.getCategory() != null ? wish.getCategory().getLabel() : null,
                 wish.getAgeRange(),
                 wish.getAgeRange().getLabel(),
                 wish.getPriceRange(),

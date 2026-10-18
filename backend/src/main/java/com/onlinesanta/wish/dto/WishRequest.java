@@ -33,8 +33,7 @@ public record WishRequest(
         @Size(max = 20, message = "願望說明不可超過 20 字")
         String description,
 
-        /** 設計稿漏畫了這個欄位，已確認要保留且必填（機構填寫願望時選禮物分類）。 */
-        @NotNull(message = "請選擇禮物分類")
+        /** 1018 新版起機構表單不再填禮物分類；舊的呼叫端仍可帶，省略也可以。 */
         WishCategory category,
 
         /** 機構後台的「新增願望」已拿掉這個欄位——選填，省略時願望牆不顯示價格標籤。 */
