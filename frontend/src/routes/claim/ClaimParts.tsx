@@ -152,15 +152,9 @@ export function ShipSummary({ claim, proofs }: {
           <div><dt>禮物價格</dt><dd>{claim.giftPrice.toLocaleString('zh-TW')} 元</dd></div>
         )}
         {claim.shippedOn && <div><dt>寄出日期</dt><dd>{claim.shippedOn.replaceAll('-', '/')}</dd></div>}
-        {/* 照片放在「寄件照片」底下，整列寬；回報送出後只能檢視，不能刪除或補傳 */}
-        <div className="c-full">
+        <div>
           <dt>寄件照片</dt>
-          <dd>
-            {proofs.length} 張
-            {proofs.length > 0 && (
-              <div style={{ marginTop: 10 }}><ProofGrid photos={proofs} emptyHint="" /></div>
-            )}
-          </dd>
+          <dd><ProofViewer photos={proofs} /></dd>
         </div>
         <div>
           <dt>捐贈收據</dt>
@@ -172,6 +166,28 @@ export function ShipSummary({ claim, proofs }: {
         <p className="ship-note">資料需要修改的話，請在下方對話告訴機構或寫信給我們。</p>
       )}
     </StepPanel>
+  )
+}
+
+/** 「N 張」旁邊的「查看」：按了才跳出照片。回報送出後只能檢視，不能刪除或補傳。 */
+function ProofViewer({ photos }: { photos: AttachmentView[] }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      {photos.length} 張
+      {photos.length > 0 && (
+        <>
+          <button type="button" className="link-btn" onClick={() => setOpen(true)}>查看</button>
+          <Dialog open={open} onClose={() => setOpen(false)} labelledBy="proof-title">
+            <h2 id="proof-title">寄件單或包裹照片</h2>
+            <ProofGrid photos={photos} emptyHint="" />
+            <div className="dialog__actions">
+              <button type="button" className="btn" onClick={() => setOpen(false)}>關閉</button>
+            </div>
+          </Dialog>
+        </>
+      )}
+    </>
   )
 }
 
