@@ -1,7 +1,7 @@
+import { ArrowLeft, ChevronRight, Eye, EyeOff, Gift, House } from 'lucide-react'
 import { useState } from 'react'
 import { describeAuthError, useAuth, usingFirebase } from '../../lib/authContext'
-import { Button, Field, TextInput } from '../Form'
-import { Notice } from '../Feedback'
+import { FormField, Input } from '../ui/Fields'
 
 type Mode = 'signIn' | 'register' | 'reset'
 export type JoinRole = 'donor' | 'org'
@@ -32,6 +32,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [confirmPassword, setConfirmPassword] = useState('')
   const [confirmError, setConfirmError] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -87,13 +88,12 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
 
   if (usingFirebase && mode === 'reset') {
     return (
-      <div className="space-y-4">
-        <p className="text-sm text-slate-300">
-          輸入註冊時使用的信箱，我們會寄一封重設密碼的信給你。
-        </p>
-
+      <div className="auth-body">
+        <div className="screen-head">
+          <h2>重設密碼</h2>
+        </div>
         <form
-          className="space-y-3"
+          className="auth-form"
           onSubmit={(event) => {
             event.preventDefault()
             void run(
@@ -101,23 +101,22 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
               `如果 ${email} 有註冊過，重設密碼的信已經寄出了。記得檢查垃圾郵件匣。`)
           }}
         >
-          <Field label="信箱" required>
-            <TextInput type="email" required value={email}
+          <p className="auth-note">輸入註冊時使用的信箱，我們會寄一封重設密碼的信給你。</p>
+          <FormField label="信箱" required>
+            <Input type="email" required value={email}
               onChange={(event) => setEmail(event.target.value)} />
-          </Field>
+          </FormField>
 
-          {error && <ErrorText>{error}</ErrorText>}
-          {notice && <Notice tone="success">{notice}</Notice>}
+          {error && <p className="auth-msg auth-msg--danger" role="alert">{error}</p>}
+          {notice && <p className="auth-msg auth-msg--ok">{notice}</p>}
 
-          <Button type="submit" className="w-full py-2.5" disabled={busy}>
+          <button type="submit" className="btn btn--primary" disabled={busy}>
             {busy ? '寄送中…' : '寄送重設信'}
-          </Button>
+          </button>
+          <button type="button" className="back-link" onClick={() => switchMode('signIn')}>
+            <ArrowLeft className="icon" aria-hidden />回到登入
+          </button>
         </form>
-
-        <button type="button" onClick={() => switchMode('signIn')}
-          className="w-full text-sm text-slate-400 hover:text-white hover:underline">
-          ← 回到登入
-        </button>
       </div>
     )
   }
@@ -164,113 +163,129 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
   const showForm = !registering || role !== null
 
   return (
-    <div className="space-y-5">
-      {/* 第二頁不放分頁列：版面留給表單，要回頭用下面的「換身分」 */}
+    <div className="auth-body">
+      {/* 第二頁不放分頁列：版面留給表單，要回頭用「上一步」 */}
       {(!registering || chooseRole) && (
-        <div className="auth-tabs flex rounded-lg bg-slate-100 p-1">
-          <Tab active={!registering} onClick={() => userSwitchMode('signIn')}>登入</Tab>
-          <Tab active={registering} onClick={() => userSwitchMode('register')}>註冊</Tab>
+        <div className="seg" role="tablist" data-active={registering ? 'register' : 'signIn'}>
+          <span className="seg__thumb" aria-hidden />
+          <button type="button" role="tab" aria-selected={!registering}
+            onClick={() => userSwitchMode('signIn')}>登入</button>
+          <button type="button" role="tab" aria-selected={registering}
+            onClick={() => userSwitchMode('register')}>註冊</button>
         </div>
       )}
 
       {chooseRole && (
-        <div className="space-y-3">
-          <p className="text-sm font-semibold text-white">你想用什麼身分加入？</p>
-          <RoleCard
-            onClick={() => setRole('donor')}
-            icon={<GiftIcon />}
-            title="我要認領願望"
-            description="挑一個孩子的願望，買禮物寄給機構。一分鐘完成註冊。"
-          />
-          <RoleCard
-            onClick={() => setRole('org')}
-            icon={<HomeIcon />}
-            title="我是社福機構或學校"
-            description="刊登服務對象的願望、管理收件。需要文件審核。"
-          />
-          <p className="pt-1 text-center text-xs text-slate-400">
-            選好身分之後，下一步再填信箱與密碼。
+        <>
+          <h2 className="role-title">你想用什麼身分加入？</h2>
+          <div className="role">
+            <button type="button" className="role-card" onClick={() => setRole('donor')}>
+              <span className="role-card__icon"><Gift className="icon" aria-hidden /></span>
+              <span>
+                <strong>我要認領願望</strong>
+                <span className="role-card__desc">挑一個孩子的願望，買禮物寄給機構。一分鐘完成註冊。</span>
+              </span>
+              <ChevronRight className="role-card__go icon" aria-hidden />
+            </button>
+            <button type="button" className="role-card role-card--org" onClick={() => setRole('org')}>
+              <span className="role-card__icon"><House className="icon" aria-hidden /></span>
+              <span>
+                <strong>我是社福機構或學校</strong>
+                <span className="role-card__desc">刊登服務對象的願望、管理收件。需要文件審核。</span>
+              </span>
+              <ChevronRight className="role-card__go icon" aria-hidden />
+            </button>
+          </div>
+          <p className="auth-note auth-note--center">選好身分之後，下一步再填信箱與密碼。</p>
+          <p className="auth-foot">
+            已經有帳號了？{' '}
+            <button type="button" onClick={() => userSwitchMode('signIn')}>登入</button>
           </p>
-        </div>
+        </>
       )}
 
       {registering && role !== null && (
-        <h2 className="flex items-center gap-3 text-base font-semibold text-white">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg
-            bg-white/10 text-emerald-300">
-            {role === 'org' ? <HomeIcon /> : <GiftIcon />}
+        <div className="screen-head">
+          <span className={`screen-head__icon${role === 'org' ? ' screen-head__icon--org' : ''}`}>
+            {role === 'org' ? <House className="icon" aria-hidden /> : <Gift className="icon" aria-hidden />}
           </span>
-          {role === 'org' ? '我是社福機構或學校' : '我要認領願望'}
-        </h2>
+          <h2>
+            {role === 'org' && <span className="screen-head__step">步驟 1 / 2　建立帳號</span>}
+            {role === 'org' ? '我是社福機構或學校' : '我要認領願望'}
+          </h2>
+        </div>
       )}
 
       {showForm && (
-        <form className="space-y-3" onSubmit={submit}>
+        <form className="auth-form" onSubmit={submit}>
           {!usingFirebase && (
-            <Notice tone="warning">
+            <p className="auth-msg">
               開發模式：未設定 Firebase，輸入任何 email 即可登入，沒有任何驗證。
-            </Notice>
+            </p>
           )}
 
           {usingFirebase && registering && role === 'donor' && (
-            <div className="space-y-2">
-              <Field label="真實姓名" required
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <FormField label="真實姓名" required
                 hint="用於捐贈收據與向衛福部申報的徵信名冊，不會顯示在網站上"
-                error={nameError ?? undefined}>
-                <TextInput required maxLength={100} autoComplete="name" value={name}
+                error={nameError}>
+                <Input required maxLength={100} autoComplete="name" value={name}
                   placeholder="王大明"
                   onChange={(event) => {
                     setName(event.target.value)
                     setNameError(null)
                   }} />
-              </Field>
-              <button type="button"
-                onClick={() => { setName('善心人士'); setNameError(null) }}
-                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm
-                  text-slate-200 transition-colors hover:border-white/20 hover:bg-white/10">
+              </FormField>
+              <button type="button" className="btn btn--sm kind-btn"
+                onClick={() => { setName('善心人士'); setNameError(null) }}>
                 使用善心人士名義
               </button>
             </div>
           )}
 
           {usingFirebase && registering && role === 'donor' && (
-            <Field label="顯示名稱" required hint="機構和孩子看到的名字，可以用暱稱"
-              error={displayNameError ?? undefined}>
-              <TextInput required maxLength={100} value={displayName}
-                placeholder="王小明"
+            <FormField label="顯示名稱" required hint="機構和孩子看到的名字，可以用暱稱"
+              error={displayNameError}>
+              <Input required maxLength={100} value={displayName} placeholder="王小明"
                 onChange={(event) => {
                   setDisplayName(event.target.value)
                   setDisplayNameError(null)
                 }} />
-            </Field>
+            </FormField>
           )}
 
-          <Field label="信箱" required>
-            <TextInput type="email" required autoComplete="email" value={email}
+          <FormField label="信箱" required>
+            <Input type="email" required autoComplete="email" value={email}
               placeholder="you@example.com"
               onChange={(event) => setEmail(event.target.value)} />
-          </Field>
+          </FormField>
 
           {usingFirebase && (
-            <Field label="密碼" required hint={registering ? '至少 6 個字元' : undefined}>
-              <TextInput
-                type="password"
-                required
-                minLength={registering ? 6 : undefined}
-                autoComplete={registering ? 'new-password' : 'current-password'}
-                value={password}
-                onChange={(event) => {
-                  setPassword(event.target.value)
-                  setConfirmError(null)
-                }}
-              />
-            </Field>
+            <FormField label="密碼" required hint={registering ? '至少 6 個字元' : undefined}>
+              <span className="pw-wrap">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={registering ? 6 : undefined}
+                  autoComplete={registering ? 'new-password' : 'current-password'}
+                  value={password}
+                  onChange={(event) => {
+                    setPassword(event.target.value)
+                    setConfirmError(null)
+                  }}
+                />
+                <button type="button" className="pw-toggle" onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? '隱藏密碼' : '顯示密碼'}>
+                  {showPassword ? <EyeOff className="icon" aria-hidden /> : <Eye className="icon" aria-hidden />}
+                </button>
+              </span>
+            </FormField>
           )}
 
           {usingFirebase && registering && (
-            <Field label="確認密碼" required error={confirmError ?? undefined}>
-              <TextInput
-                type="password"
+            <FormField label="確認密碼" required error={confirmError}>
+              <Input
+                type={showPassword ? 'text' : 'password'}
                 required
                 minLength={6}
                 autoComplete="new-password"
@@ -280,11 +295,11 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
                   setConfirmError(null)
                 }}
               />
-            </Field>
+            </FormField>
           )}
 
           {!usingFirebase && (
-            <label className="flex items-center gap-2 text-sm text-slate-300">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--fg-4)' }}>
               <input
                 type="checkbox"
                 checked={auth.devUnverified ?? false}
@@ -294,121 +309,35 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
             </label>
           )}
 
-          {error && <ErrorText>{error}</ErrorText>}
-          {notice && <Notice tone="success">{notice}</Notice>}
+          {error && <p className="auth-msg auth-msg--danger" role="alert">{error}</p>}
+          {notice && <p className="auth-msg auth-msg--ok">{notice}</p>}
 
-          <Button type="submit" className="w-full py-2.5" disabled={busy}>
+          <button type="submit" className="btn btn--primary" disabled={busy}>
             {busy ? '處理中…'
               : !registering ? '登入'
                 : role === 'org' ? '建立帳號，前往下一步' : '註冊'}
-          </Button>
+          </button>
 
           {usingFirebase && registering && (
-            <p className="text-xs text-slate-400">
+            <p className="auth-note">
               註冊後我們會寄一封驗證信。點擊信中的連結之後才能認領願望或申請成為合作機構
               ——機構需要靠這個信箱聯繫你。
             </p>
           )}
+
+          {registering && role !== null && (
+            <button type="button" className="back-link" onClick={() => setRole(null)}>
+              <ArrowLeft className="icon" aria-hidden />上一步
+            </button>
+          )}
+
+          {usingFirebase && !registering && (
+            <button type="button" className="auth-link auth-link--left" onClick={() => switchMode('reset')}>
+              忘記密碼？
+            </button>
+          )}
         </form>
       )}
-
-      {registering && role !== null && (
-        <button type="button" onClick={() => setRole(null)}
-          className="w-full text-sm text-slate-400 hover:text-white hover:underline">
-          ← 上一頁
-        </button>
-      )}
-
-      {usingFirebase && !registering && (
-        <button type="button" onClick={() => switchMode('reset')}
-          className="text-sm text-slate-400 hover:text-white hover:underline">
-          忘記密碼？
-        </button>
-      )}
-
-      {chooseRole && (
-        <p className="text-center text-sm text-slate-300">
-          已經有帳號了？{' '}
-          <button type="button" onClick={() => userSwitchMode('signIn')}
-            className="font-medium text-emerald-300 hover:underline">
-            登入
-          </button>
-        </p>
-      )}
     </div>
-  )
-}
-
-function RoleCard({ onClick, icon, title, description }: {
-  onClick: () => void
-  icon: React.ReactNode
-  title: string
-  description: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center gap-4 rounded-2xl border border-white/10
-        bg-white/5 px-4 py-4 text-left transition-colors hover:border-emerald-400/40
-        hover:bg-white/10"
-    >
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl
-        bg-white/10 text-emerald-300">
-        {icon}
-      </span>
-      <span className="min-w-0">
-        <span className="block font-semibold text-white">{title}</span>
-        <span className="mt-1 block text-sm text-slate-300">{description}</span>
-      </span>
-    </button>
-  )
-}
-
-function GiftIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"
-      className="h-6 w-6" aria-hidden>
-      <rect x="3" y="8" width="18" height="4" rx="1" />
-      <path d="M12 8v13M5 12v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8" />
-      <path d="M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5" />
-    </svg>
-  )
-}
-
-function HomeIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"
-      className="h-6 w-6" aria-hidden>
-      <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
-      <path d="M9.5 21v-6h5v6" />
-    </svg>
-  )
-}
-
-function Tab({ active, onClick, children }: {
-  active: boolean; onClick: () => void; children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`auth-tab flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-        active ? 'auth-tab-active bg-white text-slate-900 shadow-sm'
-          : 'text-slate-500 hover:text-slate-700'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function ErrorText({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="form-error rounded-lg bg-rose-50 px-3 py-2 text-sm text-berry-600" role="alert">
-      {children}
-    </p>
   )
 }

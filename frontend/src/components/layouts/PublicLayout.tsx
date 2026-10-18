@@ -1,10 +1,14 @@
+import { useQuery } from '@tanstack/react-query'
+import { TreePine, User } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { api } from '../../lib/api'
 import { useAuth, usingFirebase } from '../../lib/authContext'
 import { PLATFORM_NAME } from '../../lib/brand'
+import type { ClaimDonorView, PageResponse } from '../../lib/types'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
-import { EmailVerificationBanner } from '../EmailVerificationBanner'
 import { Snowfall } from '../Snowfall'
-import { Button } from '../Form'
+import { ToastProvider } from '../ui/Toast'
+import { VerifyBar } from '../ui/VerifyBar'
 
 /**
  * 主網站。
@@ -15,123 +19,97 @@ import { Button } from '../Form'
  * 沒有頁尾。機構從頁首的「登入 / 註冊」進入，註冊時選擇機構身分；登入後機構與管理員的
  * 後台按鈕出現在右上角。
  *
- * 視覺上是深色玻璃質感（見 docs/DESIGN.md）。深色底鋪在 fixed 圖層而不是改 body，
- * 因為機構後台與監控中心共用同一個 body，那兩個是工作介面要維持亮色。
+ * 頁首與雪花放在路由之外，換頁時不重新產生（SPEC 6.1 防閃爍的條件之一）。
  */
 export function PublicLayout() {
-  const { email } = useAuth()
-
   return (
-    <div className="theme-night flex min-h-screen flex-col font-rounded text-white">
-      <div className="night-backdrop" />
+    <div className="rd">
       <Snowfall />
-
-      <header className="border-b border-white/10 bg-white/5 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <Link to="/" className="text-lg font-bold tracking-wide">
-            <span aria-hidden>🎄</span>{' '}
-            <span className="bg-gradient-to-r from-red-300 via-white to-emerald-300
-              bg-clip-text text-transparent">
-              {PLATFORM_NAME}
-            </span>
-          </Link>
-
-          <nav className="flex flex-wrap gap-1">
-            <NavLink to="/" end className={navLinkClass}>願望牆</NavLink>
-            {email && <NavLink to="/me/claims" className={navLinkClass}>我的認領</NavLink>}
-          </nav>
-
-          <AuthControls />
-        </div>
-      </header>
-
-      {!usingFirebase && <DevModeBanner />}
-      <EmailVerificationBanner />
-
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
-        <Outlet />
-      </main>
-
+      <ToastProvider>
+        <SiteHeader />
+        {!usingFirebase && (
+          <div className="bar bar--dev">
+            開發模式：未設定 Firebase，身分僅由 <code>X-Dev-User-Email</code> 標頭指定，沒有任何驗證。
+          </div>
+        )}
+        <VerifyBar />
+        <main className="page">
+          <Outlet />
+        </main>
+      </ToastProvider>
     </div>
   )
 }
 
-const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-    isActive ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'
-  }`
+function SiteHeader() {
+  const { email } = useAuth()
 
-const consoleButtonClass = `rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-2
-  text-sm font-bold text-emerald-100 backdrop-blur-md transition-colors
-  hover:border-emerald-400/50 hover:bg-emerald-500/25 hover:text-white`
+  return (
+    <header className="site-header">
+      <div className="site-header__in">
+        <Link to="/" className="brand">
+          <TreePine className="icon" size={22} aria-hidden style={{ color: '#4ade80' }} />
+          <span className="brand__text">{PLATFORM_NAME}</span>
+        </Link>
+
+        <nav className="nav" aria-label="主選單">
+          <NavLink to="/" end className="nav-link">願望牆</NavLink>
+          {email && <MyClaimsLink />}
+        </nav>
+
+        <AuthControls />
+      </div>
+    </header>
+  )
+}
+
+/** 「我的認領」與進行中的認領數（取消、收回的不算）。 */
+function MyClaimsLink() {
+  const me = useCurrentUser()
+  const isDonor = effectiveRoleOf(me.data) === 'DONOR'
+
+  const claims = useQuery({
+    queryKey: ['claims', 'me', 'count'],
+    queryFn: () => api.get<PageResponse<ClaimDonorView>>('/api/claims/me?size=100'),
+    enabled: isDonor,
+    staleTime: 30_000,
+  })
+
+  const active = claims.data?.content
+    .filter((claim) => claim.status !== 'RELEASED' && claim.status !== 'CANCELLED').length ?? 0
+
+  return (
+    <NavLink to="/me/claims" className="nav-link">
+      我的認領
+      {active > 0 && <span className="nav-count" aria-label={`${active} 筆進行中`}>{active}</span>}
+    </NavLink>
+  )
+}
 
 function AuthControls() {
   const { email, loading, signOut } = useAuth()
   const me = useCurrentUser()
   const location = useLocation()
 
-  if (loading) {
-    return <span className="text-sm text-slate-400">載入中…</span>
+  if (loading) return <span style={{ color: 'var(--fg-muted)', fontSize: 14 }}>載入中…</span>
+
+  if (!email) {
+    // 帶上目前位置，登入後回得來——分享出去的願望連結點進來時特別重要
+    const next = encodeURIComponent(location.pathname + location.search)
+    return <Link to={`/login?next=${next}`} className="login">登入 / 註冊</Link>
   }
 
-  if (email) {
-    return (
-      <div className="flex items-center gap-3">
-        {/* 登入後一律落在願望牆，機構與管理員從這裡進後台。用生效角色判斷——
-            信箱還沒驗證的人進不了後台，這時給按鈕只會把他彈回來 */}
-        {effectiveRoleOf(me.data) === 'ORG_MEMBER' && (
-          <Link to="/org" className={consoleButtonClass}>機構後台</Link>
-        )}
-        {effectiveRoleOf(me.data) === 'ADMIN' && (
-          <Link to="/admin" className={consoleButtonClass}>監控中心</Link>
-        )}
-        {/* 帳號圖示取代原本直接顯示 email 的做法：點進去是個人檔案頁，
-            title 帶 email 讓 hover 還看得到自己是誰 */}
-        <Link
-          to="/me/profile"
-          title={email}
-          aria-label="個人資料"
-          className="flex h-9 w-9 items-center justify-center rounded-full border
-            border-white/10 bg-white/5 text-slate-300 backdrop-blur-md transition-colors
-            hover:border-white/20 hover:bg-white/10 hover:text-white"
-        >
-          <AccountIcon />
-        </Link>
-        <Button variant="ghost" className="text-slate-300 hover:bg-white/10 hover:text-white"
-          onClick={() => void signOut()}>
-          登出
-        </Button>
-      </div>
-    )
-  }
-
-  // 帶上目前位置，登入後回得來——分享出去的願望連結點進來時特別重要
-  const next = encodeURIComponent(location.pathname + location.search)
+  // 用生效角色判斷——信箱還沒驗證的人進不了後台，給按鈕只會把他彈回來
+  const role = effectiveRoleOf(me.data)
 
   return (
-    // 玻璃質感而非實心漸層：頁首整條是半透明的，一顆飽和的按鈕會從那層玻璃上浮出來。
-    // 綠色而非紅色——與站內的主要按鈕一致，紅色在這套配色裡只代表危險與逾期
-    <Link to={`/login?next=${next}`} className={consoleButtonClass}>
-      登入 / 註冊
-    </Link>
-  )
-}
-
-function AccountIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"
-      className="h-5 w-5" aria-hidden>
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 20c0-4 3.5-6 8-6s8 2 8 6" />
-    </svg>
-  )
-}
-
-function DevModeBanner() {
-  return (
-    <div className="bg-amber-500/15 px-4 py-2 text-center text-xs text-amber-200">
-      開發模式：未設定 Firebase，身分僅由 <code>X-Dev-User-Email</code> 標頭指定，沒有任何驗證。
+    <div className="account">
+      {role === 'ORG_MEMBER' && <Link to="/org" className="console-link">機構後台</Link>}
+      {role === 'ADMIN' && <Link to="/admin" className="console-link">監控中心</Link>}
+      <Link to="/me/profile" className="account__me" title={email} aria-label="個人資料">
+        <User className="icon" aria-hidden />
+      </Link>
+      <button type="button" className="account__out" onClick={() => void signOut()}>登出</button>
     </div>
   )
 }

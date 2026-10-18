@@ -1,9 +1,6 @@
 import { useAuth } from '../../lib/authContext'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
 import type { UserRole } from '../../lib/types'
-import { EmailVerificationBanner } from '../EmailVerificationBanner'
-import { Button } from '../Form'
-import { Notice } from '../Feedback'
 
 const ROLE_LABELS: Record<UserRole, string> = {
   DONOR: '一般民眾',
@@ -33,38 +30,30 @@ export function WrongAccountPanel({ expected, reason }: {
 
   return (
     <div>
-      {unverified && (
-        <div className="mb-4 overflow-hidden rounded-lg border border-amber-200">
-          <EmailVerificationBanner />
-        </div>
-      )}
-
-      <Notice tone="warning">
+      <div className="notice notice--warn">
         {unverified ? (
           <>
-            <p className="font-medium">這個帳號還不能進入</p>
-            <p className="mt-1">
-              信箱驗證完成之前，帳號只有一般民眾的權限。請先完成上方的驗證步驟。
-            </p>
+            <p><strong>這個帳號還不能進入</strong></p>
+            <p>信箱驗證完成之前，帳號只有一般民眾的權限。請先完成上方提示列的驗證步驟。</p>
           </>
         ) : (
           <>
-            <p className="font-medium">這個帳號無法進入</p>
-            <p className="mt-1">
+            <p><strong>這個帳號無法進入</strong></p>
+            <p>
               {reason ?? `這個區域僅限${ROLE_LABELS[expected]}，
                 你目前的身分是${actual ? ROLE_LABELS[actual] : '未知'}。`}
             </p>
           </>
         )}
-      </Notice>
+      </div>
 
-      <p className="mt-4 truncate text-sm text-slate-500" title={email ?? ''}>
+      <p className="auth-note" style={{ margin: '16px 0 10px', overflowWrap: 'anywhere' }} title={email ?? ''}>
         目前登入：{email}
       </p>
 
-      <Button className="mt-2 w-full" variant="secondary" onClick={() => void signOut()}>
+      <button type="button" className="btn btn--block" onClick={() => void signOut()}>
         改用其他帳號登入
-      </Button>
+      </button>
     </div>
   )
 }

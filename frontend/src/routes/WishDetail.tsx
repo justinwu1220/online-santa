@@ -1,17 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError, api } from '../lib/api'
+import { avatarFor } from '../lib/avatar'
 import { useAuth } from '../lib/authContext'
 import type { ClaimDonorView, WishPublicView } from '../lib/types'
 import { effectiveRoleOf, useCurrentUser } from '../lib/useCurrentUser'
-import { Breadcrumb } from '../components/Breadcrumb'
-import { ErrorBanner, Notice, Spinner } from '../components/Feedback'
-import { Button, TextArea } from '../components/Form'
-import { Modal } from '../components/Modal'
-import { WishStatusBadge } from '../components/StatusBadge'
-import { wishIcon } from '../lib/wishIcon'
-import { wallStatusTag } from '../lib/wishWallStatus'
+import { publicStatusOf } from '../lib/wishStatus'
+import { WishFeature } from '../components/WishFeature'
+import { Dialog } from '../components/ui/Dialog'
+import { TextArea } from '../components/ui/Fields'
+import { ErrorNotice, Spinner } from '../components/ui/Spinner'
 
 export function WishDetail() {
   const { id = '' } = useParams()
@@ -33,6 +33,7 @@ export function WishDetail() {
     onSuccess: (created) => {
       void queryClient.invalidateQueries({ queryKey: ['wishes'] })
       void queryClient.invalidateQueries({ queryKey: ['claims'] })
+      setConfirming(false)
       navigate(`/me/claims/${created.id}`)
     },
     onError: (error) => {
@@ -50,157 +51,144 @@ export function WishDetail() {
     const error = wish.error
     if (error instanceof ApiError && error.isNotFound) {
       return (
-        <section className="py-16 text-center">
-          <p className="text-5xl">🔍</p>
-          <h1 className="mt-4 text-2xl font-bold text-white">找不到這個願望</h1>
-          <p className="mt-2 text-slate-400">它可能已經下架了。</p>
-          <Link to="/" className="mt-6 inline-block text-emerald-300 underline">回到願望牆</Link>
-        </section>
+        <div className="empty" style={{ marginTop: 48 }}>
+          <p aria-hidden style={{ fontSize: 40, margin: 0 }}>🔍</p>
+          <p style={{ margin: '8px 0 0', fontSize: 22, fontWeight: 900, color: 'var(--fg)' }}>找不到這個願望</p>
+          <p style={{ margin: '6px 0 0' }}>它可能已經下架了。</p>
+          <Link to="/" className="btn">回到願望牆</Link>
+        </div>
       )
     }
-    return <ErrorBanner error={error} onRetry={() => void wish.refetch()} />
+    return <ErrorNotice error={error} onRetry={() => void wish.refetch()} />
   }
 
   const data = wish.data!
+  const status = publicStatusOf(data.status)
   const available = data.status === 'AVAILABLE'
   const isDonor = effectiveRoleOf(me.data) === 'DONOR'
-  const statusTag = wallStatusTag(data.status)
+  const avatar = avatarFor(data.id, data.ageRange)
 
   return (
-    <div className="space-y-6">
+    <div data-status={status.key}>
       {/* 願望連結常被分享出去，直接落在這一頁的人沒有上一頁可回 */}
-      <Breadcrumb items={[{ label: '願望牆', to: '/' }, { label: data.title }]} />
+      <nav className="crumbs" aria-label="麵包屑">
+        <Link to="/">願望牆</Link>
+        <ChevronRight className="icon" size={14} aria-hidden />
+        <span aria-current="page">{data.title}</span>
+      </nav>
 
-      <article className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
-        <div className="glass-card overflow-hidden">
-          {data.imageUrl ? (
-            <img src={data.imageUrl} alt="" className="aspect-[4/3] w-full object-cover" />
-          ) : (
-            <div className="flex aspect-[4/3] items-center justify-center text-7xl">
-              {wishIcon(data.category)}
-            </div>
-          )}
+      <WishFeature
+        wish={data}
+        statusKey={status.key}
+        statusLabel={status.label}
+        orgAnchor="org"
+        footer={(
+          <ClaimZone
+            available={available}
+            status={status.key}
+            loggedIn={Boolean(email)}
+            verified={emailVerified}
+            isDonor={isDonor}
+            wishId={id}
+            onClaim={() => setConfirming(true)}
+          />
+        )}
+      />
+
+      <section className="org" id="org" aria-label="機構">
+        <div className="org__body">
+          <span className="org__eyebrow">這份願望來自</span>
+          <h2 className="org__name">{data.organizationName}</h2>
         </div>
+      </section>
 
-        <div>
-          <div className="flex items-start justify-between gap-4">
-            <h1 className="text-3xl font-bold text-white">{data.title}</h1>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <WishStatusBadge status={data.status} />
-              {statusTag && (
-                <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${
-                  statusTag.className}`}>
-                  {statusTag.label}
-                </span>
-              )}
-            </div>
-          </div>
-
-          <dl className="glass-card mt-6 grid grid-cols-2 gap-4 p-4 text-sm">
-            <Detail label="孩子" value={data.childAlias} />
-            <Detail label="年齡" value={data.ageRangeLabel} />
-            <Detail label="分類" value={data.categoryLabel} />
-            {data.priceRangeLabel && <Detail label="預算" value={data.priceRangeLabel} />}
-            {data.interests && (
-              <div className="col-span-2">
-                <Detail label="喜歡的東西" value={data.interests} />
-              </div>
-            )}
-            <div className="col-span-2">
-              <Detail label="來自" value={data.organizationName} />
-            </div>
-          </dl>
-
-          {data.description && (
-            <p className="mt-6 whitespace-pre-wrap leading-relaxed text-slate-300">
-              {data.description}
-            </p>
-          )}
-
-          <div className="mt-8">
-            {!available ? (
-              <Notice tone="warning">
-                這個願望已經被認領了。<Link to="/" className="underline">看看其他願望</Link>
-              </Notice>
-            ) : !email ? (
-              <Notice>
-                <Link to={`/login?next=${encodeURIComponent(`/wishes/${id}`)}`}
-                  className="font-medium underline">登入或註冊</Link>
-                　之後就能認領這個願望。登入後會回到這一頁。
-              </Notice>
-            ) : !emailVerified ? (
-              // 機構要靠這個信箱聯繫捐贈者——後端也會擋，這裡先說清楚原因
-              <Notice tone="warning">
-                請先完成信箱驗證才能認領。上方的橫幅可以重新寄送驗證信，
-                驗證完點「我已經驗證好了」即可。
-              </Notice>
-            ) : !isDonor ? (
-              <Notice tone="warning">
-                機構成員與管理員無法認領願望，請改用一般民眾的帳號。
-              </Notice>
-            ) : (
-              <div className="space-y-3">
-                <Button
-                  className="w-full py-3 text-base"
-                  onClick={() => setConfirming(true)}
-                >
-                  我要實現這個願望
-                </Button>
-                <p className="text-center text-xs text-slate-400">
-                  認領後請於期限內寄出禮物，逾期機構可能會收回讓其他人認領。
-                </p>
-              </div>
-            )}
+      <Dialog open={confirming} onClose={() => !claim.isPending && setConfirming(false)}
+        dismissible={!claim.isPending} labelledBy="claim-title">
+        <h2 id="claim-title">確定要認領這個願望嗎？</h2>
+        <div className="dialog__gift">
+          <img src={avatar} alt="" />
+          <div>
+            <strong>{data.title}</strong>
+            <span>給 {data.childAlias}・{data.organizationName}</span>
           </div>
         </div>
-      </article>
-
-      {data.letterPhotoUrls.length > 0 && (
-        <section className="mt-8">
-          <h2 className="text-lg font-semibold text-white">孩子想對你說</h2>
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {data.letterPhotoUrls.map((url) => (
-              <a key={url} href={url} target="_blank" rel="noreferrer"
-                className="glass-card overflow-hidden">
-                <img src={url} alt="" className="aspect-square w-full object-cover" />
-              </a>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {confirming && (
-        <Modal title="確定要認領這個願望嗎？"
-          onClose={() => !claim.isPending && setConfirming(false)}>
-          <div className="space-y-3">
-            <TextArea
-              rows={3}
-              maxLength={500}
-              value={message}
-              placeholder="想對孩子說的話（選填）"
-              onChange={(event) => setMessage(event.target.value)}
-            />
-            {claim.isError && <ClaimError error={claim.error} />}
-            <div className="flex gap-2">
-              <Button className="flex-1" disabled={claim.isPending} onClick={() => claim.mutate()}>
-                {claim.isPending ? '認領中…' : '確定認領'}
-              </Button>
-              <Button variant="ghost" disabled={claim.isPending} onClick={() => setConfirming(false)}>
-                取消
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
+        <p>認領後請於期限內寄出禮物，逾期機構可能會收回讓其他人認領。</p>
+        <TextArea rows={3} maxLength={500} value={message}
+          placeholder="想對孩子說的話（選填）"
+          onChange={(event) => setMessage(event.target.value)} />
+        {claim.isError && <div style={{ marginTop: 12 }}><ClaimError error={claim.error} /></div>}
+        <div className="dialog__actions">
+          <button type="button" className="btn btn--ghost" disabled={claim.isPending}
+            onClick={() => setConfirming(false)}>
+            再想想
+          </button>
+          <button type="button" className="btn btn--primary" disabled={claim.isPending}
+            onClick={() => claim.mutate()}>
+            {claim.isPending ? '認領中…' : '確定認領'}
+          </button>
+        </div>
+      </Dialog>
     </div>
   )
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
+/**
+ * 資訊欄最下方的行動區，依狀態與使用者身分決定。
+ * 機構與管理員帳號不能認領（SPEC 15.9）：按鈕停用，說明原因；後端也會拒絕。
+ */
+function ClaimZone({ available, status, loggedIn, verified, isDonor, wishId, onClaim }: {
+  available: boolean
+  status: 'open' | 'claimed' | 'done'
+  loggedIn: boolean
+  verified: boolean
+  isDonor: boolean
+  wishId: string
+  onClaim: () => void
+}) {
+  if (!available) {
+    return status === 'claimed' ? (
+      <div className="notice notice--claimed">
+        這個願望已經被認領了，正在等待禮物寄出。
+        <p><Link to="/">看看其他還在等待的願望</Link></p>
+      </div>
+    ) : (
+      <div className="notice notice--done">
+        這個願望已經完成了，謝謝每一位伸出手的人。
+        <p><Link to="/">看看其他還在等待的願望</Link></p>
+      </div>
+    )
+  }
+
+  if (!loggedIn) {
+    return (
+      <div>
+        <Link className="cta" to={`/login?next=${encodeURIComponent(`/wishes/${wishId}`)}`}>
+          登入後認領這個願望
+        </Link>
+        <p className="cta-help">登入或註冊之後就能認領，登入後會回到這一頁。</p>
+      </div>
+    )
+  }
+
+  if (!verified) {
+    // 機構要靠這個信箱聯繫捐贈者——後端也會擋，這裡先說清楚原因
+    return (
+      <div className="notice notice--warn">
+        請先完成信箱驗證才能認領。上方的提示列可以重新寄送驗證信，驗證完點「我已經驗證好了」即可。
+      </div>
+    )
+  }
+
   return (
     <div>
-      <dt className="text-xs text-slate-400">{label}</dt>
-      <dd className="mt-0.5 font-medium text-white">{value}</dd>
+      <button type="button" className="cta" disabled={!isDonor} onClick={onClaim}>
+        認領這個願望
+      </button>
+      <p className="cta-help">
+        {isDonor
+          ? '認領後請於期限內寄出禮物，逾期機構可能會收回讓其他人認領。'
+          : '機構與管理員帳號不能認領願望，請用個人帳號參與。'}
+      </p>
     </div>
   )
 }
@@ -209,15 +197,13 @@ function Detail({ label, value }: { label: string; value: string }) {
 function ClaimError({ error }: { error: unknown }) {
   if (error instanceof ApiError && error.isAlreadyClaimed) {
     return (
-      <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3
-        text-sm text-amber-100">
-        <p className="font-medium">手慢了一步 🎄</p>
-        <p className="mt-1">
-          這個願望剛剛被其他人領走了。
-          <Link to="/" className="ml-1 underline">回願望牆看看其他孩子</Link>
+      <div className="notice notice--warn">
+        <p><strong>手慢了一步 🎄</strong></p>
+        <p>
+          這個願望剛剛被其他人領走了。<Link to="/">回願望牆看看其他孩子</Link>
         </p>
       </div>
     )
   }
-  return <ErrorBanner error={error} />
+  return <ErrorNotice error={error} />
 }

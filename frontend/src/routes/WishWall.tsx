@@ -1,35 +1,33 @@
 import { useQuery } from '@tanstack/react-query'
+import { Gift } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, withQuery } from '../lib/api'
+import { avatarFor } from '../lib/avatar'
 import type { PageResponse, WishFilterOptions, WishListView } from '../lib/types'
-import { EmptyState, ErrorBanner, Spinner } from '../components/Feedback'
-import { Select } from '../components/Form'
-import { Pagination } from '../components/Pagination'
-import { wishIcon } from '../lib/wishIcon'
-import { WALL_STATUS_OPTIONS, wallStatusTag } from '../lib/wishWallStatus'
+import { publicStatusOf, WALL_STATUS_OPTIONS } from '../lib/wishStatus'
+import { EmptyBox, ErrorNotice, Spinner } from '../components/ui/Spinner'
+import { Pager } from '../components/ui/Pager'
 
 interface Filters {
   organizationId: string
-  category: string
   ageRange: string
   status: string
 }
 
-const EMPTY_FILTERS: Filters = { organizationId: '', category: '', ageRange: '', status: '' }
+const EMPTY_FILTERS: Filters = { organizationId: '', ageRange: '', status: '' }
 
 export function WishWall() {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [page, setPage] = useState(0)
 
-  // 篩選選項由後端提供，新增分類時前端會自動出現，不必兩邊同步
+  // 篩選選項由後端提供，新增年齡組或機構時前端會自動出現，不必兩邊同步
   const options = useQuery({
     queryKey: ['wish-options'],
     queryFn: () => api.get<WishFilterOptions>('/api/wishes/options'),
     staleTime: Infinity,
   })
 
-  // 清單卡片縮小了、密度提高了，一頁撐得住比原本 12 筆更多
   const wishes = useQuery({
     queryKey: ['wishes', filters, page],
     queryFn: () => api.get<PageResponse<WishListView>>(
@@ -41,58 +39,67 @@ export function WishWall() {
     setPage(0)
   }
 
-  return (
-    <section>
-      <header className="mb-8 text-center">
-        <h1 className="text-4xl font-bold tracking-wide md:text-5xl">
-          <span className="bg-gradient-to-r from-red-300 via-white to-emerald-300
-            bg-clip-text text-transparent drop-shadow">
-            今年的願望
-          </span>
-        </h1>
-        <p className="mx-auto mt-3 max-w-2xl text-slate-300">
-          每一則願望背後都是一個孩子。挑一個你想幫忙實現的，剩下的我們陪你走完。
-        </p>
-      </header>
+  const unfiltered = !filters.organizationId && !filters.ageRange && !filters.status
 
-      <div className="glass-card mb-8 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+  return (
+    <>
+      <Hero />
+
+      <section className="filters" aria-label="篩選願望">
         <FilterSelect label="機構名稱" value={filters.organizationId}
           options={options.data?.organizations}
           onChange={(value) => updateFilter('organizationId', value)} />
-        <FilterSelect label="禮物分類" value={filters.category}
-          options={options.data?.categories}
-          onChange={(value) => updateFilter('category', value)} />
-        <FilterSelect label="孩童年齡" value={filters.ageRange}
+        <FilterSelect label="孩子年齡" value={filters.ageRange}
           options={options.data?.ageRanges}
           onChange={(value) => updateFilter('ageRange', value)} />
         <FilterSelect label="禮物狀態" value={filters.status}
           options={WALL_STATUS_OPTIONS}
           onChange={(value) => updateFilter('status', value)} />
-      </div>
+      </section>
 
       {wishes.isLoading && <Spinner label="載入願望" />}
-      {wishes.isError && (
-        <ErrorBanner error={wishes.error} onRetry={() => void wishes.refetch()} />
-      )}
+      {wishes.isError && <ErrorNotice error={wishes.error} onRetry={() => void wishes.refetch()} />}
 
       {wishes.data && wishes.data.content.length === 0 && (
-        <EmptyState
-          icon="🌟"
-          title="這個條件下還沒有願望"
-          hint={!filters.organizationId && !filters.category && !filters.ageRange && !filters.status
-            ? '機構還在上架中，過幾天再來看看。'
-            : '試著放寬篩選條件。'}
-        />
+        <EmptyBox icon="🌟" title="這個條件下還沒有願望"
+          hint={unfiltered ? '機構還在上架中，過幾天再來看看。' : '試著放寬篩選條件。'} />
       )}
 
       {wishes.data && wishes.data.content.length > 0 && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="wish-grid">
             {wishes.data.content.map((wish) => <WishCard key={wish.id} wish={wish} />)}
           </div>
-          <Pagination page={wishes.data} onChange={setPage} />
+          <Pager page={wishes.data} onChange={setPage} />
         </>
       )}
+    </>
+  )
+}
+
+/**
+ * 聯名式大標（SPEC 4）。康乃心 logo 圖檔還在待確認（暫用檔不放進 repo），先只放協會名稱；
+ * 勸募許可文號也待確認，確認前不顯示占位文字。
+ */
+function Hero() {
+  return (
+    <section className="hero" aria-labelledby="heroTitle">
+      <div className="hero__row">
+        <div className="hero__title-wrap">
+          <svg className="hero__spark twinkle icon" viewBox="0 0 48 48" strokeWidth="2.6" aria-hidden>
+            <path d="M20 10c1.6 7.6 4.4 10.4 12 12-7.6 1.6-10.4 4.4-12 12-1.6-7.6-4.4-10.4-12-12 7.6-1.6 10.4-4.4 12-12z" />
+            <path d="M36 5v8M32 9h8" />
+            <circle cx="9" cy="38" r="3" />
+          </svg>
+          <h1 className="hero__title grad-text" id="heroTitle">線上聖誕老人</h1>
+        </div>
+        <span className="hero__x twinkle-slow" aria-label="與">×</span>
+        <p className="hero__org-name">
+          <small>社團法人彰化縣</small>
+          <strong>康乃心關懷協會</strong>
+        </p>
+      </div>
+      <p className="hero__sub">溫暖傳遞，讓每個願望都閃閃發光</p>
     </section>
   )
 }
@@ -104,65 +111,50 @@ function FilterSelect({ label, value, options, onChange }: {
   onChange: (value: string) => void
 }) {
   return (
-    <label className="block">
-      <span className="text-xs font-medium text-slate-400">{label}</span>
-      <Select className="mt-1" value={value} onChange={(event) => onChange(event.target.value)}>
+    <label>
+      {label}
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">全部</option>
         {options?.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}
-      </Select>
+      </select>
     </label>
   )
 }
 
 /**
- * 清單卡片刻意緊湊：流量優化決策是清單不載圖，一律用分類圖示（小圖示，不是
- * 撐版面的大圖區塊），也拿掉了 interests 這種次要資訊——那些留給願望詳情頁，
- * 清單的任務是讓人一眼掃過更多願望，不是每一張都講完整個故事。
+ * 願望卡：整張卡片是一個連結。不顯示禮物分類與孩子的信件文字（SPEC 4）；
+ * 機構名稱完整顯示，不截斷。狀態只由 `data-status` 推導樣式。
  */
 function WishCard({ wish }: { wish: WishListView }) {
-  const statusTag = wallStatusTag(wish.status)
-  // 已完成的願望不能再認領：整張卡片退成灰色，沒有浮起與放大的互動回饋。
-  // 仍然可以點進去看故事，只是視覺上明確告訴人「這張已經結束了」
-  const done = wish.status === 'FULFILLED'
+  const status = publicStatusOf(wish.status)
 
   return (
     <Link
       to={`/wishes/${wish.id}`}
-      className={`group flex items-start gap-3 p-3.5 ${
-        done ? 'glass-card opacity-60 grayscale transition-opacity hover:opacity-80'
-          : 'glass-card-interactive'}`}
+      className="wish-card"
+      data-status={status.key}
+      aria-label={`${wish.childAlias}，${wish.ageRangeLabel}，${wish.organizationName}，想要${wish.title}，${status.label}`}
     >
-      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg
-        bg-white/5 text-xl transition-transform ${done ? '' : 'group-hover:scale-110'}`}>
-        {wishIcon(wish.category)}
+      <span className="status-tab">{status.label}</span>
+
+      <div className="who">
+        <img className="avatar" src={avatarFor(wish.id, wish.ageRange)} alt="" width={64} height={64} />
+        <div className="who__text">
+          <div className="who__name-row">
+            <span className="who__name">{wish.childAlias}</span>
+            <span className="who__age">{wish.ageRangeLabel}</span>
+          </div>
+          <div className="who__org">{wish.organizationName}</div>
+        </div>
       </div>
 
-      <div className="min-w-0 flex-1">
-        <h2 className={`truncate text-sm font-bold transition-colors ${
-          done ? 'text-slate-400' : 'text-white group-hover:text-emerald-200'}`}>
-          {wish.title}
-        </h2>
-        {/* 只顯示暱稱與年齡區間——系統裡本來就沒有孩子的真實姓名 */}
-        <p className="mt-0.5 truncate text-xs text-slate-400">
-          {wish.childAlias}・{wish.ageRangeLabel}
-        </p>
-
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-            done ? 'border-slate-400/20 bg-slate-400/10 text-slate-400'
-              : 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200'}`}>
-            {wish.categoryLabel}
-          </span>
-          {statusTag && (
-            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-              statusTag.className}`}>
-              {statusTag.label}
-            </span>
-          )}
-        </div>
-        <p className="mt-1.5 truncate text-[11px] text-slate-500">{wish.organizationName}</p>
+      <div className="gift-wrap">
+        <span className="gift">
+          <Gift className="icon" aria-hidden />
+          <span className="gift__text">{wish.title}</span>
+        </span>
       </div>
     </Link>
   )

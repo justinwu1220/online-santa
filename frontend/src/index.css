@@ -1,6 +1,8 @@
 /* 字體要在 tailwind 之前——CSS 規定 @import 必須排在所有規則之前 */
-@import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=Noto+Serif+TC:wght@500;700&display=swap');
 @import "tailwindcss";
+@import "./styles/rd.css";
+@import "./styles/rd-auth.css";
 
 @theme {
   /* 聖誕主色：以深綠為底、紅為強調，避開過於刺眼的正紅 */

@@ -7,11 +7,11 @@ import { pageTitle } from '../../lib/brand'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
 import { ACCEPTED_ORG_DOCUMENT_TYPES, MAX_ORG_DOCUMENTS, uploadImage, validateOrgDocument } from '../../lib/upload'
 import type { OrganizationView } from '../../lib/types'
-import { EmailVerificationBanner } from '../../components/EmailVerificationBanner'
 import { WrongAccountPanel } from '../../components/auth/WrongAccountPanel'
-import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
-import { Button, Field, TextArea, TextInput } from '../../components/Form'
-import { StepHeading } from './applyShared'
+import { Snowfall } from '../../components/Snowfall'
+import { FormField, Input, TextArea } from '../../components/ui/Fields'
+import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
+import { VerifyBar } from '../../components/ui/VerifyBar'
 
 type Form = {
   name: string
@@ -66,15 +66,15 @@ export function OrgApply() {
     return () => { document.title = pageTitle() }
   }, [])
 
-  if (auth.loading) return <Spinner />
+  if (auth.loading) return <Shell><Spinner /></Shell>
   // 還沒有帳號：回步驟一
   if (!auth.email) return <Navigate to="/login?tab=register&as=org" replace />
 
-  if (me.isLoading) return <Spinner label="確認身分" />
+  if (me.isLoading) return <Shell><Spinner label="確認身分" /></Shell>
   if (me.isError) {
     return (
       <Shell>
-        <ErrorBanner error={me.error} onRetry={() => void me.refetch()} />
+        <ErrorNotice error={me.error} onRetry={() => void me.refetch()} />
       </Shell>
     )
   }
@@ -168,27 +168,28 @@ function ApplyForm({ email }: { email: string }) {
   }
 
   return (
-    <>
-      {/* 這一頁不在任何 layout 底下，橫幅要自己帶——密碼註冊的人正是在這裡等驗證信，
-          而「我已經驗證好了」那顆按鈕就在橫幅上 */}
-      <EmailVerificationBanner />
+    <Shell>
+      <div className="apply">
+        <div className="apply__step">
+          <span>步驟 2 / 2　填寫機構資料</span>
+          <span className="apply__bar" aria-hidden>
+            <i />
+            <i style={{ left: '50%', width: '50%', background: 'linear-gradient(90deg,#4ade80,#fde68a)' }} />
+          </span>
+        </div>
 
-      <Shell>
-        <StepHeading step={2} title="機構資料" />
-
-        <p className="text-sm text-slate-600">
-          以 <strong>{email}</strong> 的身分申請。送出後由平台審核，核准前可以先建立
-          願望草稿。
+        <h1 className="apply__title">機構資料</h1>
+        <p className="apply__intro">
+          以 <strong style={{ color: 'var(--fg)' }}>{email}</strong> 的身分申請。送出後由平台審核，核准前可以先建立願望草稿。
         </p>
 
-        <Notice tone="warning">
+        <div className="notice notice--warn">
           成為機構成員後，<strong>這個帳號將無法再以個人身分認領願望</strong>——
-          一個帳號只能有一種身分。如果你也想以個人身分參與，建議機構改用另一個
-          聯絡信箱註冊。
-        </Notice>
+          一個帳號只能有一種身分。如果你也想以個人身分參與，建議機構改用另一個聯絡信箱註冊。
+        </div>
 
         <form
-          className="space-y-5"
+          className="apply__form"
           onSubmit={(event) => {
             event.preventDefault()
             if (!auth.emailVerified) return
@@ -201,127 +202,135 @@ function ApplyForm({ email }: { email: string }) {
             register.mutate()
           }}
         >
-          <Field label="機構名稱" required error={fieldErrors?.name}>
-            <TextInput required maxLength={120} placeholder="某某社會福利基金會"
-              value={form.name} onChange={update('name')} />
-          </Field>
+          <div className="form-grid">
+            <FormField label="機構名稱" required span={6} error={fieldErrors?.name}>
+              <Input required maxLength={120} placeholder="某某社會福利基金會"
+                value={form.name} onChange={update('name')} />
+            </FormField>
 
-          <Field label="承辦人姓名" required error={fieldErrors?.contactPerson}
-            hint="平台審核與捐贈者聯繫時的窗口">
-            <TextInput required maxLength={100} placeholder="王小明"
-              value={form.contactPerson} onChange={update('contactPerson')} />
-          </Field>
+            <FormField label="承辦人姓名" required span={3} error={fieldErrors?.contactPerson}
+              hint="平台審核與捐贈者聯繫時的窗口">
+              <Input required maxLength={100} placeholder="王小明"
+                value={form.contactPerson} onChange={update('contactPerson')} />
+            </FormField>
 
-          <Field label="聯絡信箱" required error={fieldErrors?.contactEmail}
-            hint="請以機構的聯絡信箱為優先">
-            <TextInput required type="email" maxLength={255} value={contactEmail}
-              onChange={(event) => setDraft((current) => ({
-                contactEmailTouched: true,
-                form: { ...current.form, contactEmail: event.target.value },
-              }))} />
-          </Field>
+            <FormField label="聯絡信箱" required span={3} error={fieldErrors?.contactEmail}
+              hint="請以機構的聯絡信箱為優先">
+              <Input required type="email" maxLength={255} value={contactEmail}
+                onChange={(event) => setDraft((current) => ({
+                  contactEmailTouched: true,
+                  form: { ...current.form, contactEmail: event.target.value },
+                }))} />
+            </FormField>
 
-          {/* 行動電話與地址必填，聯絡電話（市話）選填：捐贈者認領之後會在認領詳情頁
-              看到它們，並照著寄送 */}
-          <Field label="行動電話" required error={fieldErrors?.mobilePhone}>
-            <TextInput required maxLength={40} placeholder="0912-345-678"
-              value={form.mobilePhone} onChange={update('mobilePhone')} />
-          </Field>
+            {/* 行動電話與地址必填，聯絡電話（市話）選填：捐贈者認領之後會在認領詳情頁
+                看到它們，並照著寄送 */}
+            <FormField label="行動電話" required span={3} error={fieldErrors?.mobilePhone}>
+              <Input required maxLength={40} placeholder="0912-345-678"
+                value={form.mobilePhone} onChange={update('mobilePhone')} />
+            </FormField>
 
-          <Field label="聯絡電話" error={fieldErrors?.contactPhone}>
-            <TextInput maxLength={40} placeholder="02-1234-5678"
-              value={form.contactPhone} onChange={update('contactPhone')} />
-          </Field>
+            <FormField label="聯絡電話" optional span={3} error={fieldErrors?.contactPhone}>
+              <Input maxLength={40} placeholder="02-1234-5678"
+                value={form.contactPhone} onChange={update('contactPhone')} />
+            </FormField>
 
-          <Field label="收件地址" required error={fieldErrors?.address}
-            hint="捐贈者會把禮物寄到這裡，請填寫完整地址">
-            <TextInput required maxLength={255} placeholder="台北市中正區某某路 1 號"
-              value={form.address} onChange={update('address')} />
-          </Field>
+            <FormField label="收件地址" required span={6} error={fieldErrors?.address}
+              hint="捐贈者會把禮物寄到這裡，請填寫完整地址">
+              <Input required maxLength={255} placeholder="台北市中正區某某路 1 號"
+                value={form.address} onChange={update('address')} />
+            </FormField>
 
-          <Field label="方便收件時間" required error={fieldErrors?.preferredDeliveryTime}
-            hint="讓捐贈者知道什麼時候送比較方便，例如「平日上午9:00-下午5:00」">
-            <TextInput required maxLength={255} value={form.preferredDeliveryTime}
-              placeholder="平日上午9:00-下午5:00"
-              onChange={update('preferredDeliveryTime')} />
-          </Field>
+            <FormField label="方便收件時間" required span={6} error={fieldErrors?.preferredDeliveryTime}
+              hint="讓捐贈者知道什麼時候送比較方便，例如「平日上午9:00-下午5:00」">
+              <Input required maxLength={255} value={form.preferredDeliveryTime}
+                placeholder="平日上午9:00-下午5:00"
+                onChange={update('preferredDeliveryTime')} />
+            </FormField>
 
-          <Field label="機構簡介" hint="讓捐贈者了解你們服務的對象"
-            error={fieldErrors?.description}>
-            <TextArea rows={4} maxLength={2000}
-              value={form.description} onChange={update('description')} />
-          </Field>
+            <FormField label="機構簡介" optional span={6} hint="讓捐贈者了解你們服務的對象"
+              error={fieldErrors?.description}>
+              <TextArea rows={4} maxLength={2000}
+                value={form.description} onChange={update('description')} />
+            </FormField>
 
-          <Field label="相關文件證明" required
-            hint="請擇一上傳證明文件:法人登記證書/立案證書/設立許可函/教職員證/當學年度聘書"
-            error={documentsError ?? undefined}>
-            <input
-              ref={documentInputRef}
-              type="file"
-              className="hidden"
-              accept={ACCEPTED_ORG_DOCUMENT_TYPES.join(',')}
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (!file) return
-                if (documents.length >= MAX_ORG_DOCUMENTS) {
-                  setDocumentsError(`最多上傳 ${MAX_ORG_DOCUMENTS} 份文件`)
-                } else {
-                  const problem = validateOrgDocument(file)
-                  if (problem) {
-                    setDocumentsError(problem)
-                  } else {
-                    setDocuments((current) => [...current, file])
-                    setDocumentsError(null)
-                  }
-                }
-                event.target.value = ''
-              }}
-            />
-            <div className="space-y-2">
-              {documents.map((file, index) => (
-                <div key={`${file.name}-${index}`}
-                  className="flex items-center justify-between gap-2 rounded-lg border
-                    border-slate-200 bg-white px-3 py-2 text-sm">
-                  <span className="truncate text-slate-700">{file.name}</span>
-                  <button type="button" className="text-slate-400 hover:text-berry-600"
-                    onClick={() => setDocuments((current) => current.filter((_, i) => i !== index))}>
-                    移除
-                  </button>
-                </div>
-              ))}
-              {documents.length < MAX_ORG_DOCUMENTS && (
-                <Button type="button" variant="secondary"
-                  onClick={() => documentInputRef.current?.click()}>
-                  新增文件
-                </Button>
-              )}
-            </div>
-          </Field>
+            {/* 外框用 div：label 會把範圍內任何點擊轉給裡面的 file input */}
+            <FormField as="div" label="相關文件證明" required span={6}
+              hint="請擇一上傳證明文件:法人登記證書/立案證書/設立許可函/教職員證/當學年度聘書"
+              error={documentsError}>
+              <div className="upload">
+                {documents.map((file, index) => (
+                  <span key={`${file.name}-${index}`} className="chip">
+                    <span>{file.name}</span>
+                    <button type="button" aria-label={`移除 ${file.name}`}
+                      onClick={() => setDocuments((current) => current.filter((_, i) => i !== index))}>
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {documents.length < MAX_ORG_DOCUMENTS && (
+                  <span className="upload__btn">
+                    {documents.length === 0 ? '選擇檔案' : '再新增一份'}
+                    <input
+                      ref={documentInputRef}
+                      type="file"
+                      aria-label="相關文件證明"
+                      accept={ACCEPTED_ORG_DOCUMENT_TYPES.join(',')}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0]
+                        if (!file) return
+                        if (documents.length >= MAX_ORG_DOCUMENTS) {
+                          setDocumentsError(`最多上傳 ${MAX_ORG_DOCUMENTS} 份文件`)
+                        } else {
+                          const problem = validateOrgDocument(file)
+                          if (problem) {
+                            setDocumentsError(problem)
+                          } else {
+                            setDocuments((current) => [...current, file])
+                            setDocumentsError(null)
+                          }
+                        }
+                        event.target.value = ''
+                      }}
+                    />
+                  </span>
+                )}
+              </div>
+            </FormField>
+          </div>
 
           {!auth.emailVerified && (
-            <Notice tone="warning">
-              <p className="font-medium">送出前要先完成信箱驗證</p>
-              <p className="mt-1">
+            <div className="notice notice--warn" style={{ marginTop: 24 }}>
+              <p><strong>送出前要先完成信箱驗證</strong></p>
+              <p>
                 機構申請通過後就能上架孩童資料，門檻不能只是「填了一個信箱」。
-                驗證信寄到 <strong>{email}</strong>，點完連結後回到這一頁，按上方橫幅的
-                「我已經驗證好了」就能送出。
-                <strong>你填的資料會留著，離開這一頁也不會消失。</strong>
+                驗證信寄到 <strong>{email}</strong>，點完連結後回到這一頁，按上方提示列的
+                「我已經驗證好了」就能送出。<strong>你填的資料會留著，離開這一頁也不會消失。</strong>
               </p>
-            </Notice>
+            </div>
           )}
 
-          {register.isError && <ErrorBanner error={register.error} />}
+          {register.isError && <div style={{ marginTop: 16 }}><ErrorNotice error={register.error} /></div>}
 
-          <Button type="submit" className="w-full py-2.5"
-            disabled={register.isPending || !auth.emailVerified}>
-            {register.isPending ? '送出中…' : '送出申請'}
-          </Button>
+          <div className="form-actions">
+            <button type="submit" className="btn btn--primary btn--block"
+              disabled={register.isPending || !auth.emailVerified}>
+              {register.isPending ? '送出中…' : '送出申請'}
+            </button>
+          </div>
         </form>
-      </Shell>
-    </>
+      </div>
+    </Shell>
   )
 }
 
+/** 這一頁不在任何 layout 底下，深色背景、飄雪與驗證提示列要自己帶。 */
 function Shell({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto max-w-2xl space-y-6 px-4 py-10">{children}</div>
+  return (
+    <div className="rd">
+      <Snowfall />
+      <VerifyBar />
+      <main className="page">{children}</main>
+    </div>
+  )
 }

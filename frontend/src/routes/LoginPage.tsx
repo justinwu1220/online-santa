@@ -1,10 +1,11 @@
+import { ArrowLeft } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../lib/authContext'
 import { PLATFORM_NAME, pageTitle } from '../lib/brand'
 import { AuthPanel, type JoinRole } from '../components/auth/AuthPanel'
 import { Snowfall } from '../components/Snowfall'
-import { Spinner } from '../components/Feedback'
+import { Spinner } from '../components/ui/Spinner'
 
 /**
  * 全站唯一的登入／註冊頁，認領者、機構、管理員都從這裡進來。
@@ -14,8 +15,7 @@ import { Spinner } from '../components/Feedback'
  *
  * 已登入的人直接導回原本要去的地方——這一頁只是通道，不該卡住任何人。
  *
- * 它在 PublicLayout 之外（全螢幕版面、沒有導覽列），所以深色背景與飄雪要自己帶，
- * 否則從願望牆點過來會突然從深色跳成亮色。
+ * 它在 PublicLayout 之外（全螢幕版面、沒有頁首），所以深色背景與飄雪要自己帶。
  */
 export function LoginPage() {
   const { email, loading } = useAuth()
@@ -32,40 +32,37 @@ export function LoginPage() {
     return () => { document.title = pageTitle() }
   }, [])
 
-  if (loading) return <Spinner />
+  if (loading) return <div className="rd"><Spinner /></div>
   if (email) {
     return <Navigate to={joinIntent === 'org' ? '/org/apply' : next ?? '/'} replace />
   }
 
   return (
-    <div className="theme-night flex min-h-screen items-center justify-center px-4 py-10
-      font-rounded text-white">
-      <div className="night-backdrop" />
+    <div className="rd">
       <Snowfall />
-
-      <div className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <Link to="/" className="text-lg font-bold tracking-wide">
-            <span aria-hidden>🎄</span>{' '}
-            <span className="bg-gradient-to-r from-red-300 via-white to-emerald-300
-              bg-clip-text text-transparent">
-              {PLATFORM_NAME}
+      <main className="page">
+        <div className="auth">
+          <div className="auth__brand">
+            <span className="auth__title">
+              <svg className="auth__spark icon twinkle" viewBox="0 0 48 48" strokeWidth="2.6" aria-hidden>
+                <path d="M20 10c1.6 7.6 4.4 10.4 12 12-7.6 1.6-10.4 4.4-12 12-1.6-7.6-4.4-10.4-12-12 7.6-1.6 10.4-4.4 12-12z" />
+                <path d="M36 5v8M32 9h8" />
+                <circle cx="9" cy="38" r="3" />
+              </svg>
+              <Link to="/" className="grad-text" style={{ textDecoration: 'none' }}>{PLATFORM_NAME}</Link>
             </span>
+            <p>溫暖傳遞，讓每個願望都閃閃發光</p>
+          </div>
+
+          <div className="auth-card">
+            <AuthPanel initialTab={initialTab} initialRole={initialRole} onJoinIntent={setJoinIntent} />
+          </div>
+
+          <Link to="/" className="auth__back">
+            <ArrowLeft className="icon" aria-hidden />先看看有哪些願望
           </Link>
         </div>
-
-        <div className="glass-card p-8">
-          <AuthPanel
-            initialTab={initialTab}
-            initialRole={initialRole}
-            onJoinIntent={setJoinIntent}
-          />
-        </div>
-
-        <p className="mt-6 text-center text-sm text-slate-400">
-          <Link to="/" className="hover:text-white hover:underline">← 先看看有哪些願望</Link>
-        </p>
-      </div>
+      </main>
     </div>
   )
 }
