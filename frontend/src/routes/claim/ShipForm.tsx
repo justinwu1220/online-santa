@@ -132,9 +132,9 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
         </FormField>
 
         <FormField label="實際寄出的禮物" required span={4} hintBeside
-          hint="名稱與規格，例如：蠟筆小新變形機器人（約 20 公分）" error={fieldErrors?.giftDescription}>
+          hint="名稱與規格" error={fieldErrors?.giftDescription}>
           <Input required maxLength={200} value={giftDescription}
-            placeholder="例如：繪本三本與文具組"
+            placeholder="蠟筆小新變形機器人（約 20 公分）"
             onChange={(event) => setGiftDescription(event.target.value)} />
         </FormField>
         <FormField label="數量" required span={2} hintBeside hint="以「份」計算" error={fieldErrors?.giftQuantity}>
