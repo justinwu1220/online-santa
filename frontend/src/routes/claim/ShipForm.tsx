@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
-import { Paperclip, X } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { FileUp, ImagePlus, X } from 'lucide-react'
+import { useRef, useState, type ReactNode } from 'react'
 import { ApiError, api } from '../../lib/api'
 import { todayPlainDate } from '../../lib/format'
 import {
@@ -150,7 +150,9 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
         </FormField>
 
         <FilePicker
-          label="上傳寄件單或包裹照片"
+          label="寄件單或包裹照片"
+          buttonText="新增照片"
+          icon={<ImagePlus className="icon" aria-hidden />}
           files={photos}
           onChange={setPhotos}
           max={MAX_SHIPPING_PROOFS}
@@ -198,6 +200,8 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
                     </FormField>
                     <FilePicker
                       label="上傳紙本或電子發票證明"
+                      buttonText="新增檔案"
+                      icon={<FileUp className="icon" aria-hidden />}
                       hint="供協會核對時價；請先遮住與這次捐贈無關的個人資料"
                       required={receiptEnabled}
                       files={receiptProofs}
@@ -262,9 +266,11 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
  * 外框用 div 而不是 label：label 會把範圍內任何點擊轉給裡面的 file input，
  * 結果點同一列就開啟檔案選擇，只有按鈕該觸發。
  */
-function FilePicker({ label, hint, required = true, files, onChange, max, accept, validate, error, onError }: {
+function FilePicker({ label, hint, buttonText, icon, required = true, files, onChange, max, accept, validate, error, onError }: {
   label: string
   hint?: string
+  buttonText: string
+  icon: ReactNode
   required?: boolean
   files: File[]
   onChange: (next: File[]) => void
@@ -274,23 +280,42 @@ function FilePicker({ label, hint, required = true, files, onChange, max, accept
   error: string | null
   onError: (message: string | null) => void
 }) {
-  function handleFile(file: File) {
-    if (files.length >= max) {
-      onError(`最多上傳 ${max} 個檔案`)
-      return
+  /** 一次可以選多個：逐一驗證，遇到第一個不合格或超過上限就停下並顯示原因，前面合格的照樣加入。 */
+  function handleFiles(picked: File[]) {
+    const next = [...files]
+    let problem: string | null = null
+    for (const file of picked) {
+      if (next.length >= max) {
+        problem = `最多上傳 ${max} 個檔案`
+        break
+      }
+      problem = validate(file)
+      if (problem) break
+      next.push(file)
     }
-    const problem = validate(file)
-    if (problem) {
-      onError(problem)
-      return
-    }
-    onChange([...files, file])
-    onError(null)
+    if (next.length !== files.length) onChange(next)
+    onError(problem)
   }
 
   return (
     <FormField as="div" label={label} required={required} span={6} hintBeside hint={hint} error={error}>
       <div className="upload">
+        {files.length < max && (
+          <span className="upload__btn">
+            {icon}
+            {buttonText}
+            <input
+              type="file"
+              multiple
+              accept={accept.join(',')}
+              aria-label={label}
+              onChange={(event) => {
+                handleFiles([...(event.target.files ?? [])])
+                event.target.value = ''
+              }}
+            />
+          </span>
+        )}
         {files.map((file, index) => (
           <span key={`${file.name}-${index}`} className="chip">
             <span>{file.name}</span>
@@ -300,22 +325,6 @@ function FilePicker({ label, hint, required = true, files, onChange, max, accept
             </button>
           </span>
         ))}
-        {files.length < max && (
-          <span className="upload__btn">
-            <Paperclip className="icon" aria-hidden />
-            {files.length === 0 ? '選擇檔案' : '再新增一個'}
-            <input
-              type="file"
-              accept={accept.join(',')}
-              aria-label={label}
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (file) handleFile(file)
-                event.target.value = ''
-              }}
-            />
-          </span>
-        )}
       </div>
     </FormField>
   )
