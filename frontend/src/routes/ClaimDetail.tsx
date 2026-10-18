@@ -179,7 +179,7 @@ export function ClaimDetail() {
 
             {feedbackPhotos.length > 0 && (
               <section className="panel">
-                <div className="panel__head"><h2 className="panel__title">機構的回饋</h2></div>
+                <div className="panel__head"><h2 className="panel__title">機構收件證明</h2></div>
                 <ProofGrid photos={feedbackPhotos} emptyHint="" />
               </section>
             )}

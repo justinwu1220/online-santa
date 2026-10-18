@@ -189,7 +189,7 @@ function Actions({ claim, onChanged, onUploaded }: {
 
         {claim.status === 'RECEIVED' && (
           <>
-            <ImageUploader purpose="ORG_FEEDBACK" targetId={claim.id} label="上傳回饋照片"
+            <ImageUploader purpose="ORG_FEEDBACK" targetId={claim.id} label="上傳收件證明"
               onUploaded={onUploaded} />
             {!completing && (
               <Button onClick={() => setCompleting(true)}>完成這筆送禮</Button>

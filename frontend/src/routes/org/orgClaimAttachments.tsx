@@ -24,8 +24,8 @@ export function AttachmentGroups({ attachments, onDeleted }: {
       <AttachmentGroup title="寄送證明" photos={shippingProofs}
         emptyHint="認領人還沒上傳寄送證明。" />
       {/* 回饋照片是機構自己上傳的，才能刪；寄送證明是認領人上傳的，機構只能看 */}
-      <AttachmentGroup title="回饋照片" photos={feedbackPhotos}
-        emptyHint="還沒有回饋照片。" onDeleted={onDeleted} />
+      <AttachmentGroup title="收件證明" photos={feedbackPhotos}
+        emptyHint="還沒有收件證明。" onDeleted={onDeleted} />
     </div>
   )
 }

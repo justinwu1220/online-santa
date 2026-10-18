@@ -230,7 +230,7 @@ function AttachmentPanel({ claimId }: { claimId: string }) {
     >
       {!attachments.isFetched && (
         <p className="text-sm text-slate-500">
-          寄送證明與回饋照片可能含捐贈者個資與孩童影像。
+          寄送證明與收件證明可能含捐贈者個資與孩童影像。
           <strong>載入會另外寫入一筆稽核紀錄。</strong>
         </p>
       )}

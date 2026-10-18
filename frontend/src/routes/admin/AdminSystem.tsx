@@ -196,7 +196,7 @@ function AuditTrailPanel() {
     >
       <p className="mb-4 text-sm text-slate-600">
         管理員為了處理申訴需要跨機構檢視資料，其中包含捐贈者個資與可能有孩童影像的
-        回饋照片。這份紀錄對所有管理員公開。
+        收件證明。這份紀錄對所有管理員公開。
       </p>
 
       {logs.isLoading && <Spinner label="載入紀錄" />}

@@ -37,8 +37,8 @@ export function OrgDashboard() {
           <ActionCard
             to="/org/claims?status=RECEIVED"
             count={received.data ?? 0}
-            label="待回饋"
-            hint="已收到禮物，可上傳回饋照片並結案"
+            label="待上傳收件證明"
+            hint="已收到禮物，可上傳收件證明並結案"
             tone={received.data ? 'urgent' : 'calm'}
           />
           <ActionCard
