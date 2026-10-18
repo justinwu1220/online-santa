@@ -333,7 +333,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
                 : role === 'org' ? '建立帳號，前往下一步' : '註冊'}
           </button>
 
-          {usingFirebase && registering && (
+          {registering && role !== null && (
             <p className="auth-note">
               {role === 'org'
                 ? '註冊後我們會寄一封驗證信。完成驗證後才能送出機構申請——機構需要靠這個信箱聯繫你。'
