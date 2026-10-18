@@ -1,9 +1,8 @@
--- 1018 新版：年齡固定六組、頭貼存庫、禮物分類不再必填。
+-- 1018 新版：年齡固定六組、頭貼存庫。
 --
 -- 1) 年齡：AGE_16_18 → AGE_16_PLUS（「16 歲以上」），其餘五組不變。
 -- 2) 頭貼：wishes.avatar 存檔名。既有願望用和前端舊版 avatarFor() 相同的演算法
 --    （FNV-1a 32 位元雜湊願望 id，再對該組張數取餘數）回填，所以升級後孩子看到的頭貼不會變。
--- 3) 禮物分類：機構表單拿掉這個欄位，改為可為 NULL；舊資料保留。
 
 -- 1) 年齡
 ALTER TABLE wishes DROP CONSTRAINT ck_wishes_age_range;
@@ -37,6 +36,3 @@ UPDATE wishes SET avatar = CASE
     END;
 
 ALTER TABLE wishes ALTER COLUMN avatar SET NOT NULL;
-
--- 3) 禮物分類
-ALTER TABLE wishes ALTER COLUMN category DROP NOT NULL;
