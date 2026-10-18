@@ -272,7 +272,7 @@
   /* 放大閱讀信件 */
   /* Tailwind 的 preflight 把所有元素（含 dialog）的 margin 歸零，原生 modal dialog 靠
      margin:auto 置中的預設就失效了，會貼在左上角——要自己補回來 */
-  .dialog, .letter-dialog { margin: auto; }
+  .dialog, .letter-dialog, .terms { margin: auto; }
   .letter-dialog { width: min(920px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 0; border: 0; border-radius: 24px; background: #fbf8f1; color: #1f2937; }
   .letter-dialog::backdrop { background: rgba(2, 6, 23, .82); }
   .letter-dialog__body { position: relative; height: min(80vh, 900px); }
