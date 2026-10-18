@@ -49,10 +49,10 @@ export function daysUntil(iso?: string) {
 
 export const WISH_STATUS_LABELS: Record<WishStatus, string> = {
   DRAFT: '草稿',
+  PENDING_REVIEW: '審核中',
   AVAILABLE: '可認領',
   CLAIMED: '已被認領',
   FULFILLED: '已完成',
-  ARCHIVED: '已下架',
 }
 
 export const CLAIM_STATUS_LABELS: Record<ClaimStatus, string> = {

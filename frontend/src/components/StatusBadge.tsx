@@ -28,8 +28,8 @@ function Badge({ tone, children }: { tone: Tone; children: React.ReactNode }) {
 }
 
 const WISH_TONES: Record<WishStatus, Tone> = {
-  DRAFT: 'neutral', AVAILABLE: 'positive', CLAIMED: 'progress',
-  FULFILLED: 'positive', ARCHIVED: 'muted',
+  DRAFT: 'neutral', PENDING_REVIEW: 'progress', AVAILABLE: 'positive', CLAIMED: 'progress',
+  FULFILLED: 'positive',
 }
 
 const CLAIM_TONES: Record<ClaimStatus, Tone> = {

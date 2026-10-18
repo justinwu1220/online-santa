@@ -39,7 +39,7 @@ export interface PageResponse<T> {
 
 // ---------------------------------------------------------------- 願望
 
-export type WishStatus = 'DRAFT' | 'AVAILABLE' | 'CLAIMED' | 'FULFILLED' | 'ARCHIVED'
+export type WishStatus = 'DRAFT' | 'PENDING_REVIEW' | 'AVAILABLE' | 'CLAIMED' | 'FULFILLED'
 
 /**
  * 願望牆清單的單筆項目。流量優化：清單不含 imageUrl，一律用分類圖示，圖片只在
@@ -105,6 +105,8 @@ export interface WishOrgView {
   childAlias: string
   interests?: string
   status: WishStatus
+  /** 管理員退回時的原因（退回後到重新核准前一直保留） */
+  reviewNote?: string
   editable: boolean
   deletable: boolean
   version: number

@@ -18,10 +18,10 @@ import { useOrgContext } from './orgContext'
 const STATUS_FILTERS: { value: WishStatus | ''; label: string }[] = [
   { value: '', label: '全部' },
   { value: 'DRAFT', label: '草稿' },
-  { value: 'AVAILABLE', label: '上架中' },
+  { value: 'PENDING_REVIEW', label: '審核中' },
+  { value: 'AVAILABLE', label: '可認領' },
   { value: 'CLAIMED', label: '已被認領' },
   { value: 'FULFILLED', label: '已完成' },
-  { value: 'ARCHIVED', label: '已下架' },
 ]
 
 export function OrgWishes() {
@@ -140,7 +140,7 @@ function WishRow({ wish, canPublish, onEdit, onChanged }: {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const action = useMutation({
-    mutationFn: (path: 'publish' | 'unpublish') =>
+    mutationFn: (path: 'submit' | 'withdraw') =>
       api.post(`/api/wishes/${wish.id}/${path}`),
     onSuccess: onChanged,
   })
@@ -170,19 +170,23 @@ function WishRow({ wish, canPublish, onEdit, onChanged }: {
             {wish.childAlias}
             {wish.publishedAt && `・上架於 ${formatDate(wish.publishedAt)}`}
           </p>
+          {wish.status === 'DRAFT' && wish.reviewNote && (
+            <p className="mt-1 text-sm text-berry-600">管理員退回：{wish.reviewNote}</p>
+          )}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {wish.status === 'AVAILABLE' ? (
+            {wish.status === 'PENDING_REVIEW' ? (
               <Button variant="secondary" disabled={action.isPending}
-                onClick={() => action.mutate('unpublish')}>下架</Button>
-            ) : (wish.status === 'DRAFT' || wish.status === 'ARCHIVED') && (
-              // 未核准時停用而非隱藏：機構看得到「上架」在哪裡，只是還不能按，
+                onClick={() => action.mutate('withdraw')}>撤回審核</Button>
+            ) : wish.status === 'DRAFT' && (
+              // 未核准時停用而非隱藏：機構看得到「提交審核」在哪裡，只是還不能按，
               // 比按鈕憑空消失更好理解
               <Button variant="secondary"
                 disabled={action.isPending || !canPublish}
-                title={canPublish ? undefined : '機構通過審核後才能上架'}
-                onClick={() => action.mutate('publish')}>上架</Button>
+                title={canPublish ? undefined : '機構資料審核通過後才能提交願望審核'}
+                onClick={() => action.mutate('submit')}>提交審核</Button>
             )}
+            {action.isError && <span className="text-sm text-berry-600">{action.error.message}</span>}
 
             {wish.editable && (
               <>

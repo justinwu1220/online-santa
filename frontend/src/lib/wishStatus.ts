@@ -22,8 +22,8 @@ export const WALL_STATUS_OPTIONS = [
 ] as const
 
 /**
- * 公開頁上的狀態。ARCHIVED（機構下架）不會出現在願望牆，但舊連結仍然打得開，
- * 這時當成「已完成」的灰色樣式，標籤寫「已下架」。
+ * 公開頁上的狀態。草稿與審核中不會出現在公開頁（後端回 404），這裡的預設分支只是防守：
+ * 當成灰色樣式，標籤寫「尚未公開」。
  */
 export function publicStatusOf(status: WishStatus): { key: PublicStatus; label: string } {
   switch (status) {
@@ -34,7 +34,7 @@ export function publicStatusOf(status: WishStatus): { key: PublicStatus; label: 
     case 'FULFILLED':
       return { key: 'done', label: '已完成' }
     default:
-      return { key: 'done', label: '已下架' }
+      return { key: 'done', label: '尚未公開' }
   }
 }
 

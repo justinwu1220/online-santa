@@ -15,10 +15,10 @@ import { ClaimStatusBadge, OverdueBadge, WishStatusBadge } from '../../component
 const WISH_FILTERS: { value: WishStatus | ''; label: string }[] = [
   { value: '', label: '全部狀態' },
   { value: 'DRAFT', label: '草稿' },
-  { value: 'AVAILABLE', label: '上架中' },
+  { value: 'PENDING_REVIEW', label: '審核中' },
+  { value: 'AVAILABLE', label: '可認領' },
   { value: 'CLAIMED', label: '已認領' },
   { value: 'FULFILLED', label: '已完成' },
-  { value: 'ARCHIVED', label: '已下架' },
 ]
 
 const CLAIM_FILTERS: { value: ClaimStatus | ''; label: string }[] = [
