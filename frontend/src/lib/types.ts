@@ -24,6 +24,8 @@ export interface UserProfile {
   phone?: string
   email: string
   emailVerified: boolean
+  /** 已看完首次登入說明 */
+  onboarded: boolean
 }
 
 export interface PageResponse<T> {

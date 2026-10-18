@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { describeAuthError, useAuth, usingFirebase } from '../../lib/authContext'
+import { useResendVerification } from '../../lib/useResendVerification'
 
 /**
  * 信箱驗證提示列：頁首正下方、全站顯示（SPEC 12.2，取代舊版頂端的黃色橫幅）。
@@ -10,23 +11,20 @@ import { describeAuthError, useAuth, usingFirebase } from '../../lib/authContext
  */
 export function VerifyBar() {
   const auth = useAuth()
+  const resendState = useResendVerification()
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [cooldownUntil, setCooldownUntil] = useState(0)
-  const [now, setNow] = useState(() => Date.now())
 
   if (!auth.email || auth.emailVerified) return null
 
-  const remaining = Math.max(0, Math.ceil((cooldownUntil - now) / 1000))
-
-  async function run(action: () => Promise<void>, done?: string) {
+  async function refresh() {
     setBusy(true)
     setMessage(null)
     setError(null)
     try {
-      await action()
-      if (done) setMessage(done)
+      await auth.refreshVerification()
+      setMessage('狀態已更新')
     } catch (caught) {
       setError(describeAuthError(caught))
     } finally {
@@ -34,35 +32,27 @@ export function VerifyBar() {
     }
   }
 
-  function resend() {
-    void run(async () => {
-      await auth.resendVerification()
-      const until = Date.now() + 60_000
-      setCooldownUntil(until)
-      setNow(Date.now())
-      const tick = window.setInterval(() => {
-        setNow(Date.now())
-        if (Date.now() >= until) window.clearInterval(tick)
-      }, 1000)
-    }, '驗證信已重新寄出')
-  }
+  const remaining = resendState.remaining
+  const shownError = error ?? resendState.error
+  const shownMessage = message ?? resendState.message
 
   return (
-    <div className={`bar bar--verify${error ? ' is-error' : ''}`} role="status">
+    <div className={`bar bar--verify${shownError ? ' is-error' : ''}`} role="status">
       請先完成信箱驗證，才能認領願望或申請成為合作機構。我們寄了一封信到 <strong>{auth.email}</strong>
       {usingFirebase && '，記得檢查垃圾郵件匣。'}
       <span className="bar__actions">
         <button type="button" className="btn btn--sm" disabled={busy}
-          onClick={() => void run(() => auth.refreshVerification(), '狀態已更新')}>
+          onClick={() => void refresh()}>
           我已經驗證好了
         </button>
-        <button type="button" className="btn btn--sm btn--ghost" disabled={busy || remaining > 0}
-          onClick={resend}>
+        <button type="button" className="btn btn--sm btn--ghost"
+          disabled={busy || resendState.busy || remaining > 0}
+          onClick={() => void resendState.resend()}>
           {remaining > 0 ? `重新寄送（${remaining} 秒）` : '重新寄送'}
         </button>
       </span>
-      {(message || error) && (
-        <div style={{ marginTop: 4, fontSize: 12 }}>{error ?? message}</div>
+      {(shownMessage || shownError) && (
+        <div style={{ marginTop: 4, fontSize: 12 }}>{shownError ?? shownMessage}</div>
       )}
     </div>
   )

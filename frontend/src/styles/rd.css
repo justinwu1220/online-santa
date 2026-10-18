@@ -272,7 +272,7 @@
   /* 放大閱讀信件 */
   /* Tailwind 的 preflight 把所有元素（含 dialog）的 margin 歸零，原生 modal dialog 靠
      margin:auto 置中的預設就失效了，會貼在左上角——要自己補回來 */
-  .dialog, .letter-dialog, .terms { margin: auto; }
+  .dialog, .letter-dialog, .terms, .onboard { margin: auto; }
   .letter-dialog { width: min(920px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 0; border: 0; border-radius: 24px; background: #fbf8f1; color: #1f2937; }
   .letter-dialog::backdrop { background: rgba(2, 6, 23, .82); }
   .letter-dialog__body { position: relative; height: min(80vh, 900px); }
@@ -469,6 +469,32 @@
   .dialog h2 { margin: 0 0 10px; font-size: 22px; font-weight: 900; line-height: 1.4; }
   .dialog p a { color: #a7f3d0; }
   .dialog p { margin: 0 0 10px; font-size: 15px; line-height: 1.75; color: var(--fg-4); text-wrap: pretty; }
+  /* 首次登入說明「開始之前」（prototype.html 622–641 行） */
+  .onboard{width:min(580px,calc(100vw - 32px));padding:28px;max-height:calc(100dvh - 32px);overflow:auto}
+  .onboard[open]{display:flex;flex-direction:column;gap:16px}
+  .onboard__top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .onboard__brand{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:900}
+  .onboard__step{font-size:13px;font-weight:700;letter-spacing:.08em;color:#6ee7b7;font-variant-numeric:tabular-nums}
+  .onboard__illo{height:clamp(170px,32vh,250px);display:flex;align-items:center;justify-content:center;border-radius:20px;background:radial-gradient(circle at 50% 60%,rgba(30,58,138,.35),transparent 70%)}
+  .onboard__illo svg{height:100%;width:auto;max-width:100%;display:block}
+  .onboard__text{display:flex;flex-direction:column;gap:10px;min-height:118px}
+  .onboard__text h2{margin:0;font-size:clamp(22px,3.6vw,30px);font-weight:900;line-height:1.3;letter-spacing:.03em;text-wrap:balance}
+  .onboard__text p{margin:0;font-size:15px;line-height:1.8;color:var(--fg-4);text-wrap:pretty}
+  .onboard__text b{color:var(--fg);font-weight:700}
+  .onboard__foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .onboard__dots{display:flex;gap:6px;align-items:center}
+  .onboard__dots i{display:block;width:8px;height:8px;border-radius:999px;background:rgba(255,255,255,.18);transition:width .25s ease,background-color .25s ease}
+  .onboard__dots i.on{width:22px;background:#6ee7b7}
+  .onboard__actions{display:flex;gap:10px;margin-left:auto}
+  .onboard__actions .btn{height:48px}
+  .onboard__actions .btn--primary{padding:0 24px;font-size:15px}
+  .onboard__actions [hidden]{display:none}
+  @media (max-width:480px){.onboard{padding:22px}.onboard__actions{width:100%}.onboard__actions .btn{flex:1}}
+  /* 標頭右上角的 ⓘ：重看首次登入說明 */
+  .account__info { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg-3); display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .account__info:hover { background: rgba(255, 255, 255, .14); color: var(--fg); }
+  .account__info:focus-visible { outline: 2px solid #6ee7b7; outline-offset: 2px; }
+  .account__info .icon { width: 20px; height: 20px; }
   /* 《認領者參與須知》全文對話框（prototype.html 584–619 行） */
   .terms,.onboard{padding:0;border:1px solid var(--line);border-radius:24px;background:rgba(13,21,38,.97);color:var(--fg);box-shadow:0 30px 80px rgba(0,0,0,.55)}
   .terms::backdrop,.onboard::backdrop{background:rgba(2,6,23,.78);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}

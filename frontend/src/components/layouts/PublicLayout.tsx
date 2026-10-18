@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
-import { TreePine, User } from 'lucide-react'
+import { Info, TreePine, User } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { useAuth, usingFirebase } from '../../lib/authContext'
 import { PLATFORM_NAME } from '../../lib/brand'
 import type { ClaimDonorView, PageResponse } from '../../lib/types'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
+import { useOnboard } from '../onboard/onboardContext'
+import { OnboardHost } from '../onboard/OnboardHost'
 import { Snowfall } from '../Snowfall'
 import { TermsGate } from '../terms/TermsGate'
 import { TransitionProvider } from '../transition/TransitionProvider'
@@ -28,6 +30,7 @@ export function PublicLayout() {
     <div className="rd">
       <Snowfall />
       <ToastProvider>
+        <OnboardHost>
         <TransitionProvider>
           <SiteHeader />
           {!usingFirebase && (
@@ -41,6 +44,7 @@ export function PublicLayout() {
             <Outlet />
           </main>
         </TransitionProvider>
+        </OnboardHost>
       </ToastProvider>
     </div>
   )
@@ -93,6 +97,7 @@ function MyClaimsLink() {
 
 function AuthControls() {
   const { email, loading, signOut } = useAuth()
+  const onboard = useOnboard()
   const me = useCurrentUser()
   const location = useLocation()
 
@@ -111,6 +116,12 @@ function AuthControls() {
     <div className="account">
       {role === 'ORG_MEMBER' && <Link to="/org" className="console-link">機構後台</Link>}
       {role === 'ADMIN' && <Link to="/admin" className="console-link">監控中心</Link>}
+      {onboard?.available && (
+        <button type="button" className="account__info" onClick={onboard.reopen}
+          title="開始之前：認領須知提醒" aria-label="開始之前：認領須知提醒">
+          <Info className="icon" aria-hidden />
+        </button>
+      )}
       <Link to="/me/profile" className="account__me" title={email} aria-label="個人資料">
         <User className="icon" aria-hidden />
       </Link>

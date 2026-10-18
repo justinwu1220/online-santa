@@ -27,6 +27,8 @@ export function LoginPage() {
     ? 'org' : null
   // 在送出動作之前就設定好（見 AuthPanel）：登入一成功頁面就會重新 render 並導走
   const [joinIntent, setJoinIntent] = useState<JoinRole | null>(null)
+  // 認領者剛註冊完、停在「驗證信寄出了」畫面：已登入也不能導走，要等他驗證完
+  const [awaitingVerification, setAwaitingVerification] = useState(false)
 
   usePageEnter(!loading)
 
@@ -36,7 +38,7 @@ export function LoginPage() {
   }, [])
 
   if (loading) return <div className="rd"><Spinner /></div>
-  if (email) {
+  if (email && !awaitingVerification) {
     return <Navigate to={joinIntent === 'org' ? '/org/apply' : next ?? '/'} replace />
   }
 
@@ -58,7 +60,8 @@ export function LoginPage() {
           </div>
 
           <div className="auth-card">
-            <AuthPanel initialTab={initialTab} initialRole={initialRole} onJoinIntent={setJoinIntent} />
+            <AuthPanel initialTab={initialTab} initialRole={initialRole} onJoinIntent={setJoinIntent}
+              onAwaitVerification={setAwaitingVerification} />
           </div>
 
           <Link to="/" className="auth__back">

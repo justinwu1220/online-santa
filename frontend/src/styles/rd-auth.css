@@ -18,6 +18,15 @@
   .seg[data-active="register"] .seg__thumb { transform: translateX(100%); }
 
   .auth-body { position: relative; }
+  /* 註冊後的「驗證信寄出了」（prototype.html 525–532 行） */
+  .sent{text-align:center}
+  .sent__env{display:block;margin:0 auto 8px;overflow:visible}
+  .sent__flap{transform-box:fill-box;transform-origin:50% 0%}
+  .sent h2{margin:0 0 10px;font-size:24px;font-weight:900}
+  .sent p{margin:0;font-size:15px;line-height:1.8;color:var(--fg-4)}
+  .sent__email{color:var(--fg);overflow-wrap:anywhere}
+  .sent__actions{display:flex;flex-direction:column;gap:10px;margin-top:22px}
+  .sent__actions .btn{width:100%}
   .auth-form { display: flex; flex-direction: column; gap: 18px; }
   .auth-form .btn--primary { width: 100%; margin-top: 4px; }
   .auth-note { margin: 0; font-size: 13px; line-height: 1.75; color: var(--fg-muted); text-wrap: pretty; }

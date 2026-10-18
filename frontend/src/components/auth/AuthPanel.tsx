@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { describeAuthError, useAuth, usingFirebase } from '../../lib/authContext'
 import { termsFlow } from '../../lib/terms'
+import { SentScreen } from './SentScreen'
 import { TermsDialog } from '../terms/TermsDialog'
 import { DONOR_TERMS } from '../terms/termsContent'
 import { FormField, Input } from '../ui/Fields'
@@ -21,7 +22,7 @@ export type JoinRole = 'donor' | 'org'
  *
  * 開發模式沒有真的密碼，只顯示 email 欄位與一個「模擬未驗證」的開關。
  */
-export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinIntent }: {
+export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinIntent, onAwaitVerification }: {
   initialTab?: 'signIn' | 'register'
   initialRole?: JoinRole | null
   /**
@@ -30,11 +31,19 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
    * 等動作 await 完才通知就來不及決定要導去哪裡。
    */
   onJoinIntent?: (role: JoinRole | null) => void
+  /**
+   * 認領者註冊成功後要停在「驗證信寄出了」畫面，頁面不能因為已登入就導走。
+   * 同樣必須在建立帳號<strong>之前</strong>通知（帳號一建好登入狀態就變了）；註冊失敗再通知 false。
+   * 驗證完成後通知 false，頁面才會導向原本要去的地方。
+   */
+  onAwaitVerification?: (waiting: boolean) => void
 }) {
   const auth = useAuth()
   const queryClient = useQueryClient()
   // 認領者按「註冊」後先跳出須知；同意後才真正建立帳號（SPEC 13.1）
   const [termsOpen, setTermsOpen] = useState(false)
+  // 註冊成功後的「驗證信寄出了」畫面
+  const [sent, setSent] = useState(false)
   const [mode, setMode] = useState<Mode>(initialTab)
   const [role, setRole] = useState<JoinRole | null>(initialRole)
   // 膠囊滑塊跟著手勢先動，所以和實際換內容的 mode 分開記
@@ -142,6 +151,16 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
     )
   }
 
+  // ------------------------------------------------------------ 驗證信已寄出
+
+  if (sent) {
+    return (
+      <div ref={body} className="auth-body">
+        <SentScreen onVerified={() => onAwaitVerification?.(false)} />
+      </div>
+    )
+  }
+
   // ------------------------------------------------------------ 登入／註冊
 
   function submit(event: React.FormEvent) {
@@ -186,16 +205,22 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
   function registerDonorAfterConsent() {
     setTermsOpen(false)
     onJoinIntent?.('donor')
+    onAwaitVerification?.(true)
     void run(async () => {
       // 帳號一建好就會登入，但同意紀錄還在送：這段時間守門（TermsGate）不要跳出第二個視窗
       termsFlow.registering = true
       try {
         await auth.registerWithPassword(
           email, password, displayName.trim(), name.trim(), DONOR_TERMS.version)
+      } catch (caught) {
+        onAwaitVerification?.(false)
+        throw caught
       } finally {
         termsFlow.registering = false
         void queryClient.invalidateQueries({ queryKey: ['terms'] })
       }
+      // 帳號建好了：同一張卡片滑到「驗證信寄出了」
+      await swap(1, () => setSent(true))
     })
   }
 
