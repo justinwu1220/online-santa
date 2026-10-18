@@ -85,6 +85,7 @@ export function AddressPanel({ claim, done }: { claim: ClaimDonorView; done: boo
   return (
     <StepPanel no={1} done={done} title="把禮物寄到這裡">
       {hasAddress ? (
+        <>
         <dl className="addr">
           <div>
             <dt>收件單位</dt>
@@ -120,6 +121,12 @@ export function AddressPanel({ claim, done }: { claim: ClaimDonorView; done: boo
             </div>
           )}
         </dl>
+        <ul className="tips">
+          <li>收件人請填上方的收件單位，請勿選擇超商取貨或貨到付款。</li>
+          <li>包裹外或訂單備註請寫「線上聖誕老人」與孩子暱稱「{claim.childAlias}」，方便機構核對。</li>
+          <li>包裹裡不要放你的電話、地址或社群帳號；祝福卡片署名用暱稱就好。</li>
+        </ul>
+        </>
       ) : (
         // 更早之前建立的機構可能連地址都沒有
         <div className="notice notice--warn">這個機構還沒有填寫收件地址，請用下方的訊息詢問機構。</div>
