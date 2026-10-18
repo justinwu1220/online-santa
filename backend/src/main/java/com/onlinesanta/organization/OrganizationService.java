@@ -13,6 +13,7 @@ import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.organization.dto.OrganizationRegistrationRequest;
 import com.onlinesanta.organization.dto.OrganizationUpdateRequest;
+import com.onlinesanta.terms.TermsService;
 import com.onlinesanta.user.User;
 import com.onlinesanta.user.UserRepository;
 
@@ -22,13 +23,16 @@ public class OrganizationService {
     private final OrganizationRepository organizations;
     private final UserRepository users;
     private final CurrentUserService currentUser;
+    private final TermsService terms;
 
     public OrganizationService(OrganizationRepository organizations,
                                UserRepository users,
-                               CurrentUserService currentUser) {
+                               CurrentUserService currentUser,
+                               TermsService terms) {
         this.organizations = organizations;
         this.users = users;
         this.currentUser = currentUser;
+        this.terms = terms;
     }
 
     /**
@@ -49,6 +53,7 @@ public class OrganizationService {
             throw new BusinessRuleException("ADMIN_CANNOT_REGISTER_ORG",
                     "平台管理員不可註冊機構，以免球員兼裁判");
         }
+        terms.requireUpToDateForOrganizationRegister(principal.userId());
         // 名稱唯一是為了讓捐贈者能辨識機構；資料庫的 uq_organizations_name 是最終保證，
         // 這裡先擋是為了回傳可讀的訊息
         if (organizations.existsByNameIgnoreCase(request.name())) {

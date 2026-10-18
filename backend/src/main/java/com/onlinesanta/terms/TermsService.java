@@ -67,6 +67,18 @@ public class TermsService {
         return status(userId, type);
     }
 
+    /** 機構送出申請前呼叫：沒有同意目前版本的《合作機構參與須知》就擋下。 */
+    @Transactional(readOnly = true)
+    public void requireUpToDateForOrganizationRegister(UUID userId) {
+        if (!properties.enforceOnOrganizationRegister()) {
+            return;
+        }
+        if (!status(userId, TermsType.ORG).upToDate()) {
+            throw new BusinessRuleException("TERMS_NOT_ACCEPTED",
+                    "請先閱讀並同意《合作機構參與須知》才能送出機構申請");
+        }
+    }
+
     /** 認領前呼叫：沒有同意目前版本就擋下。 */
     @Transactional(readOnly = true)
     public void requireUpToDateForClaim(UUID userId) {

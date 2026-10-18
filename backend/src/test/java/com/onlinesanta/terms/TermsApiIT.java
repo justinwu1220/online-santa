@@ -29,10 +29,13 @@ import com.onlinesanta.wish.WishRepository;
 
 /** 認領者須知的同意紀錄：版本化、只增不改，以及認領前的檢查（這裡把檢查打開）。 */
 @DisplayName("參與須知的同意")
-@TestPropertySource(properties = "app.terms.enforce-on-claim=true")
+@TestPropertySource(properties = {
+        "app.terms.enforce-on-claim=true",
+        "app.terms.enforce-on-organization-register=true"})
 class TermsApiIT extends ApiIntegrationTest {
 
     private static final String CURRENT = "v6（2026-10-16）";
+    private static final String ORG_CURRENT = "v7（2026-10-17）";
     private static final String DONOR = "terms-donor@example.com";
     private static final String OTHER = "terms-other@example.com";
 
@@ -156,6 +159,55 @@ class TermsApiIT extends ApiIntegrationTest {
                 .andExpect(status().isOk());
         mvc.perform(as(post("/api/wishes/{id}/claim", wishId), DONOR))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("合作機構須知是另一份：兩份各自記錄，互不影響")
+    void orgTermsAreTrackedSeparately() throws Exception {
+        mvc.perform(as(get("/api/me/terms"), DONOR))
+                .andExpect(jsonPath("$[1].type").value("ORG"))
+                .andExpect(jsonPath("$[1].title").value("合作機構參與須知"))
+                .andExpect(jsonPath("$[1].currentVersion").value(ORG_CURRENT))
+                .andExpect(jsonPath("$[1].upToDate").value(false));
+
+        // 認領者須知的版本不能拿來同意機構須知
+        mvc.perform(as(withBody(post("/api/me/terms/ORG/accept"), body(CURRENT)), DONOR))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("TERMS_VERSION_MISMATCH"));
+
+        mvc.perform(as(withBody(post("/api/me/terms/ORG/accept"), body(ORG_CURRENT)), DONOR))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.type").value("ORG"))
+                .andExpect(jsonPath("$.upToDate").value(true));
+
+        mvc.perform(as(get("/api/me/terms"), DONOR))
+                .andExpect(jsonPath("$[0].upToDate").value(false))
+                .andExpect(jsonPath("$[1].upToDate").value(true));
+    }
+
+    @Test
+    @DisplayName("機構送出申請前要已同意目前版本的機構須知")
+    void organizationRegistrationRequiresCurrentOrgConsent() throws Exception {
+        var request = new com.onlinesanta.organization.dto.OrganizationRegistrationRequest(
+                "須知之家", "王承辦", "contact@example.org", "02-1234-5678", "0912-345-678",
+                "台北市中正區某路 1 號", "平日上午9:00-下午5:00", "服務失依兒童");
+
+        mvc.perform(as(withBody(post("/api/organizations"), request), OTHER))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("TERMS_NOT_ACCEPTED"));
+
+        // 同意的是舊版本也不算
+        UUID otherId = users.findByEmailIgnoreCase(OTHER).orElseThrow().getId();
+        consents.saveAndFlush(new TermsConsent(otherId, TermsType.ORG, "v6（2026-01-01）"));
+        mvc.perform(as(withBody(post("/api/organizations"), request), OTHER))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("TERMS_NOT_ACCEPTED"));
+
+        mvc.perform(as(withBody(post("/api/me/terms/ORG/accept"), body(ORG_CURRENT)), OTHER))
+                .andExpect(status().isOk());
+        mvc.perform(as(withBody(post("/api/organizations"), request), OTHER))
+                .andExpect(status().isCreated());
+        assertThat(consents.countByUserIdAndTermsType(otherId, TermsType.ORG)).isEqualTo(2);
     }
 
     private UUID publishedWish() {
