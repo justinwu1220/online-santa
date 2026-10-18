@@ -8,7 +8,11 @@
   .env-overlay {
     position: fixed; left: 0; right: 0; bottom: 0; top: var(--overlay-top, var(--header-h));
     z-index: 30; opacity: 0; visibility: hidden; pointer-events: none;
-    background: radial-gradient(ellipse at 50% 0%, rgba(30, 58, 138, .5) 0%, rgba(15, 23, 42, .97) 55%, #020617 100%);
+    /* 與 .rd 的頁面背景完全同一張（同樣 fixed 對齊視窗、實色底），遮罩淡入淡出時背景就不會有明暗跳動，
+       只有內容被蓋住與露出 */
+    background: radial-gradient(ellipse at top, var(--bg-glow) 0%, var(--bg-900) 45%, var(--bg-950) 100%) fixed,
+      var(--bg-950);
+    will-change: opacity;
     transition: opacity .22s ease-out;
   }
   .env-overlay.is-on { visibility: visible; pointer-events: auto; }
