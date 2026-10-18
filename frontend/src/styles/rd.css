@@ -393,7 +393,7 @@
   .addr .addr__full { grid-column: span 2; }
   .addr .addr__full dd { font-size: 19px; font-weight: 900; color: var(--fg); }
   @media (max-width: 520px) { .addr { grid-template-columns: 1fr; } .addr .addr__full { grid-column: auto; } }
-  .tips { margin: 20px 0 0; padding: 14px 16px 14px 34px; border-radius: 14px; background: rgba(255, 255, 255, .04); font-size: 13px; line-height: 1.8; color: var(--fg-4); }
+  .tips { list-style: disc; margin: 20px 0 0; padding: 14px 16px 14px 34px; border-radius: 14px; background: rgba(255, 255, 255, .04); font-size: 13px; line-height: 1.8; color: var(--fg-4); }
   .tips li::marker { color: #fde68a; }
 
   .form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-top: 24px; }
