@@ -7,29 +7,27 @@ import { avatarFor } from '../lib/avatar'
 import { useAuth } from '../lib/authContext'
 import { daysUntil, formatDate } from '../lib/format'
 import { useListEntry } from '../lib/useEntryAnimation'
-import type { ClaimDonorView, DonorAnnualSummary, PageResponse } from '../lib/types'
+import type { ClaimDonorView, PageResponse } from '../lib/types'
 import { claimTabOf } from '../lib/wishStatus'
 import { Pager } from '../components/ui/Pager'
-import { EmptyBox, ErrorNotice, Spinner } from '../components/ui/Spinner'
+import { ErrorNotice, Spinner } from '../components/ui/Spinner'
+
+/** 一次取回的筆數。原型是一次列出全部，沒有分頁；認領者的認領數遠小於這個數字。 */
+const PAGE_SIZE = 100
+
+/** 進度由前面到後面：待寄送 → 已寄出 → 機構已收到 → 流程完成，已收回／已取消的放最後（原型依進度排序）。 */
+const PROGRESS_ORDER: Record<string, number> = {
+  CLAIMED: 0, SHIPPED: 1, RECEIVED: 2, COMPLETED: 3, RELEASED: 4, CANCELLED: 4,
+}
 
 export function MyClaims() {
   const { email } = useAuth()
-  const [year, setYear] = useState<number | ''>('')
   const [page, setPage] = useState(0)
 
   const claims = useQuery({
-    queryKey: ['claims', 'mine', year, page],
+    queryKey: ['claims', 'mine', page],
     queryFn: () => api.get<PageResponse<ClaimDonorView>>(
-      withQuery('/api/claims/me', { year: year === '' ? undefined : year, page, size: 10 })),
-    enabled: Boolean(email),
-  })
-
-  // 一併取年度小結——即使目前選的是「全部」也要打，年份下拉的選項就是靠它的
-  // availableYears，不必另開一支端點
-  const summary = useQuery({
-    queryKey: ['claims', 'annual-summary', year],
-    queryFn: () => api.get<DonorAnnualSummary>(
-      withQuery('/api/claims/me/annual-summary', { year: year === '' ? undefined : year })),
+      withQuery('/api/claims/me', { page, size: PAGE_SIZE })),
     enabled: Boolean(email),
   })
 
@@ -39,65 +37,35 @@ export function MyClaims() {
     return <div className="notice notice--info" style={{ marginTop: 40 }}>請先在右上角登入，才能查看自己的認領。</div>
   }
 
-  const availableYears = summary.data?.availableYears ?? []
+  // Array.prototype.sort 是穩定排序：同進度維持後端原本的順序
+  const sorted = [...(claims.data?.content ?? [])]
+    .sort((a, b) => (PROGRESS_ORDER[a.status] ?? 5) - (PROGRESS_ORDER[b.status] ?? 5))
 
   return (
     <section>
       <div className="list-head">
         <h1>我的認領</h1>
-        <p>寄出禮物後記得回來回報，機構才知道要準備收件。</p>
+        <p>你認領的願望都在這裡，點進去可以查看寄送資訊、回報寄送和機構對話。</p>
       </div>
-
-      <div className="toolbar">
-        <select className="input" aria-label="年度" value={year}
-          onChange={(event) => {
-            setYear(event.target.value === '' ? '' : Number(event.target.value))
-            setPage(0)
-          }}>
-          <option value="">全部年度</option>
-          {availableYears.map((y) => <option key={y} value={y}>{y}</option>)}
-        </select>
-      </div>
-
-      {/* 只在挑了特定年度時出現——「全部」跨年度加總沒有 cohort 的意義，數字容易被誤讀 */}
-      {year !== '' && summary.data && (
-        <dl className="stat-row">
-          <Stat value={summary.data.claimedCount} label="認領" />
-          <Stat value={summary.data.completedCount} label="完成" />
-          <Stat value={summary.data.childrenHelped} label="送禮孩子" unit="位" />
-          <Stat value={summary.data.organizationsSupported} label="支持機構" unit="間" />
-        </dl>
-      )}
 
       {claims.isLoading && <Spinner label="載入認領" />}
       {claims.isError && <ErrorNotice error={claims.error} onRetry={() => void claims.refetch()} />}
 
       {claims.data?.content.length === 0 && (
-        <EmptyBox title="還沒有認領任何願望">
-          <Link to="/" className="btn">去願望牆看看</Link>
-        </EmptyBox>
+        <div className="empty">
+          你還沒有認領任何願望。
+          <div><Link to="/" className="btn">去願望牆看看</Link></div>
+        </div>
       )}
 
-      {claims.data && claims.data.content.length > 0 && (
+      {sorted.length > 0 && (
         <div className="wish-grid">
-          {claims.data.content.map((claim) => <ClaimCard key={claim.id} claim={claim} />)}
+          {sorted.map((claim) => <ClaimCard key={claim.id} claim={claim} />)}
         </div>
       )}
 
       {claims.data && <Pager page={claims.data} onChange={setPage} />}
     </section>
-  )
-}
-
-function Stat({ value, label, unit }: { value: number; label: string; unit?: string }) {
-  return (
-    <div className="stat">
-      <dt>{label}</dt>
-      <dd>
-        {value}
-        {unit && <span style={{ marginLeft: 4, fontSize: 15, fontWeight: 500, color: 'var(--fg-4)' }}>{unit}</span>}
-      </dd>
-    </div>
   )
 }
 
@@ -113,7 +81,7 @@ function ClaimCard({ claim }: { claim: ClaimDonorView }) {
       className="wish-card"
       data-child={claim.childAlias}
       data-status={tab.key}
-      aria-label={`${claim.childAlias}，${claim.ageRangeLabel}，${claim.organizationName}，${claim.wishTitle}，${tab.label}`}
+      aria-label={`${claim.childAlias}，${claim.ageRangeLabel}，${claim.organizationName}，想要${claim.wishTitle}，${tab.label}`}
     >
       <span className="status-tab">{tab.label}</span>
 
