@@ -197,7 +197,7 @@ export function ClaimDetail() {
               <OrgPhoto mini />
               <div className="org__eyebrow">這份願望來自</div>
               <h2 className="mini-org__name" id="miniOrgName">{data.organizationName}</h2>
-              <p className="mini-org__intro" />
+              <p className="mini-org__intro">{data.organizationDescription}</p>
               <OrgSiteLink />
             </section>
             {data.status === 'CLAIMED' && <CancelPanel claimId={id} onCancelled={cancelled} />}

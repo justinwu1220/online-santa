@@ -79,6 +79,8 @@ export interface WishPublicView {
   publishedAt?: string
   organizationId: string
   organizationName: string
+  /** 機構簡介（機構設定），沒填為 undefined */
+  organizationDescription?: string
   imageUrl?: string
   /** 孩子手寫的感謝卡／願望信照片，沒有就是空陣列（不是 undefined） */
   letterPhotoUrls: string[]
@@ -196,6 +198,8 @@ export interface ClaimDonorView extends ClaimBase {
   ageRange: string
   ageRangeLabel: string
   organizationName: string
+  /** 機構簡介（機構設定），沒填為 undefined */
+  organizationDescription?: string
   /**
    * 寄送目的地。只出現在捐贈者自己的認領上，願望牆與願望詳情沒有這兩個欄位——
    * 認領之後才需要知道寄去哪。機構註冊時必填，但舊資料可能為空
