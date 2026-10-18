@@ -7,9 +7,12 @@ import { usePageEnter } from '../../lib/useEntryAnimation'
 import { pageTitle } from '../../lib/brand'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
 import { ACCEPTED_ORG_DOCUMENT_TYPES, MAX_ORG_DOCUMENTS, uploadImage, validateOrgDocument } from '../../lib/upload'
+import { isBundleCurrent, useAcceptTerms, useTermsStatus } from '../../lib/terms'
 import type { OrganizationView } from '../../lib/types'
 import { WrongAccountPanel } from '../../components/auth/WrongAccountPanel'
 import { Snowfall } from '../../components/Snowfall'
+import { TermsDialog } from '../../components/terms/TermsDialog'
+import { ORG_TERMS } from '../../components/terms/termsContent'
 import { FormField, Input, TextArea } from '../../components/ui/Fields'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { VerifyBar } from '../../components/ui/VerifyBar'
@@ -138,6 +141,12 @@ function ApplyForm({ email }: { email: string }) {
 
   const contactEmail = contactEmailTouched ? form.contactEmail : email
 
+  // 一般從「選機構身分註冊」進來的人在建立帳號時已經同意《合作機構參與須知》；
+  // 已經有帳號（例如原本是認領者）才進來的人還沒有，送出申請前補上
+  const orgTerms = useTermsStatus(ORG_TERMS)
+  const acceptOrgTerms = useAcceptTerms(ORG_TERMS)
+  const [termsOpen, setTermsOpen] = useState(false)
+
   const register = useMutation({
     mutationFn: async () => {
       const organization = await api.post<OrganizationView>(
@@ -207,6 +216,10 @@ function ApplyForm({ email }: { email: string }) {
             // 核准時後端還會再確認一次
             if (documents.length === 0) {
               setDocumentsError('請至少上傳一份證明文件')
+              return
+            }
+            if (orgTerms.data && !orgTerms.data.upToDate) {
+              setTermsOpen(true)
               return
             }
             register.mutate()
@@ -330,6 +343,20 @@ function ApplyForm({ email }: { email: string }) {
           </div>
         </form>
       </div>
+
+      <TermsDialog
+        open={termsOpen}
+        onClose={() => setTermsOpen(false)}
+        terms={ORG_TERMS}
+        mode="consent"
+        acceptLabel="同意並送出申請"
+        outdated={!isBundleCurrent(orgTerms.data, ORG_TERMS)}
+        onAccept={async () => {
+          await acceptOrgTerms()
+          setTermsOpen(false)
+          register.mutate()
+        }}
+      />
     </Shell>
   )
 }

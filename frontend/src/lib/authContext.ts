@@ -34,8 +34,8 @@ export interface AuthState {
   /** 註冊並自動寄出驗證信 */
   registerWithPassword: (
     email: string, password: string, displayName?: string, name?: string,
-    /** 使用者在註冊前同意的須知版本；有帶就在建好帳號後一併寫入同意紀錄 */
-    termsVersion?: string,
+    /** 使用者在註冊前同意的須知（種類與版本）；有帶就在建好帳號後一併寫入同意紀錄 */
+    consent?: { type: 'DONOR' | 'ORG'; version: string },
   ) => Promise<void>
   sendPasswordReset: (email: string) => Promise<void>
   resendVerification: () => Promise<void>

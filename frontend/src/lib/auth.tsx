@@ -27,14 +27,14 @@ const DEV_UNVERIFIED_KEY = 'online-santa.dev-unverified'
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 
 /**
- * 寫入《認領者參與須知》的同意紀錄。
+ * 寫入須知（認領者或合作機構）的同意紀錄。
  *
  * 和補寫姓名一樣直接 fetch、自己帶標頭，不靠 context——剛建好帳號時 state 還沒更新。
  * 失敗只記 log：登入後的守門（TermsGate）看到「還沒同意」會再請使用者同意一次，不會漏。
  */
-async function recordDonorConsent(headers: Record<string, string>, version: string) {
+async function recordConsent(headers: Record<string, string>, type: 'DONOR' | 'ORG', version: string) {
   try {
-    await fetch(`${API_BASE_URL}/api/me/terms/DONOR/accept`, {
+    await fetch(`${API_BASE_URL}/api/me/terms/${type}/accept`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify({ version }),
@@ -106,9 +106,9 @@ function DevAuthProvider({ children }: { children: ReactNode }) {
     // 開發模式的註冊：密碼完全不使用（只讓註冊畫面和正式環境一樣），但姓名要存。
     // 直接帶 X-Dev-User-Email 打 PATCH /api/me/profile，不靠 context 的 authHeaders——
     // 剛 signIn 時 state 還沒更新，請求可能還在用登入前的標頭
-    registerWithPassword: async (nextEmail, _password, displayName, name, termsVersion) => {
+    registerWithPassword: async (nextEmail, _password, displayName, name, consent) => {
       await signIn(nextEmail)
-      if (termsVersion) await recordDonorConsent({ 'X-Dev-User-Email': nextEmail.trim() }, termsVersion)
+      if (consent) await recordConsent({ 'X-Dev-User-Email': nextEmail.trim() }, consent.type, consent.version)
       if (!displayName) return
       try {
         await fetch(`${API_BASE_URL}/api/me/profile`, {
@@ -178,7 +178,8 @@ function FirebaseAuthProvider({ children }: { children: ReactNode }) {
   }, [auth])
 
   const registerWithPassword = useCallback(
-    async (email: string, password: string, displayName?: string, name?: string, termsVersion?: string) => {
+    async (email: string, password: string, displayName?: string, name?: string,
+      consent?: { type: 'DONOR' | 'ORG'; version: string }) => {
       if (!auth) return
       const credential = await auth.createUserWithEmailAndPassword(auth.auth, email, password)
       if (displayName) {
@@ -204,8 +205,8 @@ function FirebaseAuthProvider({ children }: { children: ReactNode }) {
           console.warn('註冊後補寫顯示名稱失敗，不影響註冊本身', error)
         }
       }
-      if (termsVersion) {
-        await recordDonorConsent({ Authorization: `Bearer ${await credential.user.getIdToken()}` }, termsVersion)
+      if (consent) {
+        await recordConsent({ Authorization: `Bearer ${await credential.user.getIdToken()}` }, consent.type, consent.version)
       }
       // 註冊完立刻寄驗證信。在點連結之前，後端會擋下認領與機構申請
       await auth.sendEmailVerification(credential.user)

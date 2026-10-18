@@ -6,7 +6,7 @@ import { termsFlow } from '../../lib/terms'
 import { KIND_NAME, KindNameButton } from './KindNameButton'
 import { SentScreen } from './SentScreen'
 import { TermsDialog } from '../terms/TermsDialog'
-import { DONOR_TERMS } from '../terms/termsContent'
+import { DONOR_TERMS, ORG_TERMS } from '../terms/termsContent'
 import { FormField, Input } from '../ui/Fields'
 import { useSlideSwap } from '../ui/SlideSwap'
 
@@ -187,19 +187,23 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
         setConfirmError('兩次輸入的密碼不一致')
         return
       }
-      if (role === 'donor') {
-        // 先跳出《認領者參與須知》，取消就回到這張表單（欄位值都還在）
-        setTermsOpen(true)
-        return
-      }
-      onJoinIntent?.(role)
-      // 機構的承辦人姓名在下一步跟機構資料一起填——它是機構的欄位，不是帳號的
-      void run(() => auth.registerWithPassword(email, password))
+      // 先跳出對應的須知（認領者：《認領者參與須知》；機構：《合作機構參與須知》），
+      // 取消就回到這張表單（欄位值都還在），同意後才真正建立帳號
+      setTermsOpen(true)
       return
     }
 
     // 登入分頁不改寫意圖：從「機構註冊遇到已有帳號」切過來的人要保留它
     void run(() => auth.signInWithPassword(email, password))
+  }
+
+  /** 機構在須知上按「同意並建立帳號」：關掉視窗，建立帳號並寫入同意紀錄，再前往機構資料。 */
+  function registerOrgAfterConsent() {
+    setTermsOpen(false)
+    onJoinIntent?.('org')
+    // 機構的承辦人姓名在下一步跟機構資料一起填——它是機構的欄位，不是帳號的
+    void run(() => auth.registerWithPassword(email, password, undefined, undefined,
+      { type: 'ORG', version: ORG_TERMS.version }))
   }
 
   /** 認領者在須知上按「同意並註冊」：關掉視窗，建立帳號並寫入同意紀錄。 */
@@ -212,7 +216,8 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
       termsFlow.registering = true
       try {
         await auth.registerWithPassword(
-          email, password, displayName.trim(), name.trim(), DONOR_TERMS.version)
+          email, password, displayName.trim(), name.trim(),
+          { type: 'DONOR', version: DONOR_TERMS.version })
       } catch (caught) {
         onAwaitVerification?.(false)
         throw caught
@@ -407,10 +412,10 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
       <TermsDialog
         open={termsOpen}
         onClose={() => setTermsOpen(false)}
-        terms={DONOR_TERMS}
+        terms={role === 'org' ? ORG_TERMS : DONOR_TERMS}
         mode="consent"
-        acceptLabel="同意並註冊"
-        onAccept={registerDonorAfterConsent}
+        acceptLabel={role === 'org' ? '同意並建立帳號' : '同意並註冊'}
+        onAccept={role === 'org' ? registerOrgAfterConsent : registerDonorAfterConsent}
       />
     </div>
   )

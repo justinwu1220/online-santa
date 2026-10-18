@@ -136,12 +136,13 @@ APP_ADMIN_EMAILS=you@example.com ./mvnw spring-boot:run
 
 ## 須知同意與首次登入說明
 
-- **認領者參與須知**：註冊與認領前必須同意。同意紀錄存在 `terms_consents`（只增不改，
+- **兩份須知**：《認領者參與須知》（註冊與認領前必須同意）與《合作機構參與須知》（機構註冊建立帳號時同意，送出機構申請前後端會再檢查）。同意紀錄存在 `terms_consents`（只增不改，
   每次同意新增一列：使用者、須知、版本、時間），是否需要重新同意看「最新一筆的版本是否
   等於目前版本」。
 - **改版須知時**必須同時改兩處，否則前端會顯示「網站內容已更新，請重新整理」並拒絕同意：
-  後端 `app.terms.donor-version`（`application.yml`／環境變數 `APP_TERMS_DONOR_VERSION`）與
-  前端 `DONOR_TERMS.version`（`components/terms/termsContent.tsx`）。
+  後端 `app.terms.donor-version`／`org-version`（`application.yml`／環境變數 `APP_TERMS_DONOR_VERSION`、
+  `APP_TERMS_ORG_VERSION`）與前端 `DONOR_TERMS.version`／`ORG_TERMS.version`
+  （`components/terms/termsContent.tsx`，由設計稿的 TERMS 產生，不要手打）。
 - **首次登入說明**（「開始之前」）看完後記錄在 `users.onboarded_at`，之後不再自動跳出；
   標頭的 ⓘ 可重看。
 - **捐贈收據**：認領者回報寄送時可申請，個資加密儲存，僅管理員可在稽核下檢視。
@@ -217,6 +218,7 @@ Cloud Run 是 scale-to-zero 的，映像檔用 AppCDS 把啟動路徑上的類�
 | `GCS_PRIVATE_BUCKET` | 私密 bucket 名稱（寄送證明、收件證明） |
 | `RECEIPT_ENCRYPTION_KEY` | 捐贈收據個資的加密金鑰（後端啟動必要） |
 | `APP_TERMS_DONOR_VERSION` | 目前《認領者參與須知》版本（見下） |
+| `APP_TERMS_ORG_VERSION` | 目前《合作機構參與須知》版本（見下） |
 | `INTERNAL_JOB_AUDIENCE` | Cloud Scheduler OIDC token 的 audience，設為本服務網址 |
 | `SCHEDULER_SERVICE_ACCOUNT` | 允許觸發排程的服務帳號 email |
 

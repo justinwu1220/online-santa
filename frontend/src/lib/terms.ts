@@ -1,12 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
-import { DONOR_TERMS } from '../components/terms/termsContent'
+import { DONOR_TERMS, type TermsDocument } from '../components/terms/termsContent'
 import { api } from './api'
 import { useAuth } from './authContext'
 
 /** 後端回傳的某份須知對目前使用者的狀態（見後端 TermsStatusView）。 */
 export interface TermsStatus {
-  type: 'DONOR'
+  type: 'DONOR' | 'ORG'
   title: string
   /** 後端目前的版本 */
   currentVersion: string
@@ -23,18 +23,23 @@ export interface TermsStatus {
  */
 export const termsFlow = { registering: false }
 
-/** 認領者須知的同意狀態。沒登入時不查。 */
-export function useDonorTerms() {
+/** 某份須知的同意狀態。沒登入時不查。 */
+export function useTermsStatus(terms: TermsDocument) {
   const { email } = useAuth()
   return useQuery({
-    queryKey: ['terms', email],
+    queryKey: ['terms', email, terms.type],
     queryFn: async () => {
       const all = await api.get<TermsStatus[]>('/api/me/terms')
-      return all.find((item) => item.type === 'DONOR') ?? null
+      return all.find((item) => item.type === terms.type) ?? null
     },
     enabled: Boolean(email),
     staleTime: 60_000,
   })
+}
+
+/** 認領者須知的同意狀態。 */
+export function useDonorTerms() {
+  return useTermsStatus(DONOR_TERMS)
 }
 
 /**
@@ -43,15 +48,19 @@ export function useDonorTerms() {
  * 不一致（後端已改版、網站還是舊的前端）時不能讓使用者「同意」：他看到的是舊文字，
  * 同意紀錄卻會寫成新版本。
  */
-export function isBundleCurrent(status?: TermsStatus | null) {
-  return !status || status.currentVersion === DONOR_TERMS.version
+export function isBundleCurrent(status?: TermsStatus | null, terms: TermsDocument = DONOR_TERMS) {
+  return !status || status.currentVersion === terms.version
 }
 
 /** 送出同意（版本是畫面上這份須知自己的版本），成功後重新查詢狀態。 */
-export function useAcceptDonorTerms() {
+export function useAcceptTerms(terms: TermsDocument) {
   const queryClient = useQueryClient()
   return useCallback(async () => {
-    await api.post<TermsStatus>('/api/me/terms/DONOR/accept', { version: DONOR_TERMS.version })
+    await api.post<TermsStatus>(`/api/me/terms/${terms.type}/accept`, { version: terms.version })
     await queryClient.invalidateQueries({ queryKey: ['terms'] })
-  }, [queryClient])
+  }, [queryClient, terms])
+}
+
+export function useAcceptDonorTerms() {
+  return useAcceptTerms(DONOR_TERMS)
 }
