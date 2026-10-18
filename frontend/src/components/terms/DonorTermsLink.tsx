@@ -26,6 +26,7 @@ export function DonorTermsLink() {
         onClose={() => setOpen(false)}
         terms={DONOR_TERMS}
         mode={needsConsent ? 'consent' : 'readonly'}
+        agreed={status.data?.upToDate === true}
         acceptedAt={status.data?.upToDate ? status.data.acceptedAt : undefined}
         acceptLabel="同意並繼續"
         outdated={!isBundleCurrent(status.data)}

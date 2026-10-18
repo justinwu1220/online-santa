@@ -20,13 +20,15 @@ const REACHED_TOLERANCE = 12
  * 放進 `.rd` 的 portal 而不是原地渲染——原地的話 `<dialog>` 會落在 `<p>` 裡，不合法的巢狀。
  */
 export function TermsDialog({
-  open, onClose, terms, mode = 'readonly', acceptedAt, acceptLabel = '同意', onAccept, outdated = false,
+  open, onClose, terms, mode = 'readonly', agreed = false, acceptedAt, acceptLabel = '同意', onAccept, outdated = false,
 }: {
   open: boolean
   /** consent 模式下就是「取消」（含右上 ×、Esc） */
   onClose: () => void
   terms: TermsDocument
   mode?: 'consent' | 'readonly'
+  /** readonly：這個人已經同意這份須知（沒有 acceptedAt 時顯示「你已同意這份須知」） */
+  agreed?: boolean
   acceptedAt?: string
   /** consent 模式的主要按鈕文字，例如「同意並註冊」 */
   acceptLabel?: string
@@ -111,6 +113,10 @@ export function TermsDialog({
   } else if (acceptedAt) {
     hint = `你已於 ${formatDateTime(acceptedAt)} 同意這份須知（${edition}）。`
     hintOk = true
+  } else if (agreed) {
+    // 原型在沒有同意時間可顯示時的寫法
+    hint = `你已同意這份須知（${edition}）。`
+    hintOk = true
   }
 
   return createPortal(
@@ -130,7 +136,7 @@ export function TermsDialog({
       </div>
       <div className="terms__foot">
         {hint && <p className={`terms__hint${hintOk ? ' is-ok' : ''}`} aria-live="polite">{hint}</p>}
-        {(consent || acceptedAt) && (
+        {(consent || acceptedAt || agreed) && (
           <label className={`terms__chk${consent && !reached ? ' is-off' : ''}`}>
             <input ref={checkbox} type="checkbox" checked={checked}
               disabled={!consent || !reached || outdated}

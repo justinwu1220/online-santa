@@ -78,7 +78,9 @@ class TermsApiIT extends ApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.upToDate").value(true))
                 .andExpect(jsonPath("$.acceptedVersion").value(CURRENT))
-                .andExpect(jsonPath("$.acceptedAt").exists());
+                // 前端用 new Date() 解析來顯示「你已於…同意」：必須是 ISO 字串，不能是數字時間戳
+                .andExpect(jsonPath("$.acceptedAt").value(
+                        org.hamcrest.Matchers.matchesPattern("\\d{4}-\\d{2}-\\d{2}T.*")));
 
         mvc.perform(as(withBody(post("/api/me/terms/DONOR/accept"), body(CURRENT)), DONOR))
                 .andExpect(status().isOk());
