@@ -131,20 +131,20 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
             onChange={(event) => setTrackingNumber(event.target.value)} />
         </FormField>
 
-        <FormField label="實際寄出的禮物" required span={4} hintBeside
+        <FormField label="實際寄出的禮物" required span={4}
           hint="名稱與規格" error={fieldErrors?.giftDescription}>
           <Input required maxLength={200} value={giftDescription}
             placeholder="蠟筆小新變形機器人（約 20 公分）"
             onChange={(event) => setGiftDescription(event.target.value)} />
         </FormField>
-        <FormField label="數量" required span={2} hintBeside hint="以「份」計算" error={fieldErrors?.giftQuantity}>
+        <FormField label="數量" required span={2} hint="以「份」計算" error={fieldErrors?.giftQuantity}>
           <UnitInput unit="份" min={1} max={9999} value={giftQuantity} onChange={setGiftQuantity} />
         </FormField>
 
-        <FormField label="禮物價格" required span={3} hintBeside hint="以購買發票上的金額為準" error={fieldErrors?.giftPrice}>
+        <FormField label="禮物價格" required span={3} hint="以購買發票上的金額為準" error={fieldErrors?.giftPrice}>
           <UnitInput unit="元" min={0} max={10000000} value={giftPrice} onChange={setGiftPrice} />
         </FormField>
-        <FormField label="寄出日期" required span={3} hintBeside hint="預設為今天" error={fieldErrors?.shippedOn}>
+        <FormField label="寄出日期" required span={3} hint="預設為今天" error={fieldErrors?.shippedOn}>
           <Input required type="date" max={todayPlainDate()} value={shippedOn}
             onChange={(event) => setShippedOn(event.target.value)} />
         </FormField>
@@ -177,23 +177,23 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
                 <div className="receipt__fields">
                   <div className="form-grid">
                     <FormField label="姓名或公司名稱" required={receiptEnabled} span={3}
-                      hintBeside hint="真實姓名或單位全銜，需與報稅身分一致" error={fieldErrors?.['receipt.name']}>
+                      hint="真實姓名或單位全銜，需與報稅身分一致" error={fieldErrors?.['receipt.name']}>
                       <Input required={receiptEnabled} maxLength={100} value={receipt.name}
                         onChange={updateReceipt('name')} />
                     </FormField>
                     <FormField label="身分證字號或統一編號" required={receiptEnabled} span={3}
-                      hintBeside hint="個人填身分證或居留證號，公司填統一編號"
+                      hint="個人填身分證或居留證號，公司填統一編號"
                       error={idNumberError ?? fieldErrors?.['receipt.idNumber']}>
                       <Input required={receiptEnabled} maxLength={10} autoComplete="off"
                         value={receipt.idNumber} onChange={updateReceipt('idNumber')} />
                     </FormField>
                     <FormField label="電子信箱" required={receiptEnabled} span={3}
-                      hintBeside hint="電子收據會寄到這裡" error={fieldErrors?.['receipt.email']}>
+                      hint="電子收據會寄到這裡" error={fieldErrors?.['receipt.email']}>
                       <Input required={receiptEnabled} type="email" maxLength={255}
                         value={receipt.email} onChange={updateReceipt('email')} />
                     </FormField>
                     <FormField label="收件地址" required={receiptEnabled} span={3}
-                      hintBeside hint="預設寄電子檔；要紙本請寫信到 onlinesanta2026@gmail.com"
+                      hint="預設寄電子檔；要紙本請寫信到 onlinesanta2026@gmail.com"
                       error={fieldErrors?.['receipt.address']}>
                       <Input required={receiptEnabled} maxLength={255}
                         value={receipt.address} onChange={updateReceipt('address')} />
@@ -298,7 +298,7 @@ function FilePicker({ label, hint, buttonText, icon, required = true, files, onC
   }
 
   return (
-    <FormField as="div" label={label} required={required} span={6} hintBeside hint={hint} error={error}>
+    <FormField as="div" label={label} required={required} span={6} hint={hint} error={error}>
       <div className="upload">
         {files.length < max && (
           <span className="upload__btn">
