@@ -554,6 +554,7 @@ class AdminMonitoringIT extends ApiIntegrationTest {
         Organization pending = organizations.save(
                 Organization.register("待審之家", "王承辦", "pending@example.org", null, null, null));
         givenConfirmedOrganizationDocument(pending.getId());
+        givenConfirmedOrganizationPhoto(pending.getId());
 
         mvc.perform(as(post("/api/admin/organizations/{id}/approve", pending.getId()), ADMIN))
                 .andExpect(status().isOk());

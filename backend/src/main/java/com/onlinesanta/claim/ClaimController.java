@@ -92,7 +92,9 @@ public class ClaimController {
     @GetMapping("/claims/{id}")
     @Operation(summary = "認領詳情", description = "僅該筆認領的捐贈者與願望所屬機構可見")
     public ClaimDonorView getOne(@PathVariable UUID id) {
-        return ClaimDonorView.from(claims.getVisibleById(id), messages.unreadCount(id));
+        Claim claim = claims.getVisibleById(id);
+        return ClaimDonorView.from(claim, messages.unreadCount(id),
+                attachments.organizationPhotoUrl(claim.getWish().getOrganization().getId()));
     }
 
     @GetMapping("/claims/{id}/timeline")

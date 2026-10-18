@@ -177,13 +177,13 @@ export function WishDetail() {
       />
 
       <section className="org" id="org" aria-labelledby="orgName">
-        <OrgPhoto orgName={data.organizationName} />
+        <OrgPhoto src={data.organizationPhotoUrl} orgName={data.organizationName} />
         <div className="org__body">
           <div className="org__eyebrow">這份願望來自</div>
           <h2 className="org__name" id="orgName">{data.organizationName}</h2>
           {/* 機構在「機構設定」填的簡介；沒填就不渲染（避免多出一段空白間距） */}
           {data.organizationDescription && <p className="org__intro">{data.organizationDescription}</p>}
-          <OrgSiteLink />
+          <OrgSiteLink href={data.organizationWebsite} />
         </div>
       </section>
 

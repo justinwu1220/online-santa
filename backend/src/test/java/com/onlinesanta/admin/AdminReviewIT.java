@@ -31,6 +31,7 @@ class AdminReviewIT extends ApiIntegrationTest {
     private UUID registerOrganization(String name, String memberEmail) throws Exception {
         UUID orgId = registerOrganizationWithoutDocument(name, memberEmail);
         uploadConfirmedAttachment(AttachmentPurpose.ORG_DOCUMENT, orgId, memberEmail);
+        givenConfirmedOrganizationPhoto(orgId);
         return orgId;
     }
 
@@ -175,8 +176,13 @@ class AdminReviewIT extends ApiIntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("ORG_DOCUMENT_REQUIRED"));
 
-        // 補上文件之後就能核准
+        // 補上文件之後，還要有機構照片才能核准
         uploadConfirmedAttachment(AttachmentPurpose.ORG_DOCUMENT, orgId, ORG_USER);
+        mvc.perform(as(post("/api/admin/organizations/{id}/approve", orgId), ADMIN))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("ORG_PHOTO_REQUIRED"));
+
+        uploadConfirmedAttachment(AttachmentPurpose.ORG_PHOTO, orgId, ORG_USER);
         mvc.perform(as(post("/api/admin/organizations/{id}/approve", orgId), ADMIN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("APPROVED"));
@@ -214,7 +220,7 @@ class AdminReviewIT extends ApiIntegrationTest {
         // 授權那一條根本不會被執行到，測試就會因為錯誤的理由而通過
         var request = new OrganizationRegistrationRequest(
                 "球員兼裁判之家", "王承辦", "admin@example.org", "02-1234-5678", "0912-345-678",
-                "台北市某路 1 號", "平日上午9:00-下午5:00", null);
+                "台北市某路 1 號", "平日上午9:00-下午5:00", "服務失依兒童");
 
         mvc.perform(as(withBody(post("/api/organizations"), request), ADMIN))
                 .andExpect(status().isConflict())

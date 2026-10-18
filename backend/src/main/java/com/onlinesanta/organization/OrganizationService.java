@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.onlinesanta.auth.AppPrincipal;
 import com.onlinesanta.auth.CurrentUserService;
+import com.onlinesanta.common.PhoneFormat;
 import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.organization.dto.OrganizationRegistrationRequest;
@@ -54,15 +55,17 @@ public class OrganizationService {
             throw new BusinessRuleException("ORGANIZATION_NAME_TAKEN", "這個機構名稱已被註冊");
         }
 
-        Organization organization = organizations.save(Organization.register(
+        Organization organization = Organization.register(
                 request.name(),
                 request.contactPerson(),
                 request.contactEmail(),
-                request.contactPhone(),
-                request.mobilePhone(),
+                landline(request.contactPhone()),
+                mobile(request.mobilePhone()),
                 request.address(),
                 request.preferredDeliveryTime(),
-                request.description()));
+                request.description().trim());
+        organization.updateWebsite(request.website());
+        organization = organizations.save(organization);
 
         User user = users.findById(principal.userId())
                 .orElseThrow(() -> ResourceNotFoundException.of("使用者", principal.userId()));
@@ -89,14 +92,24 @@ public class OrganizationService {
                 request.name(),
                 request.contactPerson(),
                 request.contactEmail(),
-                request.contactPhone(),
-                request.mobilePhone(),
+                landline(request.contactPhone()),
+                mobile(request.mobilePhone()),
                 request.address(),
                 request.preferredDeliveryTime(),
-                request.description());
+                request.description().trim());
+        organization.updateWebsite(request.website());
         organization.updateReleasePolicy(request.releasePolicy(), request.releaseAfterDays());
 
         return organization;
+    }
+
+    /** 驗證過的電話一律存加了 dash 的格式；空白原樣保留（聯絡電話可清空）。 */
+    private static String mobile(String input) {
+        return input == null || input.isBlank() ? input : PhoneFormat.mobile(input).orElse(input);
+    }
+
+    private static String landline(String input) {
+        return input == null || input.isBlank() ? input : PhoneFormat.landline(input).orElse(input);
     }
 
     /** 被退件的機構補件後重新送審。 */

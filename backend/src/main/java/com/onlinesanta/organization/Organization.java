@@ -47,6 +47,10 @@ public class Organization extends BaseEntity {
     @Column(columnDefinition = "text")
     private String description;
 
+    /** 機構官方網站（選填，完整網址）。願望詳細頁的「前往機構官方網站」按鈕。 */
+    @Column(length = 255)
+    private String website;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private OrganizationStatus status;
@@ -120,6 +124,10 @@ public class Organization extends BaseEntity {
         this.address = address;
         this.preferredDeliveryTime = preferredDeliveryTime;
         this.description = description;
+    }
+
+    public void updateWebsite(String website) {
+        this.website = website == null || website.isBlank() ? null : website.trim();
     }
 
     /**
@@ -224,6 +232,10 @@ public class Organization extends BaseEntity {
 
     public String getDescription() {
         return description;
+    }
+
+    public String getWebsite() {
+        return website;
     }
 
     public OrganizationStatus getStatus() {

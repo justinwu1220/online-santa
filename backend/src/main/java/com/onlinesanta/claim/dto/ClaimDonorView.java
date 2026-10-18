@@ -31,6 +31,10 @@ public record ClaimDonorView(
         String organizationName,
         /** 機構簡介（機構設定），認領頁右欄的機構小卡顯示；沒填為 null */
         String organizationDescription,
+        /** 機構官方網站，沒填為 null */
+        String organizationWebsite,
+        /** 機構照片的限時網址，只有認領詳情（單筆）會帶，清單與沒上傳照片時為 null */
+        String organizationPhotoUrl,
         /** 寄送目的地。機構註冊時必填，舊資料可能為空，前端要有沒填時的說法 */
         String organizationAddress,
         String organizationPhone,
@@ -59,6 +63,10 @@ public record ClaimDonorView(
     }
 
     public static ClaimDonorView from(Claim claim, long unreadMessageCount) {
+        return from(claim, unreadMessageCount, null);
+    }
+
+    public static ClaimDonorView from(Claim claim, long unreadMessageCount, String organizationPhotoUrl) {
         Wish wish = claim.getWish();
         return new ClaimDonorView(
                 claim.getId(),
@@ -73,6 +81,8 @@ public record ClaimDonorView(
                 wish.getOrganization().getDescription() == null
                         || wish.getOrganization().getDescription().isBlank()
                         ? null : wish.getOrganization().getDescription().trim(),
+                wish.getOrganization().getWebsite(),
+                organizationPhotoUrl,
                 // ClaimRepository 的 @EntityGraph 已經把 wish.organization 抓進來了，
                 // 這兩個 getter 不會多打一次查詢
                 wish.getOrganization().getAddress(),

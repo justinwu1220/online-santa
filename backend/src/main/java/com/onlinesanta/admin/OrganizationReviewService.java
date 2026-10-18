@@ -70,6 +70,10 @@ public class OrganizationReviewService {
             throw new BusinessRuleException("ORG_DOCUMENT_REQUIRED",
                     "這個機構還沒有上傳任何證明文件，無法核准");
         }
+        if (!attachments.hasOrganizationPhoto(organizationId)) {
+            throw new BusinessRuleException("ORG_PHOTO_REQUIRED",
+                    "這個機構還沒有上傳機構照片，無法核准");
+        }
         organization.approve(admin.userId(), request.note());
         audit.record(AdminAuditAction.APPROVE_ORGANIZATION, organizationId, organization.getName());
         eventPublisher.publishEvent(new OrganizationReviewedEvent(organizationId, true));

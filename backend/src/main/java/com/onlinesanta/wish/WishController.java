@@ -82,7 +82,8 @@ public class WishController {
         Wish wish = wishes.getPublicById(id);
         return WishPublicView.from(
                 wish, attachments.wishImageUrl(id), attachments.wishLetterUrls(id),
-                claims.shipDeadlineDays(wish.getOrganization()));
+                claims.shipDeadlineDays(wish.getOrganization()),
+                attachments.organizationPhotoUrl(wish.getOrganization().getId()));
     }
 
     // ---------------------------------------------------------------- 機構操作

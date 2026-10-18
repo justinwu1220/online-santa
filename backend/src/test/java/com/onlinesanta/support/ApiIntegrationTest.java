@@ -40,7 +40,7 @@ public abstract class ApiIntegrationTest extends PostgresIntegrationTest {
     protected ObjectStorage storage;
 
     @Autowired
-    private AttachmentRepository attachmentRepository;
+    protected AttachmentRepository attachmentRepository;
 
     /**
      * 直接寫入一份已確認的機構證明文件。給沒有機構成員、無法走上傳流程的測試機構用
@@ -51,6 +51,14 @@ public abstract class ApiIntegrationTest extends PostgresIntegrationTest {
                 "org-documents/" + UUID.randomUUID() + ".jpg", "image/jpeg", null, null);
         document.confirm("image/jpeg", 120_000);
         attachmentRepository.save(document);
+    }
+
+    /** 核准機構的另一個前提：已確認的機構照片。 */
+    protected void givenConfirmedOrganizationPhoto(UUID organizationId) {
+        Attachment photo = Attachment.pending(AttachmentPurpose.ORG_PHOTO, organizationId,
+                "org-photos/" + UUID.randomUUID() + ".jpg", "image/jpeg", null, null);
+        photo.confirm("image/jpeg", 120_000);
+        attachmentRepository.save(photo);
     }
 
     /**

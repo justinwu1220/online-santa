@@ -18,6 +18,9 @@ public record OrganizationView(
         String address,
         String preferredDeliveryTime,
         String description,
+        String website,
+        /** 機構照片的限時網址；還沒上傳為 null */
+        String photoUrl,
         OrganizationStatus status,
         String reviewNote,
         Instant reviewedAt,
@@ -29,6 +32,10 @@ public record OrganizationView(
         Instant createdAt) {
 
     public static OrganizationView from(Organization org) {
+        return from(org, null);
+    }
+
+    public static OrganizationView from(Organization org, String photoUrl) {
         return new OrganizationView(
                 org.getId(),
                 org.getName(),
@@ -39,6 +46,8 @@ public record OrganizationView(
                 org.getAddress(),
                 org.getPreferredDeliveryTime(),
                 org.getDescription(),
+                org.getWebsite(),
+                photoUrl,
                 org.getStatus(),
                 org.getReviewNote(),
                 org.getReviewedAt(),

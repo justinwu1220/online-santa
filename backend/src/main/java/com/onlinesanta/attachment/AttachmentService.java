@@ -236,6 +236,10 @@ public class AttachmentService {
             throw new BusinessRuleException("ATTACHMENT_NOT_DELETABLE",
                     "機構文件如有問題，請聯繫平台管理員協助刪除，機構無法自行刪除");
         }
+        if (attachment.getPurpose() == AttachmentPurpose.ORG_PHOTO) {
+            throw new BusinessRuleException("ATTACHMENT_NOT_DELETABLE",
+                    "機構照片請直接上傳新照片取代，不支援刪除");
+        }
         // 發票證明是申報收據的依據，同樣收在管理員手上，捐贈者送出後不能自行刪除
         if (attachment.getPurpose() == AttachmentPurpose.RECEIPT_PROOF && !deletedByAdmin) {
             throw new BusinessRuleException("ATTACHMENT_NOT_DELETABLE",
@@ -272,6 +276,8 @@ public class AttachmentService {
                     "requireDeletablePurpose 應該已經擋掉 ORG_DOCUMENT");
             case RECEIPT_PROOF -> throw new IllegalStateException(
                     "requireDeletablePurpose 應該已經擋掉 RECEIPT_PROOF");
+            case ORG_PHOTO -> throw new IllegalStateException(
+                    "requireDeletablePurpose 應該已經擋掉 ORG_PHOTO");
         }
     }
 
@@ -336,6 +342,22 @@ public class AttachmentService {
                 .collect(Collectors.groupingBy(
                         Attachment::getOwnerId,
                         Collectors.mapping(this::toView, Collectors.toList())));
+    }
+
+    /** 機構照片的限時網址；還沒上傳為 null。 */
+    @Transactional(readOnly = true)
+    public String organizationPhotoUrl(UUID organizationId) {
+        return attachments.findFirstByPurposeAndOwnerIdAndUploadStatusOrderByConfirmedAtDesc(
+                        AttachmentPurpose.ORG_PHOTO, organizationId, UploadStatus.CONFIRMED)
+                .map(attachment -> toView(attachment).url())
+                .orElse(null);
+    }
+
+    /** 機構有沒有已確認的照片。核准前的檢查用，不必簽網址。 */
+    @Transactional(readOnly = true)
+    public boolean hasOrganizationPhoto(UUID organizationId) {
+        return attachments.countByPurposeAndOwnerIdAndUploadStatus(
+                AttachmentPurpose.ORG_PHOTO, organizationId, UploadStatus.CONFIRMED) > 0;
     }
 
     /** 機構有沒有至少一份已確認的證明文件。核准前的檢查用，不必簽網址。 */
@@ -424,7 +446,7 @@ public class AttachmentService {
             case WISH_IMAGE -> authorizeWishImage(targetId, principal);
             case SHIPPING_PROOF -> authorizeShippingProof(targetId, principal);
             case ORG_FEEDBACK -> authorizeOrganizationFeedback(targetId, principal);
-            case ORG_DOCUMENT -> authorizeOrgDocument(targetId, principal);
+            case ORG_DOCUMENT, ORG_PHOTO -> authorizeOrgDocument(targetId, principal);
             case WISH_LETTER -> authorizeWishLetter(targetId, principal);
             case RECEIPT_PROOF -> authorizeReceiptProof(targetId, principal);
         }
@@ -547,6 +569,11 @@ public class AttachmentService {
     private void requireAllowedContentType(AttachmentPurpose purpose, String contentType) {
         boolean pdfAllowed = purpose == AttachmentPurpose.ORG_DOCUMENT
                 || purpose == AttachmentPurpose.RECEIPT_PROOF;
+        // 機構照片只收 JPG／PNG（SPEC 13.4）；其餘用途沿用全站設定
+        if (purpose == AttachmentPurpose.ORG_PHOTO
+                && !("image/jpeg".equals(contentType) || "image/png".equals(contentType))) {
+            throw new BusinessRuleException("UNSUPPORTED_CONTENT_TYPE", "機構照片只接受 JPG 或 PNG");
+        }
         boolean allowed = properties.allows(contentType)
                 || (pdfAllowed && "application/pdf".equals(contentType));
         if (!allowed) {

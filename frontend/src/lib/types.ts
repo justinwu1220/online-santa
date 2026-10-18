@@ -84,6 +84,10 @@ export interface WishPublicView {
   organizationName: string
   /** 機構簡介（機構設定），沒填為 undefined */
   organizationDescription?: string
+  /** 機構官方網站，沒填為 undefined */
+  organizationWebsite?: string
+  /** 機構照片的限時網址，沒上傳為 undefined */
+  organizationPhotoUrl?: string
   imageUrl?: string
   /** 孩子手寫的感謝卡／願望信照片，沒有就是空陣列（不是 undefined） */
   letterPhotoUrls: string[]
@@ -152,6 +156,10 @@ export interface OrganizationView {
   address?: string
   preferredDeliveryTime?: string
   description?: string
+  /** 官方網站（完整網址），沒填為 undefined */
+  website?: string
+  /** 機構照片的限時網址，沒上傳為 undefined */
+  photoUrl?: string
   status: OrganizationStatus
   reviewNote?: string
   reviewedAt?: string
@@ -204,6 +212,9 @@ export interface ClaimDonorView extends ClaimBase {
   organizationName: string
   /** 機構簡介（機構設定），沒填為 undefined */
   organizationDescription?: string
+  organizationWebsite?: string
+  /** 只有單筆認領詳情會帶；清單沒有 */
+  organizationPhotoUrl?: string
   /**
    * 寄送目的地。只出現在捐贈者自己的認領上，願望牆與願望詳情沒有這兩個欄位——
    * 認領之後才需要知道寄去哪。機構註冊時必填，但舊資料可能為空

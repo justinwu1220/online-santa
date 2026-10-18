@@ -43,25 +43,29 @@ public class OrganizationController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "自助註冊機構", description = "註冊後狀態為 PENDING，須待管理員核准才能上架願望")
     public OrganizationView register(@Valid @RequestBody OrganizationRegistrationRequest request) {
-        return OrganizationView.from(organizations.register(request));
+        Organization created = organizations.register(request);
+        return OrganizationView.from(created, attachments.organizationPhotoUrl(created.getId()));
     }
 
     @GetMapping("/me")
     @Operation(summary = "取得自己機構的資料")
     public OrganizationView getMine() {
-        return OrganizationView.from(organizations.getMine());
+        Organization mine = organizations.getMine();
+        return OrganizationView.from(mine, attachments.organizationPhotoUrl(mine.getId()));
     }
 
     @PatchMapping("/me")
     @Operation(summary = "更新機構資料與逾期釋回政策")
     public OrganizationView updateMine(@Valid @RequestBody OrganizationUpdateRequest request) {
-        return OrganizationView.from(organizations.updateMine(request));
+        Organization updated = organizations.updateMine(request);
+        return OrganizationView.from(updated, attachments.organizationPhotoUrl(updated.getId()));
     }
 
     @PostMapping("/me/resubmit")
     @Operation(summary = "補件後重新送審")
     public OrganizationView resubmit() {
-        return OrganizationView.from(organizations.resubmitMine());
+        Organization resubmitted = organizations.resubmitMine();
+        return OrganizationView.from(resubmitted, attachments.organizationPhotoUrl(resubmitted.getId()));
     }
 
     @GetMapping("/me/documents")

@@ -114,7 +114,7 @@ class EmailVerificationIT extends ApiIntegrationTest {
         // 同上：欄位要填滿，才驗得到「信箱未驗證被擋下」而不是欄位驗證
         var request = new OrganizationRegistrationRequest(
                 "假機構", "王承辦", "fake@example.org", "02-1234-5678", "0912-345-678",
-                "台北市某路 1 號", "平日上午9:00-下午5:00", null);
+                "台北市某路 1 號", "平日上午9:00-下午5:00", "服務失依兒童");
 
         mvc.perform(asUnverified(withBody(post("/api/organizations"), request), NEWCOMER))
                 .andExpect(status().isForbidden())

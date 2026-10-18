@@ -1,9 +1,8 @@
 import { ExternalLink } from 'lucide-react'
 
 /**
- * 機構照片與官方網站連結，結構照 prototype.html。後端還沒有這兩個欄位
- * （見 docs/redesign-1018-deferred.md #12），所以目前一律是佔位與停用狀態；
- * 之後有資料時傳入 `src`／`href` 即可。
+ * 機構照片與官方網站連結，結構照 prototype.html。機構沒上傳照片或沒填官網時
+ * 顯示佔位與停用狀態（舊機構在補填之前都是這樣）。
  */
 export function OrgPhoto({ src, orgName, mini = false }: {
   src?: string | null

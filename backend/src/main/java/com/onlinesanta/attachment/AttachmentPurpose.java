@@ -37,7 +37,14 @@ public enum AttachmentPurpose {
      * 含身分與消費資訊，私密。<strong>只有平台管理員讀得到</strong>——機構看不到，
      * 所以不在 {@code AttachmentService.claimAttachments} 的清單裡，由專用方法讀取。
      */
-    RECEIPT_PROOF(StorageBucket.PRIVATE, "receipt-proofs", 3);
+    RECEIPT_PROOF(StorageBucket.PRIVATE, "receipt-proofs", 3),
+
+    /**
+     * 機構照片（橫式 3:2，只收 JPG／PNG），由機構承辦人上傳，掛在機構上，限一張，換新直接取代舊檔。
+     * 願望詳細頁與認領頁的「這份願望來自」區塊顯示——私密 bucket，讀取時簽出限時網址；
+     * 平台審核機構時一併檢查，核准前不會出現在公開頁（核准前機構的願望本來就不公開）。
+     */
+    ORG_PHOTO(StorageBucket.PRIVATE, "org-photos", 1);
 
     private final StorageBucket bucket;
     private final String prefix;

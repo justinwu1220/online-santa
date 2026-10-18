@@ -36,6 +36,10 @@ public record WishPublicView(
         String organizationName,
         /** 機構在「機構設定」填的簡介，願望頁的「這份願望來自」區塊顯示；沒填為 null */
         String organizationDescription,
+        /** 機構官方網站，沒填為 null */
+        String organizationWebsite,
+        /** 機構照片的限時網址，沒上傳為 null */
+        String organizationPhotoUrl,
         String imageUrl,
         List<String> letterPhotoUrls,
         int shipDeadlineDays) {
@@ -45,7 +49,7 @@ public record WishPublicView(
     }
 
     public static WishPublicView from(Wish wish) {
-        return from(wish, null, List.of(), 0);
+        return from(wish, null, List.of(), 0, null);
     }
 
     /**
@@ -54,7 +58,8 @@ public record WishPublicView(
      * @param shipDeadlineDays 認領後預計要在幾天內寄出（依機構的逾期處理設定），供認領前預告日期
      */
     public static WishPublicView from(
-            Wish wish, String imageUrl, List<String> letterPhotoUrls, int shipDeadlineDays) {
+            Wish wish, String imageUrl, List<String> letterPhotoUrls, int shipDeadlineDays,
+            String organizationPhotoUrl) {
         return new WishPublicView(
                 wish.getId(),
                 wish.getTitle(),
@@ -73,6 +78,8 @@ public record WishPublicView(
                 wish.getOrganization().getId(),
                 wish.getOrganization().getName(),
                 blankToNull(wish.getOrganization().getDescription()),
+                wish.getOrganization().getWebsite(),
+                organizationPhotoUrl,
                 imageUrl,
                 letterPhotoUrls,
                 shipDeadlineDays);

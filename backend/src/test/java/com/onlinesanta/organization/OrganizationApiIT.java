@@ -1,15 +1,21 @@
 package com.onlinesanta.organization;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.UUID;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import com.onlinesanta.attachment.AttachmentPurpose;
+import com.onlinesanta.attachment.UploadStatus;
+import com.onlinesanta.attachment.dto.UploadUrlRequest;
 import com.onlinesanta.organization.dto.OrganizationRegistrationRequest;
 import com.onlinesanta.organization.dto.OrganizationUpdateRequest;
 import com.onlinesanta.support.ApiIntegrationTest;
@@ -104,7 +110,7 @@ class OrganizationApiIT extends ApiIntegrationTest {
         // 行動電話清空會被擋（聯絡電話則可以空）
         var cleared = new OrganizationUpdateRequest(
                 "先建立起來", "王承辦", "contact@example.org", "   ", "", "",
-                "平日上午9:00-下午5:00", null, ReleasePolicy.MANUAL, null);
+                "平日上午9:00-下午5:00", "服務失依兒童", ReleasePolicy.MANUAL, null);
 
         mvc.perform(as(withBody(patch("/api/organizations/me"), cleared), ORG_USER))
                 .andExpect(status().isBadRequest())
@@ -117,7 +123,7 @@ class OrganizationApiIT extends ApiIntegrationTest {
         // 只有手機的小型機構是真實情境，必須過——聯絡電話是選填
         var mobileOnly = new OrganizationRegistrationRequest(
                 "只有手機之家", "王承辦", "contact@example.org", null, "0912-345-678",
-                "台北市中正區某路 1 號", "平日上午9:00-下午5:00", null);
+                "台北市中正區某路 1 號", "平日上午9:00-下午5:00", "服務失依兒童");
 
         mvc.perform(as(withBody(post("/api/organizations"), mobileOnly), ORG_USER))
                 .andExpect(status().isCreated())
@@ -131,7 +137,7 @@ class OrganizationApiIT extends ApiIntegrationTest {
         // 只填聯絡電話也不行：行動電話才是必填
         var landlineOnly = new OrganizationRegistrationRequest(
                 "只有市話之家", "王承辦", "contact@example.org", "02-1234-5678", "",
-                "台北市中正區某路 1 號", "平日上午9:00-下午5:00", null);
+                "台北市中正區某路 1 號", "平日上午9:00-下午5:00", "服務失依兒童");
 
         mvc.perform(as(withBody(post("/api/organizations"), landlineOnly), ORG_USER))
                 .andExpect(status().isBadRequest())
@@ -274,14 +280,14 @@ class OrganizationApiIT extends ApiIntegrationTest {
 
         var toAuto = new OrganizationUpdateRequest("切回手動之家", "王承辦", "a@example.org",
                 "02-1234-5678", "0912-345-678", "台北市中正區某路 1 號", "平日上午9:00-下午5:00",
-                null, ReleasePolicy.AUTO, 5);
+                "服務失依兒童", ReleasePolicy.AUTO, 5);
         mvc.perform(as(withBody(patch("/api/organizations/me"), toAuto), ORG_USER))
                 .andExpect(status().isOk());
 
         // 切回 MANUAL 時必須清掉天數，否則違反 ck_org_release_after_days
         var toManual = new OrganizationUpdateRequest("切回手動之家", "王承辦", "a@example.org",
                 "02-1234-5678", "0912-345-678", "台北市中正區某路 1 號", "平日上午9:00-下午5:00",
-                null, ReleasePolicy.MANUAL, 5);
+                "服務失依兒童", ReleasePolicy.MANUAL, 5);
         mvc.perform(as(withBody(patch("/api/organizations/me"), toManual), ORG_USER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.releasePolicy").value("MANUAL"))
@@ -295,10 +301,107 @@ class OrganizationApiIT extends ApiIntegrationTest {
 
         var invalid = new OrganizationUpdateRequest("缺天數之家", "王承辦", "a@example.org",
                 "02-1234-5678", "0912-345-678", "台北市中正區某路 1 號", "平日上午9:00-下午5:00",
-                null, ReleasePolicy.AUTO, null);
+                "服務失依兒童", ReleasePolicy.AUTO, null);
 
         mvc.perform(as(withBody(patch("/api/organizations/me"), invalid), ORG_USER))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("INVALID_RELEASE_POLICY"));
+    }
+
+    // ------------------------------------------------------------ 1018 新版：機構欄位
+
+    @Test
+    void phonesAreStoredWithDashesAndInvalidOnesAreRejected() throws Exception {
+        var request = new OrganizationRegistrationRequest(
+                "電話整理之家", "王承辦", "contact@example.org", "(04) 2234 5678", "0912345678",
+                "台北市中正區某路 1 號", "平日上午9:00-下午5:00", "服務失依兒童", null);
+        mvc.perform(as(withBody(post("/api/organizations"), request), ORG_USER))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.contactPhone").value("04-2234-5678"))
+                .andExpect(jsonPath("$.mobilePhone").value("0912-345-678"));
+
+        var bad = new OrganizationUpdateRequest("電話整理之家", "王承辦", "contact@example.org",
+                "02-2234-56789", "0812-345-678", "台北市中正區某路 1 號", "平日上午9:00-下午5:00",
+                "服務失依兒童", ReleasePolicy.MANUAL, null);
+        mvc.perform(as(withBody(patch("/api/organizations/me"), bad), ORG_USER))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.contactPhone").exists())
+                .andExpect(jsonPath("$.fieldErrors.mobilePhone").exists());
+    }
+
+    @Test
+    void descriptionIsRequiredAndAtMostOneHundredCharacters() throws Exception {
+        var blank = new OrganizationRegistrationRequest(
+                "沒簡介之家", "王承辦", "contact@example.org", null, "0912-345-678",
+                "台北市中正區某路 1 號", "平日上午9:00-下午5:00", "  ", null);
+        mvc.perform(as(withBody(post("/api/organizations"), blank), ORG_USER))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.description").exists());
+
+        var tooLong = new OrganizationRegistrationRequest(
+                "簡介太長之家", "王承辦", "contact@example.org", null, "0912-345-678",
+                "台北市中正區某路 1 號", "平日上午9:00-下午5:00", "字".repeat(101), null);
+        mvc.perform(as(withBody(post("/api/organizations"), tooLong), ORG_USER))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.description").exists());
+
+        var exactly = new OrganizationRegistrationRequest(
+                "剛好一百字之家", "王承辦", "contact@example.org", null, "0912-345-678",
+                "台北市中正區某路 1 號", "平日上午9:00-下午5:00", "字".repeat(100), null);
+        mvc.perform(as(withBody(post("/api/organizations"), exactly), ORG_USER))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void websiteIsOptionalButMustBeAFullUrl() throws Exception {
+        mvc.perform(as(withBody(post("/api/organizations"), registration("沒官網之家")), ORG_USER))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.website").doesNotExist());
+
+        var bad = new OrganizationUpdateRequest("沒官網之家", "王承辦", "contact@example.org",
+                "02-1234-5678", "0912-345-678", "台北市中正區某路 1 號", "平日上午9:00-下午5:00",
+                "服務失依兒童", "www.example.org", ReleasePolicy.MANUAL, null);
+        mvc.perform(as(withBody(patch("/api/organizations/me"), bad), ORG_USER))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.website").exists());
+
+        var good = new OrganizationUpdateRequest("沒官網之家", "王承辦", "contact@example.org",
+                "02-1234-5678", "0912-345-678", "台北市中正區某路 1 號", "平日上午9:00-下午5:00",
+                "服務失依兒童", "https://www.example.org", ReleasePolicy.MANUAL, null);
+        mvc.perform(as(withBody(patch("/api/organizations/me"), good), ORG_USER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.website").value("https://www.example.org"));
+    }
+
+    @Test
+    void organizationPhotoOnlyAcceptsJpegOrPngAndReplacesThePreviousOne() throws Exception {
+        String body = mvc.perform(as(withBody(post("/api/organizations"), registration("有照片之家")), ORG_USER))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        UUID orgId = UUID.fromString(json.readTree(body).get("id").asText());
+
+        mvc.perform(as(get("/api/organizations/me"), ORG_USER))
+                .andExpect(jsonPath("$.photoUrl").doesNotExist());
+
+        // WebP 被擋下（SPEC 13.4 只收 JPG／PNG）
+        var webp = new UploadUrlRequest(AttachmentPurpose.ORG_PHOTO, orgId, "image/webp", 120_000);
+        mvc.perform(as(withBody(post("/api/uploads/signed-url"), webp), ORG_USER))
+                .andExpect(status().is4xxClientError());
+
+        UUID first = uploadConfirmedAttachment(AttachmentPurpose.ORG_PHOTO, orgId, ORG_USER, "image/png");
+        mvc.perform(as(get("/api/organizations/me"), ORG_USER))
+                .andExpect(jsonPath("$.photoUrl").exists());
+
+        // 再傳一張：舊的被取代，只剩一張
+        uploadConfirmedAttachment(AttachmentPurpose.ORG_PHOTO, orgId, ORG_USER, "image/jpeg");
+        assertThat(attachmentRepository.findByPurposeAndOwnerIdAndUploadStatusOrderByCreatedAtAsc(
+                AttachmentPurpose.ORG_PHOTO, orgId, UploadStatus.CONFIRMED)).hasSize(1);
+
+        // 不支援刪除，只能換新（舊的那張已被取代，所以找不到；對新的那張刪除也被擋）
+        UUID current = attachmentRepository.findByPurposeAndOwnerIdAndUploadStatusOrderByCreatedAtAsc(
+                AttachmentPurpose.ORG_PHOTO, orgId, UploadStatus.CONFIRMED).get(0).getId();
+        mvc.perform(as(delete("/api/attachments/{id}", current), ORG_USER))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("ATTACHMENT_NOT_DELETABLE"));
+        assertThat(first).isNotEqualTo(current);
     }
 }
