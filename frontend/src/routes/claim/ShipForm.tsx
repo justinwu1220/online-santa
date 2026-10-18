@@ -1,8 +1,9 @@
 import { useMutation } from '@tanstack/react-query'
 import { FileUp, ImagePlus, Lock, X } from 'lucide-react'
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ApiError, api } from '../../lib/api'
 import { todayPlainDate } from '../../lib/format'
+import { reducedMotion } from '../../lib/motion'
 import {
   ACCEPTED_IMAGE_TYPES, ACCEPTED_RECEIPT_PROOF_TYPES, MAX_RECEIPT_PROOFS, MAX_SHIPPING_PROOFS,
   uploadImage, validateImage, validateReceiptProof,
@@ -42,6 +43,12 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
   const [receiptProofs, setReceiptProofs] = useState<File[]>([])
   const [receiptProofError, setReceiptProofError] = useState<string | null>(null)
   const [idNumberError, setIdNumberError] = useState<string | null>(null)
+
+  // 前端必填檢查的錯誤（key 是欄位名）。照原型：送出時一次檢查全部，錯誤顯示在欄位下方，
+  // 並捲到第一個有問題的欄位、把焦點移進去
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [focusTick, setFocusTick] = useState(0)
+  const form = useRef<HTMLFormElement>(null)
 
   const [confirming, setConfirming] = useState(false)
   // 已經上傳成功的檔案。送出失敗（例如後端驗證沒過）後使用者修正再送，
@@ -83,30 +90,63 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    let valid = true
-
-    if (photos.length === 0) {
-      setPhotoError('請至少上傳一張寄件單或包裹照片')
-      valid = false
+    const found: Record<string, string> = {}
+    const needText = (key: string, value: string, name: string) => {
+      if (!value.trim()) found[key] = `請填寫${name}`
     }
+    const needNumber = (key: string, value: string, name: string, min: number) => {
+      if (!value.trim()) found[key] = `請填寫${name}`
+      else if (Number(value) < min) found[key] = '請填寫正確的數字'
+    }
+
+    needText('carrier', carrier, '物流業者')
+    needText('trackingNumber', trackingNumber, '追蹤碼')
+    needText('giftDescription', giftDescription, '實際寄出的禮物')
+    needNumber('giftQuantity', giftQuantity, '數量', 1)
+    needNumber('giftPrice', giftPrice, '禮物價格', 0)
+    needText('shippedOn', shippedOn, '寄出日期')
+    if (photos.length === 0) found.photos = '請至少上傳一個檔案'
     if (receiptEnabled) {
-      if (!RECEIPT_ID_PATTERN.test(receipt.idNumber.trim())) {
-        setIdNumberError('格式不正確：身分證字號為 1 個英文字母加 9 碼數字，統一編號為 8 碼數字')
-        valid = false
+      needText('receipt.name', receipt.name, '姓名或公司名稱')
+      if (!receipt.idNumber.trim()) found['receipt.idNumber'] = '請填寫身分證字號或統一編號'
+      else if (!RECEIPT_ID_PATTERN.test(receipt.idNumber.trim())) {
+        found['receipt.idNumber'] = '格式不正確：身分證字號為 1 個英文字母加 9 碼數字，統一編號為 8 碼數字'
       }
-      if (receiptProofs.length === 0) {
-        setReceiptProofError('請至少上傳一份紙本或電子發票證明')
-        valid = false
-      }
+      if (!receipt.email.trim()) found['receipt.email'] = '請填寫電子信箱'
+      else if (!/^\S+@\S+\.\S+$/.test(receipt.email.trim())) found['receipt.email'] = '請確認信箱格式'
+      needText('receipt.address', receipt.address, '收件地址')
+      if (receiptProofs.length === 0) found.receiptProofs = '請至少上傳一個檔案'
     }
-    if (!valid) return
 
+    setErrors(found)
     setPhotoError(null)
     setReceiptProofError(null)
     setIdNumberError(null)
+    if (Object.keys(found).length > 0) {
+      setFocusTick((n) => n + 1)
+      return
+    }
     ship.reset()
     setConfirming(true)
   }
+
+  // 錯誤顯示出來之後，捲到第一個有問題的欄位並聚焦（原型 validateShip）
+  useEffect(() => {
+    if (focusTick === 0) return
+    const first = form.current?.querySelector<HTMLElement>('.field.is-invalid')
+    if (!first) return
+    first.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' })
+    const target = first.querySelector<HTMLElement>('input:not([type=file])')
+    const timer = window.setTimeout(() => target?.focus({ preventScroll: true }), reducedMotion() ? 0 : 300)
+    return () => window.clearTimeout(timer)
+  }, [focusTick])
+
+  /** 補上檔案後，那一欄的「請至少上傳」提示就該消失（原型 files change 的行為） */
+  const clearError = (key: string) => setErrors((current) => {
+    if (!(key in current)) return current
+    const { [key]: _removed, ...rest } = current
+    return rest
+  })
 
   const updateReceipt = (key: keyof typeof receipt) => (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -116,9 +156,9 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate={false}>
+    <form ref={form} onSubmit={handleSubmit} noValidate>
       <div className="form-grid">
-        <FormField label="物流業者" required span={3} error={fieldErrors?.carrier}>
+        <FormField label="物流業者" required span={3} error={errors.carrier ?? fieldErrors?.carrier}>
           <Input required maxLength={60} value={carrier} list="carrier-list"
             placeholder="黑貓宅急便、郵局…"
             onChange={(event) => setCarrier(event.target.value)} />
@@ -126,25 +166,25 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
             {CARRIERS.map((name) => <option key={name} value={name} />)}
           </datalist>
         </FormField>
-        <FormField label="追蹤碼" required span={3} error={fieldErrors?.trackingNumber}>
+        <FormField label="追蹤碼" required span={3} error={errors.trackingNumber ?? fieldErrors?.trackingNumber}>
           <Input required maxLength={80} value={trackingNumber}
             onChange={(event) => setTrackingNumber(event.target.value)} />
         </FormField>
 
         <FormField label="實際寄出的禮物" required span={4}
-          hint="名稱與規格" error={fieldErrors?.giftDescription}>
+          hint="名稱與規格" error={errors.giftDescription ?? fieldErrors?.giftDescription}>
           <Input required maxLength={200} value={giftDescription}
             placeholder="蠟筆小新變形機器人（約 20 公分）"
             onChange={(event) => setGiftDescription(event.target.value)} />
         </FormField>
-        <FormField label="數量" required span={2} hint="以「份」計算" error={fieldErrors?.giftQuantity}>
+        <FormField label="數量" required span={2} hint="以「份」計算" error={errors.giftQuantity ?? fieldErrors?.giftQuantity}>
           <UnitInput unit="份" min={1} max={9999} value={giftQuantity} onChange={setGiftQuantity} />
         </FormField>
 
-        <FormField label="禮物價格" required span={3} hint="以購買發票上的金額為準" error={fieldErrors?.giftPrice}>
+        <FormField label="禮物價格" required span={3} hint="以購買發票上的金額為準" error={errors.giftPrice ?? fieldErrors?.giftPrice}>
           <UnitInput unit="元" min={0} max={10000000} value={giftPrice} onChange={setGiftPrice} />
         </FormField>
-        <FormField label="寄出日期" required span={3} hint="預設為今天" error={fieldErrors?.shippedOn}>
+        <FormField label="寄出日期" required span={3} hint="預設為今天" error={errors.shippedOn ?? fieldErrors?.shippedOn}>
           <Input required type="date" max={todayPlainDate()} value={shippedOn}
             onChange={(event) => setShippedOn(event.target.value)} />
         </FormField>
@@ -154,11 +194,11 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
           buttonText="新增照片"
           icon={<ImagePlus className="icon" aria-hidden />}
           files={photos}
-          onChange={setPhotos}
+          onChange={(next) => { setPhotos(next); clearError('photos') }}
           max={MAX_SHIPPING_PROOFS}
           accept={ACCEPTED_IMAGE_TYPES}
           validate={validateImage}
-          error={photoError}
+          error={errors.photos ?? photoError}
           onError={setPhotoError}
         />
 
@@ -183,24 +223,24 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
                 <div className="receipt__fields">
                   <div className="form-grid">
                     <FormField label="姓名或公司名稱" required={receiptEnabled} span={3}
-                      hint="真實姓名或單位全銜，需與報稅身分一致" error={fieldErrors?.['receipt.name']}>
+                      hint="真實姓名或單位全銜，需與報稅身分一致" error={errors['receipt.name'] ?? fieldErrors?.['receipt.name']}>
                       <Input required={receiptEnabled} maxLength={100} value={receipt.name}
                         onChange={updateReceipt('name')} />
                     </FormField>
                     <FormField label="身分證字號或統一編號" required={receiptEnabled} span={3}
                       hint="個人填身分證或居留證號，公司填統一編號"
-                      error={idNumberError ?? fieldErrors?.['receipt.idNumber']}>
+                      error={errors['receipt.idNumber'] ?? idNumberError ?? fieldErrors?.['receipt.idNumber']}>
                       <Input required={receiptEnabled} maxLength={10} autoComplete="off"
                         value={receipt.idNumber} onChange={updateReceipt('idNumber')} />
                     </FormField>
                     <FormField label="電子信箱" required={receiptEnabled} span={3}
-                      hint="電子收據會寄到這裡" error={fieldErrors?.['receipt.email']}>
+                      hint="電子收據會寄到這裡" error={errors['receipt.email'] ?? fieldErrors?.['receipt.email']}>
                       <Input required={receiptEnabled} type="email" maxLength={255}
                         value={receipt.email} onChange={updateReceipt('email')} />
                     </FormField>
                     <FormField label="收件地址" required={receiptEnabled} span={3}
                       hint="預設寄電子檔；要紙本請寫信到 onlinesanta2026@gmail.com"
-                      error={fieldErrors?.['receipt.address']}>
+                      error={errors['receipt.address'] ?? fieldErrors?.['receipt.address']}>
                       <Input required={receiptEnabled} maxLength={255}
                         value={receipt.address} onChange={updateReceipt('address')} />
                     </FormField>
@@ -211,11 +251,11 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
                       hint="供協會核對時價；請先遮住與這次捐贈無關的個人資料"
                       required={receiptEnabled}
                       files={receiptProofs}
-                      onChange={setReceiptProofs}
+                      onChange={(next) => { setReceiptProofs(next); clearError('receiptProofs') }}
                       max={MAX_RECEIPT_PROOFS}
                       accept={ACCEPTED_RECEIPT_PROOF_TYPES}
                       validate={validateReceiptProof}
-                      error={receiptProofError}
+                      error={errors.receiptProofs ?? receiptProofError}
                       onError={setReceiptProofError}
                     />
                   </div>
