@@ -11,6 +11,12 @@ import {
 import { FormField, Input, UnitInput } from '../../components/ui/Fields'
 import { ErrorNotice } from '../../components/ui/Spinner'
 
+/** 畫面上有對應欄位的後端欄位錯誤 key；其餘的錯誤沒有地方顯示，要用通用提示框。 */
+const SHOWN_FIELDS = new Set([
+  'carrier', 'trackingNumber', 'giftDescription', 'giftQuantity', 'giftPrice', 'shippedOn',
+  'receipt.name', 'receipt.idNumber', 'receipt.email', 'receipt.address',
+])
+
 const RECEIPT_ID_PATTERN = /^([A-Za-z][A-Da-d0-9]\d{8}|\d{8})$/
 
 /** 常用物流業者，輸入時當建議；不限於清單內的值。 */
@@ -82,11 +88,19 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
       })
     },
     onSuccess: onDone,
-    // 失敗就收起確認區塊，讓使用者看到錯誤並回頭修正
-    onError: () => setConfirming(false),
+    // 失敗就收起確認區塊，讓使用者看到錯誤並回頭修正；欄位錯誤就捲到第一個有問題的欄位
+    onError: (error) => {
+      setConfirming(false)
+      if (error instanceof ApiError && error.fieldErrors && Object.keys(error.fieldErrors).length > 0) {
+        setFocusTick((n) => n + 1)
+      }
+    },
   })
 
   const fieldErrors = ship.error instanceof ApiError ? ship.error.fieldErrors : undefined
+  const onlyFieldErrors = Boolean(fieldErrors)
+    && Object.keys(fieldErrors!).length > 0
+    && Object.keys(fieldErrors!).every((key) => SHOWN_FIELDS.has(key))
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -266,7 +280,10 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
         </div>
       </div>
 
-      {ship.isError && <div style={{ marginTop: 16 }}><ErrorNotice error={ship.error} /></div>}
+      {/* 欄位錯誤顯示在欄位下方並捲過去；這裡只放對應不到欄位的錯誤（409、網路錯誤…） */}
+      {ship.isError && !onlyFieldErrors && (
+        <div style={{ marginTop: 16 }}><ErrorNotice error={ship.error} /></div>
+      )}
 
       {confirming ? (
         <div className="notice notice--warn" style={{ marginTop: 24 }}>
