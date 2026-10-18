@@ -334,7 +334,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
           </button>
 
           {registering && role !== null && (
-            <p className="auth-note">
+            <p className="auth-note" style={{ textAlign: 'center' }}>
               {role === 'org'
                 ? '註冊後我們會寄一封驗證信。完成驗證後才能送出機構申請——機構需要靠這個信箱聯繫你。'
                 : '註冊後我們會寄一封驗證信。點信中的連結之後，才能認領願望。'}
