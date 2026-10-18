@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.organization.ReleasePolicy;
@@ -38,6 +39,9 @@ class WishApiIT extends ApiIntegrationTest {
 
     @Autowired
     WishRepository wishes;
+
+    @Autowired
+    com.onlinesanta.admin.AdminAuditLogRepository auditLogs;
 
     private UUID orgId;
     private UUID otherOrgId;
@@ -88,8 +92,7 @@ class WishApiIT extends ApiIntegrationTest {
 
     private UUID createPublishedWish(String title, String asUser) throws Exception {
         UUID id = createWish(title, asUser);
-        mvc.perform(as(post("/api/wishes/{id}/publish", id), asUser))
-                .andExpect(status().isOk());
+        submitAndApproveWish(id, asUser);
         return id;
     }
 
@@ -107,31 +110,109 @@ class WishApiIT extends ApiIntegrationTest {
     }
 
     @Test
-    void publishThenUnpublishMovesWishBetweenAvailableAndArchived() throws Exception {
+    void reviewLifecycleSubmitWithdrawRejectApprove() throws Exception {
         UUID id = createWish("腳踏車");
 
-        mvc.perform(as(post("/api/wishes/{id}/publish", id), ORG_USER))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("AVAILABLE"))
-                .andExpect(jsonPath("$.publishedAt").exists());
+        // 提交審核要先有孩子的手寫信件照片
+        mvc.perform(as(post("/api/wishes/{id}/submit", id), ORG_USER))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("WISH_LETTER_REQUIRED"));
 
-        mvc.perform(as(post("/api/wishes/{id}/unpublish", id), ORG_USER))
+        uploadConfirmedAttachment(AttachmentPurpose.WISH_LETTER, id, ORG_USER);
+        mvc.perform(as(post("/api/wishes/{id}/submit", id), ORG_USER))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("ARCHIVED"));
+                .andExpect(jsonPath("$.status").value("PENDING_REVIEW"))
+                .andExpect(jsonPath("$.editable").value(false))
+                .andExpect(jsonPath("$.publishedAt").doesNotExist());
 
-        // 下架後可以重新上架
-        mvc.perform(as(post("/api/wishes/{id}/publish", id), ORG_USER))
+        // 審核中不公開，也不能修改或刪除
+        mvc.perform(get("/api/wishes/{id}", id)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/wishes")).andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(as(withBody(patch("/api/wishes/{id}", id), wishRequest("想改標題")), ORG_USER))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("WISH_NOT_EDITABLE"));
+        mvc.perform(as(delete("/api/wishes/{id}", id), ORG_USER)).andExpect(status().isConflict());
+
+        // 撤回後回到草稿，可以再編輯、再提交
+        mvc.perform(as(post("/api/wishes/{id}/withdraw", id), ORG_USER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andExpect(jsonPath("$.editable").value(true));
+        mvc.perform(as(post("/api/wishes/{id}/submit", id), ORG_USER)).andExpect(status().isOk());
+
+        // 管理員退回：原因至少 5 個字；退回後是草稿，機構看得到原因
+        mvc.perform(as(withBody(post("/api/admin/wishes/{id}/reject", id), java.util.Map.of("note", "太短")),
+                PLATFORM_ADMIN)).andExpect(status().isBadRequest());
+        mvc.perform(as(withBody(post("/api/admin/wishes/{id}/reject", id),
+                java.util.Map.of("note", "信件照片拍到了孩子的臉")), PLATFORM_ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DRAFT"));
+        mvc.perform(as(get("/api/organizations/me/wishes"), ORG_USER))
+                .andExpect(jsonPath("$.content[0].reviewNote").value("信件照片拍到了孩子的臉"));
+
+        // 重新提交、核准：出現在願望牆，核准後不再顯示舊的退回原因
+        mvc.perform(as(post("/api/wishes/{id}/submit", id), ORG_USER)).andExpect(status().isOk());
+        mvc.perform(as(post("/api/admin/wishes/{id}/approve", id), PLATFORM_ADMIN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("AVAILABLE"));
+        mvc.perform(get("/api/wishes/{id}", id)).andExpect(status().isOk());
+        mvc.perform(get("/api/wishes")).andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(as(get("/api/organizations/me/wishes"), ORG_USER))
+                .andExpect(jsonPath("$.content[0].reviewNote").doesNotExist())
+                .andExpect(jsonPath("$.content[0].publishedAt").exists());
     }
 
     @Test
-    void rejectsPublishingAnAlreadyPublishedWish() throws Exception {
-        UUID id = createPublishedWish("重複上架");
+    void wishReviewDecisionsAreAudited() throws Exception {
+        UUID id = createWish("要被稽核");
+        uploadConfirmedAttachment(AttachmentPurpose.WISH_LETTER, id, ORG_USER);
+        mvc.perform(as(post("/api/wishes/{id}/submit", id), ORG_USER)).andExpect(status().isOk());
+        mvc.perform(as(withBody(post("/api/admin/wishes/{id}/reject", id),
+                java.util.Map.of("note", "信件照片需要重拍")), PLATFORM_ADMIN)).andExpect(status().isOk());
+        mvc.perform(as(post("/api/wishes/{id}/submit", id), ORG_USER)).andExpect(status().isOk());
+        mvc.perform(as(post("/api/admin/wishes/{id}/approve", id), PLATFORM_ADMIN)).andExpect(status().isOk());
 
-        mvc.perform(as(post("/api/wishes/{id}/publish", id), ORG_USER))
+        var logs = auditLogs.findByTargetTypeAndTargetIdOrderByCreatedAtDesc(
+                com.onlinesanta.admin.AdminAuditTargetType.WISH, id,
+                org.springframework.data.domain.Pageable.unpaged()).getContent();
+        assertThat(logs).extracting(l -> l.getAction().name())
+                .containsExactly("APPROVE_WISH", "REJECT_WISH");
+    }
+
+    @Test
+    void organizationCannotPublishOrUnpublishByItselfAndPublishedWishesAreNotEditable() throws Exception {
+        UUID id = createPublishedWish("上架後不能動");
+
+        // 舊的上架／下架端點已拿掉
+        mvc.perform(as(post("/api/wishes/{id}/publish", id), ORG_USER)).andExpect(status().is4xxClientError());
+        mvc.perform(as(post("/api/wishes/{id}/unpublish", id), ORG_USER)).andExpect(status().is4xxClientError());
+
+        mvc.perform(as(withBody(patch("/api/wishes/{id}", id), wishRequest("偷偷改標題")), ORG_USER))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.errorCode").value("WISH_NOT_PUBLISHABLE"));
+                .andExpect(jsonPath("$.errorCode").value("WISH_NOT_EDITABLE"));
+        mvc.perform(as(post("/api/wishes/{id}/withdraw", id), ORG_USER))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("WISH_NOT_WITHDRAWABLE"));
+    }
+
+    @Test
+    void rejectsSubmittingAnAlreadyPublishedWish() throws Exception {
+        UUID id = createPublishedWish("重複提交");
+
+        mvc.perform(as(post("/api/wishes/{id}/submit", id), ORG_USER))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("WISH_NOT_SUBMITTABLE"));
+    }
+
+    @Test
+    void onlyAdminsCanReviewAndOnlyPendingWishesCanBeReviewed() throws Exception {
+        UUID draft = createWish("還是草稿");
+        mvc.perform(as(post("/api/admin/wishes/{id}/approve", draft), ORG_USER)).andExpect(status().isForbidden());
+        mvc.perform(as(post("/api/admin/wishes/{id}/approve", draft), PLATFORM_ADMIN))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("WISH_NOT_PENDING_REVIEW"));
+        mvc.perform(as(post("/api/admin/wishes/{id}/approve", UUID.randomUUID()), PLATFORM_ADMIN))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -170,7 +251,8 @@ class WishApiIT extends ApiIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         UUID draft = UUID.fromString(json.readTree(body).get("id").asText());
 
-        mvc.perform(as(post("/api/wishes/{id}/publish", draft), pendingUser))
+        uploadConfirmedAttachment(AttachmentPurpose.WISH_LETTER, draft, pendingUser);
+        mvc.perform(as(post("/api/wishes/{id}/submit", draft), pendingUser))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("ORGANIZATION_NOT_APPROVED"));
     }
@@ -281,7 +363,7 @@ class WishApiIT extends ApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(0));
 
-        // DRAFT／ARCHIVED 不是公開可篩選的狀態，繫結階段直接 400
+        // DRAFT 不是公開可篩選的狀態，繫結階段直接 400
         mvc.perform(get("/api/wishes").param("status", "DRAFT"))
                 .andExpect(status().isBadRequest());
     }
@@ -423,8 +505,7 @@ class WishApiIT extends ApiIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         UUID id = UUID.fromString(json.readTree(body).get("id").asText());
 
-        mvc.perform(as(post("/api/wishes/{id}/publish", id), ORG_USER))
-                .andExpect(status().isOk());
+        submitAndApproveWish(id, ORG_USER);
 
         mvc.perform(get("/api/wishes/{id}", id))
                 .andExpect(status().isOk())
@@ -488,7 +569,7 @@ class WishApiIT extends ApiIntegrationTest {
 
     @Test
     void avatarIsPickedOnceAtCreationAndStaysTheSameEverywhere() throws Exception {
-        UUID id = createPublishedWish("頭貼固定");
+        UUID id = createWish("頭貼固定");
         String created = wishes.findById(id).orElseThrow().getAvatar();
         assertThat(created).matches("(boy|girl)\\d\\.(jpg|png)");
 
@@ -496,6 +577,7 @@ class WishApiIT extends ApiIntegrationTest {
         mvc.perform(as(withBody(patch("/api/wishes/{id}", id), wishRequestWithAge("頭貼固定", AgeRange.AGE_10_12, null)),
                 ORG_USER)).andExpect(status().isOk());
         assertThat(wishes.findById(id).orElseThrow().getAvatar()).isEqualTo(created);
+        submitAndApproveWish(id, ORG_USER);
 
         // 公開清單與詳情都回同一張
         mvc.perform(get("/api/wishes/{id}", id)).andExpect(jsonPath("$.avatar").value(created));
@@ -529,7 +611,7 @@ class WishApiIT extends ApiIntegrationTest {
         String note = "我想要藍色的，跑步才會像風一樣快！";
         mvc.perform(as(withBody(patch("/api/wishes/{id}", id), wishRequestWithAge("有說明", AgeRange.AGE_7_9, note)),
                 ORG_USER)).andExpect(status().isOk()).andExpect(jsonPath("$.description").value(note));
-        mvc.perform(as(post("/api/wishes/{id}/publish", id), ORG_USER)).andExpect(status().isOk());
+        submitAndApproveWish(id, ORG_USER);
         mvc.perform(get("/api/wishes/{id}", id)).andExpect(jsonPath("$.description").value(note));
 
         mvc.perform(as(withBody(patch("/api/wishes/{id}", id),

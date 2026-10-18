@@ -75,6 +75,16 @@ public class Wish extends BaseEntity {
     @Column(name = "published_at")
     private Instant publishedAt;
 
+    /** 管理員退回的原因；重新提交或核准後仍保留，供機構對照。 */
+    @Column(name = "review_note", columnDefinition = "text")
+    private String reviewNote;
+
+    @Column(name = "reviewed_at")
+    private Instant reviewedAt;
+
+    @Column(name = "reviewed_by")
+    private java.util.UUID reviewedBy;
+
     protected Wish() {
         // JPA
     }
@@ -125,11 +135,63 @@ public class Wish extends BaseEntity {
         this.priceRange = priceRange;
     }
 
-    /** 上架：草稿或已下架的願望都可以（重新）公開。 */
+    /**
+     * 機構提交審核：草稿 → 審核中。機構需已通過審核；內容是否齊全（例如信件照片）由呼叫端檢查。
+     */
+    public void submitForReview() {
+        if (status != WishStatus.DRAFT) {
+            throw new BusinessRuleException("WISH_NOT_SUBMITTABLE",
+                    "只有草稿能提交審核，目前狀態為 " + status);
+        }
+        if (!organization.canPublishWishes()) {
+            throw new BusinessRuleException("ORGANIZATION_NOT_APPROVED",
+                    "機構資料審核通過後才能提交願望審核，目前願望只能存成草稿");
+        }
+        this.status = WishStatus.PENDING_REVIEW;
+    }
+
+    /** 機構撤回：審核中 → 草稿，可以再編輯。 */
+    public void withdraw() {
+        if (status != WishStatus.PENDING_REVIEW) {
+            throw new BusinessRuleException("WISH_NOT_WITHDRAWABLE",
+                    "只有審核中的願望能撤回，目前狀態為 " + status);
+        }
+        this.status = WishStatus.DRAFT;
+    }
+
+    /** 管理員核准：審核中 → 可認領，公開在願望牆。 */
+    public void approve(java.util.UUID reviewerId) {
+        requirePendingReview("核准");
+        publish();
+        this.reviewNote = null;
+        this.reviewedBy = reviewerId;
+        this.reviewedAt = Instant.now();
+    }
+
+    /** 管理員退回：審核中 → 草稿，並留下原因給機構。 */
+    public void reject(java.util.UUID reviewerId, String reason) {
+        requirePendingReview("退回");
+        this.status = WishStatus.DRAFT;
+        this.reviewNote = reason;
+        this.reviewedBy = reviewerId;
+        this.reviewedAt = Instant.now();
+    }
+
+    private void requirePendingReview(String action) {
+        if (status != WishStatus.PENDING_REVIEW) {
+            throw new BusinessRuleException("WISH_NOT_PENDING_REVIEW",
+                    "只有審核中的願望能" + action + "，目前狀態為 " + status);
+        }
+    }
+
+    /**
+     * 轉為可認領並記下發布時間（只記第一次）。核准流程的底層轉換；
+     * 公開，是因為不少測試夾具要直接建出「已上架」的願望。
+     */
     public void publish() {
-        if (status != WishStatus.DRAFT && status != WishStatus.ARCHIVED) {
+        if (status != WishStatus.DRAFT && status != WishStatus.PENDING_REVIEW) {
             throw new BusinessRuleException("WISH_NOT_PUBLISHABLE",
-                    "只有草稿或已下架的願望能上架，目前狀態為 " + status);
+                    "只有草稿或審核中的願望能上架，目前狀態為 " + status);
         }
         if (!organization.canPublishWishes()) {
             throw new BusinessRuleException("ORGANIZATION_NOT_APPROVED",
@@ -139,17 +201,6 @@ public class Wish extends BaseEntity {
         if (publishedAt == null) {
             this.publishedAt = Instant.now();
         }
-    }
-
-    /** 下架：已被認領的願望不能下架，否則捐贈者的認領會憑空消失。 */
-    public void unpublish() {
-        if (status != WishStatus.AVAILABLE) {
-            throw new BusinessRuleException("WISH_NOT_UNPUBLISHABLE",
-                    status == WishStatus.CLAIMED
-                            ? "願望已被認領，無法下架"
-                            : "只有上架中的願望能下架，目前狀態為 " + status);
-        }
-        this.status = WishStatus.ARCHIVED;
     }
 
     public boolean isDeletable() {
@@ -162,7 +213,8 @@ public class Wish extends BaseEntity {
      * 若願望還留在牆上或詳情頁看得到，這一步就沒有真的生效。
      */
     public boolean isPubliclyVisible() {
-        return status != WishStatus.DRAFT && organization.getStatus() == OrganizationStatus.APPROVED;
+        return status != WishStatus.DRAFT && status != WishStatus.PENDING_REVIEW
+                && organization.getStatus() == OrganizationStatus.APPROVED;
     }
 
     private void requireEditable(String action) {
@@ -218,5 +270,13 @@ public class Wish extends BaseEntity {
 
     public Instant getPublishedAt() {
         return publishedAt;
+    }
+
+    public String getReviewNote() {
+        return reviewNote;
+    }
+
+    public Instant getReviewedAt() {
+        return reviewedAt;
     }
 }

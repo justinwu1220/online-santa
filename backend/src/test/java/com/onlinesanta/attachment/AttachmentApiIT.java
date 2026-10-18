@@ -362,8 +362,7 @@ class AttachmentApiIT extends ApiIntegrationTest {
     void wishImageAppearsOnlyOnTheDetailPageNotTheWall() throws Exception {
         UUID wishId = draftWish("有示意圖");
         uploadAs(AttachmentPurpose.WISH_IMAGE, wishId, ORG_USER);
-        mvc.perform(as(post("/api/wishes/{id}/publish", wishId), ORG_USER))
-                .andExpect(status().isOk());
+        submitAndApproveWish(wishId, ORG_USER);
 
         mvc.perform(get("/api/wishes"))
                 .andExpect(status().isOk())

@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.onlinesanta.attachment.AttachmentService;
 import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.common.exception.BusinessRuleException;
@@ -24,8 +25,7 @@ public class WishService {
     /**
      * 願望牆「全部」狀態的預設可見範圍：可認領、已認領、已完成。
      *
-     * <p>草稿與下架一律不開放——跟 {@link Wish#isPubliclyVisible()} 的精神一致，只是
-     * 這裡還要再排除 ARCHIVED（願望詳情頁允許看已下架的舊連結，但願望牆列表不该列出）。
+     * <p>草稿與審核中一律不開放——跟 {@link Wish#isPubliclyVisible()} 的精神一致。
      */
     private static final List<WishStatus> DEFAULT_WALL_STATUSES =
             List.of(WishStatus.AVAILABLE, WishStatus.CLAIMED, WishStatus.FULFILLED);
@@ -33,13 +33,16 @@ public class WishService {
     private final WishRepository wishes;
     private final OrganizationService organizations;
     private final CurrentUserService currentUser;
+    private final AttachmentService attachments;
 
     public WishService(WishRepository wishes,
                        OrganizationService organizations,
-                       CurrentUserService currentUser) {
+                       CurrentUserService currentUser,
+                       AttachmentService attachments) {
         this.wishes = wishes;
         this.organizations = organizations;
         this.currentUser = currentUser;
+        this.attachments = attachments;
     }
 
     // ---------------------------------------------------------------- 公開瀏覽
@@ -103,17 +106,26 @@ public class WishService {
         return wish;
     }
 
+    /**
+     * 提交審核：草稿 → 審核中。機構尚未通過審核時只能存草稿；提交時需要已上傳願望信件照片
+     * （設計稿：存成草稿只需要標題，提交審核才要求全部必填）。
+     */
     @Transactional
-    public Wish publish(UUID id) {
+    public Wish submit(UUID id) {
         Wish wish = findOwned(id);
-        wish.publish();
+        if (attachments.wishLetters(id).isEmpty()) {
+            throw new BusinessRuleException("WISH_LETTER_REQUIRED",
+                    "請先上傳孩子的手寫願望信件照片，再提交審核");
+        }
+        wish.submitForReview();
         return wish;
     }
 
+    /** 撤回審核：審核中 → 草稿。 */
     @Transactional
-    public Wish unpublish(UUID id) {
+    public Wish withdraw(UUID id) {
         Wish wish = findOwned(id);
-        wish.unpublish();
+        wish.withdraw();
         return wish;
     }
 

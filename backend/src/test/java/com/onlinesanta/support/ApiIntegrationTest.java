@@ -53,6 +53,21 @@ public abstract class ApiIntegrationTest extends PostgresIntegrationTest {
         attachmentRepository.save(document);
     }
 
+    /** 測試用的平台管理員（application-test.yml 的 admin-emails）。 */
+    protected static final String PLATFORM_ADMIN = "platform-admin@example.com";
+
+    /**
+     * 讓草稿願望走完審核上架：機構上傳信件照片、提交審核，再由管理員核准。
+     * 機構必須已通過審核。
+     */
+    protected void submitAndApproveWish(UUID wishId, String organizationUser) throws Exception {
+        uploadConfirmedAttachment(AttachmentPurpose.WISH_LETTER, wishId, organizationUser);
+        mvc.perform(as(post("/api/wishes/{id}/submit", wishId), organizationUser))
+                .andExpect(status().isOk());
+        mvc.perform(as(post("/api/admin/wishes/{id}/approve", wishId), PLATFORM_ADMIN))
+                .andExpect(status().isOk());
+    }
+
     /** 核准機構的另一個前提：已確認的機構照片。 */
     protected void givenConfirmedOrganizationPhoto(UUID organizationId) {
         Attachment photo = Attachment.pending(AttachmentPurpose.ORG_PHOTO, organizationId,

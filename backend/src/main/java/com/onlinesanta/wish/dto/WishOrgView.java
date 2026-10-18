@@ -23,6 +23,8 @@ public record WishOrgView(
         String interests,
         String avatar,
         WishStatus status,
+        /** 管理員退回時的原因（退回後到重新核准前一直保留），沒有為 null */
+        String reviewNote,
         boolean editable,
         boolean deletable,
         long version,
@@ -52,6 +54,7 @@ public record WishOrgView(
                 wish.getInterests(),
                 wish.getAvatar(),
                 wish.getStatus(),
+                wish.getReviewNote(),
                 wish.getStatus().isEditable(),
                 wish.isDeletable(),
                 wish.getVersion(),

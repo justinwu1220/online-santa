@@ -99,8 +99,9 @@ class AdminReviewIT extends ApiIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         UUID draft = UUID.fromString(json.readTree(body).get("id").asText());
 
-        // 但公開被擋下——把關在這一步
-        mvc.perform(as(post("/api/wishes/{id}/publish", draft), ORG_USER))
+        // 但提交審核被擋下——把關在這一步
+        uploadConfirmedAttachment(AttachmentPurpose.WISH_LETTER, draft, ORG_USER);
+        mvc.perform(as(post("/api/wishes/{id}/submit", draft), ORG_USER))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("ORGANIZATION_NOT_APPROVED"));
 
@@ -113,10 +114,10 @@ class AdminReviewIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.reviewedBy").exists());
 
         // 核准後立刻生效——不必等 token 重簽，因為權限是查資料庫而非讀 claims。
-        // 而且審核期間存的那份草稿現在可以直接上架，不必重打一次
-        mvc.perform(as(post("/api/wishes/{id}/publish", draft), ORG_USER))
+        // 而且審核期間存的那份草稿現在可以直接提交審核，不必重打一次
+        mvc.perform(as(post("/api/wishes/{id}/submit", draft), ORG_USER))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("AVAILABLE"));
+                .andExpect(jsonPath("$.status").value("PENDING_REVIEW"));
     }
 
     @Test

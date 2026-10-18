@@ -469,7 +469,7 @@ public class AttachmentService {
     /**
      * 孩童手寫的感謝卡／願望信照片。跟 {@link #authorizeWishImage} 的差別是
      * <strong>不檢查願望狀態</strong>——感謝卡通常是禮物寄出或收到之後才有，
-     * 那時候願望早就不是 {@code isEditable()} 的 DRAFT/AVAILABLE/ARCHIVED 了。
+     * 那時候願望早就不是 {@code isEditable()} 的 DRAFT 了。
      */
     private void authorizeWishLetter(UUID wishId, AppPrincipal principal) {
         UUID organizationId = currentUser.requireOrganizationId();

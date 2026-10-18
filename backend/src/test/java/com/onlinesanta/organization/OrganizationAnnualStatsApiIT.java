@@ -148,19 +148,14 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("願望歸年用 createdAt，即使重新上架也不受影響")
+    @DisplayName("願望歸年用 createdAt，不是發布時間")
     void newWishesCountUsesCreatedAtNotPublishedAt() throws Exception {
         int thisYear = TaiwanYear.currentYear();
         int lastYear = thisYear - 1;
 
-        UUID wishId = publishedWish(organizationA, "去年建立、今年重新上架");
+        // 去年建立、今年才發布（published_at 是現在，created_at 在去年）
+        UUID wishId = publishedWish(organizationA, "去年建立、今年才上架");
         backdateWish(wishId, TaiwanYear.startOf(lastYear).plusSeconds(3600));
-
-        // 下架再重新上架：published_at 只在第一次寫入，createdAt 不會變
-        mvc.perform(as(post("/api/wishes/{id}/unpublish", wishId), ORG_A))
-                .andExpect(status().isOk());
-        mvc.perform(as(post("/api/wishes/{id}/publish", wishId), ORG_A))
-                .andExpect(status().isOk());
 
         mvc.perform(as(get("/api/organizations/me/stats/annual")
                         .param("year", String.valueOf(lastYear)), ORG_A))

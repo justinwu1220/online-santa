@@ -37,6 +37,12 @@ public enum AdminAuditAction {
     /** 管理員刪除機構文件——跟 DELETE_ATTACHMENT 分開記，因為目標是機構不是認領。 */
     DELETE_ORGANIZATION_DOCUMENT,
 
+    /** 核准機構提交的願望，立即公開在願望牆。 */
+    APPROVE_WISH,
+
+    /** 退回機構提交的願望，附原因。 */
+    REJECT_WISH,
+
     /** 手動觸發逾期釋回掃描。 */
     RUN_RELEASE_SWEEP,
 
@@ -55,6 +61,7 @@ public enum AdminAuditAction {
                  SUSPEND_ORGANIZATION, REACTIVATE_ORGANIZATION, VIEW_ORGANIZATION_DOCUMENTS,
                  DELETE_ORGANIZATION_DOCUMENT
                     -> AdminAuditTargetType.ORGANIZATION;
+            case APPROVE_WISH, REJECT_WISH -> AdminAuditTargetType.WISH;
             case RUN_RELEASE_SWEEP, RUN_ATTACHMENT_CLEANUP, RUN_DEADLINE_REMINDERS -> AdminAuditTargetType.SYSTEM;
         };
     }

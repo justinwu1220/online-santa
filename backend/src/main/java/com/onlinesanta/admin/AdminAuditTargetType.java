@@ -4,6 +4,7 @@ package com.onlinesanta.admin;
 public enum AdminAuditTargetType {
     CLAIM,
     ORGANIZATION,
+    WISH,
     /** 不針對特定資源的系統動作，例如觸發排程。 */
     SYSTEM
 }

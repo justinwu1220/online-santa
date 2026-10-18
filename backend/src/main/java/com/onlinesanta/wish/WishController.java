@@ -56,7 +56,7 @@ public class WishController {
 
     @GetMapping
     @Operation(summary = "瀏覽願望牆",
-            description = "預設回可認領／已認領／已完成（草稿與下架一律不回）；"
+            description = "預設回可認領／已認領／已完成（草稿與審核中一律不回）；"
                     + "機構、分類、年齡區間、狀態皆為選填篩選，狀態只能篩成單一值。"
                     + "清單不含示意圖網址——願望牆一律用分類圖示，圖片只在詳情頁載入")
     public PageResponse<WishListView> browse(
@@ -90,7 +90,7 @@ public class WishController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "建立願望", description = "新建的願望為草稿，需再呼叫 publish 才會公開")
+    @Operation(summary = "建立願望", description = "新建的願望為草稿，需再呼叫 submit 提交審核、由管理員核准才會公開")
     public WishOrgView create(@Valid @RequestBody WishRequest request) {
         return WishOrgView.from(wishes.create(request));
     }
@@ -102,18 +102,19 @@ public class WishController {
                 wishes.update(id, request), attachments.wishImageUrl(id), attachments.wishLetters(id));
     }
 
-    @PostMapping("/{id}/publish")
-    @Operation(summary = "上架願望")
-    public WishOrgView publish(@PathVariable UUID id) {
+    @PostMapping("/{id}/submit")
+    @Operation(summary = "提交審核",
+            description = "草稿 → 審核中，由管理員核准後才公開；需已上傳信件照片，機構通過審核後才能提交")
+    public WishOrgView submit(@PathVariable UUID id) {
         return WishOrgView.from(
-                wishes.publish(id), attachments.wishImageUrl(id), attachments.wishLetters(id));
+                wishes.submit(id), attachments.wishImageUrl(id), attachments.wishLetters(id));
     }
 
-    @PostMapping("/{id}/unpublish")
-    @Operation(summary = "下架願望", description = "已被認領的願望無法下架")
-    public WishOrgView unpublish(@PathVariable UUID id) {
+    @PostMapping("/{id}/withdraw")
+    @Operation(summary = "撤回審核", description = "審核中 → 草稿，可以再編輯")
+    public WishOrgView withdraw(@PathVariable UUID id) {
         return WishOrgView.from(
-                wishes.unpublish(id), attachments.wishImageUrl(id), attachments.wishLetters(id));
+                wishes.withdraw(id), attachments.wishImageUrl(id), attachments.wishLetters(id));
     }
 
     @DeleteMapping("/{id}")
