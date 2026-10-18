@@ -179,7 +179,7 @@ function ProofViewer({ photos }: { photos: AttachmentView[] }) {
         <>
           <button type="button" className="link-btn" onClick={() => setOpen(true)}>查看</button>
           <Dialog open={open} onClose={() => setOpen(false)} labelledBy="proof-title">
-            <h2 id="proof-title">寄件單或包裹照片</h2>
+            <h2 id="proof-title">寄件照片</h2>
             <ProofGrid photos={photos} emptyHint="" />
             <div className="dialog__actions">
               <button type="button" className="btn" onClick={() => setOpen(false)}>關閉</button>
