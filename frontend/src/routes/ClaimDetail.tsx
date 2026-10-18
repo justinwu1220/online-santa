@@ -150,7 +150,7 @@ export function ClaimDetail() {
         <h2 className="task__thanks">
           謝謝你成為 <span className="grad-text">{nickname ?? '孩子'}</span> 的聖誕老人
         </h2>
-        <p className="task__sub">照著下面三步，把心意送到{data.childAlias}手上。</p>
+        <p className="task__sub">接下來照著下面三步，把禮物送到孩子身邊。</p>
 
         <DeadlineBar claim={data} remaining={remaining} />
 
