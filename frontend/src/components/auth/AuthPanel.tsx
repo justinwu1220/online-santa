@@ -1,6 +1,10 @@
 import { ArrowLeft, ChevronRight, Eye, EyeOff, Gift, Heart, House } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { describeAuthError, useAuth, usingFirebase } from '../../lib/authContext'
+import { termsFlow } from '../../lib/terms'
+import { TermsDialog } from '../terms/TermsDialog'
+import { DONOR_TERMS } from '../terms/termsContent'
 import { FormField, Input } from '../ui/Fields'
 import { useSlideSwap } from '../ui/SlideSwap'
 
@@ -28,6 +32,9 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
   onJoinIntent?: (role: JoinRole | null) => void
 }) {
   const auth = useAuth()
+  const queryClient = useQueryClient()
+  // 認領者按「註冊」後先跳出須知；同意後才真正建立帳號（SPEC 13.1）
+  const [termsOpen, setTermsOpen] = useState(false)
   const [mode, setMode] = useState<Mode>(initialTab)
   const [role, setRole] = useState<JoinRole | null>(initialRole)
   // 膠囊滑塊跟著手勢先動，所以和實際換內容的 mode 分開記
@@ -160,16 +167,36 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
         setConfirmError('兩次輸入的密碼不一致')
         return
       }
+      if (role === 'donor') {
+        // 先跳出《認領者參與須知》，取消就回到這張表單（欄位值都還在）
+        setTermsOpen(true)
+        return
+      }
       onJoinIntent?.(role)
       // 機構的承辦人姓名在下一步跟機構資料一起填——它是機構的欄位，不是帳號的
-      void run(() => auth.registerWithPassword(
-        email, password, role === 'donor' ? displayName.trim() : undefined,
-        role === 'donor' ? name.trim() : undefined))
+      void run(() => auth.registerWithPassword(email, password))
       return
     }
 
     // 登入分頁不改寫意圖：從「機構註冊遇到已有帳號」切過來的人要保留它
     void run(() => auth.signInWithPassword(email, password))
+  }
+
+  /** 認領者在須知上按「同意並註冊」：關掉視窗，建立帳號並寫入同意紀錄。 */
+  function registerDonorAfterConsent() {
+    setTermsOpen(false)
+    onJoinIntent?.('donor')
+    void run(async () => {
+      // 帳號一建好就會登入，但同意紀錄還在送：這段時間守門（TermsGate）不要跳出第二個視窗
+      termsFlow.registering = true
+      try {
+        await auth.registerWithPassword(
+          email, password, displayName.trim(), name.trim(), DONOR_TERMS.version)
+      } finally {
+        termsFlow.registering = false
+        void queryClient.invalidateQueries({ queryKey: ['terms'] })
+      }
+    })
   }
 
   // 註冊分兩頁：先選身分，再填帳號資料——合在一頁在手機上太長
@@ -354,6 +381,15 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
           )}
         </form>
       )}
+
+      <TermsDialog
+        open={termsOpen}
+        onClose={() => setTermsOpen(false)}
+        terms={DONOR_TERMS}
+        mode="consent"
+        acceptLabel="同意並註冊"
+        onAccept={registerDonorAfterConsent}
+      />
     </div>
   )
 }

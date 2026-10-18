@@ -17,6 +17,9 @@ import { publicStatusOf } from '../lib/wishStatus'
 import { WishFeature } from '../components/WishFeature'
 import { Dialog } from '../components/ui/Dialog'
 import { DonorTermsLink } from '../components/terms/DonorTermsLink'
+import { TermsDialog } from '../components/terms/TermsDialog'
+import { DONOR_TERMS } from '../components/terms/termsContent'
+import { isBundleCurrent, useAcceptDonorTerms, useDonorTerms } from '../lib/terms'
 import { ErrorNotice, Spinner } from '../components/ui/Spinner'
 
 export function WishDetail() {
@@ -28,6 +31,10 @@ export function WishDetail() {
   const [confirming, setConfirming] = useState(false)
   // 打開確認視窗的當下時間，用來預告寄出日期（render 中不直接讀現在時間）
   const [confirmedAt, setConfirmedAt] = useState(0)
+  // 還沒同意目前版本的須知（沒同意過、或同意的是舊版）：先請他同意，才開認領確認視窗
+  const terms = useDonorTerms()
+  const acceptTerms = useAcceptDonorTerms()
+  const [termsOpen, setTermsOpen] = useState(false)
   const [claimedOk, setClaimedOk] = useState(false)
   const location = useLocation()
   const root = useRef<HTMLDivElement>(null)
@@ -48,6 +55,11 @@ export function WishDetail() {
     onError: (error) => {
       // 搶輸了：立刻把這一頁的願望狀態更新成最新的，
       // 使用者才不會對著一個已經被領走的按鈕反覆點擊
+      if (error instanceof ApiError && error.errorCode === 'TERMS_NOT_ACCEPTED') {
+        setConfirming(false)
+        void queryClient.invalidateQueries({ queryKey: ['terms'] })
+        setTermsOpen(true)
+      }
       if (error instanceof ApiError && error.isAlreadyClaimed) {
         void queryClient.invalidateQueries({ queryKey: ['wish', id] })
         void queryClient.invalidateQueries({ queryKey: ['wishes'] })
@@ -122,6 +134,18 @@ export function WishDetail() {
   const isDonor = effectiveRoleOf(me.data) === 'DONOR'
   const avatar = avatarFor(data.id, data.ageRange)
   // 認領當下才會算出真正的期限；這裡用同一個天數預告，日期與認領後看到的一致
+  // 按「認領這個願望」：還沒同意目前版本的須知就先跳出同意視窗，同意後才進認領確認
+  function startClaim() {
+    if (terms.data && !terms.data.upToDate) {
+      setTermsOpen(true)
+      return
+    }
+    openConfirm()
+  }
+  function openConfirm() {
+    setConfirmedAt(Date.now())
+    setConfirming(true)
+  }
   const shipBy = formatDate(new Date(confirmedAt + data.shipDeadlineDays * 86_400_000).toISOString())
 
   return (
@@ -147,7 +171,7 @@ export function WishDetail() {
             isDonor={isDonor}
             wishId={id}
             success={claimedOk}
-            onClaim={() => { setConfirmedAt(Date.now()); setConfirming(true) }}
+            onClaim={startClaim}
           />
         )}
       />
@@ -160,6 +184,16 @@ export function WishDetail() {
           <OrgSiteLink />
         </div>
       </section>
+
+      <TermsDialog
+        open={termsOpen}
+        onClose={() => setTermsOpen(false)}
+        terms={DONOR_TERMS}
+        mode="consent"
+        acceptLabel="同意並繼續"
+        outdated={!isBundleCurrent(terms.data)}
+        onAccept={async () => { await acceptTerms(); setTermsOpen(false); openConfirm() }}
+      />
 
       <Dialog open={confirming} onClose={() => !claim.isPending && setConfirming(false)}
         dismissible={!claim.isPending} labelledBy="claim-title">

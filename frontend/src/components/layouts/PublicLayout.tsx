@@ -7,6 +7,7 @@ import { PLATFORM_NAME } from '../../lib/brand'
 import type { ClaimDonorView, PageResponse } from '../../lib/types'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
 import { Snowfall } from '../Snowfall'
+import { TermsGate } from '../terms/TermsGate'
 import { TransitionProvider } from '../transition/TransitionProvider'
 import { ToastProvider } from '../ui/Toast'
 import { VerifyBar } from '../ui/VerifyBar'
@@ -35,6 +36,7 @@ export function PublicLayout() {
             </div>
           )}
           <VerifyBar />
+          <TermsGate />
           <main className="page">
             <Outlet />
           </main>
