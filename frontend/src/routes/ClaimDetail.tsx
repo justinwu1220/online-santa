@@ -180,9 +180,6 @@ export function ClaimDetail() {
             {feedbackPhotos.length > 0 && (
               <section className="panel">
                 <div className="panel__head"><h2 className="panel__title">機構的回饋</h2></div>
-                <p style={{ margin: '0 0 12px', fontSize: 14, color: 'var(--fg-muted)' }}>
-                  這些照片只有你和機構看得到，網址會在數分鐘後失效。
-                </p>
                 <ProofGrid photos={feedbackPhotos} emptyHint="" />
               </section>
             )}
