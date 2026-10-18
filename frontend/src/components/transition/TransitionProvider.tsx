@@ -34,16 +34,23 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
   })
 
   // 每次換頁之後：沒有專屬轉場的，新頁由下 16px 浮上；也負責回到頂端與清掉過期的「返回列表」標記
+  const lastPath = useRef(location.pathname)
+  const celebrating = Boolean((location.state as { celebrate?: boolean } | null)?.celebrate)
   useEffect(() => {
+    const samePage = lastPath.current === location.pathname
+    lastPath.current = location.pathname
     if (firstRender.current) {
       firstRender.current = false
       return
     }
+    // 同一頁只是換了 state（例如認領頁把「剛認領」的標記清掉）：不是換頁，不能把捲動位置重設
+    if (samePage) return
     if (!isListPath(location.pathname)) listReturn.pending = false
-    if (!listReturn.pending) window.scrollTo(0, 0)
+    // 剛認領成功：從原本的捲動位置接著平滑捲到緞帶（原型的行為），不先跳回頂端再往下捲
+    if (!listReturn.pending && !celebrating) window.scrollTo(0, 0)
     if (consumeSpecialNavigation()) return
     rise([document.querySelector('.rd .page')], { dist: 16, dur: 450 })
-  }, [location.key, location.pathname])
+  }, [location.key, location.pathname, celebrating])
 
   useEffect(() => {
     const resetOverlay = () => overlay.current?.classList.remove('is-on', 'is-visible', 'is-playing')
