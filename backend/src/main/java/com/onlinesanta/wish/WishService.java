@@ -78,7 +78,7 @@ public class WishService {
     @Transactional
     public Wish create(WishRequest request) {
         Organization organization = organizations.getById(currentUser.requireOrganizationId());
-        Wish wish = Wish.draft(
+        return wishes.save(Wish.draft(
                 organization,
                 request.childAlias(),
                 request.ageRange(),
@@ -86,9 +86,7 @@ public class WishService {
                 request.title(),
                 request.description(),
                 request.category(),
-                request.priceRange());
-        wish.changeNote(request.note());
-        return wishes.save(wish);
+                request.priceRange()));
     }
 
     @Transactional
@@ -102,7 +100,6 @@ public class WishService {
                 request.description(),
                 request.category(),
                 request.priceRange());
-        wish.changeNote(request.note());
         return wish;
     }
 

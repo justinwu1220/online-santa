@@ -29,12 +29,9 @@ public record WishRequest(
         @Size(max = 120, message = "標題不可超過 120 字")
         String title,
 
-        @Size(max = 5000, message = "願望描述不可超過 5000 字")
-        String description,
-
-        /** 孩子口吻的一句話，20 字內；選填。 */
+        /** 願望說明：孩子口吻的一句話，20 字內（舊願望的長描述照常顯示，只有新增與編輯時限制）。 */
         @Size(max = 20, message = "願望說明不可超過 20 字")
-        String note,
+        String description,
 
         /** 1018 新版起機構表單不再填禮物分類；舊的呼叫端仍可帶，省略也可以。 */
         WishCategory category,
@@ -42,9 +39,4 @@ public record WishRequest(
         /** 機構後台的「新增願望」已拿掉這個欄位——選填，省略時願望牆不顯示價格標籤。 */
         PriceRange priceRange) {
 
-    /** 沒有願望說明的舊呼叫端（含測試）。 */
-    public WishRequest(String childAlias, AgeRange ageRange, String interests, String title,
-                       String description, WishCategory category, PriceRange priceRange) {
-        this(childAlias, ageRange, interests, title, description, null, category, priceRange);
-    }
 }

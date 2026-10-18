@@ -47,10 +47,6 @@ public class Wish extends BaseEntity {
     @Column(columnDefinition = "text")
     private String description;
 
-    /** 孩子口吻的一句話（20 字內），顯示在願望標題下方。 */
-    @Column(length = 60)
-    private String note;
-
     /** 頭貼檔名，建立時挑一次（見 {@link WishAvatar}）。 */
     @Column(nullable = false, length = 30)
     private String avatar;
@@ -129,11 +125,6 @@ public class Wish extends BaseEntity {
         this.priceRange = priceRange;
     }
 
-    public void changeNote(String note) {
-        requireEditable("修改");
-        this.note = note == null || note.isBlank() ? null : note.trim();
-    }
-
     /** 上架：草稿或已下架的願望都可以（重新）公開。 */
     public void publish() {
         if (status != WishStatus.DRAFT && status != WishStatus.ARCHIVED) {
@@ -203,10 +194,6 @@ public class Wish extends BaseEntity {
 
     public String getDescription() {
         return description;
-    }
-
-    public String getNote() {
-        return note;
     }
 
     public String getAvatar() {

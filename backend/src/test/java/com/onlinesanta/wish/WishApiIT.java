@@ -63,12 +63,12 @@ class WishApiIT extends ApiIntegrationTest {
 
     private WishRequest wishRequest(String title) {
         return new WishRequest("小星", AgeRange.AGE_7_9, "喜歡畫畫和恐龍",
-                title, "希望有一盒 48 色的色鉛筆", WishCategory.ART, PriceRange.UNDER_500);
+                title, "想要一盒 48 色色鉛筆", WishCategory.ART, PriceRange.UNDER_500);
     }
 
     private WishRequest wishRequestWithoutPriceRange(String title) {
         return new WishRequest("小星", AgeRange.AGE_7_9, "喜歡畫畫和恐龍",
-                title, "希望有一盒 48 色的色鉛筆", WishCategory.ART, null);
+                title, "想要一盒 48 色色鉛筆", WishCategory.ART, null);
     }
 
     private UUID createWish(String title) throws Exception {
@@ -524,13 +524,13 @@ class WishApiIT extends ApiIntegrationTest {
     }
 
     @Test
-    void noteIsOptionalAtMostTwentyCharactersAndShownPublicly() throws Exception {
+    void descriptionIsTheWishNoteLimitedToTwentyCharactersWhenWritten() throws Exception {
         UUID id = createWish("有說明");
         String note = "我想要藍色的，跑步才會像風一樣快！";
         mvc.perform(as(withBody(patch("/api/wishes/{id}", id), wishRequestWithAge("有說明", AgeRange.AGE_7_9, note)),
-                ORG_USER)).andExpect(status().isOk()).andExpect(jsonPath("$.note").value(note));
+                ORG_USER)).andExpect(status().isOk()).andExpect(jsonPath("$.description").value(note));
         mvc.perform(as(post("/api/wishes/{id}/publish", id), ORG_USER)).andExpect(status().isOk());
-        mvc.perform(get("/api/wishes/{id}", id)).andExpect(jsonPath("$.note").value(note));
+        mvc.perform(get("/api/wishes/{id}", id)).andExpect(jsonPath("$.description").value(note));
 
         mvc.perform(as(withBody(patch("/api/wishes/{id}", id),
                 wishRequestWithAge("有說明", AgeRange.AGE_7_9, "一二三四五六七八九十一二三四五六七八九十一")), ORG_USER))
@@ -539,14 +539,14 @@ class WishApiIT extends ApiIntegrationTest {
 
     @Test
     void categoryIsNoLongerRequired() throws Exception {
-        WishRequest request = new WishRequest("小星", AgeRange.AGE_7_9, null, "不填分類", null, null, null, null);
+        WishRequest request = new WishRequest("小星", AgeRange.AGE_7_9, null, "不填分類", null, null, null);
         mvc.perform(as(withBody(post("/api/wishes"), request), ORG_USER))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.category").doesNotExist());
     }
 
     private WishRequest wishRequestWithAge(String title, AgeRange age, String note) {
-        return new WishRequest("小星", age, "喜歡畫畫和恐龍", title, "希望有一盒 48 色的色鉛筆",
-                note, WishCategory.ART, null);
+        return new WishRequest("小星", age, "喜歡畫畫和恐龍", title,
+                note == null ? "想要一盒色鉛筆" : note, WishCategory.ART, null);
     }
 }

@@ -58,7 +58,7 @@ class SchemaMigrationIT extends PostgresIntegrationTest {
     }
 
     @Test
-    void usersHaveOnboardedAtAndWishesHaveAvatarAndNote() {
+    void usersHaveOnboardedAtAndWishesHaveAvatar() {
         List<String> userColumns = jdbc.queryForList(
                 "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'",
                 String.class);
@@ -67,7 +67,7 @@ class SchemaMigrationIT extends PostgresIntegrationTest {
         List<String> wishColumns = jdbc.queryForList(
                 "SELECT column_name FROM information_schema.columns WHERE table_name = 'wishes'",
                 String.class);
-        assertThat(wishColumns).contains("avatar", "note");
+        assertThat(wishColumns).contains("avatar");
 
         String nullable = jdbc.queryForObject(
                 "SELECT is_nullable FROM information_schema.columns "
