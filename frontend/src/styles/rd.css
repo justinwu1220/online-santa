@@ -302,6 +302,8 @@
   .field__label { font-size: 14px; font-weight: 700; color: var(--fg-2); }
   .field__label .req { margin-left: 3px; color: #fca5a5; }
   .field__label .opt { margin-left: 6px; font-size: 12px; font-weight: 500; color: var(--fg-muted); }
+  .field__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+  .field__head .field__hint { margin-top: 0; }
   .field__hint { margin-top: -2px; font-size: 12px; line-height: 1.6; color: var(--fg-muted); text-wrap: pretty; }
   .field__error { font-size: 12px; color: #fca5a5; }
   .field__error:empty { display: none; }

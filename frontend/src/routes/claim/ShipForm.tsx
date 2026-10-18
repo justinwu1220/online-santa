@@ -131,19 +131,20 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
             onChange={(event) => setTrackingNumber(event.target.value)} />
         </FormField>
 
-        <FormField label="實際寄出的禮物" required span={4} error={fieldErrors?.giftDescription}>
+        <FormField label="實際寄出的禮物" required span={4} hintBeside
+          hint="名稱與規格，例如：蠟筆小新變形機器人（約 20 公分）" error={fieldErrors?.giftDescription}>
           <Input required maxLength={200} value={giftDescription}
             placeholder="例如：繪本三本與文具組"
             onChange={(event) => setGiftDescription(event.target.value)} />
         </FormField>
-        <FormField label="數量" required span={2} error={fieldErrors?.giftQuantity}>
+        <FormField label="數量" required span={2} hintBeside hint="以「份」計算" error={fieldErrors?.giftQuantity}>
           <UnitInput unit="份" min={1} max={9999} value={giftQuantity} onChange={setGiftQuantity} />
         </FormField>
 
-        <FormField label="禮物價格" required span={3} hint="以發票資訊為主" error={fieldErrors?.giftPrice}>
+        <FormField label="禮物價格" required span={3} hintBeside hint="以購買發票上的金額為準" error={fieldErrors?.giftPrice}>
           <UnitInput unit="元" min={0} max={10000000} value={giftPrice} onChange={setGiftPrice} />
         </FormField>
-        <FormField label="寄出日期" required span={3} error={fieldErrors?.shippedOn}>
+        <FormField label="寄出日期" required span={3} hintBeside hint="預設為今天" error={fieldErrors?.shippedOn}>
           <Input required type="date" max={todayPlainDate()} value={shippedOn}
             onChange={(event) => setShippedOn(event.target.value)} />
         </FormField>
@@ -174,29 +175,30 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
                 <div className="receipt__fields">
                   <div className="form-grid">
                     <FormField label="姓名或公司名稱" required={receiptEnabled} span={3}
-                      hint="需與報稅身分一致" error={fieldErrors?.['receipt.name']}>
+                      hintBeside hint="真實姓名或單位全銜，需與報稅身分一致" error={fieldErrors?.['receipt.name']}>
                       <Input required={receiptEnabled} maxLength={100} value={receipt.name}
                         onChange={updateReceipt('name')} />
                     </FormField>
                     <FormField label="身分證字號或統一編號" required={receiptEnabled} span={3}
-                      hint="個人填身分證字號，公司填統一編號"
+                      hintBeside hint="個人填身分證或居留證號，公司填統一編號"
                       error={idNumberError ?? fieldErrors?.['receipt.idNumber']}>
                       <Input required={receiptEnabled} maxLength={10} autoComplete="off"
                         value={receipt.idNumber} onChange={updateReceipt('idNumber')} />
                     </FormField>
                     <FormField label="電子信箱" required={receiptEnabled} span={3}
-                      hint="電子收據會寄到這裡" error={fieldErrors?.['receipt.email']}>
+                      hintBeside hint="電子收據會寄到這裡" error={fieldErrors?.['receipt.email']}>
                       <Input required={receiptEnabled} type="email" maxLength={255}
                         value={receipt.email} onChange={updateReceipt('email')} />
                     </FormField>
                     <FormField label="收件地址" required={receiptEnabled} span={3}
-                      hint="需要紙本收據時用。預設寄電子檔，改紙本請聯繫 onlinesanta2026@gmail.com"
+                      hintBeside hint="預設寄電子檔；要紙本請寫信到 onlinesanta2026@gmail.com"
                       error={fieldErrors?.['receipt.address']}>
                       <Input required={receiptEnabled} maxLength={255}
                         value={receipt.address} onChange={updateReceipt('address')} />
                     </FormField>
                     <FilePicker
                       label="上傳紙本或電子發票證明"
+                      hint="供協會核對時價；請先遮住與這次捐贈無關的個人資料"
                       required={receiptEnabled}
                       files={receiptProofs}
                       onChange={setReceiptProofs}
@@ -260,8 +262,9 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
  * 外框用 div 而不是 label：label 會把範圍內任何點擊轉給裡面的 file input，
  * 結果點同一列就開啟檔案選擇，只有按鈕該觸發。
  */
-function FilePicker({ label, required = true, files, onChange, max, accept, validate, error, onError }: {
+function FilePicker({ label, hint, required = true, files, onChange, max, accept, validate, error, onError }: {
   label: string
+  hint?: string
   required?: boolean
   files: File[]
   onChange: (next: File[]) => void
@@ -286,7 +289,7 @@ function FilePicker({ label, required = true, files, onChange, max, accept, vali
   }
 
   return (
-    <FormField as="div" label={label} required={required} span={6} error={error}>
+    <FormField as="div" label={label} required={required} span={6} hintBeside hint={hint} error={error}>
       <div className="upload">
         {files.map((file, index) => (
           <span key={`${file.name}-${index}`} className="chip">

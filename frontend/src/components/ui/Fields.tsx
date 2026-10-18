@@ -6,11 +6,13 @@ import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTML
  * 預設是 `<label>`，點標籤會聚焦裡面的輸入框。裡面放的不是單一輸入框（例如檔案清單、
  * 多個按鈕）時用 `as="div"`——label 會把範圍內任何點擊轉給裡面第一個可操作元素。
  */
-export function FormField({ label, required, optional, hint, error, span, as = 'label', children }: {
+export function FormField({ label, required, optional, hint, hintBeside, error, span, as = 'label', children }: {
   label: string
   required?: boolean
   optional?: boolean
   hint?: ReactNode
+  /** 說明放在標題右邊（同一行，放不下才換行），而不是標題下方 */
+  hintBeside?: boolean
   error?: string | null
   /** 6 欄格線佔幾欄：6（整列）／4／3／2。沒給就不設定，由外層決定 */
   span?: 2 | 3 | 4 | 6
@@ -18,14 +20,23 @@ export function FormField({ label, required, optional, hint, error, span, as = '
   children: ReactNode
 }) {
   const Tag = as
+  const labelNode = (
+    <span className="field__label">
+      {label}
+      {required && <span className="req" aria-hidden>*</span>}
+      {optional && <span className="opt">選填</span>}
+    </span>
+  )
   return (
     <Tag className={`field${span ? ` c-${span}` : ''}${error ? ' is-invalid' : ''}`}>
-      <span className="field__label">
-        {label}
-        {required && <span className="req" aria-hidden>*</span>}
-        {optional && <span className="opt">選填</span>}
-      </span>
-      {hint && <span className="field__hint">{hint}</span>}
+      {hint && hintBeside ? (
+        <span className="field__head">{labelNode}<span className="field__hint">{hint}</span></span>
+      ) : (
+        <>
+          {labelNode}
+          {hint && <span className="field__hint">{hint}</span>}
+        </>
+      )}
       {children}
       {error && <span className="field__error" role="alert">{error}</span>}
     </Tag>
