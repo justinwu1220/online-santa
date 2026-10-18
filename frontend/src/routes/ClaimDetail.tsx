@@ -188,7 +188,7 @@ export function ClaimDetail() {
             )}
 
             <StepPanel no={3} title="有問題就問機構">
-              <Chat claimId={id} closed={closed} counterpart="機構" />
+              <Chat claimId={id} closed={closed} counterpart={data.organizationName} />
             </StepPanel>
           </div>
 
