@@ -84,6 +84,13 @@ public class AdminOrganizationController {
         return review.documentsOf(id);
     }
 
+    @GetMapping("/{id}/photo")
+    @Operation(summary = "機構照片（點擊載入）", description = "回傳限時簽章網址（沒上傳為 null）；每次載入寫一筆稽核")
+    public java.util.Map<String, String> photo(@PathVariable UUID id) {
+        String url = review.photoOf(id);
+        return url == null ? java.util.Map.of() : java.util.Map.of("url", url);
+    }
+
     @PostMapping("/{id}/reactivate")
     @Operation(summary = "恢復機構", description = "停權後恢復為 APPROVED，願望重新出現在公開曝光。只有 SUSPENDED 的機構能被恢復")
     public OrganizationReviewView reactivate(

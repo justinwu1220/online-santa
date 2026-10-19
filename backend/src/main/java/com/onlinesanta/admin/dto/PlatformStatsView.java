@@ -10,6 +10,9 @@ import java.util.Map;
  * <p>刻意用「狀態 → 筆數」的 map 而非把每個狀態列成欄位：新增一個狀態時後端與前端
  * 都不必改結構，前端照著 map 逐項渲染即可。
  *
+ * @param frozenWishes 被暫時凍結的願望數（疊在任何公開狀態上）
+ * @param goalWishes 活動目標：送到孩子手上的禮物份數（總覽的活動進度）
+ * @param goalOrganizations 活動目標：已核准的合作機構數
  * @param overdueClaims 逾期未寄送的認領。這是最需要盯的數字——它代表有孩子的願望
  *                      正被卡著，而捐贈者可能已經放棄了
  * @param availableWishYears 有願望（以 createdAt 歸年）可選的年份，供「全站願望」頁的
@@ -26,6 +29,9 @@ public record PlatformStatsView(
         long overdueClaims,
         long pendingOrganizations,
         long availableWishes,
+        long frozenWishes,
+        int goalWishes,
+        int goalOrganizations,
         List<Integer> availableWishYears,
         List<Integer> availableClaimYears,
         Instant generatedAt) {

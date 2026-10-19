@@ -32,15 +32,21 @@ public class AdminStatsService {
     private final WishRepository wishes;
     private final ClaimRepository claims;
     private final UserRepository users;
+    private final int goalWishes;
+    private final int goalOrganizations;
 
     public AdminStatsService(OrganizationRepository organizations,
                              WishRepository wishes,
                              ClaimRepository claims,
-                             UserRepository users) {
+                             UserRepository users,
+                             @org.springframework.beans.factory.annotation.Value("${app.goals.wishes:500}") int goalWishes,
+                             @org.springframework.beans.factory.annotation.Value("${app.goals.organizations:30}") int goalOrganizations) {
         this.organizations = organizations;
         this.wishes = wishes;
         this.claims = claims;
         this.users = users;
+        this.goalWishes = goalWishes;
+        this.goalOrganizations = goalOrganizations;
     }
 
     @Transactional(readOnly = true)
@@ -58,6 +64,9 @@ public class AdminStatsService {
                 claims.countOverdue(Instant.now()),
                 organizationCounts.getOrDefault(OrganizationStatus.PENDING.name(), 0L),
                 wishCounts.getOrDefault(WishStatus.AVAILABLE.name(), 0L),
+                wishes.countFrozen(),
+                goalWishes,
+                goalOrganizations,
                 TaiwanYear.availableYearsSince(wishes.earliestCreatedAt()),
                 TaiwanYear.availableYearsSince(claims.earliestClaimedAtPlatformWide()),
                 Instant.now());

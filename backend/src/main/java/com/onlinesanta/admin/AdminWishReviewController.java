@@ -9,7 +9,17 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.onlinesanta.admin.dto.AdminWishCounts;
+import com.onlinesanta.admin.dto.AdminWishDetailView;
+import com.onlinesanta.admin.dto.AdminWishListItem;
 import com.onlinesanta.admin.dto.AdminWishView;
+import com.onlinesanta.attachment.dto.AttachmentView;
+import com.onlinesanta.common.PageResponse;
+import java.util.List;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import com.onlinesanta.admin.dto.WishRejectRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,9 +34,39 @@ import jakarta.validation.Valid;
 public class AdminWishReviewController {
 
     private final WishReviewService review;
+    private final AdminWishQueryService query;
 
-    public AdminWishReviewController(WishReviewService review) {
+    public AdminWishReviewController(WishReviewService review, AdminWishQueryService query) {
         this.review = review;
+        this.query = query;
+    }
+
+    @GetMapping
+    @Operation(summary = "願望清單", description = "草稿以外的所有願望；filter 為 ALL／REVIEW／OPEN／CLAIMED／LATE／DONE／FROZEN，q 搜尋禮物、孩子暱稱或機構")
+    public PageResponse<AdminWishListItem> list(
+            @RequestParam(defaultValue = "ALL") AdminWishQueryService.Filter filter,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) Integer year,
+            @PageableDefault(size = 50) Pageable pageable) {
+        return PageResponse.of(query.list(filter, q, year, pageable), item -> item);
+    }
+
+    @GetMapping("/counts")
+    @Operation(summary = "篩選列各項數量")
+    public AdminWishCounts counts() {
+        return query.counts();
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "願望抽屜資料", description = "含禮物價格、機構卡、目前認領（捐贈人姓名與帳號信箱）；有認領者時寫一筆稽核")
+    public AdminWishDetailView detail(@PathVariable UUID id) {
+        return query.get(id);
+    }
+
+    @GetMapping("/{id}/files")
+    @Operation(summary = "願望附件（點擊載入）", description = "孩子的手寫信件與目前認領的寄件照片；每次載入寫一筆稽核")
+    public List<AttachmentView> files(@PathVariable UUID id) {
+        return query.files(id);
     }
 
     @PostMapping("/{id}/approve")

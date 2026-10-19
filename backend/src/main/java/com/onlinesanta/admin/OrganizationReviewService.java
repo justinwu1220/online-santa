@@ -136,6 +136,16 @@ public class OrganizationReviewService {
         return views;
     }
 
+    /** 機構照片（點擊載入）：可能拍到孩子或機構環境，載入時寫稽核。沒上傳過回 null。 */
+    @Transactional
+    public String photoOf(UUID organizationId) {
+        currentUser.requireAdmin();
+        Organization organization = organizationService.getById(organizationId);
+        String url = attachments.organizationPhotoUrl(organizationId);
+        audit.record(AdminAuditAction.VIEW_ORGANIZATION_PHOTO, organizationId, organization.getName());
+        return url;
+    }
+
     private String describeReason(String note) {
         return note == null || note.isBlank() ? null : "理由：" + note;
     }

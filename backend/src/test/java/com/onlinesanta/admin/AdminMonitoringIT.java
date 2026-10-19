@@ -166,14 +166,14 @@ class AdminMonitoringIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("願望清單含草稿——機構自己看不到別家的，管理員全都看得到")
-    void wishListIncludesDrafts() throws Exception {
+    @DisplayName("願望清單不含草稿——還沒提交就不是平台的事（設計稿只有待審核／可認領／已認領／已完成）")
+    void wishListExcludesDrafts() throws Exception {
         wishes.save(Wish.draft(organizationA, "小星", AgeRange.AGE_7_9, null,
                 "草稿", null, WishCategory.TOY, PriceRange.UNDER_500));
 
-        mvc.perform(as(get("/api/admin/wishes").param("status", "DRAFT"), ADMIN))
+        mvc.perform(as(get("/api/admin/wishes"), ADMIN))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(1));
+                .andExpect(jsonPath("$.totalElements").value(0));
     }
 
     // ------------------------------------------------------------ 願望的年度篩選
@@ -203,7 +203,7 @@ class AdminMonitoringIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("願望清單的 status 與 year 篩選可以同時使用")
+    @DisplayName("願望清單的狀態篩選與 year 篩選可以同時使用（草稿不算）")
     void wishListFiltersByStatusAndYearTogether() throws Exception {
         UUID availableThisYear = publishedWish(organizationA, "今年上架中");
         backdateWish(availableThisYear, TaiwanYear.startOf(2026).plusSeconds(3600));
@@ -216,22 +216,22 @@ class AdminMonitoringIT extends ApiIntegrationTest {
         backdateWish(availableLastYear, TaiwanYear.startOf(2025).plusSeconds(3600));
 
         mvc.perform(as(get("/api/admin/wishes")
-                        .param("status", "AVAILABLE").param("year", "2026"), ADMIN))
+                        .param("filter", "OPEN").param("year", "2026"), ADMIN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].title").value("今年上架中"));
 
-        // 只 status：兩個年度的上架中都算
-        mvc.perform(as(get("/api/admin/wishes").param("status", "AVAILABLE"), ADMIN))
+        // 只篩狀態：兩個年度的上架中都算
+        mvc.perform(as(get("/api/admin/wishes").param("filter", "OPEN"), ADMIN))
                 .andExpect(jsonPath("$.totalElements").value(2));
 
-        // 只 year：該年不分狀態都算
+        // 只篩年度：草稿不算，該年只剩一筆
         mvc.perform(as(get("/api/admin/wishes").param("year", "2026"), ADMIN))
-                .andExpect(jsonPath("$.totalElements").value(2));
+                .andExpect(jsonPath("$.totalElements").value(1));
 
-        // 都不帶：全部三筆
+        // 都不帶：草稿以外兩筆
         mvc.perform(as(get("/api/admin/wishes"), ADMIN))
-                .andExpect(jsonPath("$.totalElements").value(3));
+                .andExpect(jsonPath("$.totalElements").value(2));
     }
 
     @Test

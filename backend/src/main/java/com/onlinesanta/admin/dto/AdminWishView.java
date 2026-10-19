@@ -28,7 +28,9 @@ public record AdminWishView(
         UUID organizationId,
         String organizationName,
         Instant publishedAt,
-        Instant createdAt) {
+        Instant createdAt,
+        boolean frozen,
+        String frozenReason) {
 
     public static AdminWishView from(Wish wish) {
         return new AdminWishView(
@@ -43,6 +45,8 @@ public record AdminWishView(
                 wish.getOrganization().getId(),
                 wish.getOrganization().getName(),
                 wish.getPublishedAt(),
-                wish.getCreatedAt());
+                wish.getCreatedAt(),
+                wish.isFrozen(),
+                wish.getFrozenReason());
     }
 }

@@ -31,6 +31,9 @@ public enum AdminAuditAction {
     /** 看了某機構申請附上的立案證明文件。 */
     VIEW_ORGANIZATION_DOCUMENTS,
 
+    /** 看了某機構的照片（可能拍到孩子或機構環境）。 */
+    VIEW_ORGANIZATION_PHOTO,
+
     /** 管理員刪除附件（隱私事件處置）。目標是附件所屬的認領。 */
     DELETE_ATTACHMENT,
 
@@ -49,6 +52,9 @@ public enum AdminAuditAction {
     /** 解除凍結。 */
     UNFREEZE_WISH,
 
+    /** 看了某個願望的附件（孩子的手寫信件、寄件照片，可能含孩童影像與個資）。 */
+    VIEW_WISH_ATTACHMENTS,
+
     /** 手動觸發逾期釋回掃描。 */
     RUN_RELEASE_SWEEP,
 
@@ -64,10 +70,10 @@ public enum AdminAuditAction {
                  DELETE_ATTACHMENT
                     -> AdminAuditTargetType.CLAIM;
             case APPROVE_ORGANIZATION, REJECT_ORGANIZATION,
-                 SUSPEND_ORGANIZATION, REACTIVATE_ORGANIZATION, VIEW_ORGANIZATION_DOCUMENTS,
+                 SUSPEND_ORGANIZATION, REACTIVATE_ORGANIZATION, VIEW_ORGANIZATION_DOCUMENTS, VIEW_ORGANIZATION_PHOTO,
                  DELETE_ORGANIZATION_DOCUMENT
                     -> AdminAuditTargetType.ORGANIZATION;
-            case APPROVE_WISH, REJECT_WISH, FREEZE_WISH, UNFREEZE_WISH -> AdminAuditTargetType.WISH;
+            case APPROVE_WISH, REJECT_WISH, FREEZE_WISH, UNFREEZE_WISH, VIEW_WISH_ATTACHMENTS -> AdminAuditTargetType.WISH;
             case RUN_RELEASE_SWEEP, RUN_ATTACHMENT_CLEANUP, RUN_DEADLINE_REMINDERS -> AdminAuditTargetType.SYSTEM;
         };
     }

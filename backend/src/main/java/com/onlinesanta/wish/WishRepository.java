@@ -64,6 +64,45 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
     @EntityGraph(attributePaths = "organization")
     Optional<Wish> findWithOrganizationById(UUID id);
 
+    /**
+     * 管理員「願望」清單：看得到所有已提交過的願望（草稿除外）。
+     *
+     * <p>{@code q} 永遠有值（沒搜尋傳空字串，有搜尋傳 {@code %小寫關鍵字%}），避免可為 null 的
+     * 字串參數在 Postgres 推不出型別。逾期＝認領中且寄出期限已過。排序：待審核 → 可認領 →
+     * 已認領 → 已完成，同狀態內新的在前。
+     */
+    @EntityGraph(attributePaths = "organization")
+    @Query("""
+            select w from Wish w join w.organization o
+            where w.status in :statuses
+              and (:frozenOnly = false or w.frozenAt is not null)
+              and (:lateOnly = false or exists (
+                    select 1 from Claim c
+                     where c.wish = w
+                       and c.status = com.onlinesanta.claim.ClaimStatus.CLAIMED
+                       and c.shipDeadlineAt < :now))
+              and w.createdAt >= :from and w.createdAt < :to
+              and (:q = '' or lower(w.title) like :q or lower(w.childAlias) like :q
+                            or lower(o.name) like :q)
+            order by case w.status
+                       when com.onlinesanta.wish.WishStatus.PENDING_REVIEW then 0
+                       when com.onlinesanta.wish.WishStatus.AVAILABLE then 1
+                       when com.onlinesanta.wish.WishStatus.CLAIMED then 2
+                       else 3
+                     end, w.createdAt desc
+            """)
+    Page<Wish> adminSearch(@Param("statuses") Collection<WishStatus> statuses,
+                           @Param("frozenOnly") boolean frozenOnly,
+                           @Param("lateOnly") boolean lateOnly,
+                           @Param("now") Instant now,
+                           @Param("from") Instant from,
+                           @Param("to") Instant to,
+                           @Param("q") String q,
+                           Pageable pageable);
+
+    @Query("select count(w) from Wish w where w.frozenAt is not null")
+    long countFrozen();
+
     /** 監控中心的跨機構檢視。 */
     @EntityGraph(attributePaths = "organization")
     Page<Wish> findByStatus(WishStatus status, Pageable pageable);
