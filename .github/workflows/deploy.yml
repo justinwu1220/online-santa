@@ -90,7 +90,7 @@ jobs:
             --allow-unauthenticated
             --service-account=online-santa-run@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com
             --cpu=1
-            --memory=512Mi
+            --memory=1Gi
             --concurrency=80
             --min-instances=0
             --max-instances=10

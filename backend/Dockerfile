@@ -56,7 +56,7 @@ RUN java -XX:ArchiveClassesAtExit=/app/application.jsa \
 
 EXPOSE 8080
 
-# MaxRAMPercentage：容器記憶體是 512Mi，讓 JVM 依實際配額決定堆積大小，
+# MaxRAMPercentage：容器記憶體是 1Gi，讓 JVM 依實際配額決定堆積大小，
 #   而不是沿用它對主機記憶體的猜測。
 # UseSerialGC：單核心的小容器上，平行 GC 的執行緒協調成本高於收益，
 #   而且序列式 GC 的啟動成本最低——對 scale-to-zero 特別重要。
