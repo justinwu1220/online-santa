@@ -46,7 +46,7 @@ public class NewMessageNotificationListener {
         if (senderIsDonor) {
             Organization organization = claim.getWish().getOrganization();
             to = organization.getContactEmail();
-            link = properties.publicUrl() + "/org/claims";
+            link = properties.publicUrl() + "/org";
         } else {
             to = claim.getDonor().getEmail();
             link = properties.publicUrl() + "/me/claims/" + claim.getId();

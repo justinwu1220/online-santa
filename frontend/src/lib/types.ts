@@ -95,6 +95,54 @@ export interface WishPublicView {
   shipDeadlineDays: number
 }
 
+export type WishStage =
+  | 'DRAFT' | 'PENDING_REVIEW' | 'OPEN' | 'CLAIMED_WAITING' | 'CLAIMED_OVERDUE'
+  | 'SHIPPED' | 'DONE' | 'INCONSISTENT'
+
+/** 願望目前佔用中的認領摘要（機構後台）。沒有認領者的信箱、電話與禮物價格。 */
+export interface ActiveClaimSummary {
+  claimId: string
+  status: ClaimStatus
+  donorName?: string
+  claimedAt: string
+  shipDeadlineAt?: string
+  overdue: boolean
+  shippedAt?: string
+  receivedAt?: string
+  receivedOn?: string
+  completedAt?: string
+}
+
+/** 過往被收回或取消的認領紀錄 */
+export interface PastClaimView {
+  claimId: string
+  status: ClaimStatus
+  donorName?: string
+  claimedAt: string
+  endedAt?: string
+  reason?: string
+}
+
+/** 機構「願望管理」抽屜的資料 */
+export interface WishOrgDetail {
+  wish: WishOrgView
+  activeClaim?: ClaimOrgView
+  pastClaims: PastClaimView[]
+}
+
+/** 篩選列各項的數量 */
+export interface OrganizationStageCounts {
+  all: number
+  draft: number
+  pendingReview: number
+  open: number
+  claimed: number
+  done: number
+  claimedWaiting: number
+  claimedOverdue: number
+  shipped: number
+}
+
 export interface WishOrgView {
   id: string
   title: string
@@ -107,6 +155,12 @@ export interface WishOrgView {
   status: WishStatus
   /** 管理員退回時的原因（退回後到重新核准前一直保留） */
   reviewNote?: string
+  /** 願望加上目前認領合起來的狀態（後端算好的單一來源） */
+  stage: WishStage
+  /** 目前佔用中的認領摘要；還沒有人認領為 undefined */
+  activeClaim?: ActiveClaimSummary
+  /** 機構還沒讀的訊息數（系統通知＋認領者傳來的） */
+  unreadCount: number
   editable: boolean
   deletable: boolean
   version: number

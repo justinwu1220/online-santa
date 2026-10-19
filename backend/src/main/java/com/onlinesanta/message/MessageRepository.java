@@ -46,6 +46,22 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     long countWishUnread(@Param("wishId") UUID wishId, @Param("claimId") UUID claimId,
                          @Param("readerId") UUID readerId);
 
+    /** 一批願望各自的未讀數（機構後台清單用）：系統通知＋目前認領者傳來的訊息。 */
+    @Query("""
+            select m.wishId, count(m)
+            from Message m
+            where m.wishId in :wishIds and m.readAt is null
+              and (m.kind = com.onlinesanta.message.MessageKind.SYSTEM
+                   or (m.kind = com.onlinesanta.message.MessageKind.USER
+                       and m.senderUserId <> :readerId
+                       and m.claimId in (select c.id from Claim c
+                                         where c.wish.id = m.wishId and c.status in :occupying)))
+            group by m.wishId
+            """)
+    List<Object[]> countUnreadByWishIds(@Param("wishIds") Collection<UUID> wishIds,
+                                        @Param("readerId") UUID readerId,
+                                        @Param("occupying") Collection<com.onlinesanta.claim.ClaimStatus> occupying);
+
     /** 機構所有願望的未讀總數（側邊選單的紅色數字）。 */
     @Query("""
             select count(m) from Message m

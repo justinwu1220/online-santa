@@ -322,7 +322,7 @@ class NotificationTriggerIT extends ApiIntegrationTest {
         assertThat(fakeMailSender.sent()).singleElement().satisfies(mail -> {
             assertThat(mail.getTo()).containsExactly("org-contact@example.org");
             assertThat(mail.getSubject()).contains("內容檢查的願望");
-            assertThat(mail.getText()).contains("內容檢查的願望").contains("/org/claims");
+            assertThat(mail.getText()).contains("內容檢查的願望").contains("/org");
         });
     }
 

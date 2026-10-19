@@ -137,6 +137,10 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
             @Param("organizationId") UUID organizationId, @Param("status") WishStatus status,
             @Param("from") Instant from, @Param("to") Instant to, Pageable pageable);
 
+    /** 機構各狀態的願望數（篩選列的數量）。 */
+    @Query("select w.status, count(w) from Wish w where w.organization.id = :organizationId group by w.status")
+    List<Object[]> countByOrganizationGroupedByStatus(@Param("organizationId") UUID organizationId);
+
     /** 機構最早一筆願望的建立時間，供「願望管理」頁年度下拉推導可選年份。 */
     @Query("select min(w.createdAt) from Wish w where w.organization.id = :organizationId")
     Instant earliestCreatedAtByOrganization(@Param("organizationId") UUID organizationId);

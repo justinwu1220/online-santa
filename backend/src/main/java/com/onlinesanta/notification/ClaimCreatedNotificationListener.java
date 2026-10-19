@@ -47,7 +47,7 @@ public class ClaimCreatedNotificationListener {
                 給孩子的話：%s
 
                 請留意寄送期限，登入機構後台查看詳情、並與捐贈者保持聯繫：
-                %s/org/claims
+                %s/org
 
                 線上聖誕老人
                 """.formatted(

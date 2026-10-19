@@ -20,6 +20,32 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
     /** 願望目前佔用中的那一筆認領（最多一筆，由 uq_active_claim_per_wish 保證）。 */
     Optional<Claim> findFirstByWishIdAndStatusIn(UUID wishId, Collection<ClaimStatus> statuses);
 
+    /** 一批願望目前佔用中的認領（機構後台清單用，一次查完不 N+1）。 */
+    @EntityGraph(attributePaths = {"donor"})
+    List<Claim> findByWishIdInAndStatusIn(Collection<UUID> wishIds, Collection<ClaimStatus> statuses);
+
+    /** 願望過去被收回或取消的認領，新的在前。 */
+    @EntityGraph(attributePaths = {"donor"})
+    List<Claim> findByWishIdAndStatusInOrderByClaimedAtDesc(UUID wishId, Collection<ClaimStatus> statuses);
+
+    /** 機構某幾種狀態的認領數（篩選列的數量用）。 */
+    @Query("""
+            select count(c) from Claim c
+            where c.wish.organization.id = :organizationId and c.status in :statuses
+            """)
+    long countByOrganizationAndStatusIn(@Param("organizationId") UUID organizationId,
+                                        @Param("statuses") Collection<ClaimStatus> statuses);
+
+    /** 機構逾期未寄的認領數；條件與 Claim.isOverdue 一致。 */
+    @Query("""
+            select count(c) from Claim c
+            where c.wish.organization.id = :organizationId
+              and c.status = com.onlinesanta.claim.ClaimStatus.CLAIMED
+              and c.shipDeadlineAt is not null
+              and c.shipDeadlineAt < :now
+            """)
+    long countOverdueByOrganization(@Param("organizationId") UUID organizationId, @Param("now") Instant now);
+
     /** 每位民眾同時進行中的認領數上限檢查。 */
     long countByDonorIdAndStatusIn(UUID donorId, Collection<ClaimStatus> statuses);
 
