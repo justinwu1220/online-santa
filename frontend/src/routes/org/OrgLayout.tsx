@@ -1,6 +1,7 @@
 import { Clock } from 'lucide-react'
 import { Outlet } from 'react-router-dom'
 import { ConsoleShell, type ConsoleNavItem } from '../../components/console/ConsoleShell'
+import { OrgTermsGate } from '../../components/terms/OrgTermsGate'
 import { TermsLink } from '../../components/terms/TermsLink'
 import { ORG_TERMS } from '../../components/terms/termsContent'
 import { Callout } from '../../components/ui/Callout'
@@ -75,6 +76,7 @@ export function OrgLayout() {
       }
     >
       <Outlet context={{ organization: data }} />
+      <OrgTermsGate />
     </ConsoleShell>
   )
 }
