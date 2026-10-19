@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 
 /**
  * 表單欄位外框：標籤、說明、錯誤訊息（SPEC 11.2）。
@@ -43,15 +43,15 @@ export function FormField({ label, required, optional, hint, hintBeside, error, 
   )
 }
 
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
+export function Input(props: ComponentProps<'input'>) {
   return <input {...props} className={`input ${props.className ?? ''}`} />
 }
 
-export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function TextArea(props: ComponentProps<'textarea'>) {
   return <textarea {...props} className={`input ${props.className ?? ''}`} />
 }
 
-export function SelectBox(props: SelectHTMLAttributes<HTMLSelectElement>) {
+export function SelectBox(props: ComponentProps<'select'>) {
   return <select {...props} className={`input ${props.className ?? ''}`} />
 }
 

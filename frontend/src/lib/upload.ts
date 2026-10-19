@@ -145,3 +145,11 @@ export function validateReceiptProof(file: File): string | null {
 export function validateOrgDocument(file: File): string | null {
   return validateFile(file, ACCEPTED_ORG_DOCUMENT_TYPES, MAX_ORG_DOCUMENT_BYTES, '圖檔（JPEG/PNG/WebP）或 PDF')
 }
+
+// 機構照片：只收 JPG／PNG（設計稿 13.4），限一張，換新直接取代舊的；
+// 跟後端 AttachmentPurpose.ORG_PHOTO 一致
+export const ACCEPTED_ORG_PHOTO_TYPES = ['image/jpeg', 'image/png'] as const
+
+export function validateOrgPhoto(file: File): string | null {
+  return validateFile(file, ACCEPTED_ORG_PHOTO_TYPES, MAX_IMAGE_BYTES, 'JPG 或 PNG')
+}

@@ -306,7 +306,7 @@ export interface ClaimEventView {
 
 export type AttachmentPurpose =
   | 'WISH_IMAGE' | 'SHIPPING_PROOF' | 'ORG_FEEDBACK' | 'ORG_DOCUMENT' | 'WISH_LETTER'
-  | 'RECEIPT_PROOF'
+  | 'RECEIPT_PROOF' | 'ORG_PHOTO'
 
 export interface AttachmentView {
   id: string
