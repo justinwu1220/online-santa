@@ -87,7 +87,6 @@ export function WishFeature({ wish, statusKey, statusLabel, footer, orgAnchor }:
           {wish.description && (
             <p className="gift-note" style={{ whiteSpace: 'pre-wrap' }}>{wish.description}</p>
           )}
-          {wish.interests && <p className="gift-note">孩子喜歡：{wish.interests}</p>}
         </div>
 
         <div className="info__spacer" />

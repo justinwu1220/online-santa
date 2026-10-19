@@ -132,8 +132,6 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
         title: values.title.trim(),
         description: values.note.trim() || undefined,
         category: values.category || undefined,
-        // 設計稿的表單沒有「興趣」欄位；編輯時保留舊願望原有的，不要被清掉
-        interests: wish?.interests,
       }
       const saved = wish
         ? await api.patch<WishOrgView>(`/api/wishes/${wish.id}`, body)

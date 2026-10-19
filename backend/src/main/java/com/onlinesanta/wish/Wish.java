@@ -130,7 +130,7 @@ public class Wish extends BaseEntity {
         this.avatar = WishAvatar.afterEdit(this.avatar, this.ageRange, ageRange);
         this.childAlias = childAlias;
         this.ageRange = ageRange;
-        this.interests = interests;
+        // interests 不再由畫面收集（設計稿沒有這個欄位），舊資料原樣保留，編輯時不覆寫
         this.title = title;
         this.description = description;
         this.category = category;
