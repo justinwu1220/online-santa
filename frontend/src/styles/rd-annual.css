@@ -32,3 +32,14 @@
 .rd .drawer__tabs { overflow-y: hidden; scrollbar-width: none; }
 .rd .drawer__tabs::-webkit-scrollbar { display: none; }
 .rd .dtab[aria-selected="true"]::after { bottom: 0; }
+
+/* 下拉選單：原生箭頭貼著右邊界，改成自畫的箭頭並往內縮 14px（文字右側留白避免壓到箭頭） */
+.rd .filters select, .rd select.input {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23cbd5e1' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px 16px;
+}
