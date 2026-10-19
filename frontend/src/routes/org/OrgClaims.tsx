@@ -134,9 +134,8 @@ function ClaimCard({ claim, onChanged }: { claim: ClaimOrgView; onChanged: () =>
             </Link>
           </h3>
           <p className="mt-0.5 text-sm text-slate-500">
-            給 {claim.childAlias}・認領者 {claim.donorName ?? claim.donorEmail}
+            給 {claim.childAlias}・認領者 {claim.donorName ?? '—'}
           </p>
-          <p className="text-sm text-slate-400">{claim.donorEmail}</p>
         </div>
         <div className="flex items-center gap-2">
           {claim.unreadMessageCount > 0 && (

@@ -1,5 +1,6 @@
 package com.onlinesanta.claim;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -444,7 +445,9 @@ class ClaimApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.donorName").value("熱心民眾"))
                 .andExpect(jsonPath("$.trackingNumber").value("R777"))
                 .andExpect(jsonPath("$.giftDescription").value("繪本與文具組"))
-                .andExpect(jsonPath("$.giftPrice").value(500));
+                // 禮物價格與認領者信箱不給機構（設計稿 15.4）
+                .andExpect(jsonPath("$.giftPrice").doesNotExist())
+                .andExpect(jsonPath("$.donorEmail").doesNotExist());
 
         // 別家機構一律 404，不承認這筆認領存在
         mvc.perform(as(get("/api/organizations/me/claims/{id}", claimId), OTHER_ORG_USER))
@@ -452,6 +455,34 @@ class ClaimApiIT extends ApiIntegrationTest {
         // 捐贈者不是機構，沒有機構身分
         mvc.perform(as(get("/api/organizations/me/claims/{id}", claimId), DONOR))
                 .andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    @DisplayName("機構端任何回應都不含禮物價格、認領者信箱與收據旗標；認領者自己看得到價格")
+    void organizationSideNeverSeesPriceOrDonorContact() throws Exception {
+        UUID claimId = claimAs(publishedWish("隱私規則"), DONOR);
+        uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
+        uploadConfirmedAttachment(AttachmentPurpose.RECEIPT_PROOF, claimId, DONOR);
+        mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
+                        ShipRequests.withReceipt("郵局", "R888")), DONOR))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.giftPrice").value(500))
+                .andExpect(jsonPath("$.receiptRequested").value(true));
+
+        for (String path : new String[] {
+                "/api/organizations/me/claims/" + claimId,
+                "/api/organizations/me/claims",
+                "/api/claims/" + claimId}) {
+            String body = mvc.perform(as(get(path), ORG_USER)).andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString();
+            assertThat(body).as(path).doesNotContain("\"giftPrice\":").doesNotContain("donorEmail")
+                    .doesNotContain(DONOR).doesNotContain("\"receiptRequested\":true");
+        }
+
+        // 認領者自己照常看得到
+        mvc.perform(as(get("/api/claims/{id}", claimId), DONOR))
+                .andExpect(jsonPath("$.giftPrice").value(500))
+                .andExpect(jsonPath("$.receiptRequested").value(true));
     }
 
     @Test

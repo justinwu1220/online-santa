@@ -201,7 +201,6 @@ interface ClaimBase {
   /** 回報寄送時填寫的禮物資訊。舊資料沒有 */
   giftDescription?: string
   giftQuantity?: number
-  giftPrice?: number
   /** 實際寄出日，YYYY-MM-DD */
   shippedOn?: string
   donorMessage?: string
@@ -210,6 +209,8 @@ interface ClaimBase {
 }
 
 export interface ClaimDonorView extends ClaimBase {
+  /** 禮物價格：只有認領者本人看得到（機構與公開回應都不含，設計稿 15.4） */
+  giftPrice?: number
   ageRange: string
   ageRangeLabel: string
   avatar: string
@@ -232,8 +233,8 @@ export interface ClaimDonorView extends ClaimBase {
 }
 
 export interface ClaimOrgView extends ClaimBase {
+  /** 認領者的顯示名稱。機構看不到認領者的信箱與電話，聯繫一律用站內對話 */
   donorName?: string
-  donorEmail: string
   releasePolicySnapshot: ReleasePolicy
 }
 

@@ -71,7 +71,6 @@ export function OrgClaimDetail() {
           <Panel title="認領資料">
             <dl className="grid gap-4 text-sm sm:grid-cols-2">
               <Item label="認領者" value={data.donorName ?? '—'} />
-              <Item label="認領者信箱" value={data.donorEmail} />
               <Item label="認領於" value={formatDate(data.claimedAt)} />
               {data.status === 'CLAIMED' && <ShipDeadline claim={data} />}
               {data.releaseReason && <Item label="結束原因" value={data.releaseReason} wide />}
@@ -97,9 +96,6 @@ export function OrgClaimDetail() {
                 <Item label="實際禮物內容" value={data.giftDescription ?? '—'} wide />
                 <Item label="數量"
                   value={data.giftQuantity != null ? `${data.giftQuantity} 份` : '—'} />
-                <Item label="禮物價格"
-                  value={data.giftPrice != null
-                    ? `${data.giftPrice.toLocaleString('zh-TW')} 元` : '—'} />
                 <Item label="寄出日期" value={formatPlainDate(data.shippedOn)} />
                 <Item label="回報於" value={formatDateTime(data.shippedAt)} />
               </dl>

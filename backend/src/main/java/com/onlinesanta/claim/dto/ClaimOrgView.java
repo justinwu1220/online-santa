@@ -11,8 +11,9 @@ import com.onlinesanta.organization.ReleasePolicy;
 /**
  * 機構檢視自己願望的認領狀況。
  *
- * <p>含捐贈者的聯絡資訊——機構需要能主動聯繫遲遲未寄送的人，這是流程必要而非
- * 額外蒐集。相對地，捐贈者那一側的視圖不會看到其他捐贈者的任何資料。
+ * <p><strong>刻意不含</strong>認領者的信箱與電話、禮物價格（設計稿 15.4，《合作機構參與須知》
+ * 第七節）：機構與認領者只透過站內對話聯繫；禮物價格是認領者回報寄送時給收據用的資料，只有管理員看得到。
+ * 型別分離而不是把欄位清成 null，這樣機構端不可能因為漏判而洩漏。
  */
 public record ClaimOrgView(
         UUID id,
@@ -21,7 +22,6 @@ public record ClaimOrgView(
         String wishTitle,
         String childAlias,
         String donorName,
-        String donorEmail,
         Instant claimedAt,
         Instant shipDeadlineAt,
         boolean overdue,
@@ -35,7 +35,6 @@ public record ClaimOrgView(
         String trackingNumber,
         String giftDescription,
         Integer giftQuantity,
-        Integer giftPrice,
         LocalDate shippedOn,
         String donorMessage,
         String releaseReason,
@@ -53,7 +52,6 @@ public record ClaimOrgView(
                 claim.getWish().getTitle(),
                 claim.getWish().getChildAlias(),
                 claim.getDonor().getDisplayName(),
-                claim.getDonor().getEmail(),
                 claim.getClaimedAt(),
                 claim.getShipDeadlineAt(),
                 claim.isOverdue(Instant.now()),
@@ -66,7 +64,6 @@ public record ClaimOrgView(
                 claim.getTrackingNumber(),
                 claim.getGiftDescription(),
                 claim.getGiftQuantity(),
-                claim.getGiftPrice(),
                 claim.getShippedOn(),
                 claim.getDonorMessage(),
                 claim.getReleaseReason(),

@@ -69,6 +69,17 @@ public record ClaimDonorView(
     }
 
     public static ClaimDonorView from(Claim claim, long unreadMessageCount, String organizationPhotoUrl) {
+        return from(claim, unreadMessageCount, organizationPhotoUrl, true);
+    }
+
+    /**
+     * @param viewerIsDonor 看的人是不是這筆認領的認領者本人。這個視圖也會經由共用的
+     *                      {@code GET /api/claims/{id}} 給願望所屬機構看；機構不可以看到禮物價格，
+     *                      也不該知道認領者有沒有申請捐贈收據（設計稿 15.4、PRIVACY.md），
+     *                      所以不是本人時這兩個欄位一律清掉。
+     */
+    public static ClaimDonorView from(Claim claim, long unreadMessageCount, String organizationPhotoUrl,
+                                      boolean viewerIsDonor) {
         Wish wish = claim.getWish();
         return new ClaimDonorView(
                 claim.getId(),
@@ -102,10 +113,10 @@ public record ClaimDonorView(
                 claim.getTrackingNumber(),
                 claim.getGiftDescription(),
                 claim.getGiftQuantity(),
-                claim.getGiftPrice(),
+                viewerIsDonor ? claim.getGiftPrice() : null,
                 claim.getShippedOn(),
                 claim.getDonorMessage(),
-                claim.isReceiptRequested(),
+                viewerIsDonor && claim.isReceiptRequested(),
                 claim.getReleaseReason(),
                 unreadMessageCount);
     }

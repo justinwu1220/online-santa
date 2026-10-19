@@ -94,7 +94,8 @@ public class ClaimController {
     public ClaimDonorView getOne(@PathVariable UUID id) {
         Claim claim = claims.getVisibleById(id);
         return ClaimDonorView.from(claim, messages.unreadCount(id),
-                attachments.organizationPhotoUrl(claim.getWish().getOrganization().getId()));
+                attachments.organizationPhotoUrl(claim.getWish().getOrganization().getId()),
+                claim.isOwnedBy(currentUser.require().userId()));
     }
 
     @GetMapping("/claims/{id}/timeline")
