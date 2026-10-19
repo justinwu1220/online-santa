@@ -316,7 +316,7 @@ function WishInfo({ wish, claim, past, attachments, orgPending, confirming, onCo
                 { label: '物流業者', value: claim.trackingCarrier ?? '—' },
                 { label: '追蹤碼', value: claim.trackingNumber ?? '—' },
               ]} />
-              <Thumbs photos={shippingPhotos} />
+              <Thumbs photos={shippingPhotos} label="寄件照片" />
             </>
           ) : (
             <p className="dempty">還沒寄出，認領者回報寄送後會出現禮物與物流資訊。</p>
@@ -326,7 +326,7 @@ function WishInfo({ wish, claim, past, attachments, orgPending, confirming, onCo
 
       {stage === 'DONE' && proofs.length > 0 && (
         <DCard icon="check" title="收件證明">
-          <Thumbs photos={proofs} />
+          <Thumbs photos={proofs} label="收件證明" />
         </DCard>
       )}
 
@@ -354,8 +354,8 @@ function WishInfo({ wish, claim, past, attachments, orgPending, confirming, onCo
   )
 }
 
-function Thumbs({ photos }: { photos: AttachmentView[] }) {
-  return <AttachmentGallery files={photos} altPrefix="收件證明" />
+function Thumbs({ photos, label }: { photos: AttachmentView[]; label: string }) {
+  return <AttachmentGallery files={photos} altPrefix={label} />
 }
 
 /** 狀態卡：現在怎樣、下一步要做什麼（設計稿 orgWishStatus）。 */
@@ -529,7 +529,7 @@ function ConfirmReceivedBox({ wish, claim, proofs, onConfirmed, onProofsChanged 
             </label>
             <span className="upload__list">{proofs.length > 0 && `已上傳 ${proofs.length} 張`}</span>
           </div>
-          {proofs.length > 0 && <Thumbs photos={proofs} />}
+          {proofs.length > 0 && <Thumbs photos={proofs} label="收件證明" />}
         </div>
         <label className="check-row">
           <input type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} />

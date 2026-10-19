@@ -6,6 +6,7 @@ import { AttachmentGallery, PreviewImage } from '../../components/console/ImageV
 import {
   DCard, DrawerTabs, DStatus, DSteps, Kv, type StepState,
 } from '../../components/console/DrawerParts'
+import { ClaimProofs } from './ClaimProofs'
 import { LazyBox } from '../../components/console/LazyBox'
 import { ReasonDialog } from '../../components/console/ReasonDialog'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
@@ -404,12 +405,13 @@ function WishInfo({ wish }: { wish: AdminWishDetail }) {
         </div>
       </DCard>
       {claim?.shippedAt && (
-        <LazyBox key={`files-${wish.id}`} title="寄件照片" button="載入寄件照片"
-          desc="捐贈者回報寄送時上傳的照片，可能含捐贈者個資。"
+        <LazyBox key={`files-${wish.id}`} title="寄件與收件證明" button="載入寄件與收件證明"
+          desc="認領者與機構上傳的照片，可能含捐贈者個資。"
           load={() => api.get<AttachmentView[]>(`/api/admin/wishes/${wish.id}/files`)}>
-          {(files: AttachmentView[]) => files.length === 0
-            ? <p className="auth-note">沒有寄件照片。</p>
-            : <AttachmentGallery files={files} altPrefix="寄件照片" />}
+          {(files: AttachmentView[]) => (
+            <ClaimProofs files={files} donorName={claim.donorDisplayName}
+              organizationName={wish.organization.name} received={wish.status === 'FULFILLED'} />
+          )}
         </LazyBox>
       )}
       {claim && (
