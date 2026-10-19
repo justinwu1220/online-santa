@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FilePlus, ImagePlus, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { AttachmentGallery, PreviewImage } from '../../components/console/ImageViewer'
 import { FormField, Input, SelectBox, TextArea } from '../../components/ui/Fields'
 import { PhoneInput } from '../../components/ui/PhoneInput'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
@@ -217,8 +218,8 @@ export function OrgSettings() {
             <FormField as="div" label="機構照片" required span={6} error={err('photo')}
               hint={<>橫式 3:2，建議 1200 × 800 像素以上；請避免<span className="nobr">拍到孩子的臉。</span></>}>
               <div className="photo-pick">
-                <div className={`photo-preview${previewUrl ? ' has-img' : ''}`} aria-hidden>
-                  {previewUrl && <img src={previewUrl} alt="" />}
+                <div className={`photo-preview${previewUrl ? ' has-img' : ''}`} aria-hidden={previewUrl ? undefined : true}>
+                  <PreviewImage src={previewUrl} alt="機構照片" />
                   <span>3:2 橫式</span>
                   <i className="photo-preview__safe" />
                 </div>
@@ -371,11 +372,7 @@ function DocumentsField({ organizationId }: { organizationId: string }) {
           </label>
         )}
         <span className="upload__list">
-          {documents.data?.map((doc) => (
-            <a key={doc.id} className="chip" href={doc.url} target="_blank" rel="noreferrer">
-              <span>{doc.fileName ?? '下載文件'}</span>
-            </a>
-          ))}
+          {documents.data && <AttachmentGallery files={documents.data} altPrefix="證明文件" />}
         </span>
       </div>
     </FormField>

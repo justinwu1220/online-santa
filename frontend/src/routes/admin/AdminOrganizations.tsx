@@ -2,6 +2,7 @@ import { ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ConfirmDialog } from '../../components/console/ConfirmDialog'
+import { AttachmentGallery, ImageGallery } from '../../components/console/ImageViewer'
 import { Drawer } from '../../components/console/Drawer'
 import { DCard, DStatus, DrawerTabs, Kv } from '../../components/console/DrawerParts'
 import { LazyBox } from '../../components/console/LazyBox'
@@ -233,8 +234,7 @@ function OrgDrawer({ org, onClose }: { org: OrganizationReviewView | null; onClo
               <LazyBox key={`photo-${current.id}`} title="機構照片" desc="照片可能拍到孩子或機構環境。" button="載入照片"
                 load={async () => (await api.get<{ url?: string }>(`/api/admin/organizations/${current.id}/photo`)).url ?? null}>
                 {(url: string | null) => url
-                  ? <div className="att-grid"><a href={url} target="_blank" rel="noopener noreferrer">
-                    <img src={url} alt="機構照片" style={{ width: 240, height: 160, objectFit: 'cover', borderRadius: 12 }} /></a></div>
+                  ? <ImageGallery images={[{ id: url, url, alt: '機構照片' }]} />
                   : <p className="auth-note">機構還沒有上傳照片。</p>}
               </LazyBox>
               <LazyBox key={`docs-${current.id}`} title="相關文件證明" secret button="載入文件"
@@ -242,9 +242,7 @@ function OrgDrawer({ org, onClose }: { org: OrganizationReviewView | null; onClo
                 load={() => api.get<AttachmentView[]>(`/api/admin/organizations/${current.id}/documents`)}>
                 {(docs: AttachmentView[]) => docs.length === 0
                   ? <p className="auth-note">機構沒有上傳文件。</p>
-                  : <div className="att-grid">{docs.map((doc) => (
-                    <a key={doc.id} className="att att--photo" href={doc.url} target="_blank" rel="noopener noreferrer">
-                      {doc.fileName ?? '文件'}</a>))}</div>}
+                  : <AttachmentGallery files={docs} altPrefix="證明文件" />}
               </LazyBox>
             </>
           )}

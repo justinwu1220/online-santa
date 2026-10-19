@@ -19,6 +19,7 @@ import { WrongAccountPanel } from '../../components/auth/WrongAccountPanel'
 import { Snowfall } from '../../components/Snowfall'
 import { TermsDialog } from '../../components/terms/TermsDialog'
 import { ORG_TERMS } from '../../components/terms/termsContent'
+import { PreviewImage } from '../../components/console/ImageViewer'
 import { Callout } from '../../components/ui/Callout'
 import { FormField, Input, TextArea } from '../../components/ui/Fields'
 import { PhoneInput } from '../../components/ui/PhoneInput'
@@ -415,8 +416,8 @@ function ApplyForm({ email }: { email: string }) {
               <FormField as="div" label="機構照片" required span={6} error={err('photo')}
                 hint={<>橫式 3:2，建議 1200 × 800 像素以上，JPG 或 PNG。重要的人事物放在畫面中間（手機與側欄會裁成較扁的比例）；請避免<span className="nobr">拍到孩子的臉。</span></>}>
                 <div className="photo-pick">
-                  <div className={`photo-preview${photo ? ' has-img' : ''}`} aria-hidden>
-                    {photo && <img src={photo.url} alt="" />}
+                  <div className={`photo-preview${photo ? ' has-img' : ''}`} aria-hidden={photo ? undefined : true}>
+                    <PreviewImage src={photo?.url} alt="機構照片" />
                     <span>3:2 橫式</span>
                     <i className="photo-preview__safe" />
                   </div>

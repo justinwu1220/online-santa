@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AttachmentGallery, PreviewImage } from '../../components/console/ImageViewer'
 import { ConfirmDialog } from '../../components/console/ConfirmDialog'
 import { ConversationForm, ConversationLog } from '../../components/console/ConversationLog'
 import { Drawer } from '../../components/console/Drawer'
@@ -336,9 +337,7 @@ function WishInfo({ wish, claim, past, attachments, orgPending, confirming, onCo
         </div>
         {wish.description && <p className="dquote">{wish.description}</p>}
         <div className="dletter">
-          {wish.letterPhotos[0]
-            ? <img src={wish.letterPhotos[0].url} alt="孩子的手寫信件" />
-            : '【孩子的手寫信件照片】'}
+          <PreviewImage src={wish.letterPhotos[0]?.url} alt="孩子的手寫信件">【孩子的手寫信件照片】</PreviewImage>
         </div>
       </DCard>
 
@@ -356,16 +355,7 @@ function WishInfo({ wish, claim, past, attachments, orgPending, confirming, onCo
 }
 
 function Thumbs({ photos }: { photos: AttachmentView[] }) {
-  if (photos.length === 0) return null
-  return (
-    <div className="thumbs">
-      {photos.map((photo) => (
-        <a key={photo.id} href={photo.url} target="_blank" rel="noopener noreferrer">
-          <img src={photo.url} alt="" />
-        </a>
-      ))}
-    </div>
-  )
+  return <AttachmentGallery files={photos} altPrefix="收件證明" />
 }
 
 /** 狀態卡：現在怎樣、下一步要做什麼（設計稿 orgWishStatus）。 */

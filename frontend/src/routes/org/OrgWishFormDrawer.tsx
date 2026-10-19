@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Mail } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { PreviewImage } from '../../components/console/ImageViewer'
 import { Callout } from '../../components/ui/Callout'
 import { Drawer } from '../../components/console/Drawer'
 import { useToast } from '../../components/ui/toastContext'
@@ -208,8 +209,8 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
             </span>
             <span className="field__hint">直式、橫式都可以，拍攝時讓卡片佔滿畫面、光線充足，<span className="nobr">文字才看得清楚。</span></span>
             <div className="letter-pick">
-              <div className="letter-preview" aria-hidden>
-                {previewUrl ? <img src={previewUrl} alt="" /> : <>願望詳細頁<br />顯示效果</>}
+              <div className="letter-preview" aria-hidden={previewUrl ? undefined : true}>
+                <PreviewImage src={previewUrl} alt="孩子的手寫信件">願望詳細頁<br />顯示效果</PreviewImage>
               </div>
               <div className="upload">
                 <label className="upload__btn">

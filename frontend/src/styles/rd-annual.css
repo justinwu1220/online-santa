@@ -43,3 +43,46 @@
   background-position: right 14px center;
   background-size: 16px 16px;
 }
+
+/* ---- 後台圖片：縮圖與放大檢視（ImageViewer） ---- */
+.rd .thumb {
+  position: relative; width: 120px; height: 90px; padding: 0; overflow: hidden; cursor: zoom-in;
+  border-radius: 12px; border: 1px solid var(--line); background: rgba(148, 163, 184, .18); color: var(--fg-4);
+  display: grid; place-items: center; font: inherit; font-size: 12px; font-weight: 700;
+  transition: border-color .2s ease, transform .2s ease;
+}
+.rd .thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.rd .thumb:hover { border-color: rgba(255, 255, 255, .4); }
+.rd .thumb:focus-visible { outline: 2px solid var(--tone, #6ee7b7); outline-offset: 2px; }
+.rd .thumb__zoom {
+  position: absolute; right: 6px; bottom: 6px; width: 24px; height: 24px; border-radius: 999px;
+  background: rgba(15, 23, 42, .78); color: #fff; display: grid; place-items: center;
+  opacity: 0; transition: opacity .2s ease;
+}
+.rd .thumb__zoom .icon { width: 14px; height: 14px; }
+.rd .thumb:hover .thumb__zoom, .rd .thumb:focus-visible .thumb__zoom,
+.rd .preview-zoom:hover .thumb__zoom, .rd .preview-zoom:focus-visible .thumb__zoom { opacity: 1; }
+.rd .thumb__fail { padding: 0 8px; text-align: center; }
+
+/* 本機預覽框（信件 4:3、機構照片 3:2）裡的圖：整張可點擊 */
+.rd .preview-zoom { position: absolute; inset: 0; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
+.rd .preview-zoom img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.rd .photo-preview .preview-zoom img { object-fit: cover; }
+.rd .letter-preview .preview-zoom img { object-fit: contain; background: #fbf8f1; }
+.rd .dletter .preview-zoom img { object-fit: contain; background: #fbf8f1; }
+.rd .dletter { position: relative; }
+
+.rd .lightbox { background: #0b1220; color: #e2e8f0; }
+.rd .lightbox .letter-dialog__body img { background: #0b1220; }
+.rd .lightbox__fail { margin: 0; height: 100%; display: grid; place-items: center; color: var(--fg-4); font-size: 15px; }
+.rd .lightbox__nav {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 44px; height: 44px; border: 0;
+  border-radius: 999px; background: rgba(15, 23, 42, .82); color: #fff; cursor: pointer; display: grid; place-items: center;
+}
+.rd .lightbox__nav--prev { left: 12px; }
+.rd .lightbox__nav--next { right: 12px; }
+.rd .lightbox__nav:hover, .rd .letter-dialog__close:hover { background: rgba(30, 41, 59, .95); }
+.rd .lightbox__count {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 2; padding: 4px 12px;
+  border-radius: 999px; background: rgba(15, 23, 42, .82); color: #fff; font-size: 13px; font-variant-numeric: tabular-nums;
+}

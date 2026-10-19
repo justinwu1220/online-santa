@@ -2,6 +2,7 @@ import { ChevronRight, Search } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Drawer } from '../../components/console/Drawer'
+import { AttachmentGallery } from '../../components/console/ImageViewer'
 import {
   DCard, DrawerTabs, DStatus, DSteps, Kv, type StepState,
 } from '../../components/console/DrawerParts'
@@ -404,12 +405,7 @@ function WishInfo({ wish }: { wish: AdminWishDetail }) {
         load={() => api.get<AttachmentView[]>(`/api/admin/wishes/${wish.id}/files`)}>
         {(files: AttachmentView[]) => files.length === 0
           ? <p className="auth-note">沒有附件。</p>
-          : <div className="att-grid">{files.map((file) => (
-            <a key={file.id} href={file.url} target="_blank" rel="noopener noreferrer">
-              {file.contentType.startsWith('image/')
-                ? <img src={file.url} alt="" style={{ width: 120, height: 90, objectFit: 'cover', borderRadius: 12 }} />
-                : <span className="att att--photo">{file.fileName ?? '檔案'}</span>}
-            </a>))}</div>}
+          : <AttachmentGallery files={files} altPrefix="附件" />}
       </LazyBox>
       {claim && (
         <LazyBox key={`receipt-${claim.claimId}`} title="捐贈收據" secret button="載入捐贈收據資料"
@@ -431,11 +427,7 @@ function WishInfo({ wish }: { wish: AdminWishDetail }) {
                   { label: '收據寄送信箱', value: receipt.email },
                   { label: '收據寄送地址', value: receipt.address },
                 ]} />
-                {receipt.proofs.length > 0 && (
-                  <div className="att-grid">{receipt.proofs.map((proof) => (
-                    <a key={proof.id} className="att att--photo" href={proof.url} target="_blank" rel="noopener noreferrer">
-                      {proof.fileName ?? '發票'}</a>))}</div>
-                )}
+                {receipt.proofs.length > 0 && <AttachmentGallery files={receipt.proofs} altPrefix="發票證明" />}
               </>
             )
             : <p className="auth-note">這筆認領沒有另外索取捐贈收據；協會仍依捐贈人姓名（或「善心人士」）開立。</p>}
