@@ -1,3 +1,4 @@
+import { useScrollLock } from '../../lib/scrollLock'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { openModal, reducedMotion } from '../../lib/motion'
 
@@ -18,6 +19,7 @@ export function Dialog({ open, onClose, children, className = 'dialog', dismissi
   labelledBy?: string
 }) {
   const ref = useRef<HTMLDialogElement>(null)
+  useScrollLock(open)
 
   useEffect(() => {
     const element = ref.current

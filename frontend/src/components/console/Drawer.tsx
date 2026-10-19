@@ -1,3 +1,4 @@
+import { useScrollLock } from '../../lib/scrollLock'
 import { X } from 'lucide-react'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { openModal, reducedMotion } from '../../lib/motion'
@@ -35,6 +36,7 @@ export function Drawer({ open, onClose, tone, labelledBy, title, chip, tabs, foo
   dismissible?: boolean
 }) {
   const ref = useRef<HTMLDialogElement>(null)
+  useScrollLock(open)
   const titleRef = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
