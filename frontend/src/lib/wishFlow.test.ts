@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { WishStage } from './types'
-import { actionsOf, compareByStage, STAGE_INFO } from './wishFlow'
+import { actionsOf, chipLabelOf, compareByStage, STAGE_INFO } from './wishFlow'
 
 const STAGES = Object.keys(STAGE_INFO) as WishStage[]
 
@@ -31,6 +31,21 @@ describe('actionsOf（每個階段機構可以做的事）', () => {
     expect(a.recall).toBe(false)
   })
 
+  it('上架中且還沒人認領：可以「修改並重新送審」；已被認領就沒有這個動作', () => {
+    expect(actionsOf('OPEN', { deletable: false, canBeginEdit: true, canRestore: false }).beginEdit).toBe(true)
+    for (const stage of ['CLAIMED_WAITING', 'CLAIMED_OVERDUE', 'SHIPPED', 'DONE'] as const) {
+      expect(actionsOf(stage, { deletable: false, canBeginEdit: false, canRestore: false }).beginEdit).toBe(false)
+      expect(actionsOf(stage).edit).toBe(false)   // 認領後內容鎖定
+    }
+  })
+
+  it('曾經上架過的草稿（下架修改中、被退回）不能刪除；內容沒改才能恢復上架', () => {
+    const takenDown = { deletable: false, canBeginEdit: false, canRestore: true }
+    expect(actionsOf('DRAFT', takenDown)).toMatchObject({ edit: true, remove: false, submit: true, restore: true })
+    expect(actionsOf('DRAFT', { ...takenDown, canRestore: false }).restore).toBe(false)
+    expect(actionsOf('DRAFT', { deletable: true, canBeginEdit: false, canRestore: false }).remove).toBe(true)
+  })
+
   it('已完成與資料異常：沒有動作', () => {
     expect(Object.values(actionsOf('DONE')).every((v) => v === false)).toBe(true)
     expect(Object.values(actionsOf('INCONSISTENT')).every((v) => v === false)).toBe(true)
@@ -58,5 +73,13 @@ describe('compareByStage', () => {
     const sorted = ['DONE', 'SHIPPED', 'OPEN', 'PENDING_REVIEW', 'DRAFT', 'CLAIMED_OVERDUE'] as WishStage[]
     sorted.sort(compareByStage)
     expect(sorted).toEqual(['DRAFT', 'PENDING_REVIEW', 'OPEN', 'SHIPPED', 'CLAIMED_OVERDUE', 'DONE'])
+  })
+})
+
+describe('chipLabelOf（狀態標籤文字）', () => {
+  it('曾經上架過的草稿標示為「下架修改中」，其他維持原本的名稱', () => {
+    expect(chipLabelOf({ stage: 'DRAFT', takenDown: true })).toBe('下架修改中')
+    expect(chipLabelOf({ stage: 'DRAFT', takenDown: false })).toBe('草稿')
+    expect(chipLabelOf({ stage: 'PENDING_REVIEW', takenDown: false })).toBe('審核中')
   })
 })

@@ -176,6 +176,14 @@ export interface WishOrgView {
    * 資訊（而非只有網址）——機構後台要用 id 刪除自己上傳的照片
    */
   letterPhotos: AttachmentView[]
+  /** 曾經上架過、現在是草稿：機構正在修改，或被管理員退回（標示「下架修改中」） */
+  takenDown: boolean
+  /** 上架中、還沒人認領：可以按「修改並重新送審」（會先從願望牆撤下） */
+  canBeginEdit: boolean
+  /** 下架修改後內容完全沒變：可以直接恢復上架，不必重審（只有抽屜詳情會算） */
+  canRestore: boolean
+  /** 被管理員凍結中 */
+  frozen: boolean
 }
 
 export interface WishRequestBody {
@@ -593,6 +601,8 @@ export interface AdminWishListItem {
   status: WishStatus
   frozen: boolean
   late: boolean
+  /** 曾上架過、修改後重新送審（審核中） */
+  resubmission: boolean
   organizationId: string
   organizationName: string
 }
@@ -655,6 +665,27 @@ export interface AdminWishDetail {
     address?: string
   }
   claim?: AdminWishClaimCard
+  /** 曾上架過、修改後重新送審（審核中） */
+  resubmission: boolean
+  /** 與上次核准版本的差異；沒有核准紀錄（功能上線前的舊願望）為 undefined */
+  changes?: WishChanges
+  /** 願望歷程時間軸，由舊到新 */
+  history: WishHistoryItem[]
+}
+
+export interface WishChanges {
+  lastApprovedAt: string
+  fields: { field: string; before: string; after: string }[]
+  lettersBefore: number
+  lettersAfter: number
+  lettersChanged: boolean
+}
+
+export interface WishHistoryItem {
+  type: string
+  label: string
+  at: string
+  note?: string
 }
 
 /** 管理員「團隊對話」左側清單的一條對話。 */

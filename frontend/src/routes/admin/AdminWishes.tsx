@@ -7,6 +7,7 @@ import {
   DCard, DrawerTabs, DStatus, DSteps, Kv, type StepState,
 } from '../../components/console/DrawerParts'
 import { ClaimProofs } from './ClaimProofs'
+import { ResubmitChanges, WishHistoryTimeline } from './WishHistory'
 import { LazyBox } from '../../components/console/LazyBox'
 import { ReasonDialog } from '../../components/console/ReasonDialog'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
@@ -147,6 +148,7 @@ export function AdminWishes() {
                   </span>
                   <span className="org-row__who">{[wish.childAlias, wish.ageRangeLabel].filter(Boolean).join('・')}</span>
                   <span className="org-row__badges">
+                    {wish.resubmission && <span className="badge badge--resubmit">修改後重審</span>}
                     {wish.frozen && <span className="badge badge--frozen">{ICON_SNOW}已凍結</span>}
                     {wish.late && <span className="badge badge--late">逾期未寄</span>}
                   </span>
@@ -318,8 +320,11 @@ function statusCard(wish: AdminWishDetail) {
       desc={<>{formatDateTime(wish.frozen.at)}：{wish.frozen.reason}<br />目前不顯示在願望牆與認領者頁面；機構後台與管理員後台仍保留。</>} />
   }
   if (wish.status === 'PENDING_REVIEW') {
-    return <DStatus tone="review" icon="search" title="等你審核"
-      desc={`${wish.organization.name} 已提交。核准後立刻出現在願望牆；退回需要寫原因。`} />
+    return wish.resubmission
+      ? <DStatus tone="review" icon="search" title="修改後重新送審，等你審核"
+        desc={`${wish.organization.name} 修改了這個曾經上架的願望並重新送審（審核期間已從願望牆撤下）。請看下方「變更內容」與「歷史紀錄」；核准後會重新出現在願望牆，退回需要寫原因。`} />
+      : <DStatus tone="review" icon="search" title="等你審核"
+        desc={`${wish.organization.name} 已提交。核准後立刻出現在願望牆；退回需要寫原因。`} />
   }
   if (wish.status === 'AVAILABLE') return <DStatus tone="open" icon="spark" title="在願望牆上，等待認領" />
   if (wish.status === 'FULFILLED') {
@@ -404,6 +409,11 @@ function WishInfo({ wish }: { wish: AdminWishDetail }) {
           <PreviewImage src={wish.letterPhotos[0]?.url} alt="孩子的手寫信件">【孩子的手寫信件照片】</PreviewImage>
         </div>
       </DCard>
+      {wish.resubmission && (
+        <DCard icon="pencil" title="變更內容" className="dcard--key">
+          <ResubmitChanges changes={wish.changes} />
+        </DCard>
+      )}
       {claim?.shippedAt && (
         <LazyBox key={`files-${wish.id}`} title="寄件與收件證明" button="載入寄件與收件證明"
           desc="認領者與機構上傳的照片，可能含捐贈者個資。"
@@ -440,6 +450,9 @@ function WishInfo({ wish }: { wish: AdminWishDetail }) {
             : <p className="auth-note">這筆認領沒有另外索取捐贈收據；協會仍依捐贈人姓名（或「善心人士」）開立。</p>}
         </LazyBox>
       )}
+      <DCard icon="clock" title="歷史紀錄">
+        <WishHistoryTimeline items={wish.history} />
+      </DCard>
     </>
   )
 }

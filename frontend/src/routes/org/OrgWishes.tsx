@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { pageTitle } from '../../lib/brand'
 import { reducedMotion, rise } from '../../lib/motion'
 import type { OrganizationStageCounts, WishOrgView } from '../../lib/types'
-import { compareByStage, FILTERS, STAGE_INFO, type FilterKey } from '../../lib/wishFlow'
+import { chipLabelOf, compareByStage, FILTERS, STAGE_INFO, type FilterKey } from '../../lib/wishFlow'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { useOrgContext } from './orgContext'
 import { OrgWishDrawer } from './OrgWishDrawer'
@@ -112,11 +112,12 @@ export function OrgWishes() {
 
 function WishRow({ wish, onOpen }: { wish: WishOrgView; onOpen: () => void }) {
   const info = STAGE_INFO[wish.stage]
+  const label = chipLabelOf(wish)
   return (
     <button type="button" className="org-row" data-s={info.chip} data-id={wish.id} role="listitem"
-      aria-label={[info.label, wish.title, wish.childAlias, wish.ageRangeLabel].filter(Boolean).join('，')}
+      aria-label={[label, wish.title, wish.childAlias, wish.ageRangeLabel].filter(Boolean).join('，')}
       onClick={onOpen}>
-      <span className="st-chip" data-s={info.chip}>{info.label}</span>
+      <span className="st-chip" data-s={info.chip}>{label}</span>
       <span className="org-row__title">{wish.title}</span>
       <span className="org-row__who">{[wish.childAlias, wish.ageRangeLabel].filter(Boolean).join('・')}</span>
       <span className="org-row__badges">

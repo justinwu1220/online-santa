@@ -16,7 +16,7 @@ import { formatDate, formatDateTime, formatMonthDay, formatPlainDate, daysUntil,
 import { burst, center, reducedMotion } from '../../lib/motion'
 import type { AttachmentView, ClaimOrgView, WishConversation, WishOrgView } from '../../lib/types'
 import { uploadImage, validateImage } from '../../lib/upload'
-import { actionsOf, CHIP_LABEL, STAGE_INFO } from '../../lib/wishFlow'
+import { actionsOf, chipLabelOf, STAGE_INFO } from '../../lib/wishFlow'
 import { avatarSrc } from '../../lib/avatar'
 import { useInvalidateOrg, useOrgWish } from './orgQueries'
 import { useOrgContext } from './orgContext'
@@ -25,6 +25,7 @@ const RECALL_REASONS = [
   { value: 'OVERDUE', label: '逾期未寄送' },
   { value: 'UNREACHABLE', label: '認領者聯繫不上' },
   { value: 'CANNOT_COMPLETE', label: '認領者表示無法完成' },
+  { value: 'EDIT_WISH', label: '需要修改願望內容' },
   { value: 'OTHER', label: '其他' },
 ] as const
 type RecallReason = typeof RECALL_REASONS[number]['value']
@@ -51,6 +52,7 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [recalling, setRecalling] = useState(false)
+  const [beginningEdit, setBeginningEdit] = useState(false)
   // 抽屜關閉動畫期間內容要還在（詳細資料不能立刻清掉）
   const [shown, setShown] = useState(detail.data)
   useEffect(() => { if (detail.data) setShown(detail.data) }, [detail.data])
@@ -63,7 +65,7 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
   const claim = data?.activeClaim
   const stage = wish?.stage
   const info = stage ? STAGE_INFO[stage] : null
-  const actions = stage ? actionsOf(stage) : null
+  const actions = stage && wish ? actionsOf(stage, wish) : null
 
   const conversation = useQuery({
     queryKey: ['org-conversation', wishId],
@@ -114,6 +116,27 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
     onSuccess: () => afterChange(`「${wish?.title}」已撤回，改為草稿`),
     onError: (error) => toast.show(errorText(error), 'danger'),
   })
+  // 修改已上架的願望：先原子地從願望牆撤下，成功後直接打開編輯表單
+  const beginEdit = useMutation({
+    mutationFn: () => api.post<WishOrgView>(`/api/wishes/${wishId}/begin-edit`),
+    onSuccess: async (updated) => {
+      setBeginningEdit(false)
+      await invalidate()
+      toast.show(`「${updated.title}」已從願望牆撤下，修改後請重新提交審核`)
+      onEdit(updated)
+    },
+    onError: async (error) => {
+      // 剛好被認領等競態：關掉確認框、重新整理，讓畫面反映最新狀態
+      await invalidate()
+      toast.show(errorText(error), 'danger')
+    },
+  })
+  // 下架修改後內容沒改：直接恢復上架，不必重審
+  const restore = useMutation({
+    mutationFn: () => api.post(`/api/wishes/${wishId}/restore`),
+    onSuccess: () => afterChange(`「${wish?.title}」已恢復上架`),
+    onError: (error) => toast.show(errorText(error), 'danger'),
+  })
   const remove = useMutation({
     mutationFn: () => api.delete(`/api/wishes/${wishId}`),
     onSuccess: async () => { setDeleting(false); await afterChange('草稿已刪除', true) },
@@ -147,14 +170,21 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
         tone={info.tone}
         labelledBy="owTitle"
         title={wish.title}
-        chip={<span className="st-chip" data-s={info.chip}>{CHIP_LABEL[info.chip]}</span>}
+        chip={<span className="st-chip" data-s={info.chip}>{chipLabelOf(wish)}</span>}
         tabs={<DrawerTabs tabs={tabs} active={active} onChange={(key) => setTab(key as 'info' | 'chat')} />}
         foot={active === 'chat' ? null : (
           <div className="drawer__foot">
             {actions.remove && (
               <button type="button" className="btn btn--danger" onClick={() => setDeleting(true)}>刪除</button>
             )}
+            {actions.restore && (
+              <button type="button" className="btn" disabled={restore.isPending}
+                onClick={() => restore.mutate()}>不修改了，恢復上架</button>
+            )}
             {actions.edit && <button type="button" className="btn" onClick={() => onEdit(wish)}>編輯</button>}
+            {actions.beginEdit && (
+              <button type="button" className="btn btn--tone" onClick={() => setBeginningEdit(true)}>修改並重新送審</button>
+            )}
             {actions.submit && (
               <button type="button" className="btn btn--primary" disabled={pending || submit.isPending}
                 onClick={() => submit.mutate()}>提交審核</button>
@@ -218,14 +248,29 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
         onOk={() => remove.mutate()}
         onClose={() => setDeleting(false)}
       />
+      <ConfirmDialog
+        open={beginningEdit}
+        tone="primary"
+        title="要修改並重新送審嗎？"
+        body={`按下後，「${wish.title}」會立刻從願望牆撤下，修改完成並提交審核、管理員核准後才會重新上架。審核期間不會有人看到或認領這個願望。${wish.frozen ? '它目前被管理員凍結，重新送審會取代凍結。' : ''}`}
+        okText="撤下並開始修改"
+        busy={beginEdit.isPending}
+        error={beginEdit.isError ? errorText(beginEdit.error) : undefined}
+        onOk={() => beginEdit.mutate()}
+        onClose={() => setBeginningEdit(false)}
+      />
       <RecallDialog
         open={recalling}
         wishTitle={wish.title}
         claim={claim}
         onClose={() => setRecalling(false)}
-        onDone={async (reason) => {
+        onDone={async (reason, forEdit) => {
           setRecalling(false)
-          await afterChange(`已收回「${wish.title}」（${reason}），願望已重新上架`)
+          await afterChange(forEdit
+            ? `已收回「${wish.title}」，認領者已收到通知；接著可以修改願望`
+            : `已收回「${wish.title}」（${reason}），願望已重新上架`)
+          // 為修改而收回：直接接著走「撤下並修改」，願望目前又回到願望牆上了
+          if (forEdit) setBeginningEdit(true)
         }}
       />
     </>
@@ -369,21 +414,31 @@ function StatusCard({ wish, donor, orgPending }: { wish: WishOrgView; donor: str
   switch (wish.stage) {
     case 'DRAFT':
       icon = 'pencil'
-      title = '草稿，還沒提交'
-      desc = orgPending
-        ? '機構資料審核通過後，才能提交這個願望。'
-        : '確認內容後按「提交審核」，管理員核准後才會出現在願望牆。'
+      if (wish.takenDown) {
+        // 曾經上架過：機構正在修改，或重審被退回。願望目前不在願望牆上
+        title = wish.reviewNote ? '重新審核被退回，目前已下架' : '下架修改中，還沒重新上架'
+        desc = orgPending
+          ? '機構資料審核通過後，才能再次提交這個願望。'
+          : '修改後按「提交審核」，管理員核准才會再次出現在願望牆。內容沒有要改的話，可以按「不修改了，恢復上架」。'
+      } else {
+        title = '草稿，還沒提交'
+        desc = orgPending
+          ? '機構資料審核通過後，才能提交這個願望。'
+          : '確認內容後按「提交審核」，管理員核准後才會出現在願望牆。'
+      }
       if (wish.reviewNote) desc = <>{desc}<br />上次被退回的原因：{wish.reviewNote}</>
       break
     case 'PENDING_REVIEW':
       icon = 'search'
-      title = '管理員審核中'
-      desc = '通過後會自動出現在願望牆；需要修改請先撤回改為草稿。'
+      title = wish.takenDown || wish.publishedAt ? '修改後重新審核中' : '管理員審核中'
+      desc = '通過後會自動出現在願望牆；需要再修改請先撤回改為草稿。'
       break
     case 'OPEN':
       icon = 'spark'
       title = '在願望牆上，等待認領'
-      desc = '已上架的願望不能修改；需要調整請在「與團隊對話」告訴我們。'
+      desc = wish.frozen
+        ? '管理員暫時凍結了這個願望，目前不會顯示在願望牆。按「修改並重新送審」修正後，重新送審會取代凍結。'
+        : '需要調整內容請按「修改並重新送審」：願望會先從願望牆撤下，核准後才重新上架。'
       break
     case 'DONE':
       icon = 'check'
@@ -399,13 +454,13 @@ function StatusCard({ wish, donor, orgPending }: { wish: WishOrgView; donor: str
       icon = 'alert'
       const late = Math.max(1, -(daysUntil(summary?.shipDeadlineAt) ?? 0))
       title = `已超過寄出期限 ${late} 天`
-      desc = `${donor} 還沒回報寄送。可以在「對話」提醒對方，或收回願望重新上架。`
+      desc = `${donor} 還沒回報寄送。可以在「對話」提醒對方，或收回願望重新上架。願望內容已鎖定，要修改也請先收回。`
       break
     }
     case 'CLAIMED_WAITING':
       icon = 'clock'
       title = `等 ${donor} 寄出禮物`
-      desc = `寄出期限 ${formatDate(summary?.shipDeadlineAt)}（還有 ${daysUntil(summary?.shipDeadlineAt)} 天）。`
+      desc = `寄出期限 ${formatDate(summary?.shipDeadlineAt)}（還有 ${daysUntil(summary?.shipDeadlineAt)} 天）。願望內容已鎖定；若需要修改，請先「收回這個願望」（原因選「需要修改願望內容」，認領者會收到通知）。`
       break
     default:
       icon = 'alert'
@@ -547,14 +602,14 @@ function RecallDialog({ open, wishTitle, claim, onClose, onDone }: {
   wishTitle: string
   claim?: ClaimOrgView
   onClose: () => void
-  onDone: (reasonLabel: string) => void | Promise<void>
+  onDone: (reasonLabel: string, forEdit: boolean) => void | Promise<void>
 }) {
   const [reason, setReason] = useState<RecallReason>('OVERDUE')
   const [detail, setDetail] = useState('')
   const recall = useMutation({
     mutationFn: () => api.post(`/api/organizations/me/claims/${claim!.id}/release`,
       { reason, detail: reason === 'OTHER' && detail.trim() ? detail.trim() : undefined }),
-    onSuccess: () => onDone(RECALL_REASONS.find((item) => item.value === reason)!.label),
+    onSuccess: () => onDone(RECALL_REASONS.find((item) => item.value === reason)!.label, reason === 'EDIT_WISH'),
   })
   function close() {
     setReason('OVERDUE')
@@ -566,7 +621,7 @@ function RecallDialog({ open, wishTitle, claim, onClose, onDone }: {
   return (
     <Dialog open={open} onClose={close} labelledBy="recallTitle" dismissible={!recall.isPending}>
       <h2 id="recallTitle">確定要收回這個願望嗎？</h2>
-      <p>收回後，「{wishTitle}」會立刻重新上架，原本的認領者會收到通知，不能再回報寄送。</p>
+      <p>收回後，「{wishTitle}」會立刻重新上架，原本的認領者會收到站內訊息與 Email 通知，不能再回報寄送。</p>
       <fieldset className="recall-reasons">
         <legend className="field__label">收回原因</legend>
         {RECALL_REASONS.map((item) => (
@@ -577,6 +632,12 @@ function RecallDialog({ open, wishTitle, claim, onClose, onDone }: {
           </label>
         ))}
       </fieldset>
+      {reason === 'EDIT_WISH' && (
+        <p className="auth-note" style={{ marginTop: 12 }}>
+          認領者會收到「機構需要修改願望內容、通過審核後才會再上架」的通知。收回之後接著修改並重新送審；
+          審核期間願望不會出現在願望牆。建議也在「對話」向認領者說明，避免對方誤會。
+        </p>
+      )}
       {reason === 'OTHER' && (
         <div className="field" style={{ marginTop: 12 }}>
           <input className="input" maxLength={200} value={detail} placeholder="補充說明（選填）"
@@ -587,7 +648,7 @@ function RecallDialog({ open, wishTitle, claim, onClose, onDone }: {
       <div className="dialog__actions">
         <button type="button" className="btn" onClick={close} disabled={recall.isPending}>再想想</button>
         <button type="button" className="btn btn--danger-solid" disabled={recall.isPending}
-          onClick={() => recall.mutate()}>{recall.isPending ? '處理中…' : '收回並重新上架'}</button>
+          onClick={() => recall.mutate()}>{recall.isPending ? '處理中…' : reason === 'EDIT_WISH' ? '收回並接著修改' : '收回並重新上架'}</button>
       </div>
     </Dialog>
   )

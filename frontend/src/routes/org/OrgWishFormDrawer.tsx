@@ -141,7 +141,7 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
       if (submit) await api.post(`/api/wishes/${saved.id}/submit`)
       await invalidate()
       toast.show(submit
-        ? `「${values.title.trim()}」已提交審核，通過後會自動上架`
+        ? `「${values.title.trim()}」已提交審核，通過後會${wish?.takenDown ? '重新' : '自動'}上架`
         : `「${values.title.trim()}」已存成草稿`)
       onSaved()
     } catch (error) {

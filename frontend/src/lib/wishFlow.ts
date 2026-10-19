@@ -1,4 +1,4 @@
-import type { WishStage, WishStatus } from './types'
+import type { WishOrgView, WishStage, WishStatus } from './types'
 
 /**
  * 機構後台把「願望＋目前認領」合成的單一狀態（後端算好的 `stage`）如何顯示、可以做什麼。
@@ -56,6 +56,8 @@ export interface StageActions {
   edit: boolean
   remove: boolean
   submit: boolean
+  beginEdit: boolean
+  restore: boolean
   withdraw: boolean
   recall: boolean
   /** 確認收到並完成 */
@@ -64,14 +66,24 @@ export interface StageActions {
   report: boolean
 }
 
-export function actionsOf(stage: WishStage): StageActions {
+export function actionsOf(stage: WishStage, wish?: Pick<WishOrgView, 'deletable' | 'canBeginEdit' | 'canRestore'>): StageActions {
   return {
     edit: stage === 'DRAFT',
-    remove: stage === 'DRAFT',
+    // 曾經上架過的願望（被退回或下架修改中）不能刪除，保留歷程給管理員重審時看
+    remove: stage === 'DRAFT' && (wish?.deletable ?? true),
+    /** 修改並重新送審：上架中、還沒人認領的願望，會先從願望牆撤下 */
+    beginEdit: stage === 'OPEN' && Boolean(wish?.canBeginEdit),
+    /** 恢復上架：為修改而下架、內容完全沒改 */
+    restore: stage === 'DRAFT' && Boolean(wish?.canRestore),
     submit: stage === 'DRAFT',
     withdraw: stage === 'PENDING_REVIEW',
     recall: stage === 'CLAIMED_WAITING' || stage === 'CLAIMED_OVERDUE',
     confirm: stage === 'SHIPPED',
     report: stage === 'SHIPPED',
   }
+}
+
+/** 清單與抽屜的狀態標籤文字：曾經上架過的草稿標示為「下架修改中」，才看得出它原本在牆上。 */
+export function chipLabelOf(wish: Pick<WishOrgView, 'stage' | 'takenDown'>): string {
+  return wish.takenDown && wish.stage === 'DRAFT' ? '下架修改中' : STAGE_INFO[wish.stage].label
 }
