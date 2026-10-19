@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { PublicLayout } from './components/layouts/PublicLayout'
-import { Spinner } from './components/Feedback'
+import { Spinner } from './components/ui/Spinner'
 import { RequireRole } from './components/RequireRole'
 import { AdminLayout } from './routes/admin/AdminLayout'
 import { AdminOrganizations } from './routes/admin/AdminOrganizations'

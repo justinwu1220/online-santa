@@ -115,7 +115,7 @@ function AuthControls() {
   return (
     <div className="account">
       {role === 'ORG_MEMBER' && <Link to="/org" className="console-link">機構後台</Link>}
-      {role === 'ADMIN' && <Link to="/admin" className="console-link">監控中心</Link>}
+      {role === 'ADMIN' && <Link to="/admin" className="console-link">管理員後台</Link>}
       {onboard?.available && (
         <button type="button" className="account__info" onClick={onboard.reopen}
           title="開始之前：認領須知提醒" aria-label="開始之前：認領須知提醒">

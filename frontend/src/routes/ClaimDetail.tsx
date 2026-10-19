@@ -13,7 +13,9 @@ import { claimTabOf } from '../lib/wishStatus'
 import { OrgPhoto, OrgSiteLink } from '../components/OrgBits'
 import { WishFeature } from '../components/WishFeature'
 import { Chat } from '../components/ui/Chat'
+import { ApiError } from '../lib/api'
 import { ErrorNotice, Spinner } from '../components/ui/Spinner'
+import { Unavailable } from '../components/ui/Unavailable'
 import { useToast } from '../components/ui/toastContext'
 import {
   AddressPanel, CancelPanel, DeadlineBar, ProgressSteps, ReceiptProofPanel, ShipSummary, StepPanel,
@@ -75,6 +77,7 @@ export function ClaimDetail() {
 
   if (claim.isLoading) return <Spinner label="載入認領" />
   if (claim.isError) {
+    if (claim.error instanceof ApiError && claim.error.isNotFound) return <Unavailable />
     return <ErrorNotice error={claim.error} onRetry={() => void claim.refetch()} />
   }
 

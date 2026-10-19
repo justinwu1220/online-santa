@@ -1,9 +1,11 @@
+import { AlertTriangle } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/authContext'
 import { effectiveRoleOf, useCurrentUser } from '../lib/useCurrentUser'
 import type { UserRole } from '../lib/types'
-import { ErrorBanner, Notice, Spinner } from './Feedback'
+import { Callout } from './ui/Callout'
+import { ErrorNotice, Spinner } from './ui/Spinner'
 
 /**
  * 角色守衛。
@@ -33,14 +35,12 @@ export function RequireRole({ role, wrongRole = 'explain', children }: {
   }
 
   if (me.isLoading) {
-    return <Spinner label="確認身分" />
+    return <Shell><Spinner label="確認身分" /></Shell>
   }
 
   if (me.isError) {
     return (
-      <div className="mx-auto max-w-lg py-12">
-        <ErrorBanner error={me.error} onRetry={() => void me.refetch()} />
-      </div>
+      <Shell><ErrorNotice error={me.error} onRetry={() => void me.refetch()} /></Shell>
     )
   }
 
@@ -63,16 +63,19 @@ const ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: '平台管理員',
 }
 
+/** 守衛擋在各個版型外面，自己要帶深色背景。 */
+function Shell({ children }: { children: ReactNode }) {
+  return <div className="rd"><main className="page">{children}</main></div>
+}
+
 function WrongRole({ actual, expected }: { actual?: UserRole; expected: UserRole }) {
   return (
-    <div className="mx-auto max-w-lg py-12">
-      <Notice tone="warning">
-        <p className="font-medium">這個區域僅限{ROLE_LABELS[expected]}</p>
-        <p className="mt-1">
-          你目前的身分是{actual ? ROLE_LABELS[actual] : '未知'}。
-          如果這不是你預期的，請確認登入的帳號是否正確。
-        </p>
-      </Notice>
-    </div>
+    <Shell>
+      <Callout tone="warn" icon={<AlertTriangle className="icon" aria-hidden />}>
+        <strong>這個區域僅限{ROLE_LABELS[expected]}。</strong>
+        你目前的身分是{actual ? ROLE_LABELS[actual] : '未知'}。
+        如果這不是你預期的，請確認登入的帳號是否正確。
+      </Callout>
+    </Shell>
   )
 }

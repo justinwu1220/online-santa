@@ -21,6 +21,7 @@ import { TermsDialog } from '../components/terms/TermsDialog'
 import { DONOR_TERMS } from '../components/terms/termsContent'
 import { isBundleCurrent, useAcceptDonorTerms, useDonorTerms } from '../lib/terms'
 import { ErrorNotice, Spinner } from '../components/ui/Spinner'
+import { Unavailable } from '../components/ui/Unavailable'
 
 export function WishDetail() {
   const { id = '' } = useParams()
@@ -115,16 +116,7 @@ export function WishDetail() {
   if (wish.isLoading) return <Spinner label="載入願望" />
   if (wish.isError) {
     const error = wish.error
-    if (error instanceof ApiError && error.isNotFound) {
-      return (
-        <div className="empty" style={{ marginTop: 48 }}>
-          <p aria-hidden style={{ fontSize: 40, margin: 0 }}>🔍</p>
-          <p style={{ margin: '8px 0 0', fontSize: 22, fontWeight: 900, color: 'var(--fg)' }}>找不到這個願望</p>
-          <p style={{ margin: '6px 0 0' }}>它可能已經下架了。</p>
-          <Link to="/" className="btn">回到願望牆</Link>
-        </div>
-      )
-    }
+    if (error instanceof ApiError && error.isNotFound) return <Unavailable />
     return <ErrorNotice error={error} onRetry={() => void wish.refetch()} />
   }
 

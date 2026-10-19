@@ -106,7 +106,7 @@ export function AdminOrganizations() {
               aria-label={`${STATUS_LABEL[org.status]}，${org.name}`} onClick={() => setOpenId(org.id)}>
               <span className="st-chip" data-s={CHIP[org.status]}>{STATUS_LABEL[org.status]}</span>
               <span className="org-row__title">{org.name}
-                <span className="org-row__sub">{org.contactPerson}・{org.mobilePhone}</span>
+                <span className="org-row__sub">{[org.contactPerson, org.mobilePhone].filter(Boolean).join('・')}</span>
               </span>
               <span className="org-row__who">{whenLabel(org)}</span>
               <span className="org-row__badges" />
