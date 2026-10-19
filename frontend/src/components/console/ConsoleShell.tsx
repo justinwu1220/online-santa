@@ -42,9 +42,13 @@ export function ConsoleShell({ appLabel, name, items, terms, banner, children }:
   const location = useLocation()
   const main = useRef<HTMLDivElement>(null)
   const first = useRef(true)
+  // 點選單時的淡出動畫（fill: forwards，會一直維持透明），換頁後要明確取消
+  const fadeOut = useRef<Animation | null>(null)
 
   // 換頁後：右側內容由下 10px 浮上（第一次進來不播）
   useEffect(() => {
+    fadeOut.current?.cancel()
+    fadeOut.current = null
     if (first.current) {
       first.current = false
       return
@@ -62,17 +66,13 @@ export function ConsoleShell({ appLabel, name, items, terms, banner, children }:
     event.preventDefault()
     if (location.pathname === to) return
     if (!reducedMotion() && main.current) {
-      main.current.animate(
+      fadeOut.current = main.current.animate(
         [{ opacity: 1 }, { opacity: 0, transform: 'translateY(6px)' }],
         { duration: 120, easing: 'ease-in', fill: 'forwards' })
       await wait(120)
     }
     navigate(to)
-    // 新內容的浮上動畫由上面的 effect 接手；先把淡出的殘留效果清掉
-    main.current?.getAnimations().forEach((animation) => {
-      if (animation.effect && (animation.effect as KeyframeEffect).getKeyframes().length === 2
-        && animation.playState === 'finished') animation.cancel()
-    })
+    // 淡出效果由上面的 effect 在新內容出現後取消，接著播浮上動畫
   }
 
   return (
