@@ -129,7 +129,7 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
   }
 
   const donor = claim?.donorName ?? '認領者'
-  const chatLabel = claim ? `與 ${donor} 的對話` : '通知'
+  const chatLabel = claim ? `與${donor}的對話` : '通知'
   const tabs = hasChat
     ? [
       { key: 'info', label: claim ? '願望與寄送' : '願望內容' },
@@ -241,15 +241,15 @@ function ConfirmButtons({ confirming, onReport, onStart, onCancel }: {
   if (confirming) {
     return (
       <>
-        <button type="button" className="btn" onClick={onCancel}>取消</button>
-        <button type="submit" form="owConfirmForm" className="btn btn--tone-solid">確認收到，完成願望</button>
+        <button key="cancel" type="button" className="btn" onClick={onCancel}>取消</button>
+        <button key="confirm" type="submit" form="owConfirmForm" className="btn btn--tone-solid">確認收到，完成願望</button>
       </>
     )
   }
   return (
     <>
       <button type="button" className="btn" onClick={onReport}>回報異常</button>
-      <button type="button" className="btn btn--tone-solid" onClick={onStart}>確認收到並完成</button>
+      <button key="start" type="button" className="btn btn--tone-solid" onClick={onStart}>確認收到並完成</button>
     </>
   )
 }
