@@ -183,7 +183,7 @@ export function ClaimDetail() {
             <ReceiptProofPanel claim={data} proofs={feedbackPhotos} />
 
             <StepPanel icon={<MessageCircle className="icon" />} title="有問題就問機構">
-              <Chat claimId={id} closed={closed} counterpart={data.organizationName} />
+              <Chat claimId={id} closed={data.status === 'RELEASED' || data.status === 'CANCELLED'} counterpart={data.organizationName} />
             </StepPanel>
           </div>
 

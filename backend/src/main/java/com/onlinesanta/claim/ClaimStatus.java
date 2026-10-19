@@ -60,6 +60,14 @@ public enum ClaimStatus {
         return EnumSet.copyOf(OCCUPYING);
     }
 
+    /**
+     * 這筆認領還能不能傳訊息。已完成的認領是成功收尾，雙方的關係還在，可以繼續聊
+     * （謝卡、後續回報）；已收回、已取消的認領已經失效，願望會回到願望牆讓別人認領，不再開放。
+     */
+    public boolean allowsMessages() {
+        return this != RELEASED && this != CANCELLED;
+    }
+
     public boolean isTerminal() {
         return TERMINAL.contains(this);
     }

@@ -12,11 +12,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.claim.dto.ReleaseRequest;
 import com.onlinesanta.message.dto.SendMessageRequest;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.support.ApiIntegrationTest;
+import com.onlinesanta.support.ShipRequests;
 import com.onlinesanta.support.TestJwtSupport;
 import com.onlinesanta.user.User;
 import com.onlinesanta.user.UserRepository;
@@ -130,6 +132,27 @@ class MessageApiIT extends ApiIntegrationTest {
                         new SendMessageRequest("   ")), DONOR))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorCode").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    @DisplayName("認領已完成之後雙方還能繼續對話（謝卡、後續回報），機構的願望對話也開放輸入")
+    void conversationContinuesAfterTheClaimIsCompleted() throws Exception {
+        uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
+        mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId), ShipRequests.of("郵局", "R123")), DONOR))
+                .andExpect(status().isOk());
+        completeAsOrganization(claimId, ORG_USER).andExpect(status().isOk());
+
+        send(DONOR, "孩子還喜歡嗎？");
+        send(ORG_USER, "很喜歡，還寫了一張謝卡");
+
+        mvc.perform(as(get("/api/claims/{id}/messages", claimId), DONOR))
+                .andExpect(jsonPath("$.length()").value(3));
+        mvc.perform(as(get("/api/claims/{id}/messages", claimId), ORG_USER))
+                .andExpect(jsonPath("$[2].body").value("很喜歡，還寫了一張謝卡"));
+        // 機構的願望對話也能輸入，而且傳的訊息就是同一串
+        UUID wishId = wishes.findAll().get(0).getId();
+        mvc.perform(as(get("/api/organizations/me/wishes/{id}/conversation", wishId), ORG_USER))
+                .andExpect(jsonPath("$.canSend").value(true));
     }
 
     @Test

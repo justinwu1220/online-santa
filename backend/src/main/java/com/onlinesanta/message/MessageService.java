@@ -61,8 +61,8 @@ public class MessageService {
         AppPrincipal sender = currentUser.require();
         Claim claim = claims.getVisibleById(claimId);
 
-        // 認領結束後就不該再有新對話——該說的話在流程中都說完了
-        if (claim.getStatus().isTerminal()) {
+        // 認領被收回或取消後就不該再有新對話；已完成的認領仍可繼續聊（見 ClaimStatus#allowsMessages）
+        if (!claim.getStatus().allowsMessages()) {
             throw new BusinessRuleException("CLAIM_CLOSED",
                     "這筆認領已經結束（%s），無法再傳送訊息".formatted(claim.getStatus()));
         }

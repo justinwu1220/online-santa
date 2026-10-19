@@ -57,7 +57,7 @@ public class WishConversationService {
         long unread = messages.countWishUnread(wishId, activeId, viewer.userId());
         return new WishConversationItem(
                 active == null ? null : active.getDonor().getDisplayName(),
-                active != null && !active.getStatus().isTerminal(),
+                active != null && active.getStatus().allowsMessages(),
                 unread, views);
     }
 
