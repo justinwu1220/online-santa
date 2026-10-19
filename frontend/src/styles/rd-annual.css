@@ -26,3 +26,9 @@
 
 /* 彈窗與抽屜裡的捲動區：捲到底不要把滾輪帶給後面的頁面（頁面本身另外由 useScrollLock 鎖住） */
 .rd .drawer__body, .rd .terms__doc, .rd .chat, .rd dialog { overscroll-behavior: contain; }
+
+/* 抽屜分頁列：overflow-x:auto 會讓垂直方向也變成可捲動，選中分頁底線往下突出 1px 時 Windows 會出現捲軸。
+   垂直方向隱藏、底線改成不突出，橫向窄螢幕仍可捲動（捲軸本身不顯示） */
+.rd .drawer__tabs { overflow-y: hidden; scrollbar-width: none; }
+.rd .drawer__tabs::-webkit-scrollbar { display: none; }
+.rd .dtab[aria-selected="true"]::after { bottom: 0; }
