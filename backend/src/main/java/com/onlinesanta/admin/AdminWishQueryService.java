@@ -24,6 +24,7 @@ import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.wish.Wish;
+import com.onlinesanta.wish.WishEventService;
 import com.onlinesanta.wish.WishRepository;
 import com.onlinesanta.wish.WishStatus;
 
@@ -45,15 +46,17 @@ public class AdminWishQueryService {
     private final AttachmentService attachments;
     private final AdminAuditService audit;
     private final CurrentUserService currentUser;
+    private final WishEventService history;
 
     public AdminWishQueryService(WishRepository wishes, ClaimRepository claims,
                                  AttachmentService attachments, AdminAuditService audit,
-                                 CurrentUserService currentUser) {
+                                 CurrentUserService currentUser, WishEventService history) {
         this.wishes = wishes;
         this.claims = claims;
         this.attachments = attachments;
         this.audit = audit;
         this.currentUser = currentUser;
+        this.history = history;
     }
 
     @Transactional(readOnly = true)
@@ -117,7 +120,9 @@ public class AdminWishQueryService {
                     "%s / %s".formatted(wish.getOrganization().getName(), wish.getTitle()));
         }
         boolean late = active != null && active.isOverdue(Instant.now());
-        return AdminWishDetailView.from(wish, active, late, attachments.wishLetters(wishId));
+        boolean resubmission = wish.getStatus() == WishStatus.PENDING_REVIEW && wish.getPublishedAt() != null;
+        return AdminWishDetailView.from(wish, active, late, attachments.wishLetters(wishId),
+                resubmission ? history.changesSinceLastApproval(wish) : null, history.history(wishId));
     }
 
     /** 點擊載入：目前認領的寄件照片（含捐贈者個資）。寫稽核。孩子的手寫信件是公開的，在 {@link #get} 直接帶出。 */

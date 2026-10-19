@@ -256,8 +256,33 @@ public class Wish extends BaseEntity {
         }
     }
 
+    /**
+     * 只有從來沒公開過的草稿能刪除。曾上架過的願望即使被退回或為修改而下架，也要留著——
+     * 它的歷程是管理員重審時要看的紀錄。
+     */
     public boolean isDeletable() {
-        return status == WishStatus.DRAFT;
+        return status == WishStatus.DRAFT && publishedAt == null;
+    }
+
+    /** 曾經上架過、現在是草稿：機構正在修改，或被管理員退回。 */
+    public boolean isTakenDown() {
+        return status == WishStatus.DRAFT && publishedAt != null;
+    }
+
+    /**
+     * 機構修改前先把願望從牆上撤下之後，若內容完全沒改，直接恢復上架（不必重審）。
+     * 內容有沒有改由呼叫端比對快照決定。
+     */
+    public void restore() {
+        if (!isTakenDown()) {
+            throw new BusinessRuleException("WISH_NOT_RESTORABLE",
+                    "只有為了修改而下架的願望能恢復上架，目前狀態為 " + status);
+        }
+        if (!organization.canPublishWishes()) {
+            throw new BusinessRuleException("ORGANIZATION_NOT_APPROVED",
+                    "機構尚未通過審核，還不能上架願望");
+        }
+        this.status = WishStatus.AVAILABLE;
     }
 
     /**

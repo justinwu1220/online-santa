@@ -117,9 +117,25 @@ public class WishController {
                 wishes.withdraw(id), attachments.wishImageUrl(id), attachments.wishLetters(id));
     }
 
+    @PostMapping("/{id}/begin-edit")
+    @Operation(summary = "修改並重新送審：先下架",
+            description = "上架中、還沒人認領的願望 → 原子地從願望牆撤下成草稿（凍結中的一併解除）；"
+                    + "剛被認領則回 409。之後依草稿流程修改並提交審核，核准才重新上架")
+    public WishOrgView beginEdit(@PathVariable UUID id) {
+        return WishOrgView.from(
+                wishes.beginEdit(id), attachments.wishImageUrl(id), attachments.wishLetters(id));
+    }
+
+    @PostMapping("/{id}/restore")
+    @Operation(summary = "恢復上架", description = "為修改而下架、但內容完全沒改時，直接恢復上架，不必重審")
+    public WishOrgView restore(@PathVariable UUID id) {
+        return WishOrgView.from(
+                wishes.restore(id), attachments.wishImageUrl(id), attachments.wishLetters(id));
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(summary = "刪除願望", description = "只有草稿能刪除；已公開過的請改用下架")
+    @Operation(summary = "刪除願望", description = "只有從沒公開過的草稿能刪除；曾經上架過的願望會保留")
     public void delete(@PathVariable UUID id) {
         wishes.delete(id);
     }

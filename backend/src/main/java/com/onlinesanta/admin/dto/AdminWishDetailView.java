@@ -11,6 +11,8 @@ import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.wish.Wish;
 import com.onlinesanta.wish.WishStatus;
+import com.onlinesanta.wish.dto.WishChanges;
+import com.onlinesanta.wish.dto.WishHistoryItem;
 
 /**
  * 管理員願望抽屜的資料（設計稿 16.3）：願望、機構卡、目前認領（含禮物價格與捐贈人姓名、帳號信箱）。
@@ -32,7 +34,13 @@ public record AdminWishDetailView(
         Frozen frozen,
         boolean late,
         OrganizationCard organization,
-        ClaimCard claim) {
+        ClaimCard claim,
+        /** 曾上架過、修改後重新送審（審核中）；管理員重審時看這個旗標 */
+        boolean resubmission,
+        /** 與上次核准版本的差異；從沒有核准紀錄（功能上線前的舊願望）為 null */
+        WishChanges changes,
+        /** 這個願望的歷程時間軸 */
+        List<WishHistoryItem> history) {
 
     public record Frozen(Instant at, String reason) {
     }
@@ -81,7 +89,8 @@ public record AdminWishDetailView(
         }
     }
 
-    public static AdminWishDetailView from(Wish wish, Claim active, boolean late, List<AttachmentView> letterPhotos) {
+    public static AdminWishDetailView from(Wish wish, Claim active, boolean late, List<AttachmentView> letterPhotos,
+                                           WishChanges changes, List<WishHistoryItem> history) {
         return new AdminWishDetailView(
                 wish.getId(), wish.getTitle(), wish.getChildAlias(),
                 wish.getAgeRange() == null ? null : wish.getAgeRange().getLabel(),
@@ -90,6 +99,8 @@ public record AdminWishDetailView(
                 wish.isFrozen() ? new Frozen(wish.getFrozenAt(), wish.getFrozenReason()) : null,
                 late,
                 OrganizationCard.from(wish.getOrganization()),
-                active == null ? null : ClaimCard.from(active));
+                active == null ? null : ClaimCard.from(active),
+                wish.getStatus() == WishStatus.PENDING_REVIEW && wish.getPublishedAt() != null,
+                changes, history);
     }
 }

@@ -169,8 +169,12 @@ class AdminWishQueryIT extends ApiIntegrationTest {
     @Test
     @DisplayName("孩子的手寫信件是公開的：直接在詳情帶出、不寫稽核；寄件照片是點擊載入並寫稽核，且不含信件")
     void lettersAreInDetailAndShippingFilesAreAudited() throws Exception {
-        UUID wishId = published("有附件的願望", "小星");
+        // 信件照片只有草稿能上傳：先存成草稿、傳信件，再上架
+        Wish wish = wishes.save(draft("有附件的願望", "小星"));
+        UUID wishId = wish.getId();
         uploadConfirmedAttachment(AttachmentPurpose.WISH_LETTER, wishId, ORG_USER);
+        wish.publish();
+        wishes.save(wish);
 
         mvc.perform(as(get("/api/admin/wishes/{id}", wishId), ADMIN))
                 .andExpect(status().isOk())

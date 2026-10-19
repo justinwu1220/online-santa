@@ -17,6 +17,8 @@ public record RecallRequest(
         OVERDUE("逾期未寄送"),
         UNREACHABLE("認領者聯繫不上"),
         CANNOT_COMPLETE("認領者表示無法完成"),
+        /** 機構要修改願望內容：收回後願望會下架修改、重新審核才再上架。 */
+        EDIT_WISH("需要修改願望內容"),
         OTHER("其他");
 
         private final String label;

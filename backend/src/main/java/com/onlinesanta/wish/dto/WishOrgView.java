@@ -42,7 +42,15 @@ public record WishOrgView(
         Instant createdAt,
         Instant updatedAt,
         String imageUrl,
-        List<AttachmentView> letterPhotos) {
+        List<AttachmentView> letterPhotos,
+        /** 曾經上架過、現在是草稿：機構正在修改，或被管理員退回（用「下架修改中」標示） */
+        boolean takenDown,
+        /** 上架中、還沒人認領：可以按「修改並重新送審」（會先從願望牆撤下） */
+        boolean canBeginEdit,
+        /** 下架修改後內容完全沒變：可以直接恢復上架，不必重審（只在抽屜詳情計算） */
+        boolean canRestore,
+        /** 被管理員凍結中 */
+        boolean frozen) {
 
     public static WishOrgView from(Wish wish) {
         return from(wish, null, List.of());
@@ -81,7 +89,18 @@ public record WishOrgView(
                 wish.getCreatedAt(),
                 wish.getUpdatedAt(),
                 imageUrl,
-                letterPhotos);
+                letterPhotos,
+                wish.isTakenDown(),
+                wish.getStatus() == WishStatus.AVAILABLE,
+                false,
+                wish.isFrozen());
+    }
+
+    public WishOrgView withCanRestore(boolean canRestore) {
+        return new WishOrgView(id, title, description, category, ageRange, ageRangeLabel, priceRange,
+                childAlias, interests, avatar, status, reviewNote, editable, deletable, version, stage,
+                activeClaim, unreadCount, publishedAt, createdAt, updatedAt, imageUrl, letterPhotos,
+                takenDown, canBeginEdit, canRestore, frozen);
     }
 
     /** 願望狀態＋目前認領 → 機構後台看到的合併狀態。逾期沿用 {@link Claim#isOverdue} 的同一個條件。 */

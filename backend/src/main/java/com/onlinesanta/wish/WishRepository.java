@@ -270,6 +270,21 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
     @Query("select min(w.createdAt) from Wish w")
     Instant earliestCreatedAt();
 
+    /**
+     * 機構修改已上架的願望：原子地從願望牆撤下（AVAILABLE → DRAFT），同時清掉凍結（重新送審取代凍結）。
+     * 條件式 UPDATE 與 {@link #markClaimed} 搶同一列的鎖：誰先到誰贏，輸的一方回 0。
+     *
+     * @return 1 表示已撤下；0 表示願望剛被認領（或已不是上架狀態）
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+            update wishes
+               set status = 'DRAFT', version = version + 1, updated_at = now(),
+                   frozen_at = null, frozen_reason = null, frozen_by = null
+             where id = :wishId and status = 'AVAILABLE'
+            """, nativeQuery = true)
+    int markTakenDownForEdit(@Param("wishId") UUID wishId);
+
     /** 送禮流程全部完成。 */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """

@@ -37,6 +37,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(ex.getStatus(), ex.getMessage(), ex.getErrorCode());
     }
 
+    /** 兩個人同時改同一筆資料：後存的人收到明確的 409，而不是通用的系統錯誤。 */
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    public ProblemDetail handleConcurrentUpdate(org.springframework.orm.ObjectOptimisticLockingFailureException ex) {
+        log.debug("併發更新衝突：{}", ex.getMessage());
+        return problem(HttpStatus.CONFLICT, "內容剛剛被其他人更新了，請重新整理後再試", "CONCURRENT_UPDATE");
+    }
+
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleUnexpected(Exception ex) {
         log.error("未預期的錯誤", ex);

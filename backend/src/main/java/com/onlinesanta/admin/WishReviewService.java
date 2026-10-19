@@ -13,6 +13,8 @@ import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.event.WishReviewedEvent;
 import com.onlinesanta.message.SystemMessageService;
 import com.onlinesanta.wish.Wish;
+import com.onlinesanta.wish.WishEventService;
+import com.onlinesanta.wish.WishEventType;
 import com.onlinesanta.wish.WishRepository;
 
 /**
@@ -29,15 +31,17 @@ public class WishReviewService {
     private final AdminAuditService audit;
     private final ApplicationEventPublisher eventPublisher;
     private final SystemMessageService systemMessages;
+    private final WishEventService history;
 
     public WishReviewService(WishRepository wishes, CurrentUserService currentUser,
                              AdminAuditService audit, ApplicationEventPublisher eventPublisher,
-                             SystemMessageService systemMessages) {
+                             SystemMessageService systemMessages, WishEventService history) {
         this.wishes = wishes;
         this.currentUser = currentUser;
         this.audit = audit;
         this.eventPublisher = eventPublisher;
         this.systemMessages = systemMessages;
+        this.history = history;
     }
 
     @Transactional
@@ -46,6 +50,7 @@ public class WishReviewService {
         Wish wish = find(wishId);
         wish.approve(admin.userId());
         audit.record(AdminAuditAction.APPROVE_WISH, wishId, wish.getTitle());
+        history.record(wish, WishEventType.APPROVED, admin.userId(), null, true);
         systemMessages.wishApproved(wishId);
         eventPublisher.publishEvent(new WishReviewedEvent(wishId, true, null));
         return wish;
@@ -58,6 +63,7 @@ public class WishReviewService {
         String reason = request.note().trim();
         wish.reject(admin.userId(), reason);
         audit.record(AdminAuditAction.REJECT_WISH, wishId, wish.getTitle());
+        history.record(wish, WishEventType.REJECTED, admin.userId(), reason, false);
         systemMessages.wishRejected(wishId, reason);
         eventPublisher.publishEvent(new WishReviewedEvent(wishId, false, reason));
         return wish;
@@ -71,16 +77,18 @@ public class WishReviewService {
         String reason = request.note().trim();
         wish.freeze(admin.userId(), reason);
         audit.record(AdminAuditAction.FREEZE_WISH, wishId, wish.getTitle());
+        history.record(wish, WishEventType.FROZEN, admin.userId(), reason, false);
         systemMessages.wishFrozen(wishId, reason);
         return wish;
     }
 
     @Transactional
     public Wish unfreeze(UUID wishId) {
-        currentUser.requireAdmin();
+        AppPrincipal admin = currentUser.requireAdmin();
         Wish wish = find(wishId);
         wish.unfreeze();
         audit.record(AdminAuditAction.UNFREEZE_WISH, wishId, wish.getTitle());
+        history.record(wish, WishEventType.UNFROZEN, admin.userId(), null, false);
         systemMessages.wishUnfrozen(wishId);
         return wish;
     }

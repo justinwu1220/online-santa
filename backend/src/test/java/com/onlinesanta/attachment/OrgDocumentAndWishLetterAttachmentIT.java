@@ -91,6 +91,19 @@ class OrgDocumentAndWishLetterAttachmentIT extends ApiIntegrationTest {
         return wishes.save(wish).getId();
     }
 
+    /** 還沒上架的草稿：信件照片只有這個時候能新增或刪除。 */
+    private UUID draftWish(String title) {
+        Wish wish = Wish.draft(organization, "小星", AgeRange.AGE_7_9, "畫畫",
+                title, "描述", WishCategory.ART, PriceRange.UNDER_500);
+        return wishes.save(wish).getId();
+    }
+
+    private void publish(UUID wishId) {
+        Wish wish = wishes.findById(wishId).orElseThrow();
+        wish.publish();
+        wishes.save(wish);
+    }
+
     private UUID claimAs(UUID wishId, String donorEmail) throws Exception {
         String body = mvc.perform(as(post("/api/wishes/{id}/claim", wishId), donorEmail))
                 .andExpect(status().isCreated())
@@ -278,35 +291,32 @@ class OrgDocumentAndWishLetterAttachmentIT extends ApiIntegrationTest {
     // ------------------------------------------------------------ 願望信件
 
     @Test
-    @DisplayName("任何願望狀態都能上傳願望信件照片，包含已完成的認領；限一張，補傳會直接取代舊照片")
-    void wishLetterCanBeUploadedRegardlessOfWishStatus() throws Exception {
-        UUID wishId = publishedWish("已完成的願望");
+    @DisplayName("信件照片只有草稿能新增；已上架之後不能直接更動（要先下架修改）；限一張，補傳會直接取代舊照片")
+    void wishLetterCanOnlyBeChangedWhileDraft() throws Exception {
+        UUID wishId = draftWish("草稿的願望");
 
-        // 草稿／上架中都能傳
         uploadAs(AttachmentPurpose.WISH_LETTER, wishId, JPEG, ORG_USER);
-
-        UUID claimId = claimAs(wishId, DONOR);
-        uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, JPEG, DONOR);
-        mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
-                ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
-        completeAsOrganization(claimId, ORG_USER)
-                .andExpect(status().isOk());
-
-        // 已完成之後還是能補傳——感謝卡通常是這個時候才有；限一張，補傳直接
-        // 取代第一張，不是疊加
+        // 限一張，補傳直接取代第一張，不是疊加
         uploadAs(AttachmentPurpose.WISH_LETTER, wishId, JPEG, ORG_USER);
+        publish(wishId);
 
         mvc.perform(get("/api/wishes/{id}", wishId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.letterPhotoUrls.length()").value(1))
                 .andExpect(jsonPath("$.letterPhotoUrls[0]").value(
                         Matchers.not(Matchers.containsString("signature"))));
+
+        // 上架後不能直接換信件，否則等於繞過管理員審核
+        var request = new UploadUrlRequest(AttachmentPurpose.WISH_LETTER, wishId, JPEG, 1_000);
+        mvc.perform(as(withBody(post("/api/uploads/signed-url"), request), ORG_USER))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("WISH_NOT_EDITABLE"));
     }
 
     @Test
     @DisplayName("換新願望信件照片時舊照片連同檔案一起汰除，跟願望示意圖同一套機制")
     void replacingTheWishLetterPhotoRemovesTheOldFile() throws Exception {
-        UUID wishId = publishedWish("換信件照片");
+        UUID wishId = draftWish("換信件照片");
 
         uploadAs(AttachmentPurpose.WISH_LETTER, wishId, JPEG, ORG_USER);
         assertThat(fakeStorage.size()).isOne();
@@ -316,6 +326,7 @@ class OrgDocumentAndWishLetterAttachmentIT extends ApiIntegrationTest {
                 .as("舊檔案應該被刪掉，不該累積")
                 .isOne();
 
+        publish(wishId);
         mvc.perform(get("/api/wishes/{id}", wishId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.letterPhotoUrls.length()").value(1));
@@ -345,7 +356,7 @@ class OrgDocumentAndWishLetterAttachmentIT extends ApiIntegrationTest {
     @Test
     @DisplayName("機構可以刪除自己上傳的信件照片，別的機構不行")
     void organizationCanDeleteOwnWishLetterPhoto() throws Exception {
-        UUID wishId = publishedWish("可以刪除信件照片");
+        UUID wishId = draftWish("可以刪除信件照片");
         UUID attachmentId = uploadAs(AttachmentPurpose.WISH_LETTER, wishId, JPEG, ORG_USER);
 
         mvc.perform(as(delete("/api/attachments/{id}", attachmentId), OTHER_ORG_USER))
@@ -358,8 +369,9 @@ class OrgDocumentAndWishLetterAttachmentIT extends ApiIntegrationTest {
     @Test
     @DisplayName("願望信件照片不出現在願望牆清單，機構後台的願望清單看得到且帶附件 id")
     void wishLetterAppearsOnOrgListButNotThePublicWall() throws Exception {
-        UUID wishId = publishedWish("信件照片清單檢查");
+        UUID wishId = draftWish("信件照片清單檢查");
         uploadAs(AttachmentPurpose.WISH_LETTER, wishId, JPEG, ORG_USER);
+        publish(wishId);
 
         mvc.perform(get("/api/wishes"))
                 .andExpect(status().isOk())

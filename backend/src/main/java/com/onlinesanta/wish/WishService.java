@@ -14,6 +14,7 @@ import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
+import com.onlinesanta.message.SystemMessageService;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationService;
 import com.onlinesanta.wish.dto.WishFilterOptions;
@@ -34,15 +35,21 @@ public class WishService {
     private final OrganizationService organizations;
     private final CurrentUserService currentUser;
     private final AttachmentService attachments;
+    private final WishEventService history;
+    private final SystemMessageService systemMessages;
 
     public WishService(WishRepository wishes,
                        OrganizationService organizations,
                        CurrentUserService currentUser,
-                       AttachmentService attachments) {
+                       AttachmentService attachments,
+                       WishEventService history,
+                       SystemMessageService systemMessages) {
         this.wishes = wishes;
         this.organizations = organizations;
         this.currentUser = currentUser;
         this.attachments = attachments;
+        this.history = history;
+        this.systemMessages = systemMessages;
     }
 
     // ---------------------------------------------------------------- 公開瀏覽
@@ -109,6 +116,7 @@ public class WishService {
     /**
      * 提交審核：草稿 → 審核中。機構尚未通過審核時只能存草稿；提交時需要已上傳願望信件照片
      * （設計稿：存成草稿只需要標題，提交審核才要求全部必填）。
+     * 曾經上架過的願望（修改後重新送審）記為「重新送審」，管理員重審時看得到。
      */
     @Transactional
     public Wish submit(UUID id) {
@@ -117,7 +125,10 @@ public class WishService {
             throw new BusinessRuleException("WISH_LETTER_REQUIRED",
                     "請先上傳孩子的手寫願望信件照片，再提交審核");
         }
+        boolean resubmission = wish.isTakenDown();
         wish.submitForReview();
+        history.record(wish, resubmission ? WishEventType.RESUBMITTED : WishEventType.SUBMITTED,
+                currentUser.require().userId(), null, true);
         return wish;
     }
 
@@ -126,19 +137,68 @@ public class WishService {
     public Wish withdraw(UUID id) {
         Wish wish = findOwned(id);
         wish.withdraw();
+        history.record(wish, WishEventType.WITHDRAWN, currentUser.require().userId(), null, false);
         return wish;
     }
 
     /**
-     * 刪除願望。只允許刪除草稿——已公開過的願望即使下架也保留，
-     * 這樣認領紀錄與稽核軌跡才不會出現指向不存在資料的斷點。
+     * 修改已上架的願望：先原子地從願望牆撤下（AVAILABLE → DRAFT，凍結中的一併解除），
+     * 之後依一般草稿的流程修改、提交審核，核准才重新上架。
+     *
+     * <p>撤下是一句條件式 UPDATE，與認領搶同一列的鎖：認領先到，這裡就回 409，
+     * 不會出現「審核中被認領」或「已被認領卻被改掉內容」。
+     */
+    @Transactional
+    public Wish beginEdit(UUID id) {
+        Wish before = findOwned(id);
+        if (!before.getOrganization().canDraftWishes()) {
+            throw new BusinessRuleException("ORGANIZATION_SUSPENDED",
+                    "機構已停權，無法修改願望，請與平台管理員聯繫");
+        }
+        boolean wasFrozen = before.isFrozen();
+        if (wishes.markTakenDownForEdit(id) == 0) {
+            Wish now = findById(id);
+            throw switch (now.getStatus()) {
+                case CLAIMED, FULFILLED -> new BusinessRuleException("WISH_ALREADY_CLAIMED",
+                        "這個願望已經被認領，內容已鎖定。若認領者還沒寄出，可以先收回認領再修改");
+                default -> new BusinessRuleException("WISH_NOT_EDITABLE",
+                        "只有上架中的願望需要先下架再修改，目前狀態為 " + now.getStatus());
+            };
+        }
+        // 條件式 UPDATE 清空了持久化脈絡，重新載入
+        Wish wish = findById(id);
+        UUID actor = currentUser.require().userId();
+        history.record(wish, WishEventType.TAKEN_DOWN_FOR_EDIT, actor, null, true);
+        if (wasFrozen) {
+            history.record(wish, WishEventType.FREEZE_LIFTED_BY_RESUBMIT, actor, null, false);
+            systemMessages.freezeLiftedByEdit(id);
+        }
+        return wish;
+    }
+
+    /** 下架修改後，內容完全沒變就直接恢復上架（不必重審）；有任何修改一律要送審。 */
+    @Transactional
+    public Wish restore(UUID id) {
+        Wish wish = findOwned(id);
+        if (!history.canRestore(wish)) {
+            throw new BusinessRuleException("WISH_NOT_RESTORABLE",
+                    "內容已經修改過（或不是為修改而下架），請提交審核，通過後才會重新上架");
+        }
+        wish.restore();
+        history.record(wish, WishEventType.RESTORED, currentUser.require().userId(), null, false);
+        return wish;
+    }
+
+    /**
+     * 刪除願望。只允許刪除從沒公開過的草稿——已公開過的願望即使下架、被退回也保留，
+     * 這樣認領紀錄、稽核軌跡與重審時要看的歷程才不會出現指向不存在資料的斷點。
      */
     @Transactional
     public void delete(UUID id) {
         Wish wish = findOwned(id);
         if (!wish.isDeletable()) {
             throw new BusinessRuleException("WISH_NOT_DELETABLE",
-                    "只有草稿能刪除；已公開過的願望請改為下架");
+                    "只有從沒公開過的草稿能刪除；曾經上架過的願望請保留（不需要時不用處理）");
         }
         wishes.delete(wish);
     }

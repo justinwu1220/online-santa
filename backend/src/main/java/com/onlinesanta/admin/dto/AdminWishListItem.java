@@ -15,6 +15,8 @@ public record AdminWishListItem(
         WishStatus status,
         boolean frozen,
         boolean late,
+        /** 曾上架過、修改後重新送審（審核中） */
+        boolean resubmission,
         UUID organizationId,
         String organizationName) {
 
@@ -23,6 +25,7 @@ public record AdminWishListItem(
                 wish.getId(), wish.getTitle(), wish.getChildAlias(),
                 wish.getAgeRange() == null ? null : wish.getAgeRange().getLabel(),
                 wish.getAvatar(), wish.getStatus(), wish.isFrozen(), late,
+                wish.getStatus() == WishStatus.PENDING_REVIEW && wish.getPublishedAt() != null,
                 wish.getOrganization().getId(), wish.getOrganization().getName());
     }
 }

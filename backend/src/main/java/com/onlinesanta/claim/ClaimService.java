@@ -26,6 +26,7 @@ import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.event.ClaimCreatedEvent;
+import com.onlinesanta.event.ClaimRecalledEvent;
 import com.onlinesanta.message.SystemMessageService;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.ReleasePolicy;
@@ -34,6 +35,8 @@ import com.onlinesanta.terms.TermsService;
 import com.onlinesanta.user.User;
 import com.onlinesanta.user.UserRepository;
 import com.onlinesanta.wish.Wish;
+import com.onlinesanta.wish.WishEventService;
+import com.onlinesanta.wish.WishEventType;
 import com.onlinesanta.wish.WishRepository;
 
 /**
@@ -56,6 +59,7 @@ public class ClaimService {
     private final ClaimReceiptService receipts;
     private final TermsService terms;
     private final SystemMessageService systemMessages;
+    private final WishEventService history;
 
     public ClaimService(ClaimRepository claims,
                         ClaimEventRepository events,
@@ -67,7 +71,8 @@ public class ClaimService {
                         ApplicationEventPublisher eventPublisher,
                         ClaimReceiptService receipts,
                         TermsService terms,
-                        SystemMessageService systemMessages) {
+                        SystemMessageService systemMessages,
+                        WishEventService history) {
         this.claims = claims;
         this.events = events;
         this.wishes = wishes;
@@ -79,6 +84,7 @@ public class ClaimService {
         this.receipts = receipts;
         this.terms = terms;
         this.systemMessages = systemMessages;
+        this.history = history;
     }
 
     // ================================================================ 認領
@@ -117,7 +123,12 @@ public class ClaimService {
         requireWithinDonorQuota(principal.userId());
 
         if (wishes.markClaimed(wishId) == 0) {
-            // 走到這裡代表在我們讀取與更新之間，願望被別人領走或被機構下架了
+            // 走到這裡代表在我們讀取與更新之間，願望被別人領走，或被機構下架修改了
+            Wish latest = wishes.findById(wishId).orElse(null);
+            if (latest != null && latest.isTakenDown()) {
+                throw new BusinessRuleException("WISH_TEMPORARILY_UNAVAILABLE",
+                        "這個願望剛被機構暫時下架修改，通過審核後會再回到願望牆，稍後再來看看");
+            }
             throw new BusinessRuleException("WISH_ALREADY_CLAIMED",
                     "手慢了一步，這個願望剛剛被其他人領走了");
         }
@@ -300,9 +311,16 @@ public class ClaimService {
         Claim claim = findOwnedByOrganization(claimId, currentUser.requireOrganizationId());
 
         String reason = request.text();
+        boolean forEdit = request.reason() == RecallRequest.Reason.EDIT_WISH;
         claim.release(reason);
         returnWishToWall(claim);
         record(claim, ClaimEventType.RELEASED_MANUAL, principal.userId(), reason);
+        // 認領者要知道自己的認領被收回了：對話留系統訊息、寄信（交易提交後才寄）
+        systemMessages.claimRecalled(claim, reason, forEdit);
+        eventPublisher.publishEvent(new ClaimRecalledEvent(claim.getId(), reason, forEdit));
+        if (forEdit) {
+            history.record(claim.getWish(), WishEventType.RECALLED_FOR_EDIT, principal.userId(), reason, false);
+        }
         return claim;
     }
 

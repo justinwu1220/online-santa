@@ -269,6 +269,7 @@ public class AttachmentService {
                 if (!wish.getOrganization().getId().equals(organizationId)) {
                     throw ResourceNotFoundException.of("附件", attachment.getId());
                 }
+                requireDraft(wish);
             }
             case WISH_IMAGE -> throw new IllegalStateException(
                     "requireDeletablePurpose 應該已經擋掉 WISH_IMAGE");
@@ -467,9 +468,8 @@ public class AttachmentService {
     }
 
     /**
-     * 孩童手寫的感謝卡／願望信照片。跟 {@link #authorizeWishImage} 的差別是
-     * <strong>不檢查願望狀態</strong>——感謝卡通常是禮物寄出或收到之後才有，
-     * 那時候願望早就不是 {@code isEditable()} 的 DRAFT 了。
+     * 孩童手寫的願望信照片。信件是公開的、而且是管理員審核的重點，所以只有草稿能新增或刪除——
+     * 否則機構能在核准、上架之後直接換掉信件而不經審核。要換信件請先「修改並重新送審」（願望先下架成草稿）。
      */
     private void authorizeWishLetter(UUID wishId, AppPrincipal principal) {
         UUID organizationId = currentUser.requireOrganizationId();
@@ -477,6 +477,14 @@ public class AttachmentService {
                 .orElseThrow(() -> ResourceNotFoundException.of("願望", wishId));
         if (!wish.getOrganization().getId().equals(organizationId)) {
             throw ResourceNotFoundException.of("願望", wishId);
+        }
+        requireDraft(wish);
+    }
+
+    private void requireDraft(Wish wish) {
+        if (!wish.getStatus().isEditable()) {
+            throw new BusinessRuleException("WISH_NOT_EDITABLE",
+                    "願望已送審或上架，無法更動信件照片；要修改請先按「修改並重新送審」，目前狀態為 " + wish.getStatus());
         }
     }
 

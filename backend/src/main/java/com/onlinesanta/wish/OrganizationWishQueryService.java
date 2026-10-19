@@ -41,16 +41,19 @@ public class OrganizationWishQueryService {
     private final MessageRepository messages;
     private final AttachmentService attachments;
     private final CurrentUserService currentUser;
+    private final WishEventService history;
 
     public OrganizationWishQueryService(WishService wishes, WishRepository wishRepository,
                                         ClaimRepository claims, MessageRepository messages,
-                                        AttachmentService attachments, CurrentUserService currentUser) {
+                                        AttachmentService attachments, CurrentUserService currentUser,
+                                        WishEventService history) {
         this.wishes = wishes;
         this.wishRepository = wishRepository;
         this.claims = claims;
         this.messages = messages;
         this.attachments = attachments;
         this.currentUser = currentUser;
+        this.history = history;
     }
 
     /**
@@ -89,7 +92,8 @@ public class OrganizationWishQueryService {
         long unread = unreadCounts(List.of(wishId)).getOrDefault(wishId, 0L);
 
         WishOrgView view = WishOrgView.from(wish, attachments.wishImageUrl(wishId),
-                attachments.wishLetters(wishId), active, unread, now);
+                attachments.wishLetters(wishId), active, unread, now)
+                .withCanRestore(history.canRestore(wish));
         List<PastClaimView> past = claims.findByWishIdAndStatusInOrderByClaimedAtDesc(
                         wishId, EnumSet.of(ClaimStatus.RELEASED, ClaimStatus.CANCELLED))
                 .stream().map(PastClaimView::from).toList();
