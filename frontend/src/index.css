@@ -4,6 +4,7 @@
 @import "./styles/rd.css";
 @import "./styles/rd-auth.css";
 @import "./styles/rd-console.css";
+@import "./styles/rd-annual.css";
 @import "./styles/rd-motion.css";
 
 @theme {

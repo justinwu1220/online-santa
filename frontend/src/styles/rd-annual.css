@@ -1,0 +1,15 @@
+/* 年度回顧／年度營運（設計稿沒有這一頁，沿用後台面板語彙自行設計）。
+   後台改版後機構與管理員共用。 */
+@layer components {
+  .rd .annual { display: flex; flex-direction: column; gap: 20px; }
+  .rd .annual__note { margin: 0; font-size: 14px; line-height: 1.75; color: var(--fg-4); }
+  .rd .annual__stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+  .rd .stat { border-radius: 18px; border: 1px solid var(--line); background: var(--surface); padding: 16px 18px; }
+  .rd .stat__value { margin: 0; font-size: 28px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .rd .stat__label { margin: 2px 0 0; font-size: 14px; font-weight: 700; color: var(--fg-2); }
+  .rd .stat__hint { margin: 2px 0 0; font-size: 12px; color: var(--fg-muted); }
+  .rd .annual__charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  @media (max-width: 900px) { .rd .annual__charts { grid-template-columns: minmax(0, 1fr); } }
+  .rd .annual__empty { margin: 0; padding: 56px 0; text-align: center; font-size: 14px; color: var(--fg-muted); }
+  .rd .annual__year { width: auto; min-width: 110px; }
+}
