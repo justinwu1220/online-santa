@@ -1,6 +1,7 @@
 import { Send } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { formatDateTime } from '../../lib/format'
+import { useRiseLastOnGrow } from '../../lib/useRiseLastOnGrow'
 import type { MessageView, TeamMessageView } from '../../lib/types'
 
 /** 對話內容（設計稿 `.chat`）：自己靠右、對方靠左，系統通知是置中的虛線框。 */
@@ -13,6 +14,7 @@ export function ConversationLog({ messages, counterpart, empty = '還沒有對�
   label?: string
 }) {
   const box = useRef<HTMLDivElement>(null)
+  useRiseLastOnGrow(box, messages.length)
   // 有新訊息就捲到最底
   useEffect(() => {
     if (box.current) box.current.scrollTop = box.current.scrollHeight

@@ -13,7 +13,7 @@ import { ApiError, api } from '../../lib/api'
 import { avatarSrc } from '../../lib/avatar'
 import { pageTitle } from '../../lib/brand'
 import { daysUntil, formatDate, formatDateTime, formatMonthDay, formatPlainDate } from '../../lib/format'
-import { burst, center, reducedMotion, rise } from '../../lib/motion'
+import { burst, center, EASE_OUT, reducedMotion, rise } from '../../lib/motion'
 import type {
   AdminMessageView, AdminWishDetail, AdminWishFilter, AdminWishListItem, AttachmentView, ClaimReceiptView,
 } from '../../lib/types'
@@ -166,6 +166,10 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
     if (celebrate && !reducedMotion()) burst(...center(celebrate), 16, 100)
     toast.show(message)
     await invalidate()
+    if (path === 'freeze' && !reducedMotion()) {
+      window.requestAnimationFrame(() => document.querySelector('dialog.drawer[open] .dstatus')?.animate(
+        [{ transform: 'scale(.97)' }, { transform: 'none' }], { duration: 320, easing: EASE_OUT }))
+    }
   }
 
   async function approve(button: HTMLElement) {

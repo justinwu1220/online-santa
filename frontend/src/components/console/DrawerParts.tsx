@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { EASE_OUT, reducedMotion } from '../../lib/motion'
 
 /** 抽屜裡用的圖示（設計稿 DICON 的 path，24x24）。 */
 const ICONS = {
@@ -135,7 +136,17 @@ export function DrawerTabs({ tabs, active, onChange }: {
     <div className="drawer__tabs" role="tablist" aria-label="切換內容">
       {tabs.map((tab) => (
         <button key={tab.key} type="button" role="tab" className="dtab"
-          aria-selected={tab.key === active} onClick={() => onChange(tab.key)}>
+          aria-selected={tab.key === active}
+          onClick={() => {
+            if (tab.key === active) return
+            onChange(tab.key)
+            // 換分頁：新內容由下 6px 浮上 0.2s（設計稿 setDrawerTab）
+            if (!reducedMotion()) {
+              window.requestAnimationFrame(() => document.querySelector('dialog.drawer[open] .drawer__body')?.animate(
+                [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }],
+                { duration: 200, easing: EASE_OUT }))
+            }
+          }}>
           {tab.label}
           {tab.unread ? <span className="dtab__n" aria-label={`${tab.unread} 則新訊息`}>{tab.unread}</span> : null}
         </button>

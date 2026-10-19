@@ -127,8 +127,8 @@ function ApplyForm({ email }: { email: string }) {
   // 進度條第二段從 0 長到 100%（0.7s，SPEC 12.4）
   useEffect(() => {
     document.querySelector('.apply__bar i:last-child')?.animate(
-      [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }],
-      { duration: 700, delay: 150, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'backwards' })
+      [{ transform: 'scaleX(.5)' }, { transform: 'scaleX(1)' }],
+      { duration: 700, delay: 250, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'backwards' })
   }, [])
 
   const draftKey = draftKeyFor(email)

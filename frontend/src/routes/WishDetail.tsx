@@ -22,6 +22,8 @@ import { DONOR_TERMS } from '../components/terms/termsContent'
 import { isBundleCurrent, useAcceptDonorTerms, useDonorTerms } from '../lib/terms'
 import { ErrorNotice, Spinner } from '../components/ui/Spinner'
 import { Unavailable } from '../components/ui/Unavailable'
+import { SHAKE_VERIFY_BAR } from '../components/ui/VerifyBar'
+import { useToast } from '../components/ui/toastContext'
 
 export function WishDetail() {
   const { id = '' } = useParams()
@@ -36,6 +38,7 @@ export function WishDetail() {
   const terms = useDonorTerms()
   const acceptTerms = useAcceptDonorTerms()
   const [termsOpen, setTermsOpen] = useState(false)
+  const toast = useToast()
   const [claimedOk, setClaimedOk] = useState(false)
   const location = useLocation()
   const root = useRef<HTMLDivElement>(null)
@@ -128,6 +131,12 @@ export function WishDetail() {
   // 認領當下才會算出真正的期限；這裡用同一個天數預告，日期與認領後看到的一致
   // 按「認領這個願望」：還沒同意目前版本的須知就先跳出同意視窗，同意後才進認領確認
   function startClaim() {
+    // 還沒驗證信箱：不開認領視窗，提示並讓頁首的驗證提示列輕晃一下（設計稿；後端也會擋）
+    if (!emailVerified) {
+      toast.show('請先完成信箱驗證，才能認領願望', 'danger')
+      window.dispatchEvent(new Event(SHAKE_VERIFY_BAR))
+      return
+    }
     if (terms.data && !terms.data.upToDate) {
       setTermsOpen(true)
       return
@@ -159,7 +168,6 @@ export function WishDetail() {
             available={available}
             status={status.key}
             loggedIn={Boolean(email)}
-            verified={emailVerified}
             isDonor={isDonor}
             wishId={id}
             success={claimedOk}
@@ -224,11 +232,10 @@ export function WishDetail() {
  * 資訊欄最下方的行動區，依狀態與使用者身分決定。
  * 機構與管理員帳號不能認領（SPEC 15.9）：按鈕停用，說明原因；後端也會拒絕。
  */
-function ClaimZone({ available, status, loggedIn, verified, isDonor, wishId, success, onClaim }: {
+function ClaimZone({ available, status, loggedIn, isDonor, wishId, success, onClaim }: {
   available: boolean
   status: 'open' | 'claimed' | 'done'
   loggedIn: boolean
-  verified: boolean
   isDonor: boolean
   wishId: string
   /** 認領剛成功：按鈕變金色「✓ 認領成功」 */
@@ -256,15 +263,6 @@ function ClaimZone({ available, status, loggedIn, verified, isDonor, wishId, suc
           登入後認領這個願望
         </Link>
         <p className="cta-help">認領後會看到機構的收件資訊與寄出期限，我們會陪你完成每一步。</p>
-      </div>
-    )
-  }
-
-  if (!verified) {
-    // 機構要靠這個信箱聯繫捐贈者——後端也會擋，這裡先說清楚原因
-    return (
-      <div className="notice notice--warn">
-        請先完成信箱驗證才能認領。上方的提示列可以重新寄送驗證信，驗證完點「我已經驗證好了」即可。
       </div>
     )
   }

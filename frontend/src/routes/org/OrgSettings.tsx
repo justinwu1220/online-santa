@@ -7,7 +7,7 @@ import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { useToast } from '../../components/ui/toastContext'
 import { ApiError, api } from '../../lib/api'
 import { pageTitle } from '../../lib/brand'
-import { reducedMotion } from '../../lib/motion'
+import { EASE_OUT, reducedMotion } from '../../lib/motion'
 import { isCompleteLandline, isCompleteMobile } from '../../lib/phone'
 import type { AttachmentView, OrganizationView, ReleasePolicy } from '../../lib/types'
 import {
@@ -47,6 +47,8 @@ export function OrgSettings() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [focusTick, setFocusTick] = useState(0)
   const photoUrlRef = useRef<string | null>(null)
+  // 使用者主動切到「自動收回」才播寬限天數列的浮下動畫（一進頁面就是自動收回時不播）
+  const graceAnimate = useRef(false)
 
   useEffect(() => {
     document.title = pageTitle('機構設定｜機構後台')
@@ -279,10 +281,16 @@ export function OrgSettings() {
               onSelect={(policy) => setForm((current) => ({ ...current, releasePolicy: policy }))} />
             <PolicyOption value="AUTO" current={form.releasePolicy} title="自動收回"
               description="超過寄出期限加上寬限天數，仍未回報寄送，系統自動收回並讓願望重新上架。"
-              onSelect={(policy) => setForm((current) => ({ ...current, releasePolicy: policy }))} />
+              onSelect={(policy) => { graceAnimate.current = policy === 'AUTO'; setForm((current) => ({ ...current, releasePolicy: policy })) }} />
           </div>
           {form.releasePolicy === 'AUTO' && (
-            <div className="grace">
+            <div className="grace" ref={(node) => {
+              if (node && graceAnimate.current && !reducedMotion()) {
+                graceAnimate.current = false
+                node.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }],
+                  { duration: 260, easing: EASE_OUT })
+              }
+            }}>
               <label className="field__label" htmlFor="sGrace">寬限天數</label>
               <SelectBox id="sGrace" className="grace__select" value={form.releaseAfterDays}
                 onChange={(event) => setForm((current) => ({

@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Send } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
+import { useRiseLastOnGrow } from '../../lib/useRiseLastOnGrow'
 import { formatDateTime } from '../../lib/format'
 import type { MessageView } from '../../lib/types'
 import { TextArea } from './Fields'
@@ -45,6 +46,9 @@ export function Chat({ claimId, closed, counterpart }: {
     },
   })
 
+  const logRef = useRef<HTMLDivElement>(null)
+  useRiseLastOnGrow(logRef, messages.data?.length)
+
   const hasUnread = messages.data?.some((message) => !message.fromMe && !message.read)
 
   useEffect(() => {
@@ -66,7 +70,7 @@ export function Chat({ claimId, closed, counterpart }: {
 
   return (
     <div>
-      <div className="chat" aria-live="polite">
+      <div className="chat" aria-live="polite" ref={logRef}>
         {messages.data?.length === 0 && (
           <p style={{ margin: 0, padding: '18px 0', textAlign: 'center', fontSize: 14, color: 'var(--fg-muted)' }}>
             還沒有任何訊息。有任何寄送上的問題都可以在這裡討論。
