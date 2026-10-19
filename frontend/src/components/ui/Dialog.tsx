@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
-import { reducedMotion } from '../../lib/motion'
+import { openModal, reducedMotion } from '../../lib/motion'
 
 /**
  * 原生 `<dialog>` 的對話框（Esc 可關閉、焦點自動處理）。
@@ -25,7 +25,7 @@ export function Dialog({ open, onClose, children, className = 'dialog', dismissi
     if (open) {
       // 在關閉動畫進行中又被打開：取消關閉，直接保持開啟
       element.classList.remove('is-closing')
-      if (!element.open) element.showModal()
+      openModal(element)
       return
     }
     if (!element.open) return

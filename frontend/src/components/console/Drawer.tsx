@@ -1,6 +1,6 @@
 import { X } from 'lucide-react'
 import { useEffect, useRef, type ReactNode } from 'react'
-import { reducedMotion } from '../../lib/motion'
+import { openModal, reducedMotion } from '../../lib/motion'
 
 const OPEN_MS = 320
 const CLOSE_MS = 220
@@ -44,7 +44,7 @@ export function Drawer({ open, onClose, tone, labelledBy, title, chip, tabs, foo
       if (element.open && !element.classList.contains('is-closing')) return   // 已開著，只是換內容
       element.getAnimations({ subtree: true }).forEach((animation) => animation.cancel())
       element.classList.remove('is-closing')
-      if (!element.open) element.showModal()
+      openModal(element)
       titleRef.current?.focus()
       if (!reducedMotion()) {
         element.animate([{ transform: 'translateX(100%)' }, { transform: 'none' }],

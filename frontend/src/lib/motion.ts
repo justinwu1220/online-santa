@@ -163,3 +163,17 @@ export function clearEffects() {
     animation.cancel()
   })
 }
+
+/**
+ * 開啟 `<dialog>`（showModal）。元素還沒掛進文件（極少數 render 順序下會發生）時
+ * 原生會丟 InvalidStateError，沒接住會讓整棵 React 樹崩潰、畫面全黑；
+ * 所以這裡不丟例外，等下一個畫面再試，最多等 30 個畫面。
+ */
+export function openModal(element: HTMLDialogElement, tries = 30): void {
+  if (element.open) return
+  if (element.isConnected) {
+    try { element.showModal() } catch { /* 已被別處開啟或移除，不需處理 */ }
+    return
+  }
+  if (tries > 0) window.requestAnimationFrame(() => openModal(element, tries - 1))
+}
