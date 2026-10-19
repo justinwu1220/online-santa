@@ -114,11 +114,11 @@ function WishRow({ wish, onOpen }: { wish: WishOrgView; onOpen: () => void }) {
   const info = STAGE_INFO[wish.stage]
   return (
     <button type="button" className="org-row" data-s={info.chip} data-id={wish.id} role="listitem"
-      aria-label={`${info.label}，${wish.title}，${wish.childAlias}，${wish.ageRangeLabel}`}
+      aria-label={[info.label, wish.title, wish.childAlias, wish.ageRangeLabel].filter(Boolean).join('，')}
       onClick={onOpen}>
       <span className="st-chip" data-s={info.chip}>{info.label}</span>
       <span className="org-row__title">{wish.title}</span>
-      <span className="org-row__who">{wish.childAlias}・{wish.ageRangeLabel}</span>
+      <span className="org-row__who">{[wish.childAlias, wish.ageRangeLabel].filter(Boolean).join('・')}</span>
       <span className="org-row__badges">
         {wish.unreadCount > 0 && (
           <span className="badge badge--msg">

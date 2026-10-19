@@ -332,7 +332,7 @@ function WishInfo({ wish, claim, past, attachments, orgPending, confirming, onCo
       <DCard icon="gift" title="孩子的願望">
         <div className="dwish">
           <img className="avatar" src={avatarSrc(wish.avatar)} alt="" width={56} height={56} />
-          <div><strong>{wish.childAlias}</strong><span>{wish.ageRangeLabel}</span></div>
+          <div><strong>{wish.childAlias || '尚未填寫暱稱'}</strong><span>{wish.ageRangeLabel ?? ''}</span></div>
         </div>
         {wish.description && <p className="dquote">{wish.description}</p>}
         <div className="dletter">
