@@ -167,11 +167,26 @@ class AdminWishQueryIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("附件是點擊載入，每次載入寫稽核；草稿與不存在的願望一律 404")
-    void filesAreAuditedAndDraftsAreHidden() throws Exception {
+    @DisplayName("孩子的手寫信件是公開的：直接在詳情帶出、不寫稽核；寄件照片是點擊載入並寫稽核，且不含信件")
+    void lettersAreInDetailAndShippingFilesAreAudited() throws Exception {
         UUID wishId = published("有附件的願望", "小星");
-        mvc.perform(as(get("/api/admin/wishes/{id}/files", wishId), ADMIN)).andExpect(status().isOk());
+        uploadConfirmedAttachment(AttachmentPurpose.WISH_LETTER, wishId, ORG_USER);
+
+        mvc.perform(as(get("/api/admin/wishes/{id}", wishId), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.letterPhotos.length()").value(1))
+                .andExpect(jsonPath("$.letterPhotos[0].url").exists());
+        assertThat(auditLogs.findAll()).noneMatch(log -> log.getAction() == AdminAuditAction.VIEW_WISH_ATTACHMENTS);
+
+        mvc.perform(as(get("/api/admin/wishes/{id}/files", wishId), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
         assertThat(auditLogs.findAll()).anyMatch(log -> log.getAction() == AdminAuditAction.VIEW_WISH_ATTACHMENTS);
+    }
+
+    @Test
+    @DisplayName("草稿與不存在的願望一律 404")
+    void draftsAreHidden() throws Exception {
 
         Wish draft = wishes.save(draft("看不到的草稿", "小草"));
         mvc.perform(as(get("/api/admin/wishes/{id}", draft.getId()), ADMIN)).andExpect(status().isNotFound());

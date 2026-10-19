@@ -2,7 +2,7 @@ import { ChevronRight, Search } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Drawer } from '../../components/console/Drawer'
-import { AttachmentGallery } from '../../components/console/ImageViewer'
+import { AttachmentGallery, PreviewImage } from '../../components/console/ImageViewer'
 import {
   DCard, DrawerTabs, DStatus, DSteps, Kv, type StepState,
 } from '../../components/console/DrawerParts'
@@ -399,14 +399,19 @@ function WishInfo({ wish }: { wish: AdminWishDetail }) {
           <div><strong>{wish.childAlias}</strong><span>{wish.ageRangeLabel}</span></div>
         </div>
         {wish.description && <p className="dquote">{wish.description}</p>}
+        <div className="dletter">
+          <PreviewImage src={wish.letterPhotos[0]?.url} alt="孩子的手寫信件">【孩子的手寫信件照片】</PreviewImage>
+        </div>
       </DCard>
-      <LazyBox key={`files-${wish.id}`} title="附件" button="載入附件"
-        desc={`孩子的手寫信件${claim?.shippedAt ? '、寄送證明' : ''}可能含孩童影像${claim ? '與捐贈者個資' : ''}。`}
-        load={() => api.get<AttachmentView[]>(`/api/admin/wishes/${wish.id}/files`)}>
-        {(files: AttachmentView[]) => files.length === 0
-          ? <p className="auth-note">沒有附件。</p>
-          : <AttachmentGallery files={files} altPrefix="附件" />}
-      </LazyBox>
+      {claim?.shippedAt && (
+        <LazyBox key={`files-${wish.id}`} title="寄件照片" button="載入寄件照片"
+          desc="捐贈者回報寄送時上傳的照片，可能含捐贈者個資。"
+          load={() => api.get<AttachmentView[]>(`/api/admin/wishes/${wish.id}/files`)}>
+          {(files: AttachmentView[]) => files.length === 0
+            ? <p className="auth-note">沒有寄件照片。</p>
+            : <AttachmentGallery files={files} altPrefix="寄件照片" />}
+        </LazyBox>
+      )}
       {claim && (
         <LazyBox key={`receipt-${claim.claimId}`} title="捐贈收據" secret button="載入捐贈收據資料"
           desc="含身分證字號或統一編號等個資，只有管理員看得到。"

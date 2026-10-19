@@ -117,16 +117,16 @@ public class AdminWishQueryService {
                     "%s / %s".formatted(wish.getOrganization().getName(), wish.getTitle()));
         }
         boolean late = active != null && active.isOverdue(Instant.now());
-        return AdminWishDetailView.from(wish, active, late);
+        return AdminWishDetailView.from(wish, active, late, attachments.wishLetters(wishId));
     }
 
-    /** 點擊載入：願望的附件（孩子的手寫信件）與目前認領的寄件照片。寫稽核。 */
+    /** 點擊載入：目前認領的寄件照片（含捐贈者個資）。寫稽核。孩子的手寫信件是公開的，在 {@link #get} 直接帶出。 */
     @Transactional
     public List<AttachmentView> files(UUID wishId) {
         currentUser.requireAdmin();
         Wish wish = findWish(wishId);
         audit.record(AdminAuditAction.VIEW_WISH_ATTACHMENTS, wishId, wish.getTitle());
-        List<AttachmentView> result = new java.util.ArrayList<>(attachments.wishLetters(wishId));
+        List<AttachmentView> result = new java.util.ArrayList<>();
         claims.findByWishIdInAndStatusIn(List.of(wishId), ClaimStatus.occupyingStates())
                 .stream().findFirst()
                 .ifPresent(claim -> result.addAll(attachments.claimAttachments(claim.getId())));

@@ -640,6 +640,7 @@ export interface AdminWishDetail {
   ageRangeLabel?: string
   avatar?: string
   description?: string
+  letterPhotos: AttachmentView[]
   status: WishStatus
   createdAt: string
   reviewNote?: string

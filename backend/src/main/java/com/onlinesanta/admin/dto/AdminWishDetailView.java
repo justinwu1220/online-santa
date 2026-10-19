@@ -2,8 +2,10 @@ package com.onlinesanta.admin.dto;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
+import com.onlinesanta.attachment.dto.AttachmentView;
 import com.onlinesanta.claim.Claim;
 import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.organization.Organization;
@@ -14,7 +16,7 @@ import com.onlinesanta.wish.WishStatus;
  * 管理員願望抽屜的資料（設計稿 16.3）：願望、機構卡、目前認領（含禮物價格與捐贈人姓名、帳號信箱）。
  *
  * <p>只有管理員看得到價格與捐贈人個資；有認領者時，取得這份資料會寫一筆「查看認領詳情」稽核。
- * 附件、對話、捐贈收據不在這裡——它們是點擊載入，各自走專用端點並各寫稽核。
+ * 孩子的手寫信件照片在願望牆本來就公開，所以直接帶出、不寫稽核。寄件照片、對話、捐贈收據不在這裡——它們是點擊載入，各自走專用端點並各寫稽核。
  */
 public record AdminWishDetailView(
         UUID id,
@@ -23,6 +25,7 @@ public record AdminWishDetailView(
         String ageRangeLabel,
         String avatar,
         String description,
+        List<AttachmentView> letterPhotos,
         WishStatus status,
         Instant createdAt,
         String reviewNote,
@@ -78,11 +81,11 @@ public record AdminWishDetailView(
         }
     }
 
-    public static AdminWishDetailView from(Wish wish, Claim active, boolean late) {
+    public static AdminWishDetailView from(Wish wish, Claim active, boolean late, List<AttachmentView> letterPhotos) {
         return new AdminWishDetailView(
                 wish.getId(), wish.getTitle(), wish.getChildAlias(),
                 wish.getAgeRange() == null ? null : wish.getAgeRange().getLabel(),
-                wish.getAvatar(), wish.getDescription(), wish.getStatus(), wish.getCreatedAt(),
+                wish.getAvatar(), wish.getDescription(), letterPhotos, wish.getStatus(), wish.getCreatedAt(),
                 wish.getReviewNote(),
                 wish.isFrozen() ? new Frozen(wish.getFrozenAt(), wish.getFrozenReason()) : null,
                 late,
