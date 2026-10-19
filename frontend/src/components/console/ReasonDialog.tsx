@@ -34,7 +34,11 @@ export function ReasonDialog({ open, title, body, label, hint, minLength, tooSho
 
   async function submit() {
     const text = reason.trim()
-    if (text.length < minLength) { setError(tooShort); return }
+    if (text.length < minLength) {
+      setError(tooShort)
+      document.getElementById('rsReason')?.focus()
+      return
+    }
     setBusy(true)
     try {
       await onSubmit(text)
@@ -51,7 +55,7 @@ export function ReasonDialog({ open, title, body, label, hint, minLength, tooSho
       <div className={`field${error ? ' is-invalid' : ''}`} style={{ marginTop: 12 }}>
         <label className="field__label" htmlFor="rsReason">{label}<span className="req" aria-hidden>*</span></label>
         {hint && <span className="field__hint">{hint}</span>}
-        <textarea id="rsReason" className="input" rows={rows} value={reason}
+        <textarea id="rsReason" className="input" rows={rows} value={reason} aria-invalid={Boolean(error)}
           onChange={(event) => { setReason(event.target.value); setError('') }} />
         {error && <span className="field__error" role="alert">{error}</span>}
       </div>

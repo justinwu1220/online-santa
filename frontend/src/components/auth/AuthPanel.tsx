@@ -1,7 +1,8 @@
 import { ArrowLeft, ChevronRight, Eye, EyeOff, Gift, House } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { describeAuthError, useAuth, usingFirebase } from '../../lib/authContext'
+import { reducedMotion } from '../../lib/motion'
 import { termsFlow } from '../../lib/terms'
 import { KIND_NAME, KindNameButton } from './KindNameButton'
 import { SentScreen } from './SentScreen'
@@ -60,6 +61,11 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
   const [nameError, setNameError] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState('')
   const [displayNameError, setDisplayNameError] = useState<string | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  // 送出驗證不過時遞增，effect 捲到並聚焦第一個有錯的欄位（設計稿 validateForm）
+  const [focusTick, setFocusTick] = useState(0)
+  const formRef = useRef<HTMLFormElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -84,6 +90,8 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
     setConfirmError(null)
     setDisplayNameError(null)
     setNameError(null)
+    setEmailError(null)
+    setPasswordError(null)
   }
 
   /** 使用者主動切換分頁：先前的加入意圖作廢（自動切換不走這裡） */
@@ -115,6 +123,23 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
 
   const registering = mode === 'register'
 
+  useEffect(() => {
+    if (focusTick === 0) return
+    const first = document.querySelector<HTMLElement>('.auth-form .field.is-invalid')
+    if (!first) return
+    first.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' })
+    window.setTimeout(() => first.querySelector<HTMLElement>('input')
+      ?.focus({ preventScroll: true }), reducedMotion() ? 0 : 300)
+  }, [focusTick])
+
+  /** 信箱欄的檢查（登入、註冊、重設密碼共用）。 */
+  function emailProblem(): string | null {
+    const value = email.trim()
+    if (!value) return '請填寫信箱'
+    if (!/^\S+@\S+\.\S+$/.test(value)) return '請確認信箱格式'
+    return null
+  }
+
   // ------------------------------------------------------------ 忘記密碼
 
   if (usingFirebase && mode === 'reset') {
@@ -125,17 +150,21 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
         </div>
         <form
           className="auth-form"
+          noValidate
           onSubmit={(event) => {
             event.preventDefault()
+            const problem = emailProblem()
+            setEmailError(problem)
+            if (problem) { setFocusTick((tick) => tick + 1); return }
             void run(
               () => auth.sendPasswordReset(email),
               `如果 ${email} 有註冊過，重設密碼的信已經寄出了。記得檢查垃圾郵件匣。`)
           }}
         >
           <p className="auth-note">輸入註冊時使用的信箱，我們會寄一封重設密碼的信給你。</p>
-          <FormField label="信箱" required>
-            <Input type="email" required value={email}
-              onChange={(event) => setEmail(event.target.value)} />
+          <FormField label="信箱" required error={emailError}>
+            <Input type="email" value={email} aria-invalid={Boolean(emailError)}
+              onChange={(event) => { setEmail(event.target.value); setEmailError(null) }} />
           </FormField>
 
           {error && <p className="auth-msg auth-msg--danger" role="alert">{error}</p>}
@@ -167,6 +196,28 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
   function submit(event: React.FormEvent) {
     event.preventDefault()
 
+    // 一次檢查所有欄位，每個有問題的欄位都標紅框與錯誤文字，再捲到第一個
+    const needsPassword = usingFirebase || registering
+    const emailMsg = emailProblem()
+    const nameMsg = registering && role === 'donor' && !name.trim()
+      ? '請輸入真實姓名，不想具名請按「使用善心人士名義」' : null
+    const displayMsg = registering && role === 'donor' && !displayName.trim() ? '請輸入顯示名稱' : null
+    const passwordMsg = !needsPassword ? null
+      : !password ? '請填寫密碼'
+        : registering && password.length < 6 ? '密碼至少要 6 個字元' : null
+    const confirmMsg = !registering ? null
+      : !confirmPassword ? '請填寫確認密碼'
+        : password !== confirmPassword ? '兩次輸入的密碼不一樣' : null
+    setEmailError(emailMsg)
+    setNameError(nameMsg)
+    setDisplayNameError(displayMsg)
+    setPasswordError(passwordMsg)
+    setConfirmError(confirmMsg)
+    if (emailMsg || nameMsg || displayMsg || passwordMsg || confirmMsg) {
+      setFocusTick((tick) => tick + 1)
+      return
+    }
+
     if (!usingFirebase && !registering) {
       // 開發模式登入：身分只由 email 指定，沒有密碼
       onJoinIntent?.(null)
@@ -175,18 +226,6 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
     }
 
     if (registering) {
-      if (role === 'donor' && !name.trim()) {
-        setNameError('請輸入真實姓名，不想具名請按「使用善心人士名義」')
-        return
-      }
-      if (role === 'donor' && !displayName.trim()) {
-        setDisplayNameError('請輸入顯示名稱')
-        return
-      }
-      if (password !== confirmPassword) {
-        setConfirmError('兩次輸入的密碼不一致')
-        return
-      }
       // 先跳出對應的須知（認領者：《認領者參與須知》；機構：《合作機構參與須知》），
       // 取消就回到這張表單（欄位值都還在），同意後才真正建立帳號
       setTermsOpen(true)
@@ -289,7 +328,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
       )}
 
       {showForm && (
-        <form className="auth-form" onSubmit={submit}>
+        <form className="auth-form" ref={formRef} noValidate onSubmit={submit}>
           {!usingFirebase && (
             <p className="auth-msg">
               開發模式：未設定 Firebase，輸入任何 email 即可登入，沒有任何驗證。註冊時密碼只用來檢查畫面、不會驗證，姓名則會儲存。
@@ -301,7 +340,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
               <FormField label="真實姓名" required
                 hint="用於捐贈收據與向衛福部申報的徵信名冊，不會顯示在網站上"
                 error={nameError}>
-                <Input required maxLength={100} autoComplete="name" value={name}
+                <Input maxLength={100} autoComplete="name" value={name}
                   placeholder="王大明"
                   onChange={(event) => {
                     setName(event.target.value)
@@ -315,7 +354,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
           {registering && role === 'donor' && (
             <FormField label="顯示名稱" required hint="機構和孩子看到的名字，可以用暱稱"
               error={displayNameError}>
-              <Input required maxLength={100} value={displayName} placeholder="王小明"
+              <Input maxLength={100} value={displayName} placeholder="王小明"
                 onChange={(event) => {
                   setDisplayName(event.target.value)
                   setDisplayNameError(null)
@@ -323,23 +362,24 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
             </FormField>
           )}
 
-          <FormField label="信箱" required>
-            <Input type="email" required autoComplete="email" value={email}
-              placeholder="you@example.com"
-              onChange={(event) => setEmail(event.target.value)} />
+          <FormField label="信箱" required error={emailError}>
+            <Input type="email" autoComplete="email" value={email}
+              placeholder="you@example.com" aria-invalid={Boolean(emailError)}
+              onChange={(event) => { setEmail(event.target.value); setEmailError(null) }} />
           </FormField>
 
           {(usingFirebase || registering) && (
-            <FormField label="密碼" required hint={registering ? '至少 6 個字元' : undefined}>
+            <FormField label="密碼" required hint={registering ? '至少 6 個字元' : undefined}
+              error={passwordError}>
               <span className="pw-wrap">
                 <Input
                   type={showPassword ? 'text' : 'password'}
-                  required
-                  minLength={registering ? 6 : undefined}
                   autoComplete={registering ? 'new-password' : 'current-password'}
                   value={password}
+                  aria-invalid={Boolean(passwordError)}
                   onChange={(event) => {
                     setPassword(event.target.value)
+                    setPasswordError(null)
                     setConfirmError(null)
                   }}
                 />
@@ -355,9 +395,8 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
             <FormField label="確認密碼" required error={confirmError}>
               <Input
                 type={showPassword ? 'text' : 'password'}
-                required
-                minLength={6}
                 autoComplete="new-password"
+                aria-invalid={Boolean(confirmError)}
                 value={confirmPassword}
                 onChange={(event) => {
                   setConfirmPassword(event.target.value)
