@@ -171,19 +171,26 @@ function OrgDrawer({ org, onClose }: { org: OrganizationReviewView | null; onClo
       desc={`${current.reviewedAt ? formatDateTime(current.reviewedAt) + ' 停權。' : ''}機構無法登入後台與刊登願望；已上架的願望不受影響。`} />,
   }[current.status]
 
-  const foot = current.status === 'PENDING' ? (
+  // 已核准／已停權的機構才有願望可看：連結放在底部按鈕列的最左側，其餘動作靠右
+  const wishesLink = current.status === 'APPROVED' || current.status === 'SUSPENDED' ? (
+    <Link className="btn" style={{ marginRight: 'auto' }} to={`/admin/wishes?org=${current.id}`}>查看這間機構的願望</Link>
+  ) : null
+  const foot = wishesLink || current.status === 'PENDING' ? (
     <div className="drawer__foot">
-      <button type="button" className="btn btn--danger" onClick={() => setDialog('return')}>退回</button>
-      <button type="button" className="btn btn--tone-solid" disabled={busy}
-        onClick={(event) => void approve(event.currentTarget)}>核准</button>
-    </div>
-  ) : current.status === 'APPROVED' ? (
-    <div className="drawer__foot">
-      <button type="button" className="btn btn--freeze" onClick={() => setDialog('suspend')}>停權這個機構</button>
-    </div>
-  ) : current.status === 'SUSPENDED' ? (
-    <div className="drawer__foot">
-      <button type="button" className="btn btn--freeze" onClick={() => setDialog('unsuspend')}>解除停權</button>
+      {wishesLink}
+      {current.status === 'PENDING' && (
+        <>
+          <button type="button" className="btn btn--danger" onClick={() => setDialog('return')}>退回</button>
+          <button type="button" className="btn btn--tone-solid" disabled={busy}
+            onClick={(event) => void approve(event.currentTarget)}>核准</button>
+        </>
+      )}
+      {current.status === 'APPROVED' && (
+        <button type="button" className="btn btn--freeze" onClick={() => setDialog('suspend')}>停權這個機構</button>
+      )}
+      {current.status === 'SUSPENDED' && (
+        <button type="button" className="btn btn--freeze" onClick={() => setDialog('unsuspend')}>解除停權</button>
+      )}
     </div>
   ) : undefined
 
@@ -219,9 +226,6 @@ function OrgDrawer({ org, onClose }: { org: OrganizationReviewView | null; onClo
               <DCard icon="building" title="機構簡介">
                 <p className="dtext">{current.description || '—'}</p>
               </DCard>
-              {current.status !== 'PENDING' && current.status !== 'REJECTED' && (
-                <Link className="btn btn--sm" to={`/admin/wishes?org=${current.id}`}>查看這間機構的願望</Link>
-              )}
             </>
           )}
           {tab === 'docs' && (
