@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/authContext'
+import { closeStaleDialogs, installClickGuard } from '../../lib/clickGuard'
 import { reducedMotion, releaseStrandedEffects, wait } from '../../lib/motion'
 import { Snowfall } from '../Snowfall'
 import { ToastProvider } from '../ui/Toast'
@@ -63,11 +64,17 @@ export function ConsoleShell({ appLabel, name, items, terms, banner, children }:
       { duration: 300, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'backwards' })
   }, [location.pathname])
 
-  // 全站保險：換頁、動畫都播完之後，清掉漏網的「維持透明」殘留動畫
+  // 全站保險：換頁、動畫都播完之後，清掉漏網的「維持透明」殘留動畫與看不見的開啟中彈窗
   useEffect(() => {
-    const timer = window.setTimeout(releaseStrandedEffects, 1500)
+    const timer = window.setTimeout(() => {
+      releaseStrandedEffects()
+      closeStaleDialogs()
+    }, 1500)
     return () => window.clearTimeout(timer)
   }, [location.key])
+
+  // 點擊被看不見的東西擋住時：記錄現場並自動復原（見 lib/clickGuard.ts）
+  useEffect(() => installClickGuard(() => main.current), [])
 
   /** 點選單：右側內容先淡出 0.12s，再換頁。 */
   async function go(event: React.MouseEvent, to: string) {

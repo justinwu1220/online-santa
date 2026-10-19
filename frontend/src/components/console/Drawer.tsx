@@ -36,6 +36,8 @@ export function Drawer({ open, onClose, tone, labelledBy, title, chip, tabs, foo
   dismissible?: boolean
 }) {
   const ref = useRef<HTMLDialogElement>(null)
+  const wanted = useRef(open)
+  useEffect(() => { wanted.current = open })
   useScrollLock(open)
   const titleRef = useRef<HTMLHeadingElement>(null)
 
@@ -46,7 +48,7 @@ export function Drawer({ open, onClose, tone, labelledBy, title, chip, tabs, foo
       if (element.open && !element.classList.contains('is-closing')) return   // 已開著，只是換內容
       element.getAnimations({ subtree: true }).forEach((animation) => animation.cancel())
       element.classList.remove('is-closing')
-      openModal(element)
+      openModal(element, () => wanted.current)
       titleRef.current?.focus()
       if (!reducedMotion()) {
         element.animate([{ transform: 'translateX(100%)' }, { transform: 'none' }],

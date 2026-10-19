@@ -65,3 +65,35 @@ describe('releaseStrandedEffects（換頁後清掉殘留的「維持透明」動
     toast.remove()
   })
 })
+
+describe('openModal', () => {
+  it('元素還沒掛上文件時重試；重試期間外層已要求關閉就不再開（避免晚到的 modal 擋住整頁）', async () => {
+    const { openModal } = await import('./motion')
+    const dialog = document.createElement('dialog')
+    let wanted = true
+    const frames: FrameRequestCallback[] = []
+    const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => { frames.push(cb); return frames.length })
+
+    openModal(dialog, () => wanted)           // 還沒掛上：排下一個畫面再試
+    wanted = false
+    document.body.append(dialog)
+    frames.shift()?.(0)
+    expect(dialog.open).toBe(false)
+
+    wanted = true
+    openModal(dialog, () => wanted)
+    expect(dialog.open).toBe(true)
+    raf.mockRestore()
+  })
+
+  it('showModal 丟例外：不讓畫面崩潰，並留下警告', async () => {
+    const { openModal } = await import('./motion')
+    const dialog = document.createElement('dialog')
+    document.body.append(dialog)
+    dialog.showModal = () => { throw new Error('boom') }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(() => openModal(dialog)).not.toThrow()
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
+  })
+})

@@ -43,6 +43,7 @@ if (typeof window !== 'undefined') {
   window.Element.prototype.getAnimations = function getAnimations(this: Element) {
     return (registry.get(this) ?? []) as unknown as Animation[]
   }
+  document.getAnimations ??= () => []
   window.Element.prototype.scrollIntoView = vi.fn()
   window.scrollTo = vi.fn() as unknown as typeof window.scrollTo
 

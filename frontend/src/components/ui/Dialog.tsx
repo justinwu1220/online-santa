@@ -19,6 +19,9 @@ export function Dialog({ open, onClose, children, className = 'dialog', dismissi
   labelledBy?: string
 }) {
   const ref = useRef<HTMLDialogElement>(null)
+  // 重試開啟的期間 open 可能已經變回 false：用 ref 讓 openModal 讀到最新值
+  const wanted = useRef(open)
+  useEffect(() => { wanted.current = open })
   useScrollLock(open)
 
   useEffect(() => {
@@ -27,7 +30,7 @@ export function Dialog({ open, onClose, children, className = 'dialog', dismissi
     if (open) {
       // 在關閉動畫進行中又被打開：取消關閉，直接保持開啟
       element.classList.remove('is-closing')
-      openModal(element)
+      openModal(element, () => wanted.current)
       return
     }
     if (!element.open) return
@@ -56,7 +59,7 @@ export function Dialog({ open, onClose, children, className = 'dialog', dismissi
         const element = ref.current
         if (!open || !element) return
         if (dismissible) onClose()
-        else window.requestAnimationFrame(() => openModal(element))
+        else window.requestAnimationFrame(() => openModal(element, () => wanted.current))
       }}
       onCancel={(event) => {
         // 原生的 Esc 預設會直接關掉；先擋下，由外層決定要不要關

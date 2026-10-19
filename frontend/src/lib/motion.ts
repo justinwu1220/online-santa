@@ -189,12 +189,19 @@ export function releaseStrandedEffects() {
  * 開啟 `<dialog>`（showModal）。元素還沒掛進文件（極少數 render 順序下會發生）時
  * 原生會丟 InvalidStateError，沒接住會讓整棵 React 樹崩潰、畫面全黑；
  * 所以這裡不丟例外，等下一個畫面再試，最多等 30 個畫面。
+ *
+ * @param stillWanted 重試期間外層可能已經要求關閉；回傳 false 就放棄，
+ *   否則晚到的 showModal 會留下「React 以為關了、實際開著」的 modal，整頁被它擋住點不動
  */
-export function openModal(element: HTMLDialogElement, tries = 30): void {
-  if (element.open) return
+export function openModal(element: HTMLDialogElement, stillWanted: () => boolean = () => true, tries = 30): void {
+  if (element.open || !stillWanted()) return
   if (element.isConnected) {
-    try { element.showModal() } catch { /* 已被別處開啟或移除，不需處理 */ }
+    try {
+      element.showModal()
+    } catch (error) {
+      console.warn('[dialog] showModal 失敗', error)
+    }
     return
   }
-  if (tries > 0) window.requestAnimationFrame(() => openModal(element, tries - 1))
+  if (tries > 0) window.requestAnimationFrame(() => openModal(element, stillWanted, tries - 1))
 }
