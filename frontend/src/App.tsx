@@ -6,6 +6,7 @@ import { RequireRole } from './components/RequireRole'
 import { AdminLayout } from './routes/admin/AdminLayout'
 import { AdminOrganizations } from './routes/admin/AdminOrganizations'
 import { AdminOverview } from './routes/admin/AdminOverview'
+import { AdminTeamChat } from './routes/admin/AdminTeamChat'
 import { AdminWishes } from './routes/admin/AdminWishes'
 import { AdminSystem } from './routes/admin/AdminSystem'
 import { ClaimDetail } from './routes/ClaimDetail'
@@ -97,6 +98,7 @@ export default function App() {
         <Route index element={<AdminOverview />} />
         <Route path="orgs" element={<AdminOrganizations />} />
         <Route path="wishes" element={<AdminWishes />} />
+        <Route path="chat" element={<AdminTeamChat />} />
         <Route path="annual" element={
           <Suspense fallback={<Spinner label="載入年度營運" />}>
             <AdminAnnualReview />

@@ -50,6 +50,15 @@ export function useAdminOrganizations() {
   })
 }
 
+/** 選單上團隊對話的紅色數字。 */
+export function useAdminTeamUnread() {
+  return useQuery({
+    queryKey: ['admin-team-unread'],
+    queryFn: () => api.get<{ unread: number }>('/api/admin/team-chat/unread'),
+    refetchInterval: 60_000,
+  })
+}
+
 export function useInvalidateAdmin() {
   const queryClient = useQueryClient()
   return async () => {
@@ -60,6 +69,8 @@ export function useInvalidateAdmin() {
       queryClient.invalidateQueries({ queryKey: ['admin-organizations'] }),
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
       queryClient.invalidateQueries({ queryKey: ['audit-logs'] }),
+      queryClient.invalidateQueries({ queryKey: ['admin-team-chat'] }),
+      queryClient.invalidateQueries({ queryKey: ['admin-team-unread'] }),
     ])
   }
 }

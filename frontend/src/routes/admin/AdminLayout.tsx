@@ -1,6 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import { ConsoleShell, type ConsoleNavItem } from '../../components/console/ConsoleShell'
-import { useAdminWishCounts, usePlatformStats } from './adminQueries'
+import { useAdminTeamUnread, useAdminWishCounts, usePlatformStats } from './adminQueries'
 
 // 選單圖示：設計稿的 path（24x24）
 const ICON_OVERVIEW = (
@@ -22,6 +22,7 @@ const ICON_WISHES = (
     <path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5" />
   </>
 )
+const ICON_CHAT = <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
 const ICON_ANNUAL = (
   <>
     <path d="M3 3v16a2 2 0 0 0 2 2h16" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" />
@@ -32,13 +33,14 @@ const ICON_SYSTEM = (
 )
 
 /**
- * 管理員後台的外框（設計稿 16）：左側選單「總覽、機構審核、願望、系統與稽核」，
- * 機構審核與願望後方顯示待審核數；另外多一項「年度營運」——既有功能，設計稿沒有，
- * 與機構後台的年度回顧同樣放在選單裡。
+ * 管理員後台的外框（設計稿 16）：左側選單「總覽、機構審核、願望、團隊對話、系統與稽核」，
+ * 機構審核與願望後方顯示待審核數；另外多兩項設計稿沒有的：「團隊對話」（機構在機構後台傳來的訊息要有地方回覆）
+ * 與「年度營運」（既有功能，與機構後台的年度回顧同樣放在選單裡）。
  */
 export function AdminLayout() {
   const stats = usePlatformStats()
   const wishes = useAdminWishCounts()
+  const teamUnread = useAdminTeamUnread()
 
   const items: ConsoleNavItem[] = [
     { to: '/admin', label: '總覽', icon: ICON_OVERVIEW, end: true },
@@ -46,6 +48,8 @@ export function AdminLayout() {
       badgeLabel: (n) => `${n} 間待審核` },
     { to: '/admin/wishes', label: '願望', icon: ICON_WISHES, badge: wishes.data?.review,
       badgeLabel: (n) => `${n} 個待審核` },
+    { to: '/admin/chat', label: '團隊對話', icon: ICON_CHAT, badge: teamUnread.data?.unread,
+      badgeLabel: (n) => `${n} 則機構來訊` },
     { to: '/admin/annual', label: '年度營運', icon: ICON_ANNUAL },
     { to: '/admin/system', label: '系統與稽核', icon: ICON_SYSTEM },
   ]

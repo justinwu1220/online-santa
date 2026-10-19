@@ -5,13 +5,15 @@ import { useRiseLastOnGrow } from '../../lib/useRiseLastOnGrow'
 import type { MessageView, TeamMessageView } from '../../lib/types'
 
 /** 對話內容（設計稿 `.chat`）：自己靠右、對方靠左，系統通知是置中的虛線框。 */
-export function ConversationLog({ messages, counterpart, empty = '還沒有對話。', className = '', label }: {
+export function ConversationLog({ messages, counterpart, empty = '還沒有對話。', className = '', label, viewer = 'org' }: {
   messages: (MessageView | TeamMessageView)[]
   /** 對方的稱呼，顯示在對方訊息上方 */
   counterpart: string
   empty?: string
   className?: string
   label?: string
+  /** 從哪一邊看團隊對話：機構（預設，團隊的訊息在左）或團隊（機構的訊息在左） */
+  viewer?: 'org' | 'team'
 }) {
   const box = useRef<HTMLDivElement>(null)
   useRiseLastOnGrow(box, messages.length)
@@ -32,7 +34,7 @@ export function ConversationLog({ messages, counterpart, empty = '還沒有對�
             </div>
           )
         }
-        const mine = 'fromTeam' in message ? !message.fromTeam : message.fromMe
+        const mine = 'fromTeam' in message ? (viewer === 'team' ? message.fromTeam : !message.fromTeam) : message.fromMe
         return (
           <div key={message.id} className={`msg ${mine ? 'msg--me' : 'msg--org'}`}>
             {!mine && <span className="msg__who">{counterpart}</span>}

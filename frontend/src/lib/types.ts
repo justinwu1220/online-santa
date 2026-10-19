@@ -655,3 +655,14 @@ export interface AdminWishDetail {
   }
   claim?: AdminWishClaimCard
 }
+
+/** 管理員「團隊對話」左側清單的一條對話。 */
+export interface AdminTeamThread {
+  organizationId: string
+  organizationName: string
+  lastBody: string
+  lastFromTeam: boolean
+  lastAt: string
+  /** 團隊還沒讀的機構訊息數 */
+  unread: number
+}
