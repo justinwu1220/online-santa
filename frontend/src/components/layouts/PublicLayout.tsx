@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
-import { Info, TreePine, User } from 'lucide-react'
+import { TreePine, User } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { useAuth, usingFirebase } from '../../lib/authContext'
 import { PLATFORM_NAME } from '../../lib/brand'
 import type { ClaimDonorView, PageResponse } from '../../lib/types'
+import { useMyProfile } from '../../lib/useMyProfile'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
-import { useOnboard } from '../onboard/onboardContext'
 import { OnboardHost } from '../onboard/OnboardHost'
 import { Snowfall } from '../Snowfall'
 import { TermsGate } from '../terms/TermsGate'
@@ -97,8 +97,8 @@ function MyClaimsLink() {
 
 function AuthControls() {
   const { email, loading, signOut } = useAuth()
-  const onboard = useOnboard()
   const me = useCurrentUser()
+  const name = useMyProfile().data?.displayName
   const location = useLocation()
 
   if (loading) return <span style={{ color: 'var(--fg-muted)', fontSize: 14 }}>載入中…</span>
@@ -116,12 +116,7 @@ function AuthControls() {
     <div className="account">
       {role === 'ORG_MEMBER' && <Link to="/org" className="console-link">機構後台</Link>}
       {role === 'ADMIN' && <Link to="/admin" className="console-link">管理員後台</Link>}
-      {onboard?.available && (
-        <button type="button" className="account__info" onClick={onboard.reopen}
-          title="開始之前：認領須知提醒" aria-label="開始之前：認領須知提醒">
-          <Info className="icon" aria-hidden />
-        </button>
-      )}
+      {name && <span className="account__name" title={name}>{name}</span>}
       <Link to="/me/profile" className="account__me" title={email} aria-label="個人資料">
         <User className="icon" aria-hidden />
       </Link>

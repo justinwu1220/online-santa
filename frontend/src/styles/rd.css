@@ -110,10 +110,11 @@
   .account { display: flex; align-items: center; gap: 10px; }
   .account__me { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg-3); display: grid; place-items: center; cursor: pointer; }
   .account__me .icon { width: 20px; height: 20px; }
+  .account__name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-2); font-size: 14px; font-weight: 700; }
   .account__out { color: var(--fg-4); font-size: 14px; text-decoration: none; padding: 8px 6px; background: none; border: 0; cursor: pointer; }
   .account__out:hover { color: var(--fg); }
   .console-link { padding: 8px 12px; border-radius: 10px; border: 1px solid var(--login-line); background: var(--login-bg); color: var(--login-fg); font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap; }
-  @media (max-width: 520px) { .nav-link { padding: 8px 8px; font-size: 13px; } .account__me { display: none; } }
+  @media (max-width: 520px) { .nav-link { padding: 8px 8px; font-size: 13px; } .account__me, .account__name { display: none; } }
   @media (max-width: 420px) { .site-header__in { padding: 0 16px; } .brand { font-size: 16px; } .nav-link { padding: 8px 10px; } .login { padding: 9px 12px; } }
 
   /* 頁首下方的提示列（開發模式、信箱驗證） */
@@ -478,10 +479,6 @@
   .badge--ok { background: rgba(110, 231, 183, .14); color: #a7f3d0; }
   .badge--warn { background: rgba(250, 204, 21, .16); color: #fde68a; }
   /* 標頭右上角的 ⓘ：重看首次登入說明 */
-  .account__info { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg-3); display: grid; place-items: center; cursor: pointer; padding: 0; }
-  .account__info:hover { background: rgba(255, 255, 255, .14); color: var(--fg); }
-  .account__info:focus-visible { outline: 2px solid #6ee7b7; outline-offset: 2px; }
-  .account__info .icon { width: 20px; height: 20px; }
   /* 《認領者參與須知》全文對話框（prototype.html 584–619 行） */
   .terms,.onboard{padding:0;border:1px solid var(--line);border-radius:24px;background:rgba(13,21,38,.97);color:var(--fg);box-shadow:0 30px 80px rgba(0,0,0,.55)}
   .terms::backdrop,.onboard::backdrop{background:rgba(2,6,23,.78);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
