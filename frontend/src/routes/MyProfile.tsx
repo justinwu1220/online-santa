@@ -1,10 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError, api } from '../lib/api'
 import { describeAuthError, useAuth, usingFirebase } from '../lib/authContext'
 import { pageTitle } from '../lib/brand'
 import { formatDateTime } from '../lib/format'
+import { reducedMotion } from '../lib/motion'
 import { useDonorTerms } from '../lib/terms'
 import { useCurrentUser } from '../lib/useCurrentUser'
 import { useMyProfile } from '../lib/useMyProfile'
@@ -144,34 +145,60 @@ function ProfileForm({ profile, isDonor }: { profile: UserProfile; isDonor: bool
 
   const update = (key: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setForm((current) => ({ ...current, [key]: event.target.value }))
+    setLocalErrors((current) => { const { [key]: _gone, ...rest } = current; return rest })
     clearSaveResult()
   }
 
-  const fieldErrors = save.error instanceof ApiError ? save.error.fieldErrors : undefined
+  // 前端先檢查必填：紅框＋錯誤文字，再捲到並聚焦第一個有錯的欄位（設計稿 validateForm）
+  const [localErrors, setLocalErrors] = useState<Record<string, string>>({})
+  const [focusTick, setFocusTick] = useState(0)
+  const formRef = useRef<HTMLFormElement>(null)
+  useEffect(() => {
+    if (focusTick === 0) return
+    const first = formRef.current?.querySelector<HTMLElement>('.field.is-invalid')
+    if (!first) return
+    first.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' })
+    window.setTimeout(() => first.querySelector<HTMLElement>('input')
+      ?.focus({ preventScroll: true }), reducedMotion() ? 0 : 300)
+  }, [focusTick])
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault()
+    const next: Record<string, string> = {}
+    if (isDonor && !form.name.trim()) next.name = '請輸入真實姓名，不想具名請按「使用善心人士名義」'
+    if (!form.displayName.trim()) next.displayName = '請輸入顯示名稱'
+    setLocalErrors(next)
+    if (Object.keys(next).length) { setFocusTick((tick) => tick + 1); return }
+    save.mutate()
+  }
+
+  const serverErrors = save.error instanceof ApiError ? save.error.fieldErrors : undefined
+  const fieldErrors = { ...serverErrors, ...localErrors }
   // 後端欄位錯誤顯示在欄位下方；只有對應不到欄位的錯誤才用通用提示框
-  const onlyFieldErrors = Boolean(fieldErrors)
-    && Object.keys(fieldErrors!).every((key) => ['name', 'displayName', 'phone'].includes(key))
+  const onlyFieldErrors = Boolean(serverErrors)
+    && Object.keys(serverErrors!).every((key) => ['name', 'displayName', 'phone'].includes(key))
 
   return (
-    <form className="panel" onSubmit={(event) => { event.preventDefault(); save.mutate() }}>
+    <form className="panel" ref={formRef} noValidate onSubmit={submit}>
       <div className="panel__head"><h2 className="panel__title">基本資料</h2></div>
 
       <div className="form-grid">
         <div className="c-6" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <FormField label="真實姓名" required={isDonor} optional={!isDonor} error={fieldErrors?.name}
             hint="用於捐贈收據與向衛福部申報的徵信名冊，不會顯示在網站上">
-            <Input required={isDonor} maxLength={100} autoComplete="name" value={form.name}
+            <Input maxLength={100} autoComplete="name" value={form.name}
               placeholder="王大明" onChange={update('name')} />
           </FormField>
           <KindNameButton onPick={() => {
             setForm((current) => ({ ...current, name: KIND_NAME }))
+            setLocalErrors((current) => { const { name: _gone, ...rest } = current; return rest })
             clearSaveResult()
           }} />
         </div>
 
         <FormField label="顯示名稱" required span={6} error={fieldErrors?.displayName}
           hint="機構和孩子看到的名字，可以用暱稱">
-          <Input required maxLength={100} value={form.displayName} placeholder="王小明"
+          <Input maxLength={100} value={form.displayName} placeholder="王小明"
             onChange={update('displayName')} />
         </FormField>
 
