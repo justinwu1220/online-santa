@@ -36,10 +36,10 @@ export function OrgAnnualReview() {
     <section className="org-tab" aria-labelledby="orgAnnualTitle">
       <div className="org-head">
         <h1 id="orgAnnualTitle">年度回顧</h1>
-        {stats.data && <YearPicker value={stats.data.year} years={stats.data.availableYears} onChange={setYear} />}
+        {stats.data && <YearPicker value={year ?? stats.data.year} years={stats.data.availableYears} onChange={setYear} />}
       </div>
 
-      <div className="annual">
+      <div className="annual" aria-busy={stats.isPlaceholderData} style={stats.isPlaceholderData ? { opacity: 0.55, transition: 'opacity .2s' } : { transition: 'opacity .2s' }}>
         <p className="annual__note">{COHORT_NOTE}</p>
 
         {stats.isLoading && <Spinner label="載入年度統計" />}
