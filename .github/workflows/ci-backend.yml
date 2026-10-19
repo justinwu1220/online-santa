@@ -10,7 +10,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 不用 ubuntu-latest：新版映像的 Docker 要求 API 1.40 以上，Testcontainers 1.21 連不上（改用 Testcontainers 2.x 後再放開）
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: backend

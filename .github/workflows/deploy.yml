@@ -20,7 +20,7 @@ jobs:
   # 測試不通過就不部署。CI workflow 也會跑，但那是路徑過濾的，
   # 這裡要的是「這個 commit 的完整驗證」而非「有沒有動到後端」。
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -46,7 +46,7 @@ jobs:
 
   backend:
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Workload Identity Federation 需要 OIDC token，不使用長期有效的 JSON 金鑰
     permissions:
       contents: read
@@ -130,7 +130,7 @@ jobs:
 
   frontend:
     needs: [verify, backend]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       id-token: write
