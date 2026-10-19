@@ -101,13 +101,16 @@ public class SystemMessageService {
         post(wishId, null, "機構修改這個願望並重新送審，原本的凍結已解除；審核通過前不會顯示在願望牆。");
     }
 
-    /** 機構收回認領，通知認領者。{@code forEdit} 為 true 時說明願望會修改後重新審核。 */
+    /**
+     * 機構收回認領。系統訊息只有機構看得到（認領者的對話不顯示 SYSTEM），所以這裡是留給機構的紀錄；
+     * 認領者在自己的認領頁看得到結束原因，另外會收到 Email（見 ClaimRecalledNotificationListener）。
+     */
     @Transactional
     public void claimRecalled(Claim claim, String reason, boolean forEdit) {
         post(claim.getWish().getId(), claim.getId(),
                 forEdit
-                        ? "機構收回了這個認領，原因：%s。機構需要修改願望內容，通過審核後才會再次上架；你不需要再寄送禮物，也可以回到願望牆認領其他願望。".formatted(reason)
-                        : "機構收回了這個認領，原因：%s。你不需要再寄送禮物，也可以回到願望牆認領其他願望。".formatted(reason));
+                        ? "你收回了這個認領，原因：%s。已寄 Email 通知認領者，他的認領頁也會顯示結束原因；願望已回到願望牆，修改並重新送審後才會再上架。".formatted(reason)
+                        : "你收回了這個認領，原因：%s。已寄 Email 通知認領者，他的認領頁也會顯示結束原因。".formatted(reason));
     }
 
     private void post(UUID wishId, UUID claimId, String body) {
