@@ -130,9 +130,7 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
         uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                 ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
-                .andExpect(status().isOk());
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/complete", claimId), ORG_USER))
+        completeAsOrganization(claimId, ORG_USER)
                 .andExpect(status().isOk());
     }
 
@@ -184,8 +182,6 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
         uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                 ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
-                .andExpect(status().isOk());
 
         Uploaded uploaded = uploadAs(AttachmentPurpose.ORG_FEEDBACK, claimId, ORG_USER);
 
@@ -203,8 +199,6 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
         uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                 ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
-                .andExpect(status().isOk());
         Uploaded uploaded = uploadAs(AttachmentPurpose.ORG_FEEDBACK, claimId, ORG_USER);
 
         mvc.perform(as(delete("/api/attachments/{id}", uploaded.attachmentId()), OTHER_ORG_USER))
@@ -218,8 +212,6 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
         uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                 ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
-                .andExpect(status().isOk());
         Uploaded uploaded = uploadAs(AttachmentPurpose.ORG_FEEDBACK, claimId, ORG_USER);
 
         mvc.perform(as(delete("/api/attachments/{id}", uploaded.attachmentId()), DONOR))
@@ -255,8 +247,6 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
         uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                 ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
-                .andExpect(status().isOk());
         Uploaded feedback = uploadAs(AttachmentPurpose.ORG_FEEDBACK, claimId, ORG_USER);
 
         mvc.perform(as(delete("/api/attachments/{id}", feedback.attachmentId()), ADMIN))
@@ -301,7 +291,7 @@ class AttachmentDeletionIT extends ApiIntegrationTest {
         Uploaded uploaded = uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
 
         mvc.perform(as(withBody(post("/api/organizations/me/claims/{id}/release", claimId),
-                        new ReleaseRequest("逾期未寄送")), ORG_USER))
+                        java.util.Map.of("reason", "OVERDUE")), ORG_USER))
                 .andExpect(status().isOk());
 
         mvc.perform(as(delete("/api/attachments/{id}", uploaded.attachmentId()), DONOR))

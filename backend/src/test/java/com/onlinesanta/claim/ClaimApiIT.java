@@ -228,18 +228,17 @@ class ClaimApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.shippedOn").value(LocalDate.now(TaiwanYear.ZONE).toString()))
                 .andExpect(jsonPath("$.shippedAt").exists());
 
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
+        // 機構「確認收到並完成」一步走完：收到日期（沒填就是今天）與確認時間分開記錄
+        completeAsOrganization(claimId, ORG_USER)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("RECEIVED"))
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.donorName").value("熱心民眾"))
+                .andExpect(jsonPath("$.receivedOn").value(LocalDate.now(TaiwanYear.ZONE).toString()))
+                .andExpect(jsonPath("$.receivedAt").exists())
+                .andExpect(jsonPath("$.completedAt").exists())
                 // 機構收貨時要能核對禮物
                 .andExpect(jsonPath("$.giftDescription").value("繪本與文具組"))
-                .andExpect(jsonPath("$.giftQuantity").value(1))
-                .andExpect(jsonPath("$.giftPrice").value(500));
-
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/complete", claimId), ORG_USER))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("COMPLETED"));
+                .andExpect(jsonPath("$.giftQuantity").value(1));
 
         // 完成後願望轉為 FULFILLED，願望牆預設仍顯示它（標示已完成），
         // 但不再算「可認領」
@@ -315,15 +314,17 @@ class ClaimApiIT extends ApiIntegrationTest {
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                 ShipRequests.of("郵局", "R123")), DONOR));
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER));
+        completeAsOrganization(claimId, ORG_USER);
 
         mvc.perform(as(get("/api/claims/{id}/timeline", claimId), DONOR))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$.length()").value(4))
                 .andExpect(jsonPath("$[0].eventType").value("CLAIMED"))
                 .andExpect(jsonPath("$[1].eventType").value("SHIPPED"))
                 .andExpect(jsonPath("$[1].note").value("郵局 R123"))
-                .andExpect(jsonPath("$[2].eventType").value("RECEIVED"));
+                // 機構一步確認收到並完成，歷程仍然記下兩個事件
+                .andExpect(jsonPath("$[2].eventType").value("RECEIVED"))
+                .andExpect(jsonPath("$[3].eventType").value("COMPLETED"));
     }
 
     // ------------------------------------------------------------ 釋回與取消
@@ -335,10 +336,10 @@ class ClaimApiIT extends ApiIntegrationTest {
         UUID claimId = claimAs(wishId, DONOR);
 
         mvc.perform(as(withBody(post("/api/organizations/me/claims/{id}/release", claimId),
-                        new ReleaseRequest("聯繫不上捐贈者")), ORG_USER))
+                        java.util.Map.of("reason", "UNREACHABLE")), ORG_USER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RELEASED"))
-                .andExpect(jsonPath("$.releaseReason").value("聯繫不上捐贈者"));
+                .andExpect(jsonPath("$.releaseReason").value("認領者聯繫不上"));
 
         mvc.perform(get("/api/wishes"))
                 .andExpect(jsonPath("$.totalElements").value(1));
@@ -372,7 +373,7 @@ class ClaimApiIT extends ApiIntegrationTest {
                 ShipRequests.of("郵局", "R999")), DONOR)).andExpect(status().isOk());
 
         mvc.perform(as(withBody(post("/api/organizations/me/claims/{id}/release", claimId),
-                        new ReleaseRequest("想收回")), ORG_USER))
+                        java.util.Map.of("reason", "OTHER", "detail", "想收回")), ORG_USER))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("ILLEGAL_CLAIM_TRANSITION"));
 
@@ -387,7 +388,8 @@ class ClaimApiIT extends ApiIntegrationTest {
     void cannotSkipShippingStep() throws Exception {
         UUID claimId = claimAs(publishedWish("跳步驟"), DONOR);
 
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
+        mvc.perform(as(withBody(post("/api/organizations/me/claims/{id}/complete", claimId),
+                        java.util.Map.of("inspected", true)), ORG_USER))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("ILLEGAL_CLAIM_TRANSITION"));
     }
@@ -413,7 +415,7 @@ class ClaimApiIT extends ApiIntegrationTest {
         UUID claimId = claimAs(publishedWish("別家的認領"), DONOR);
 
         mvc.perform(as(withBody(post("/api/organizations/me/claims/{id}/release", claimId),
-                        new ReleaseRequest("手伸太長")), OTHER_ORG_USER))
+                        java.util.Map.of("reason", "OTHER")), OTHER_ORG_USER))
                 .andExpect(status().isNotFound());
     }
 

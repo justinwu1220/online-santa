@@ -102,9 +102,7 @@ class AdminAnnualStatsApiIT extends ApiIntegrationTest {
     }
 
     private void completeFully(UUID claimId, String orgMember) throws Exception {
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), orgMember))
-                .andExpect(status().isOk());
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/complete", claimId), orgMember))
+        completeAsOrganization(claimId, orgMember)
                 .andExpect(status().isOk());
     }
 

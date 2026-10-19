@@ -53,6 +53,18 @@ public abstract class ApiIntegrationTest extends PostgresIntegrationTest {
         attachmentRepository.save(document);
     }
 
+    /**
+     * 機構「確認收到並完成」：先上傳一張收件證明（必填），再送出（收到日期用今天、已拆封檢查）。
+     * 回傳結果讓呼叫端接著斷言。認領必須是已寄出。
+     */
+    protected org.springframework.test.web.servlet.ResultActions completeAsOrganization(
+            UUID claimId, String organizationUser) throws Exception {
+        uploadConfirmedAttachment(AttachmentPurpose.ORG_FEEDBACK, claimId, organizationUser);
+        return mvc.perform(as(withBody(
+                post("/api/organizations/me/claims/{id}/complete", claimId),
+                java.util.Map.of("inspected", true)), organizationUser));
+    }
+
     /** 測試用的平台管理員（application-test.yml 的 admin-emails）。 */
     protected static final String PLATFORM_ADMIN = "platform-admin@example.com";
 

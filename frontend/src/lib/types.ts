@@ -193,6 +193,8 @@ interface ClaimBase {
   overdue: boolean
   shippedAt?: string
   receivedAt?: string
+  /** 機構填的實際收到日期（YYYY-MM-DD），和 receivedAt 這個確認時間分開；舊資料沒有 */
+  receivedOn?: string
   completedAt?: string
   trackingCarrier?: string
   trackingNumber?: string

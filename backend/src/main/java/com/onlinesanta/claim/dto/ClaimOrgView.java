@@ -28,6 +28,8 @@ public record ClaimOrgView(
         ReleasePolicy releasePolicySnapshot,
         Instant shippedAt,
         Instant receivedAt,
+        /** 機構填的實際收到日期（和 receivedAt 這個確認時間分開）；舊資料沒有 */
+        LocalDate receivedOn,
         Instant completedAt,
         String trackingCarrier,
         String trackingNumber,
@@ -58,6 +60,7 @@ public record ClaimOrgView(
                 claim.getReleasePolicySnapshot(),
                 claim.getShippedAt(),
                 claim.getReceivedAt(),
+                claim.getReceivedOn(),
                 claim.getCompletedAt(),
                 claim.getTrackingCarrier(),
                 claim.getTrackingNumber(),

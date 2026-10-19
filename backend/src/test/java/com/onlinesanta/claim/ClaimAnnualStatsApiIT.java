@@ -111,9 +111,7 @@ class ClaimAnnualStatsApiIT extends ApiIntegrationTest {
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                         ShipRequests.of("郵局", "R123")), donorEmail))
                 .andExpect(status().isOk());
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
-                .andExpect(status().isOk());
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/complete", claimId), ORG_USER))
+        completeAsOrganization(claimId, ORG_USER)
                 .andExpect(status().isOk());
     }
 
@@ -250,7 +248,7 @@ class ClaimAnnualStatsApiIT extends ApiIntegrationTest {
         UUID wishToReleaseId = wishes.save(wishToRelease).getId();
         UUID released = claimAs(wishToReleaseId, DONOR);
         mvc.perform(as(withBody(post("/api/organizations/me/claims/{id}/release", released),
-                        new ReleaseRequest("聯繫不上")),
+                        java.util.Map.of("reason", "UNREACHABLE")),
                         "unfinished-org@example.org"))
                 .andExpect(status().isOk());
 

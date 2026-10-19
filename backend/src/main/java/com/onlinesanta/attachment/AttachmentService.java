@@ -519,7 +519,7 @@ public class AttachmentService {
         if (!claim.getWish().getOrganization().getId().equals(organizationId)) {
             throw ResourceNotFoundException.of("認領", claimId);
         }
-        requireStatusIn(claim, "上傳送禮回饋", ClaimStatus.RECEIVED, ClaimStatus.COMPLETED);
+        requireStatusIn(claim, "上傳收件證明", ClaimStatus.SHIPPED, ClaimStatus.RECEIVED, ClaimStatus.COMPLETED);
     }
 
     private Claim findClaim(UUID claimId) {

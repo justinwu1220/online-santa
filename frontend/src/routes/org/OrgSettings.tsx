@@ -4,7 +4,7 @@ import { ApiError, api } from '../../lib/api'
 import type { AttachmentView, OrganizationView, ReleasePolicy } from '../../lib/types'
 import { ACCEPTED_ORG_DOCUMENT_TYPES, MAX_ORG_DOCUMENTS, validateOrgDocument } from '../../lib/upload'
 import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
-import { Button, Field, TextArea, TextInput } from '../../components/Form'
+import { Button, Field, Select, TextArea, TextInput } from '../../components/Form'
 import { ImageUploader } from '../../components/ImageUploader'
 import { useOrgContext } from './orgContext'
 
@@ -22,7 +22,7 @@ export function OrgSettings() {
     preferredDeliveryTime: organization.preferredDeliveryTime ?? '',
     description: organization.description ?? '',
     releasePolicy: organization.releasePolicy,
-    releaseAfterDays: organization.releaseAfterDays ?? 7,
+    releaseAfterDays: organization.releaseAfterDays ?? 3,
   })
 
   const save = useMutation({
@@ -143,11 +143,12 @@ export function OrgSettings() {
         </div>
 
         {form.releasePolicy === 'AUTO' && (
-          <Field label="寬限天數" hint="認領後多少天未寄送就收回（1-60 天）">
-            <TextInput type="number" min={1} max={60} required
-              value={form.releaseAfterDays}
+          <Field label="寬限天數" hint="超過寄出期限後，再等幾天仍未回報寄送才自動收回">
+            <Select value={form.releaseAfterDays}
               onChange={(event) =>
-                patchForm({ releaseAfterDays: Number(event.target.value) })} />
+                patchForm({ releaseAfterDays: Number(event.target.value) })}>
+              {[1, 3, 5, 7].map((days) => <option key={days} value={days}>{days} 天</option>)}
+            </Select>
           </Field>
         )}
 

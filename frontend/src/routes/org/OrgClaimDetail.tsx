@@ -8,7 +8,6 @@ import type { AttachmentView, ClaimEventView, ClaimOrgView } from '../../lib/typ
 import { Breadcrumb } from '../../components/Breadcrumb'
 import { ErrorBanner, Spinner } from '../../components/Feedback'
 import { Button, Field, TextInput } from '../../components/Form'
-import { ImageUploader } from '../../components/ImageUploader'
 import { MessageThread } from '../../components/MessageThread'
 import { ClaimStatusBadge, OverdueBadge } from '../../components/StatusBadge'
 import { Timeline } from '../../components/Timeline'
@@ -161,21 +160,16 @@ function ShipDeadline({ claim }: { claim: ClaimOrgView }) {
  * 這筆認領可以做的事。收到、完成、收回都是單向、不可逆的轉換，一律先確認。
  * 收到禮物的按鈕與確認區塊跟認領管理清單共用同一個元件。
  */
-function Actions({ claim, onChanged, onUploaded }: {
+function Actions({ claim, onChanged }: {
   claim: ClaimOrgView; onChanged: () => void; onUploaded: () => void
 }) {
-  const [completing, setCompleting] = useState(false)
   const [releasing, setReleasing] = useState(false)
-  const [reason, setReason] = useState('')
-
-  const complete = useMutation({
-    mutationFn: () => api.post(`/api/organizations/me/claims/${claim.id}/complete`),
-    onSuccess: () => { setCompleting(false); onChanged() },
-  })
+  const [reason, setReason] = useState<RecallReason>('OVERDUE')
+  const [detail, setDetail] = useState('')
 
   const release = useMutation({
     mutationFn: () => api.post(`/api/organizations/me/claims/${claim.id}/release`,
-      reason.trim() ? { reason: reason.trim() } : undefined),
+      { reason, detail: reason === 'OTHER' && detail.trim() ? detail.trim() : undefined }),
     onSuccess: () => { setReleasing(false); onChanged() },
   })
 
@@ -187,59 +181,53 @@ function Actions({ claim, onChanged, onUploaded }: {
       <div className="flex flex-wrap items-center gap-2">
         <ReceiveGiftControl claim={claim} onChanged={onChanged} />
 
-        {claim.status === 'RECEIVED' && (
-          <>
-            <ImageUploader purpose="ORG_FEEDBACK" targetId={claim.id} label="上傳收件證明"
-              onUploaded={onUploaded} />
-            {!completing && (
-              <Button onClick={() => setCompleting(true)}>完成這筆送禮</Button>
-            )}
-          </>
-        )}
-
         {claim.status === 'CLAIMED' && !releasing && (
           <Button variant="secondary" onClick={() => setReleasing(true)}>收回認領</Button>
         )}
       </div>
-
-      {completing && (
-        <div className="mt-4 rounded-lg bg-slate-50 p-4">
-          <p className="text-sm text-slate-600">
-            確定要完成這筆送禮嗎？完成後這筆認領就會結案，無法復原。
-          </p>
-          {complete.isError && <div className="mt-2"><ErrorBanner error={complete.error} /></div>}
-          <div className="mt-3 flex gap-2">
-            <Button disabled={complete.isPending} onClick={() => complete.mutate()}>
-              {complete.isPending ? '處理中…' : '確定'}
-            </Button>
-            <Button variant="ghost" onClick={() => setCompleting(false)}>取消</Button>
-          </div>
-        </div>
-      )}
 
       {releasing && (
         <form
           className="mt-4 space-y-3 rounded-lg bg-slate-50 p-4"
           onSubmit={(event) => { event.preventDefault(); release.mutate() }}
         >
-          <Field label="收回原因" hint="會記錄在歷程中，捐贈者看得到">
-            <TextInput maxLength={255} value={reason}
-              placeholder="逾期未寄送，聯繫不上"
-              onChange={(event) => setReason(event.target.value)} />
+          <Field label="收回原因" hint="會記錄在歷程中，認領者看得到">
+            <div className="space-y-1">
+              {RECALL_REASONS.map((option) => (
+                <label key={option.value} className="flex items-center gap-2 text-sm">
+                  <input type="radio" name="recallReason" checked={reason === option.value}
+                    onChange={() => setReason(option.value)} />
+                  {option.label}
+                </label>
+              ))}
+            </div>
           </Field>
+          {reason === 'OTHER' && (
+            <TextInput maxLength={200} value={detail} placeholder="補充說明（選填）"
+              onChange={(event) => setDetail(event.target.value)} />
+          )}
           {release.isError && <ErrorBanner error={release.error} />}
           <div className="flex gap-2">
             <Button variant="danger" type="submit" disabled={release.isPending}>
-              {release.isPending ? '處理中…' : '確定收回'}
+              {release.isPending ? '處理中…' : '收回並重新上架'}
             </Button>
             <Button variant="ghost" onClick={() => setReleasing(false)}>取消</Button>
           </div>
-          <p className="text-xs text-slate-500">收回後願望會立刻回到願望牆。</p>
+          <p className="text-xs text-slate-500">收回後願望會立刻重新上架，原本的認領者會收到通知，不能再回報寄送。</p>
         </form>
       )}
     </Panel>
   )
 }
+
+type RecallReason = 'OVERDUE' | 'UNREACHABLE' | 'CANNOT_COMPLETE' | 'OTHER'
+
+const RECALL_REASONS: { value: RecallReason; label: string }[] = [
+  { value: 'OVERDUE', label: '逾期未寄送' },
+  { value: 'UNREACHABLE', label: '認領者聯繫不上' },
+  { value: 'CANNOT_COMPLETE', label: '認領者表示無法完成' },
+  { value: 'OTHER', label: '其他' },
+]
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (

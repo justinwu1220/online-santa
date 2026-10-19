@@ -289,9 +289,7 @@ class OrgDocumentAndWishLetterAttachmentIT extends ApiIntegrationTest {
         uploadAs(AttachmentPurpose.SHIPPING_PROOF, claimId, JPEG, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                 ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
-                .andExpect(status().isOk());
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/complete", claimId), ORG_USER))
+        completeAsOrganization(claimId, ORG_USER)
                 .andExpect(status().isOk());
 
         // 已完成之後還是能補傳——感謝卡通常是這個時候才有；限一張，補傳直接

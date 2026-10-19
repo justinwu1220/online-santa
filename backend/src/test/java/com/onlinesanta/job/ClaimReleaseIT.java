@@ -105,7 +105,7 @@ class ClaimReleaseIT extends ApiIntegrationTest {
     private void makeOverdue(UUID claimId) {
         entityManager.flush();
         jdbc.update("UPDATE claims SET ship_deadline_at = ? WHERE id = ?",
-                java.sql.Timestamp.from(Instant.now().minus(1, ChronoUnit.DAYS)), claimId);
+                java.sql.Timestamp.from(Instant.now().minus(10, ChronoUnit.DAYS)), claimId);
         entityManager.clear();
     }
 
@@ -178,7 +178,8 @@ class ClaimReleaseIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].overdue").value(true));
 
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/release", claimId), MANUAL_ORG))
+        mvc.perform(as(withBody(post("/api/organizations/me/claims/{id}/release", claimId),
+                        java.util.Map.of("reason", "OVERDUE")), MANUAL_ORG))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RELEASED"));
 

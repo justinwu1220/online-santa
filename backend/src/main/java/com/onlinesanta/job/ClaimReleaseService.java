@@ -72,6 +72,13 @@ public class ClaimReleaseService {
 
         for (Claim claim : overdue) {
             if (claim.getReleasePolicySnapshot() == ReleasePolicy.AUTO) {
+                // 寄出期限過了還有寬限天數；寬限內只在後台標示逾期，不動作
+                Instant releaseAt = claim.getShipDeadlineAt()
+                        .plus(claim.getReleaseGraceDays(), java.time.temporal.ChronoUnit.DAYS);
+                if (releaseAt.isAfter(now)) {
+                    flaggedOnly++;
+                    continue;
+                }
                 claim.release(AUTO_RELEASE_REASON);
                 events.save(ClaimEvent.bySystem(
                         claim.getId(), ClaimEventType.RELEASED_AUTO, AUTO_RELEASE_REASON));

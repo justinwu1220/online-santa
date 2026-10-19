@@ -158,7 +158,7 @@ export function ReceiptProofPanel({ claim, proofs }: { claim: ClaimDonorView; pr
       {received ? (
         <>
           <p style={{ margin: '0 0 12px', fontSize: 15, color: 'var(--fg-3)' }}>
-            機構已於 {formatDate(claim.receivedAt)} 確認收到禮物。
+            機構已於 {formatDate(claim.receivedOn ?? claim.receivedAt)} 確認收到禮物。
           </p>
           {proofs.length > 0
             ? <ProofGrid photos={proofs} emptyHint="" />
@@ -312,7 +312,7 @@ export function ProgressSteps({ claim }: { claim: ClaimDonorView }) {
   const steps = [
     { label: '認領願望', at: claim.claimedAt },
     { label: '寄出禮物', at: claim.shippedAt },
-    { label: '機構確認收到', at: claim.receivedAt },
+    { label: '機構確認收到', at: claim.receivedOn ?? claim.receivedAt },
     { label: '流程完成', at: claim.completedAt },
   ]
 

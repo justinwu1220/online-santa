@@ -96,7 +96,7 @@ class SystemMessageIT extends ApiIntegrationTest {
     private void makeOverdue(UUID claimId) {
         entityManager.flush();
         jdbc.update("UPDATE claims SET ship_deadline_at = ? WHERE id = ?",
-                java.sql.Timestamp.from(Instant.now().minus(1, ChronoUnit.DAYS)), claimId);
+                java.sql.Timestamp.from(Instant.now().minus(10, ChronoUnit.DAYS)), claimId);
         entityManager.clear();
     }
 

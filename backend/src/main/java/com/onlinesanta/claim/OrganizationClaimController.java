@@ -18,7 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.claim.dto.ClaimOrgView;
 import com.onlinesanta.message.MessageService;
-import com.onlinesanta.claim.dto.ReleaseRequest;
+import com.onlinesanta.claim.dto.ConfirmReceivedRequest;
+import com.onlinesanta.claim.dto.RecallRequest;
 import com.onlinesanta.common.PageResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -87,23 +88,17 @@ public class OrganizationClaimController {
                 claim -> ClaimOrgView.from(claim, unread.getOrDefault(claim.getId(), 0L)));
     }
 
-    @PostMapping("/{id}/receive")
-    @Operation(summary = "確認收到禮物")
-    public ClaimOrgView receive(@PathVariable UUID id) {
-        return ClaimOrgView.from(claims.confirmReceived(id));
-    }
-
     @PostMapping("/{id}/complete")
-    @Operation(summary = "完成整段流程", description = "願望轉為 FULFILLED")
-    public ClaimOrgView complete(@PathVariable UUID id) {
-        return ClaimOrgView.from(claims.complete(id));
+    @Operation(summary = "確認收到並完成",
+            description = "一次走完收到與完成，願望轉為 FULFILLED。需已上傳至少一張收件證明、勾選已拆封檢查；"
+                    + "receivedOn 是實際收到日期（沒填視為今天）")
+    public ClaimOrgView complete(@PathVariable UUID id, @Valid @RequestBody ConfirmReceivedRequest request) {
+        return ClaimOrgView.from(claims.confirmReceivedAndComplete(id, request));
     }
 
     @PostMapping("/{id}/release")
     @Operation(summary = "收回認領", description = "願望重新上架；已寄出的認領無法收回")
-    public ClaimOrgView release(@PathVariable UUID id,
-                                @Valid @RequestBody(required = false) ReleaseRequest request) {
-        return ClaimOrgView.from(
-                claims.release(id, request == null ? ReleaseRequest.empty() : request));
+    public ClaimOrgView release(@PathVariable UUID id, @Valid @RequestBody RecallRequest request) {
+        return ClaimOrgView.from(claims.release(id, request));
     }
 }

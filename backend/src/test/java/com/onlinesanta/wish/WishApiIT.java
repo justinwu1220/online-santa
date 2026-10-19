@@ -439,19 +439,19 @@ class WishApiIT extends ApiIntegrationTest {
     void publicDetailAnnouncesTheShipDeadlineDaysTheClaimWillGet() throws Exception {
         UUID wish = createPublishedWish("預告寄出天數");
 
-        // 機構沒設自動釋回：用全站預設天數
+        // 寄出期限所有機構一樣：全站預設天數
         mvc.perform(get("/api/wishes/{id}", wish))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.shipDeadlineDays").value(7));
 
-        // 機構設了自動釋回：用機構自己的天數（與認領時算期限的是同一個規則）
+        // 機構設了自動收回：寄出期限還是一樣的天數，自動收回的寬限天數是另外一回事
         Organization organization = organizations.findById(orgId).orElseThrow();
         organization.updateReleasePolicy(ReleasePolicy.AUTO, 3);
         organizations.save(organization);
 
         mvc.perform(get("/api/wishes/{id}", wish))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.shipDeadlineDays").value(3));
+                .andExpect(jsonPath("$.shipDeadlineDays").value(7));
     }
 
     @Test

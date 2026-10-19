@@ -108,9 +108,7 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
     }
 
     private void completeFully(UUID claimId, String orgMember) throws Exception {
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), orgMember))
-                .andExpect(status().isOk());
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/complete", claimId), orgMember))
+        completeAsOrganization(claimId, orgMember)
                 .andExpect(status().isOk());
     }
 
@@ -202,7 +200,7 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
         UUID claimId = claimAs(publishedWish(organizationA, "會被自動釋回"), DONOR);
         entityManager.flush();
         jdbc.update("UPDATE claims SET ship_deadline_at = ? WHERE id = ?",
-                Timestamp.from(Instant.now().minus(1, ChronoUnit.DAYS)), claimId);
+                Timestamp.from(Instant.now().minus(10, ChronoUnit.DAYS)), claimId);
         entityManager.clear();
 
         mvc.perform(as(post("/api/admin/jobs/release-expired-claims"), "platform-admin@example.com"))

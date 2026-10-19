@@ -255,8 +255,6 @@ class NotificationTriggerIT extends ApiIntegrationTest {
         uploadAndConfirm(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                 ShipRequests.of("郵局", "R123")), DONOR)).andExpect(status().isOk());
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
-                .andExpect(status().isOk());
 
         uploadAndConfirm(AttachmentPurpose.ORG_FEEDBACK, claimId, ORG_USER);
 

@@ -55,7 +55,7 @@ app:
   claim:
     # 供給小於需求時的公平性機制：每位民眾同時進行中的認領上限
     max-active-per-donor: 3
-    # 機構選 AUTO 政策時的預設寬限天數（機構可自行調整）
+    # 認領者的寄出期限天數（所有機構相同）。機構選「自動收回」時，另外有 1／3／5／7 天的寬限
     default-release-after-days: 7
   terms:
     # 目前《認領者參與須知》的版本。改版時改這裡，並同步前端 DONOR_TERMS.version

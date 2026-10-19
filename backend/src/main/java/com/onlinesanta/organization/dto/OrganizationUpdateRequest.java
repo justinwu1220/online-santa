@@ -64,7 +64,7 @@ public record OrganizationUpdateRequest(
 
         /** 僅 releasePolicy = AUTO 時有意義；MANUAL 時會被忽略。 */
         @Min(value = 1, message = "寬限天數至少 1 天")
-        @Max(value = 60, message = "寬限天數最多 60 天")
+        @Max(value = 7, message = "寬限天數最多 7 天")
         Integer releaseAfterDays) {
 
     /** 沒有官網的呼叫端（含測試）。 */

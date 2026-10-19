@@ -63,6 +63,14 @@ public class Claim extends BaseEntity {
     @Column(name = "received_at")
     private Instant receivedAt;
 
+    /** 機構填的「實際收到日期」，和按下確認的時間（receivedAt）分開記錄。舊資料沒有。 */
+    @Column(name = "received_on")
+    private LocalDate receivedOn;
+
+    /** 認領當下機構「自動收回」的寬限天數快照；MANUAL 與舊資料為 null（視為 0）。 */
+    @Column(name = "release_grace_days", updatable = false)
+    private Integer releaseGraceDays;
+
     @Column(name = "completed_at")
     private Instant completedAt;
 
@@ -124,7 +132,9 @@ public class Claim extends BaseEntity {
         // JPA
     }
 
-    private Claim(Wish wish, User donor, ReleasePolicy policy, Instant deadline, String message) {
+    private Claim(Wish wish, User donor, ReleasePolicy policy, Integer graceDays, Instant deadline,
+                  String message) {
+        this.releaseGraceDays = graceDays;
         this.wish = wish;
         this.donor = donor;
         this.status = ClaimStatus.CLAIMED;
@@ -134,8 +144,9 @@ public class Claim extends BaseEntity {
         this.donorMessage = message;
     }
 
-    static Claim open(Wish wish, User donor, ReleasePolicy policy, Instant deadline, String message) {
-        return new Claim(wish, donor, policy, deadline, message);
+    static Claim open(Wish wish, User donor, ReleasePolicy policy, Integer graceDays, Instant deadline,
+                      String message) {
+        return new Claim(wish, donor, policy, graceDays, deadline, message);
     }
 
     // ------------------------------------------------------------ 狀態流轉
@@ -156,9 +167,10 @@ public class Claim extends BaseEntity {
         this.receiptRequested = true;
     }
 
-    public void markReceived() {
+    public void markReceived(LocalDate receivedOn) {
         transitionTo(ClaimStatus.RECEIVED);
         this.receivedAt = Instant.now();
+        this.receivedOn = receivedOn;
     }
 
     public void markCompleted() {
@@ -291,6 +303,14 @@ public class Claim extends BaseEntity {
 
     public long getVersion() {
         return version;
+    }
+
+    public LocalDate getReceivedOn() {
+        return receivedOn;
+    }
+
+    public int getReleaseGraceDays() {
+        return releaseGraceDays == null ? 0 : releaseGraceDays;
     }
 
     public void markOverdueNotified() {

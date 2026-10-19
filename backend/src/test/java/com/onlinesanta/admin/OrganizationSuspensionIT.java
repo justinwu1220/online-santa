@@ -138,9 +138,7 @@ class OrganizationSuspensionIT extends ApiIntegrationTest {
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                         ShipRequests.of("郵局", "R123")), DONOR))
                 .andExpect(status().isOk());
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/receive", claimId), ORG_USER))
-                .andExpect(status().isOk());
-        mvc.perform(as(post("/api/organizations/me/claims/{id}/complete", claimId), ORG_USER))
+        completeAsOrganization(claimId, ORG_USER)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
     }

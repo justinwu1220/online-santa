@@ -264,12 +264,12 @@ class OrganizationApiIT extends ApiIntegrationTest {
 
         var update = new OrganizationUpdateRequest(
                 "自動釋回之家", "王承辦", "new@example.org", "02-0000-0000", "0912-345-678",
-                "新地址", "平日上午9:00-下午5:00", "新簡介", ReleasePolicy.AUTO, 10);
+                "新地址", "平日上午9:00-下午5:00", "新簡介", ReleasePolicy.AUTO, 5);
 
         mvc.perform(as(withBody(patch("/api/organizations/me"), update), ORG_USER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.releasePolicy").value("AUTO"))
-                .andExpect(jsonPath("$.releaseAfterDays").value(10))
+                .andExpect(jsonPath("$.releaseAfterDays").value(5))
                 .andExpect(jsonPath("$.contactEmail").value("new@example.org"));
     }
 

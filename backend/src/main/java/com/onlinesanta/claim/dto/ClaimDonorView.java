@@ -45,6 +45,8 @@ public record ClaimDonorView(
         boolean overdue,
         Instant shippedAt,
         Instant receivedAt,
+        /** 機構填的實際收到日期；舊資料沒有，這時顯示 receivedAt 的日期 */
+        LocalDate receivedOn,
         Instant completedAt,
         String trackingCarrier,
         String trackingNumber,
@@ -94,6 +96,7 @@ public record ClaimDonorView(
                 claim.isOverdue(Instant.now()),
                 claim.getShippedAt(),
                 claim.getReceivedAt(),
+                claim.getReceivedOn(),
                 claim.getCompletedAt(),
                 claim.getTrackingCarrier(),
                 claim.getTrackingNumber(),

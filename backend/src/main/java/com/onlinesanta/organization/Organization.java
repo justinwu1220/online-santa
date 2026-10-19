@@ -17,6 +17,9 @@ import jakarta.persistence.Table;
 @Table(name = "organizations")
 public class Organization extends BaseEntity {
 
+    /** 自動收回的寬限天數只能從這四個選項挑（設計稿 15.7），預設 3 天。 */
+    public static final java.util.Set<Integer> GRACE_DAY_CHOICES = java.util.Set.of(1, 3, 5, 7);
+
     @Column(nullable = false, length = 120)
     private String name;
 
@@ -139,9 +142,9 @@ public class Organization extends BaseEntity {
      */
     public void updateReleasePolicy(ReleasePolicy policy, Integer afterDays) {
         if (policy == ReleasePolicy.AUTO) {
-            if (afterDays == null || afterDays < 1 || afterDays > 60) {
+            if (afterDays == null || !GRACE_DAY_CHOICES.contains(afterDays)) {
                 throw new BusinessRuleException("INVALID_RELEASE_POLICY",
-                        "選擇自動釋回時，寬限天數必須介於 1 到 60 天");
+                        "選擇自動收回時，寬限天數必須是 1、3、5 或 7 天");
             }
             this.releaseAfterDays = afterDays;
         } else {

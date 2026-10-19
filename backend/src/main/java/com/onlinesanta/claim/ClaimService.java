@@ -1,6 +1,7 @@
 package com.onlinesanta.claim;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
@@ -17,6 +18,8 @@ import com.onlinesanta.attachment.UploadStatus;
 import com.onlinesanta.auth.AppPrincipal;
 import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.claim.dto.ClaimRequest;
+import com.onlinesanta.claim.dto.RecallRequest;
+import com.onlinesanta.claim.dto.ConfirmReceivedRequest;
 import com.onlinesanta.claim.dto.ReleaseRequest;
 import com.onlinesanta.claim.dto.ShipRequest;
 import com.onlinesanta.common.TaiwanYear;
@@ -127,8 +130,10 @@ public class ClaimService {
         User donor = users.findById(principal.userId())
                 .orElseThrow(() -> ResourceNotFoundException.of("使用者", principal.userId()));
 
+        // 自動收回的寬限天數也在認領當下快照下來，機構事後改設定不影響這一筆
+        Integer graceDays = policy == ReleasePolicy.AUTO ? organization.getReleaseAfterDays() : null;
         Claim claim = claims.save(Claim.open(
-                claimedWish, donor, policy, deadline, request.donorMessage()));
+                claimedWish, donor, policy, graceDays, deadline, request.donorMessage()));
 
         record(claim, ClaimEventType.CLAIMED, principal.userId(), null);
         systemMessages.claimCreated(claim);
@@ -166,10 +171,8 @@ public class ClaimService {
      * 兩處共用同一個規則才不會預告的和實際的不同。
      */
     public int shipDeadlineDays(Organization organization) {
-        return organization.getReleasePolicy() == ReleasePolicy.AUTO
-                && organization.getReleaseAfterDays() != null
-                ? organization.getReleaseAfterDays()
-                : properties.defaultReleaseAfterDays();
+        // 寄出期限對所有機構一樣；自動收回的機構另外有寬限天數（見 Claim.releaseGraceDays）
+        return properties.defaultReleaseAfterDays();
     }
 
     // ================================================================ 捐贈者的操作
@@ -238,26 +241,44 @@ public class ClaimService {
 
     // ================================================================ 機構的操作
 
-    @Transactional
-    public Claim confirmReceived(UUID claimId) {
-        AppPrincipal principal = currentUser.require();
-        Claim claim = findOwnedByOrganization(claimId, currentUser.requireOrganizationId());
-
-        claim.markReceived();
-        record(claim, ClaimEventType.RECEIVED, principal.userId(), null);
-        return claim;
-    }
-
     /** 機構看自己願望底下的單筆認領。別家機構的認領一律 404，不洩漏它存在。 */
     @Transactional(readOnly = true)
     public Claim getForMyOrganization(UUID claimId) {
         return findOwnedByOrganization(claimId, currentUser.requireOrganizationId());
     }
 
+    /**
+     * 機構「確認收到並完成」：一次走完收到與完成（設計稿 15.4）。
+     *
+     * <p>實際收到日期和按下確認的時間分開記錄；至少要有一張機構上傳的收件證明照片才能完成。
+     * 舊流程留下的「已收到、待完成」（RECEIVED）認領也從這裡完成，收到日期維持原本記錄的時間。
+     */
     @Transactional
-    public Claim complete(UUID claimId) {
+    public Claim confirmReceivedAndComplete(UUID claimId, ConfirmReceivedRequest request) {
         AppPrincipal principal = currentUser.require();
         Claim claim = findOwnedByOrganization(claimId, currentUser.requireOrganizationId());
+
+        if (claim.getStatus() != ClaimStatus.SHIPPED && claim.getStatus() != ClaimStatus.RECEIVED) {
+            throw new BusinessRuleException("ILLEGAL_CLAIM_TRANSITION",
+                    "認領目前是 %s，不能確認收到並完成".formatted(claim.getStatus()));
+        }
+        long proofs = attachments.countByPurposeAndOwnerIdAndUploadStatus(
+                AttachmentPurpose.ORG_FEEDBACK, claimId, UploadStatus.CONFIRMED);
+        if (proofs == 0) {
+            throw new BusinessRuleException("FEEDBACK_PHOTO_REQUIRED",
+                    "請先上傳至少一張收件證明照片，再確認收到並完成");
+        }
+
+        if (claim.getStatus() == ClaimStatus.SHIPPED) {
+            LocalDate receivedOn = request.receivedOn() == null
+                    ? LocalDate.now(TaiwanYear.ZONE) : request.receivedOn();
+            if (claim.getShippedOn() != null && receivedOn.isBefore(claim.getShippedOn())) {
+                throw new BusinessRuleException("RECEIVED_BEFORE_SHIPPED",
+                        "實際收到日期不可早於認領者回報的寄出日期（%s）".formatted(claim.getShippedOn()));
+            }
+            claim.markReceived(receivedOn);
+            record(claim, ClaimEventType.RECEIVED, principal.userId(), null);
+        }
 
         claim.markCompleted();
         if (wishes.markFulfilled(claim.getWish().getId()) == 0) {
@@ -270,13 +291,14 @@ public class ClaimService {
 
     /** 機構收回認領（逾期未寄、聯繫不上等），願望重新上架。 */
     @Transactional
-    public Claim release(UUID claimId, ReleaseRequest request) {
+    public Claim release(UUID claimId, RecallRequest request) {
         AppPrincipal principal = currentUser.require();
         Claim claim = findOwnedByOrganization(claimId, currentUser.requireOrganizationId());
 
-        claim.release(request.reason());
+        String reason = request.text();
+        claim.release(reason);
         returnWishToWall(claim);
-        record(claim, ClaimEventType.RELEASED_MANUAL, principal.userId(), request.reason());
+        record(claim, ClaimEventType.RELEASED_MANUAL, principal.userId(), reason);
         return claim;
     }
 
