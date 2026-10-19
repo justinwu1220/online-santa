@@ -166,6 +166,7 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     setReceipt((current) => ({ ...current, [key]: event.target.value }))
+    clearError(`receipt.${key}`)
     if (key === 'idNumber') setIdNumberError(null)
   }
 
@@ -175,32 +176,32 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
         <FormField label="物流業者" required span={3} error={errors.carrier ?? fieldErrors?.carrier}>
           <Input required maxLength={60} value={carrier} list="carrier-list"
             placeholder="黑貓宅急便、郵局…"
-            onChange={(event) => setCarrier(event.target.value)} />
+            onChange={(event) => { setCarrier(event.target.value); clearError('carrier') }} />
           <datalist id="carrier-list">
             {CARRIERS.map((name) => <option key={name} value={name} />)}
           </datalist>
         </FormField>
         <FormField label="追蹤碼" required span={3} error={errors.trackingNumber ?? fieldErrors?.trackingNumber}>
           <Input required maxLength={80} value={trackingNumber}
-            onChange={(event) => setTrackingNumber(event.target.value)} />
+            onChange={(event) => { setTrackingNumber(event.target.value); clearError('trackingNumber') }} />
         </FormField>
 
         <FormField label="實際寄出的禮物" required span={4}
           hint="名稱與規格" error={errors.giftDescription ?? fieldErrors?.giftDescription}>
           <Input required maxLength={200} value={giftDescription}
             placeholder="蠟筆小新變形機器人（約 20 公分）"
-            onChange={(event) => setGiftDescription(event.target.value)} />
+            onChange={(event) => { setGiftDescription(event.target.value); clearError('giftDescription') }} />
         </FormField>
         <FormField label="數量" required span={2} hint="以「份」計算" error={errors.giftQuantity ?? fieldErrors?.giftQuantity}>
-          <UnitInput unit="份" min={1} max={9999} value={giftQuantity} onChange={setGiftQuantity} />
+          <UnitInput unit="份" min={1} max={9999} value={giftQuantity} onChange={(next) => { setGiftQuantity(next); clearError('giftQuantity') }} />
         </FormField>
 
         <FormField label="禮物價格" required span={3} hint="以購買發票上的金額為準" error={errors.giftPrice ?? fieldErrors?.giftPrice}>
-          <UnitInput unit="元" min={0} max={10000000} value={giftPrice} onChange={setGiftPrice} />
+          <UnitInput unit="元" min={0} max={10000000} value={giftPrice} onChange={(next) => { setGiftPrice(next); clearError('giftPrice') }} />
         </FormField>
         <FormField label="寄出日期" required span={3} hint="預設為今天" error={errors.shippedOn ?? fieldErrors?.shippedOn}>
           <Input required type="date" max={todayPlainDate()} value={shippedOn}
-            onChange={(event) => setShippedOn(event.target.value)} />
+            onChange={(event) => { setShippedOn(event.target.value); clearError('shippedOn') }} />
         </FormField>
 
         <FilePicker

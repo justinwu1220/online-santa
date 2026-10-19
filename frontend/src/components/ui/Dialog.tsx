@@ -48,6 +48,14 @@ export function Dialog({ open, onClose, children, className = 'dialog', dismissi
       ref={ref}
       className={className}
       aria-labelledby={labelledBy}
+      // 瀏覽器的 Esc 防濫用規則：取消被擋下後，沒有新的點擊就再按一次 Esc 會直接關掉，不給我們擋的機會。
+      // 不可略過的視窗（首次說明、送出中）被這樣關掉就立刻重開；可略過的則通知外層同步狀態
+      onClose={() => {
+        const element = ref.current
+        if (!open || !element) return
+        if (dismissible) onClose()
+        else window.requestAnimationFrame(() => openModal(element))
+      }}
       onCancel={(event) => {
         // 原生的 Esc 預設會直接關掉；先擋下，由外層決定要不要關
         event.preventDefault()
