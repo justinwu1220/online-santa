@@ -98,10 +98,13 @@ function Hero() {
           <h1 className="hero__title grad-text" id="heroTitle">線上聖誕老人</h1>
         </div>
         <span className="hero__x twinkle-slow" aria-label="與">×</span>
-        <p className="hero__org-name">
-          <small>社團法人彰化縣</small>
-          <strong>康乃心關懷協會</strong>
-        </p>
+        <div className="hero__org">
+          <img className="hero__logo" src="/assets/logo/kangnaixin-logo.png" alt="康乃心關懷協會標誌" />
+          <p className="hero__org-name">
+            <small>社團法人彰化縣</small>
+            <strong>康乃心關懷協會</strong>
+          </p>
+        </div>
       </div>
       <p className="hero__sub">溫暖傳遞，讓每個願望都閃閃發光</p>
     </section>
