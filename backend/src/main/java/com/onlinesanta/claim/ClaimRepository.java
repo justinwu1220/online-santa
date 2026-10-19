@@ -91,7 +91,12 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
 
     /** 「我的認領」清單，未篩選年度時使用。 */
     @EntityGraph(attributePaths = {"wish", "wish.organization"})
-    Page<Claim> findByDonorIdOrderByClaimedAtDesc(UUID donorId, Pageable pageable);
+    @Query("""
+            select c from Claim c
+            where c.donor.id = :donorId and c.wish.frozenAt is null
+            order by c.claimedAt desc
+            """)
+    Page<Claim> findByDonorIdOrderByClaimedAtDesc(@Param("donorId") UUID donorId, Pageable pageable);
 
     /**
      * 「我的認領」清單，依年度篩選。
@@ -108,6 +113,7 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
     @Query("""
             select c from Claim c
             where c.donor.id = :donorId
+              and c.wish.frozenAt is null
               and c.claimedAt >= :from
               and c.claimedAt < :to
             order by c.claimedAt desc

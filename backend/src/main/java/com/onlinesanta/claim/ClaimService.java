@@ -108,6 +108,10 @@ public class ClaimService {
         Wish wish = wishes.findWithOrganizationById(wishId)
                 .orElseThrow(() -> ResourceNotFoundException.of("願望", wishId));
         Organization organization = wish.getOrganization();
+        if (wish.isFrozen()) {
+            // 凍結的願望對外不存在
+            throw ResourceNotFoundException.of("願望", wishId);
+        }
 
         terms.requireUpToDateForClaim(principal.userId());
         requireWithinDonorQuota(principal.userId());
@@ -368,6 +372,10 @@ public class ClaimService {
         if (!isDonor && !isOwningOrganization) {
             throw ResourceNotFoundException.of("認領", claimId);
         }
+        // 凍結的願望：認領者的頁面一併消失（機構仍看得到）
+        if (!isOwningOrganization && claim.getWish().isFrozen()) {
+            throw ResourceNotFoundException.of("認領", claimId);
+        }
         return claim;
     }
 
@@ -400,7 +408,7 @@ public class ClaimService {
      */
     private Claim findOwnedByDonor(UUID claimId, UUID donorId) {
         Claim claim = findById(claimId);
-        if (!claim.isOwnedBy(donorId)) {
+        if (!claim.isOwnedBy(donorId) || claim.getWish().isFrozen()) {
             throw ResourceNotFoundException.of("認領", claimId);
         }
         return claim;

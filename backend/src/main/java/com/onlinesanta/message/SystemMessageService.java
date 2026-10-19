@@ -83,6 +83,18 @@ public class SystemMessageService {
         post(wishId, null, "管理員退回了這個願望，原因：%s。修改後請重新提交審核。".formatted(reason));
     }
 
+    /** 管理員暫時凍結願望；只有機構看得到這則系統訊息。 */
+    @Transactional
+    public void wishFrozen(UUID wishId, String reason) {
+        post(wishId, null, "管理員暫時凍結了這個願望，期間不會顯示在願望牆與認領者的頁面。原因：%s。有疑問請到「與團隊對話」詢問。".formatted(reason));
+    }
+
+    /** 管理員解除凍結。 */
+    @Transactional
+    public void wishUnfrozen(UUID wishId) {
+        post(wishId, null, "管理員已解除這個願望的凍結，願望已恢復顯示。");
+    }
+
     private void post(UUID wishId, UUID claimId, String body) {
         messages.save(Message.system(wishId, claimId, body));
     }

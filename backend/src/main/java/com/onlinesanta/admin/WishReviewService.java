@@ -63,6 +63,28 @@ public class WishReviewService {
         return wish;
     }
 
+    /** 暫時凍結：理由必填，稽核並通知機構。凍結只影響對外顯示，不動願望與認領的狀態。 */
+    @Transactional
+    public Wish freeze(UUID wishId, com.onlinesanta.admin.dto.WishFreezeRequest request) {
+        AppPrincipal admin = currentUser.requireAdmin();
+        Wish wish = find(wishId);
+        String reason = request.note().trim();
+        wish.freeze(admin.userId(), reason);
+        audit.record(AdminAuditAction.FREEZE_WISH, wishId, wish.getTitle());
+        systemMessages.wishFrozen(wishId, reason);
+        return wish;
+    }
+
+    @Transactional
+    public Wish unfreeze(UUID wishId) {
+        currentUser.requireAdmin();
+        Wish wish = find(wishId);
+        wish.unfreeze();
+        audit.record(AdminAuditAction.UNFREEZE_WISH, wishId, wish.getTitle());
+        systemMessages.wishUnfrozen(wishId);
+        return wish;
+    }
+
     private Wish find(UUID wishId) {
         return wishes.findWithOrganizationById(wishId)
                 .orElseThrow(() -> ResourceNotFoundException.of("願望", wishId));

@@ -40,4 +40,18 @@ public class AdminWishReviewController {
     public AdminWishView reject(@PathVariable UUID id, @Valid @RequestBody WishRejectRequest request) {
         return AdminWishView.from(review.reject(id, request));
     }
+
+    @PostMapping("/{id}/freeze")
+    @Operation(summary = "暫時凍結願望",
+            description = "願望從願望牆與認領者頁面消失（機構與管理員後台仍保留）；note 必填（至少 4 個字）")
+    public AdminWishView freeze(@PathVariable UUID id,
+                                @Valid @RequestBody com.onlinesanta.admin.dto.WishFreezeRequest request) {
+        return AdminWishView.from(review.freeze(id, request));
+    }
+
+    @PostMapping("/{id}/unfreeze")
+    @Operation(summary = "解除凍結", description = "願望回到凍結前的狀態並重新顯示")
+    public AdminWishView unfreeze(@PathVariable UUID id) {
+        return AdminWishView.from(review.unfreeze(id));
+    }
 }

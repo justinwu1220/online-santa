@@ -45,6 +45,7 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
             join fetch w.organization o
             where w.status in :statuses
               and o.status = com.onlinesanta.organization.OrganizationStatus.APPROVED
+              and w.frozenAt is null
               and (:organizationId is null or o.id = :organizationId)
               and (:category is null or w.category = :category)
               and (:ageRange is null or w.ageRange = :ageRange)
@@ -170,7 +171,7 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
     @Query(value = """
             update wishes
                set status = 'CLAIMED', version = version + 1, updated_at = now()
-             where id = :wishId and status = 'AVAILABLE'
+             where id = :wishId and status = 'AVAILABLE' and frozen_at is null
             """, nativeQuery = true)
     int markClaimed(@Param("wishId") UUID wishId);
 

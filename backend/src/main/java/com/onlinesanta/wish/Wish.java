@@ -87,6 +87,16 @@ public class Wish extends BaseEntity {
     @Column(name = "reviewed_by")
     private java.util.UUID reviewedBy;
 
+    /** 管理員凍結的時間；沒有凍結為 null。凍結期間不對外顯示、不能被認領。 */
+    @Column(name = "frozen_at")
+    private Instant frozenAt;
+
+    @Column(name = "frozen_reason", columnDefinition = "text")
+    private String frozenReason;
+
+    @Column(name = "frozen_by")
+    private java.util.UUID frozenBy;
+
     protected Wish() {
         // JPA
     }
@@ -184,6 +194,42 @@ public class Wish extends BaseEntity {
         this.reviewedAt = Instant.now();
     }
 
+    /** 管理員凍結：願望從公開處消失（機構與管理員後台仍保留），原因必填。 */
+    public void freeze(java.util.UUID adminId, String reason) {
+        if (status == WishStatus.DRAFT || status == WishStatus.PENDING_REVIEW) {
+            throw new BusinessRuleException("WISH_NOT_FREEZABLE",
+                    "還沒公開的願望不需要凍結，目前狀態為 " + status);
+        }
+        if (frozenAt != null) {
+            throw new BusinessRuleException("WISH_ALREADY_FROZEN", "這個願望已經凍結了");
+        }
+        this.frozenAt = Instant.now();
+        this.frozenReason = reason;
+        this.frozenBy = adminId;
+    }
+
+    /** 解除凍結：回到凍結前的狀態，重新對外顯示。 */
+    public void unfreeze() {
+        if (frozenAt == null) {
+            throw new BusinessRuleException("WISH_NOT_FROZEN", "這個願望目前沒有被凍結");
+        }
+        this.frozenAt = null;
+        this.frozenReason = null;
+        this.frozenBy = null;
+    }
+
+    public boolean isFrozen() {
+        return frozenAt != null;
+    }
+
+    public Instant getFrozenAt() {
+        return frozenAt;
+    }
+
+    public String getFrozenReason() {
+        return frozenReason;
+    }
+
     private void requirePendingReview(String action) {
         if (status != WishStatus.PENDING_REVIEW) {
             throw new BusinessRuleException("WISH_NOT_PENDING_REVIEW",
@@ -221,6 +267,7 @@ public class Wish extends BaseEntity {
      */
     public boolean isPubliclyVisible() {
         return status != WishStatus.DRAFT && status != WishStatus.PENDING_REVIEW
+                && frozenAt == null
                 && organization.getStatus() == OrganizationStatus.APPROVED;
     }
 

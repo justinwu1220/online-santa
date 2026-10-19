@@ -43,6 +43,12 @@ public enum AdminAuditAction {
     /** 退回機構提交的願望，附原因。 */
     REJECT_WISH,
 
+    /** 暫時凍結願望：從願望牆與認領者頁面消失。 */
+    FREEZE_WISH,
+
+    /** 解除凍結。 */
+    UNFREEZE_WISH,
+
     /** 手動觸發逾期釋回掃描。 */
     RUN_RELEASE_SWEEP,
 
@@ -61,7 +67,7 @@ public enum AdminAuditAction {
                  SUSPEND_ORGANIZATION, REACTIVATE_ORGANIZATION, VIEW_ORGANIZATION_DOCUMENTS,
                  DELETE_ORGANIZATION_DOCUMENT
                     -> AdminAuditTargetType.ORGANIZATION;
-            case APPROVE_WISH, REJECT_WISH -> AdminAuditTargetType.WISH;
+            case APPROVE_WISH, REJECT_WISH, FREEZE_WISH, UNFREEZE_WISH -> AdminAuditTargetType.WISH;
             case RUN_RELEASE_SWEEP, RUN_ATTACHMENT_CLEANUP, RUN_DEADLINE_REMINDERS -> AdminAuditTargetType.SYSTEM;
         };
     }
