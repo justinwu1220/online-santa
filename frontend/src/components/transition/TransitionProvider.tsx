@@ -2,7 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   clearEffects, consumeSpecialNavigation, isCurrentNav, isDetailPath, isListPath, listReturn,
-  markEnvelopeStarted, markSpecialNavigation, reducedMotion, rise, saveScroll, startNav, wait,
+  markEnvelopeStarted, markSpecialNavigation, reducedMotion, releaseStrandedEffects, rise, saveScroll, startNav, wait,
 } from '../../lib/motion'
 import { EnvelopeOverlay } from './EnvelopeOverlay'
 
@@ -32,6 +32,12 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
     pathRef.current = location.pathname
     navigateRef.current = navigate
   })
+
+  // 全站保險：換頁、所有轉場都播完之後，清掉漏網的「維持透明」殘留動畫，內容不會停在看不見的狀態
+  useEffect(() => {
+    const timer = window.setTimeout(releaseStrandedEffects, 1800)
+    return () => window.clearTimeout(timer)
+  }, [location.key])
 
   // 每次換頁之後：沒有專屬轉場的，新頁由下 16px 浮上；也負責回到頂端與清掉過期的「返回列表」標記
   const lastPath = useRef(location.pathname)

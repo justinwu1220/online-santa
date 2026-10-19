@@ -165,6 +165,27 @@ export function clearEffects() {
 }
 
 /**
+ * 清掉「已經播完、只是維持結尾狀態」的殘留動畫（`fill: forwards`／`both`）。
+ *
+ * 淡出類動畫（換頁前的淡出、選單切換的淡出、取消認領的收回）都用 `fill: forwards` 維持在透明，
+ * 正常流程會在換頁後取消它；萬一某條路徑被較新的操作取代而漏掉，內容就會停在透明、看起來像點不到。
+ * 這是全站的保險：換頁之後呼叫一次，把這類殘留清乾淨。CSS 動畫與提示、星星層不動。
+ */
+export function releaseStrandedEffects() {
+  document.getAnimations().forEach((animation) => {
+    if (typeof CSSAnimation !== 'undefined' && animation instanceof CSSAnimation) return
+    if (typeof CSSTransition !== 'undefined' && animation instanceof CSSTransition) return
+    if (animation.playState !== 'finished') return
+    const effect = animation.effect as KeyframeEffect | null
+    const fill = effect?.getTiming().fill
+    if (fill !== 'forwards' && fill !== 'both') return
+    const target = effect?.target
+    if (target instanceof Element && target.closest('.fx-layer, .toast')) return
+    animation.cancel()
+  })
+}
+
+/**
  * 開啟 `<dialog>`（showModal）。元素還沒掛進文件（極少數 render 順序下會發生）時
  * 原生會丟 InvalidStateError，沒接住會讓整棵 React 樹崩潰、畫面全黑；
  * 所以這裡不丟例外，等下一個畫面再試，最多等 30 個畫面。

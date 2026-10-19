@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/authContext'
-import { reducedMotion, wait } from '../../lib/motion'
+import { reducedMotion, releaseStrandedEffects, wait } from '../../lib/motion'
 import { Snowfall } from '../Snowfall'
 import { ToastProvider } from '../ui/Toast'
 import { OnboardHost } from '../onboard/OnboardHost'
@@ -44,13 +44,14 @@ export function ConsoleShell({ appLabel, name, items, terms, banner, children }:
   const location = useLocation()
   const main = useRef<HTMLDivElement>(null)
   const first = useRef(true)
-  // 點選單時的淡出動畫（fill: forwards，會一直維持透明），換頁後要明確取消
-  const fadeOut = useRef<Animation | null>(null)
+  // 連點選單時只有最後一次生效：每次點擊遞增，等待淡出的期間被後面的點擊取代就放棄換頁
+  const clickSerial = useRef(0)
 
   // 換頁後：右側內容由下 10px 浮上（第一次進來不播）
   useEffect(() => {
-    fadeOut.current?.cancel()
-    fadeOut.current = null
+    // 清掉主內容區上所有殘留的程式動畫。點選單的淡出是 fill: forwards（會一直維持透明），
+    // 連點時舊的淡出沒被取消就會疊在新內容上，內容最後停在透明，看起來像點不到
+    main.current?.getAnimations().forEach((animation) => animation.cancel())
     if (first.current) {
       first.current = false
       return
@@ -62,17 +63,31 @@ export function ConsoleShell({ appLabel, name, items, terms, banner, children }:
       { duration: 300, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'backwards' })
   }, [location.pathname])
 
+  // 全站保險：換頁、動畫都播完之後，清掉漏網的「維持透明」殘留動畫
+  useEffect(() => {
+    const timer = window.setTimeout(releaseStrandedEffects, 1500)
+    return () => window.clearTimeout(timer)
+  }, [location.key])
+
   /** 點選單：右側內容先淡出 0.12s，再換頁。 */
   async function go(event: React.MouseEvent, to: string) {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
     event.preventDefault()
-    if (location.pathname === to) return
+    const serial = ++clickSerial.current
+    if (location.pathname === to) {
+      // 點回目前所在的頁：取消還在等待淡出的換頁，內容恢復原樣
+      main.current?.getAnimations().forEach((animation) => animation.cancel())
+      return
+    }
     if (!reducedMotion() && main.current) {
-      fadeOut.current = main.current.animate(
+      main.current.getAnimations().forEach((animation) => animation.cancel())
+      main.current.animate(
         [{ opacity: 1 }, { opacity: 0, transform: 'translateY(6px)' }],
         { duration: 120, easing: 'ease-in', fill: 'forwards' })
       await wait(120)
     }
+    // 淡出期間又點了別的選單：交給最後一次點擊，這次不換頁
+    if (serial !== clickSerial.current) return
     navigate(to)
     // 淡出效果由上面的 effect 在新內容出現後取消，接著播浮上動畫
   }
