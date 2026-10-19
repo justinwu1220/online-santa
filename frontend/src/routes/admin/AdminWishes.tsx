@@ -17,7 +17,9 @@ import { burst, center, EASE_OUT, reducedMotion, rise } from '../../lib/motion'
 import type {
   AdminMessageView, AdminWishDetail, AdminWishFilter, AdminWishListItem, AttachmentView, ClaimReceiptView,
 } from '../../lib/types'
-import { useAdminWish, useAdminWishCounts, useAdminWishes, useInvalidateAdmin } from './adminQueries'
+import {
+  useAdminOrganizations, useAdminWish, useAdminWishCounts, useAdminWishes, useInvalidateAdmin,
+} from './adminQueries'
 
 type Chip = 'review' | 'open' | 'claimed' | 'done'
 
@@ -52,8 +54,11 @@ export function AdminWishes() {
   const [search, setSearch] = useState('')
   const [q, setQ] = useState('')
   const [year, setYear] = useState<number | undefined>()
-  const counts = useAdminWishCounts()
-  const wishes = useAdminWishes(filter.value, q, year)
+  // 機構篩選放在網址（?org=），機構審核抽屜的「查看這間機構的願望」與重新整理都能帶著
+  const organizationId = params.get('org') ?? undefined
+  const organizations = useAdminOrganizations()
+  const counts = useAdminWishCounts(organizationId)
+  const wishes = useAdminWishes(filter.value, q, year, organizationId)
   const [openId, setOpenId] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -68,8 +73,16 @@ export function AdminWishes() {
     return () => window.clearTimeout(timer)
   }, [search])
 
+  function chooseOrganization(id: string) {
+    const next = new URLSearchParams(params)
+    if (id) next.set('org', id); else next.delete('org')
+    setParams(next, { replace: true })
+  }
+
   function chooseFilter(key: string) {
-    setParams({ filter: key }, { replace: true })
+    const next = new URLSearchParams(params)
+    next.set('filter', key)
+    setParams(next, { replace: true })
     if (!reducedMotion()) {
       window.requestAnimationFrame(() => rise(
         [...(listRef.current?.querySelectorAll('.org-row') ?? [])],
@@ -84,6 +97,14 @@ export function AdminWishes() {
       <div className="org-head">
         <h1 id="adWishTitle">願望</h1>
         <div className="ad-tools">
+          <select className="input ad-org" aria-label="機構" value={organizationId ?? ''}
+            onChange={(event) => chooseOrganization(event.target.value)}>
+            <option value="">全部機構</option>
+            {[...(organizations.data?.content ?? [])]
+              .filter((org) => org.status === 'APPROVED' || org.status === 'SUSPENDED' || org.id === organizationId)
+              .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'))
+              .map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}
+          </select>
           <select className="input ad-year" aria-label="年度" value={year ?? ''}
             onChange={(event) => setYear(event.target.value ? Number(event.target.value) : undefined)}>
             <option value="">全部年度</option>

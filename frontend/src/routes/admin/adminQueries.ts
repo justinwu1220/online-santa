@@ -17,19 +17,19 @@ export function usePlatformStats() {
   })
 }
 
-export function useAdminWishCounts() {
+export function useAdminWishCounts(organizationId?: string) {
   return useQuery({
-    queryKey: ['admin-wish-counts'],
-    queryFn: () => api.get<AdminWishCounts>('/api/admin/wishes/counts'),
+    queryKey: ['admin-wish-counts', organizationId ?? 'all'],
+    queryFn: () => api.get<AdminWishCounts>(withQuery('/api/admin/wishes/counts', { organizationId })),
     staleTime: 30_000,
   })
 }
 
-export function useAdminWishes(filter: AdminWishFilter, q: string, year?: number) {
+export function useAdminWishes(filter: AdminWishFilter, q: string, year?: number, organizationId?: string) {
   return useQuery({
-    queryKey: ['admin-wishes', filter, q, year ?? 'all'],
+    queryKey: ['admin-wishes', filter, q, year ?? 'all', organizationId ?? 'all'],
     queryFn: () => api.get<PageResponse<AdminWishListItem>>(
-      withQuery('/api/admin/wishes', { filter, q: q || undefined, year, size: 100 })),
+      withQuery('/api/admin/wishes', { filter, q: q || undefined, year, organizationId, size: 100 })),
   })
 }
 

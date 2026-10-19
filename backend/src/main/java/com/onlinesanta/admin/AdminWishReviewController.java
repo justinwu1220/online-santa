@@ -47,14 +47,15 @@ public class AdminWishReviewController {
             @RequestParam(defaultValue = "ALL") AdminWishQueryService.Filter filter,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) java.util.UUID organizationId,
             @PageableDefault(size = 50) Pageable pageable) {
-        return PageResponse.of(query.list(filter, q, year, pageable), item -> item);
+        return PageResponse.of(query.list(filter, q, year, organizationId, pageable), item -> item);
     }
 
     @GetMapping("/counts")
     @Operation(summary = "篩選列各項數量")
-    public AdminWishCounts counts() {
-        return query.counts();
+    public AdminWishCounts counts(@RequestParam(required = false) java.util.UUID organizationId) {
+        return query.counts(organizationId);
     }
 
     @GetMapping("/{id}")

@@ -57,7 +57,7 @@ public class AdminWishQueryService {
     }
 
     @Transactional(readOnly = true)
-    public Page<AdminWishListItem> list(Filter filter, String query, Integer year, Pageable pageable) {
+    public Page<AdminWishListItem> list(Filter filter, String query, Integer year, UUID organizationId, Pageable pageable) {
         currentUser.requireAdmin();
         Set<WishStatus> statuses = switch (filter) {
             case REVIEW -> EnumSet.of(WishStatus.PENDING_REVIEW);
@@ -71,7 +71,7 @@ public class AdminWishQueryService {
         // 年度以 createdAt 的台北日曆年歸檔；沒選年度就涵蓋全部時間
         Instant from = year == null ? Instant.EPOCH : TaiwanYear.startOf(year);
         Instant to = year == null ? Instant.parse("3000-01-01T00:00:00Z") : TaiwanYear.endOf(year);
-        Page<Wish> page = wishes.adminSearch(statuses, filter == Filter.FROZEN,
+        Page<Wish> page = wishes.adminSearch(statuses, organizationId, filter == Filter.FROZEN,
                 filter == Filter.LATE, now, from, to, q, pageable);
 
         Set<UUID> lateIds = lateWishIds(page.getContent().stream().map(Wish::getId).toList(), now);
@@ -79,10 +79,13 @@ public class AdminWishQueryService {
     }
 
     @Transactional(readOnly = true)
-    public AdminWishCounts counts() {
+    public AdminWishCounts counts(UUID organizationId) {
         currentUser.requireAdmin();
         long review = 0, open = 0, claimed = 0, done = 0;
-        for (Object[] row : wishes.countByStatus()) {
+        Instant now = Instant.now();
+        List<Object[]> byStatus = organizationId == null
+                ? wishes.countByStatus() : wishes.countByOrganizationGroupedByStatus(organizationId);
+        for (Object[] row : byStatus) {
             WishStatus status = (WishStatus) row[0];
             long n = (Long) row[1];
             switch (status) {
@@ -94,7 +97,9 @@ public class AdminWishQueryService {
             }
         }
         return new AdminWishCounts(review + open + claimed + done, review, open, claimed,
-                claims.countOverdue(Instant.now()), done, wishes.countFrozen());
+                organizationId == null ? claims.countOverdue(now) : claims.countOverdueByOrganization(organizationId, now),
+                done,
+                organizationId == null ? wishes.countFrozen() : wishes.countFrozenByOrganization(organizationId));
     }
 
     /**

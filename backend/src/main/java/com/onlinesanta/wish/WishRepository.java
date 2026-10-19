@@ -75,6 +75,7 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
     @Query("""
             select w from Wish w join w.organization o
             where w.status in :statuses
+              and (:organizationId is null or o.id = :organizationId)
               and (:frozenOnly = false or w.frozenAt is not null)
               and (:lateOnly = false or exists (
                     select 1 from Claim c
@@ -92,6 +93,7 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
                      end, w.createdAt desc
             """)
     Page<Wish> adminSearch(@Param("statuses") Collection<WishStatus> statuses,
+                           @Param("organizationId") UUID organizationId,
                            @Param("frozenOnly") boolean frozenOnly,
                            @Param("lateOnly") boolean lateOnly,
                            @Param("now") Instant now,
@@ -102,6 +104,9 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
 
     @Query("select count(w) from Wish w where w.frozenAt is not null")
     long countFrozen();
+
+    @Query("select count(w) from Wish w where w.frozenAt is not null and w.organization.id = :organizationId")
+    long countFrozenByOrganization(@Param("organizationId") UUID organizationId);
 
     /** 監控中心的跨機構檢視。 */
     @EntityGraph(attributePaths = "organization")

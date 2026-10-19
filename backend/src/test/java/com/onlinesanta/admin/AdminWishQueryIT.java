@@ -204,4 +204,27 @@ class AdminWishQueryIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.goalWishes").value(500))
                 .andExpect(jsonPath("$.goalOrganizations").value(30));
     }
+
+    @Test
+    @DisplayName("可只看特定機構的願望，篩選數量也跟著該機構")
+    void filtersByOrganizationIncludingCounts() throws Exception {
+        published("甲機構的願望", "小星");
+        Organization other = Organization.register("另一間機構", "李承辦", "other@example.org", null, null, null);
+        other.approve(null, "測試資料");
+        organizations.save(other);
+        Wish otherWish = Wish.draft(other, "小月", AgeRange.AGE_7_9, null, "乙機構的願望", null,
+                WishCategory.ART, PriceRange.UNDER_500);
+        otherWish.publish();
+        wishes.save(otherWish);
+
+        mvc.perform(as(get("/api/admin/wishes"), ADMIN)).andExpect(jsonPath("$.totalElements").value(2));
+        mvc.perform(as(get("/api/admin/wishes").param("organizationId", other.getId().toString()), ADMIN))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("乙機構的願望"))
+                .andExpect(jsonPath("$.content[0].organizationName").value("另一間機構"));
+        mvc.perform(as(get("/api/admin/wishes/counts"), ADMIN)).andExpect(jsonPath("$.all").value(2));
+        mvc.perform(as(get("/api/admin/wishes/counts").param("organizationId", other.getId().toString()), ADMIN))
+                .andExpect(jsonPath("$.all").value(1))
+                .andExpect(jsonPath("$.open").value(1));
+    }
 }

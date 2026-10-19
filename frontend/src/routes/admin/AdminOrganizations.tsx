@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { ConfirmDialog } from '../../components/console/ConfirmDialog'
 import { Drawer } from '../../components/console/Drawer'
 import { DCard, DStatus, DrawerTabs, Kv } from '../../components/console/DrawerParts'
@@ -219,6 +219,9 @@ function OrgDrawer({ org, onClose }: { org: OrganizationReviewView | null; onClo
               <DCard icon="building" title="機構簡介">
                 <p className="dtext">{current.description || '—'}</p>
               </DCard>
+              {current.status !== 'PENDING' && current.status !== 'REJECTED' && (
+                <Link className="btn btn--sm" to={`/admin/wishes?org=${current.id}`}>查看這間機構的願望</Link>
+              )}
             </>
           )}
           {tab === 'docs' && (
