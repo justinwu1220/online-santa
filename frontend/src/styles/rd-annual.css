@@ -13,3 +13,17 @@
   .rd .annual__empty { margin: 0; padding: 56px 0; text-align: center; font-size: 14px; color: var(--fg-muted); }
   .rd .input.annual__year { width: auto; min-width: 110px; }
 }
+
+/* 管理員後台：凍結與停權用藍色按鈕（原型 272–275 行，那一段在公開頁的樣式範圍外，這裡補上） */
+@layer components {
+  .rd .btn--freeze { background: transparent; border-color: rgba(96, 165, 250, .45); color: #93c5fd; }
+  .rd .btn--freeze:hover { background: rgba(96, 165, 250, .12); border-color: rgba(96, 165, 250, .7); }
+  .rd .btn--freeze-solid { border: 0; background: #2563eb; color: #fff; }
+  .rd .btn--freeze-solid:hover { background: #1d4ed8; }
+}
+
+/* 管理員「願望」頁：搜尋列旁多一個年度下拉（既有功能，設計稿沒有） */
+@layer components {
+  .rd .ad-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .rd .input.ad-year { width: auto; min-width: 120px; }
+}

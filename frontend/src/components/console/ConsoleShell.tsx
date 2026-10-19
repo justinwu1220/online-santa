@@ -14,6 +14,8 @@ export interface ConsoleNavItem {
   icon: ReactNode
   /** 紅色未讀數字；0 或沒給就不顯示 */
   badge?: number
+  /** 數字的無障礙說明；沒給就用「N 則新訊息」 */
+  badgeLabel?: (count: number) => string
   end?: boolean
 }
 
@@ -102,7 +104,7 @@ export function ConsoleShell({ appLabel, name, items, terms, banner, children }:
                       <svg className="icon" viewBox="0 0 24 24" aria-hidden>{item.icon}</svg>
                       <span>{item.label}</span>
                       {item.badge ? (
-                        <span className="org-nav__badge" aria-label={`${item.badge} 則新訊息`}>{item.badge}</span>
+                        <span className="org-nav__badge" aria-label={item.badgeLabel ? item.badgeLabel(item.badge) : `${item.badge} 則新訊息`}>{item.badge}</span>
                       ) : null}
                     </NavLink>
                   ))}

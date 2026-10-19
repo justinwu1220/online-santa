@@ -3,11 +3,10 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { PublicLayout } from './components/layouts/PublicLayout'
 import { Spinner } from './components/Feedback'
 import { RequireRole } from './components/RequireRole'
-import { AdminClaimDetail } from './routes/admin/AdminClaimDetail'
-import { AdminClaims, AdminWishes } from './routes/admin/AdminCatalog'
-import { AdminDashboard } from './routes/admin/AdminDashboard'
 import { AdminLayout } from './routes/admin/AdminLayout'
 import { AdminOrganizations } from './routes/admin/AdminOrganizations'
+import { AdminOverview } from './routes/admin/AdminOverview'
+import { AdminWishes } from './routes/admin/AdminWishes'
 import { AdminSystem } from './routes/admin/AdminSystem'
 import { ClaimDetail } from './routes/ClaimDetail'
 import { LoginPage } from './routes/LoginPage'
@@ -95,11 +94,9 @@ export default function App() {
         <RequireRole role="ADMIN" wrongRole="redirect">
           <AdminLayout />
         </RequireRole>}>
-        <Route index element={<AdminDashboard />} />
-        <Route path="organizations" element={<AdminOrganizations />} />
+        <Route index element={<AdminOverview />} />
+        <Route path="orgs" element={<AdminOrganizations />} />
         <Route path="wishes" element={<AdminWishes />} />
-        <Route path="claims" element={<AdminClaims />} />
-        <Route path="claims/:id" element={<AdminClaimDetail />} />
         <Route path="annual" element={
           <Suspense fallback={<Spinner label="載入年度營運" />}>
             <AdminAnnualReview />

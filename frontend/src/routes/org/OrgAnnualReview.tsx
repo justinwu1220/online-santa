@@ -1,13 +1,14 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
+import { COHORT_NOTE, MonthlyPanel, Stat, YearPicker } from '../../components/annual/AnnualParts'
 import { ClaimOutcomeChart } from '../../components/charts/ClaimOutcomeChart'
-import { DailyClaimsChart } from '../../components/charts/DailyClaimsChart'
-import { MonthlyClaimsChart } from '../../components/charts/MonthlyClaimsChart'
-import { SelectBox } from '../../components/ui/Fields'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { api, withQuery } from '../../lib/api'
 import { pageTitle } from '../../lib/brand'
 import type { OrganizationAnnualStats, OrganizationMonthlyStats } from '../../lib/types'
+
+const fetchDaily = (year: number, month: number) =>
+  api.get<OrganizationMonthlyStats>(withQuery('/api/organizations/me/stats/monthly', { year, month }))
 
 /**
  * 年度回顧。設計稿的機構後台沒有這一頁，是既有功能；放在選單第三項，樣式沿用後台面板。
@@ -35,18 +36,11 @@ export function OrgAnnualReview() {
     <section className="org-tab" aria-labelledby="orgAnnualTitle">
       <div className="org-head">
         <h1 id="orgAnnualTitle">年度回顧</h1>
-        {stats.data && (
-          <SelectBox className="annual__year" aria-label="年度" value={stats.data.year}
-            onChange={(event) => setYear(Number(event.target.value))}>
-            {stats.data.availableYears.map((item) => <option key={item} value={item}>{item}</option>)}
-          </SelectBox>
-        )}
+        {stats.data && <YearPicker value={stats.data.year} years={stats.data.availableYears} onChange={setYear} />}
       </div>
 
       <div className="annual">
-        <p className="annual__note">
-          數字以認領年度歸檔：年末認領、隔年才完成的禮物仍算在認領當年，進行中的認領完成後，數字將會更新。
-        </p>
+        <p className="annual__note">{COHORT_NOTE}</p>
 
         {stats.isLoading && <Spinner label="載入年度統計" />}
         {stats.isError && <ErrorNotice error={stats.error} onRetry={() => void stats.refetch()} />}
@@ -69,8 +63,8 @@ export function OrgAnnualReview() {
             </div>
 
             <div className="annual__charts">
-              <MonthlyPanel key={stats.data.year} year={stats.data.year}
-                monthly={stats.data.monthlyClaims} />
+              <MonthlyPanel key={stats.data.year} scope="org" year={stats.data.year} title="每月認領分布"
+                monthly={stats.data.monthlyClaims} fetchDaily={fetchDaily} />
               <section className="panel">
                 <div className="panel__head"><h2 className="panel__title">認領結果</h2></div>
                 <ClaimOutcomeChart theme="dark" completed={stats.data.completed}
@@ -80,57 +74,6 @@ export function OrgAnnualReview() {
           </>
         )}
       </div>
-    </section>
-  )
-}
-
-function Stat({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
-  return (
-    <div className="stat">
-      <p className="stat__value">{value}</p>
-      <p className="stat__label">{label}</p>
-      {hint && <p className="stat__hint">{hint}</p>}
-    </div>
-  )
-}
-
-/**
- * 每月認領分布：點某個月的長條下鑽成該月的每日分布。外層用 `key={year}` 換年度時重新掛載，
- * 下鑽狀態自然回到每月。
- */
-function MonthlyPanel({ year, monthly }: {
-  year: number
-  monthly: OrganizationAnnualStats['monthlyClaims']
-}) {
-  const [month, setMonth] = useState<number | null>(null)
-  const daily = useQuery({
-    queryKey: ['org', 'annual-drilldown', year, month],
-    queryFn: () => api.get<OrganizationMonthlyStats>(
-      withQuery('/api/organizations/me/stats/monthly', { year, month: month ?? undefined })),
-    enabled: month !== null,
-    placeholderData: keepPreviousData,
-  })
-
-  return (
-    <section className="panel">
-      <div className="panel__head">
-        <h2 className="panel__title">{month === null ? '每月認領分布' : `${month} 月認領分布`}</h2>
-        {month !== null && (
-          <button type="button" className="btn btn--sm btn--ghost" onClick={() => setMonth(null)}>← 返回每月</button>
-        )}
-      </div>
-      {month === null ? (
-        <>
-          <MonthlyClaimsChart theme="dark" data={monthly} onMonthClick={setMonth} />
-          <p className="annual__note">點擊月份長條可查看單月分布</p>
-        </>
-      ) : (
-        <>
-          {daily.isLoading && <Spinner label="載入每日統計" />}
-          {daily.isError && <ErrorNotice error={daily.error} onRetry={() => void daily.refetch()} />}
-          {daily.data && <DailyClaimsChart theme="dark" data={daily.data.dailyClaims} />}
-        </>
-      )}
     </section>
   )
 }

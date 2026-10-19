@@ -399,6 +399,12 @@ export interface PlatformStats {
   overdueClaims: number
   pendingOrganizations: number
   availableWishes: number
+  /** 被暫時凍結的願望數 */
+  frozenWishes: number
+  /** 活動目標：送到孩子手上的禮物份數 */
+  goalWishes: number
+  /** 活動目標：已核准的合作機構數 */
+  goalOrganizations: number
   /** 有願望（以 createdAt 歸年）可選的年份，供「全站願望」頁的年度篩選下拉使用 */
   availableWishYears: number[]
   /** 有認領（以 claimedAt 歸年，cohort 口徑）可選的年份，供「全站認領」頁使用 */
@@ -560,6 +566,8 @@ export type AdminAuditAction =
   | 'VIEW_CLAIM_RECEIPT'
   | 'APPROVE_ORGANIZATION' | 'REJECT_ORGANIZATION' | 'VIEW_ORGANIZATION_DOCUMENTS'
   | 'SUSPEND_ORGANIZATION' | 'REACTIVATE_ORGANIZATION'
+  | 'VIEW_ORGANIZATION_PHOTO'
+  | 'APPROVE_WISH' | 'REJECT_WISH' | 'FREEZE_WISH' | 'UNFREEZE_WISH' | 'VIEW_WISH_ATTACHMENTS'
   | 'DELETE_ATTACHMENT' | 'DELETE_ORGANIZATION_DOCUMENT'
   | 'RUN_RELEASE_SWEEP' | 'RUN_ATTACHMENT_CLEANUP' | 'RUN_DEADLINE_REMINDERS'
 
@@ -567,8 +575,83 @@ export interface AuditLogView {
   id: number
   adminEmail?: string
   action: AdminAuditAction
-  targetType: 'CLAIM' | 'ORGANIZATION' | 'SYSTEM'
+  targetType: 'CLAIM' | 'ORGANIZATION' | 'WISH' | 'SYSTEM'
   targetId?: string
   detail?: string
   occurredAt: string
+}
+
+// ---------------------------------------------------------------- 管理員後台（願望合併檢視）
+
+/** 管理員「願望」清單的一列。 */
+export interface AdminWishListItem {
+  id: string
+  title: string
+  childAlias?: string
+  ageRangeLabel?: string
+  avatar?: string
+  status: WishStatus
+  frozen: boolean
+  late: boolean
+  organizationId: string
+  organizationName: string
+}
+
+/** 篩選列各項的數量（草稿不算）。 */
+export interface AdminWishCounts {
+  all: number
+  review: number
+  open: number
+  claimed: number
+  late: number
+  done: number
+  frozen: number
+}
+
+export type AdminWishFilter = 'ALL' | 'REVIEW' | 'OPEN' | 'CLAIMED' | 'LATE' | 'DONE' | 'FROZEN'
+
+export interface AdminWishClaimCard {
+  claimId: string
+  status: ClaimStatus
+  donorDisplayName: string
+  /** 捐贈人姓名與帳號信箱：只有管理員看得到 */
+  donorName?: string
+  donorEmail: string
+  claimedAt: string
+  shipDeadlineAt?: string
+  shippedAt?: string
+  receivedAt?: string
+  receivedOn?: string
+  completedAt?: string
+  trackingCarrier?: string
+  trackingNumber?: string
+  giftDescription?: string
+  giftQuantity?: number
+  /** 禮物價格：只有管理員看得到 */
+  giftPrice?: number
+  shippedOn?: string
+  receiptRequested: boolean
+}
+
+export interface AdminWishDetail {
+  id: string
+  title: string
+  childAlias?: string
+  ageRangeLabel?: string
+  avatar?: string
+  description?: string
+  status: WishStatus
+  createdAt: string
+  reviewNote?: string
+  frozen?: { at: string; reason: string }
+  late: boolean
+  organization: {
+    id: string
+    name: string
+    contactPerson?: string
+    mobilePhone?: string
+    contactEmail?: string
+    address?: string
+  }
+  claim?: AdminWishClaimCard
 }
