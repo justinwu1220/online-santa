@@ -21,6 +21,7 @@ public final class WishAvatar {
     private WishAvatar() {
     }
 
+    /** 年齡還沒填（草稿）時先當一般年齡挑一張，填了「0–3 歲」才會重挑（見 {@link #afterEdit}）。 */
     public static String pick(AgeRange ageRange) {
         return pick(ageRange, ThreadLocalRandom.current());
     }

@@ -146,9 +146,12 @@ export interface OrganizationStageCounts {
 export interface WishOrgView {
   id: string
   title: string
+  /** 願望說明（孩子口吻，20 字內）；舊願望可能是較長的描述 */
   description?: string
-  category: string
+  category?: string
   ageRange: string
+  ageRangeLabel: string
+  avatar: string
   priceRange?: string
   childAlias: string
   interests?: string

@@ -37,6 +37,10 @@
   .dialog.is-closing, .letter-dialog.is-closing, .terms.is-closing, .onboard.is-closing { animation: rd-dialog-out .2s ease-in forwards; }
   .dialog.is-closing::backdrop, .letter-dialog.is-closing::backdrop, .terms.is-closing::backdrop, .onboard.is-closing::backdrop { animation: rd-backdrop-out .2s ease-in forwards; }
 
+  /* 抽屜：滑入滑出的位移由 JS（Web Animations）做；這裡只管遮罩，只用 CSS */
+  .drawer[open]::backdrop { animation: rd-backdrop-in .26s ease-out; }
+  .drawer.is-closing::backdrop { animation: rd-backdrop-out .2s ease-in forwards; }
+
   .toast { animation: rd-toast-in .28s var(--ease-out); }
 
   /* 認領成功後按鈕變金色 */
@@ -61,5 +65,5 @@
 @media (prefers-reduced-motion: reduce) {
   .rd .env-overlay { display: none; }
   .rd .dialog[open], .rd .letter-dialog[open], .rd .toast { animation: none; }
-  .rd .dialog[open]::backdrop, .rd .letter-dialog[open]::backdrop { animation: none; }
+  .rd .dialog[open]::backdrop, .rd .letter-dialog[open]::backdrop, .rd .drawer[open]::backdrop { animation: none; }
 }

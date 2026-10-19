@@ -15,11 +15,10 @@ import jakarta.validation.constraints.Size;
  * 而不是等到資料庫丟出截斷錯誤。
  */
 public record WishRequest(
-        @NotBlank(message = "請填寫孩子的暱稱")
+        // 草稿只需要標題，暱稱與年齡區間提交審核時才檢查（見 Wish.submitForReview）
         @Size(max = 50, message = "暱稱不可超過 50 字")
         String childAlias,
 
-        @NotNull(message = "請選擇年齡區間")
         AgeRange ageRange,
 
         @Size(max = 500, message = "興趣描述不可超過 500 字")

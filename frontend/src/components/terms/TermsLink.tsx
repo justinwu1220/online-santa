@@ -9,9 +9,13 @@ import type { TermsDocument } from './termsContent'
  * 已同意目前版本 → 唯讀版（顯示同意時間）；沒同意過、或同意的是舊版本 → 需要（重新）同意的版本
  * （SPEC 15.8）。沒登入時只能看全文。認領者與合作機構各有一份須知，共用這個元件。
  */
-export function TermsLink({ terms, acceptLabel = '同意並繼續' }: {
+export function TermsLink({ terms, acceptLabel = '同意並繼續', className = 'terms-link', children }: {
   terms: TermsDocument
   acceptLabel?: string
+  /** 觸發按鈕的樣式；預設是行內的文字連結 */
+  className?: string
+  /** 自訂觸發按鈕的內容（例如側邊選單的圖示加文字）；沒給就顯示《須知名稱》 */
+  children?: React.ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const status = useTermsStatus(terms)
@@ -20,8 +24,8 @@ export function TermsLink({ terms, acceptLabel = '同意並繼續' }: {
 
   return (
     <>
-      <button type="button" className="terms-link" onClick={() => setOpen(true)}>
-        《{terms.title}》
+      <button type="button" className={className} onClick={() => setOpen(true)}>
+        {children ?? <>《{terms.title}》</>}
       </button>
       <TermsDialog
         open={open}

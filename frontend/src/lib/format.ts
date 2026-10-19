@@ -81,3 +81,12 @@ export const CLAIM_EVENT_LABELS: Record<ClaimEventType, string> = {
   CANCELLED: '取消認領',
   FEEDBACK_UPLOADED: '機構上傳了收件證明',
 }
+
+/** 「月/日」（設計稿 `md`），進度條的日期用。接受 ISO 時間或 YYYY-MM-DD。 */
+export function formatMonthDay(value?: string) {
+  if (!value) return '—'
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(Number(value.slice(0, 4)), Number(value.slice(5, 7)) - 1, Number(value.slice(8, 10)))
+    : new Date(value)
+  return `${date.getMonth() + 1}/${date.getDate()}`
+}

@@ -627,6 +627,38 @@ class WishApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.category").doesNotExist());
     }
 
+    @Test
+    void aDraftOnlyNeedsATitleAndSubmittingChecksTheRest() throws Exception {
+        var request = new WishRequest(null, null, null, "只有標題的草稿", null, null, null);
+        String body = mvc.perform(as(withBody(post("/api/wishes"), request), ORG_USER))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andExpect(jsonPath("$.childAlias").doesNotExist())
+                .andExpect(jsonPath("$.ageRange").doesNotExist())
+                .andReturn().getResponse().getContentAsString();
+        UUID id = UUID.fromString(json.readTree(body).get("id").asText());
+
+        // 有信件照片也不行：暱稱與年齡還沒填
+        uploadConfirmedAttachment(AttachmentPurpose.WISH_LETTER, id, ORG_USER);
+        mvc.perform(as(post("/api/wishes/{id}/submit", id), ORG_USER))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("WISH_INCOMPLETE"));
+
+        // 補齊之後可以提交
+        mvc.perform(as(withBody(patch("/api/wishes/{id}", id),
+                new WishRequest("小星", AgeRange.AGE_7_9, null, "只有標題的草稿", null, null, null)), ORG_USER))
+                .andExpect(status().isOk());
+        mvc.perform(as(post("/api/wishes/{id}/submit", id), ORG_USER)).andExpect(status().isOk());
+    }
+
+    @Test
+    void aWishWithoutATitleIsStillRejected() throws Exception {
+        var request = new WishRequest("小星", AgeRange.AGE_7_9, null, " ", null, null, null);
+        mvc.perform(as(withBody(post("/api/wishes"), request), ORG_USER))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.title").exists());
+    }
+
     private WishRequest wishRequestWithAge(String title, AgeRange age, String note) {
         return new WishRequest("小星", age, "喜歡畫畫和恐龍", title,
                 note == null ? "想要一盒色鉛筆" : note, WishCategory.ART, null);

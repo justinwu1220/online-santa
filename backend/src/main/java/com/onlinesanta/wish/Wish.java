@@ -31,11 +31,13 @@ public class Wish extends BaseEntity {
     @JoinColumn(name = "organization_id", nullable = false, updatable = false)
     private Organization organization;
 
-    @Column(name = "child_alias", nullable = false, length = 50)
+    /** 草稿可以先空著（只需要標題），提交審核時必填。 */
+    @Column(name = "child_alias", length = 50)
     private String childAlias;
 
+    /** 草稿可以先空著，提交審核時必填。 */
     @Enumerated(EnumType.STRING)
-    @Column(name = "age_range", nullable = false, length = 20)
+    @Column(name = "age_range", length = 20)
     private AgeRange ageRange;
 
     @Column(length = 500)
@@ -146,6 +148,11 @@ public class Wish extends BaseEntity {
         if (!organization.canPublishWishes()) {
             throw new BusinessRuleException("ORGANIZATION_NOT_APPROVED",
                     "機構資料審核通過後才能提交願望審核，目前願望只能存成草稿");
+        }
+        // 草稿只需要標題；提交審核才要求全部填好
+        if (childAlias == null || childAlias.isBlank() || ageRange == null) {
+            throw new BusinessRuleException("WISH_INCOMPLETE",
+                    "請先填寫孩子的暱稱與年齡區間，再提交審核");
         }
         this.status = WishStatus.PENDING_REVIEW;
     }

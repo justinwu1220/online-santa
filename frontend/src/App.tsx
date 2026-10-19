@@ -15,11 +15,9 @@ import { MyClaims } from './routes/MyClaims'
 import { MyProfile } from './routes/MyProfile'
 import { NotFound } from './routes/NotFound'
 import { OrgApply } from './routes/org/OrgApply'
-import { OrgClaimDetail } from './routes/org/OrgClaimDetail'
-import { OrgClaims } from './routes/org/OrgClaims'
-import { OrgDashboard } from './routes/org/OrgDashboard'
 import { OrgLayout } from './routes/org/OrgLayout'
 import { OrgSettings } from './routes/org/OrgSettings'
+import { OrgTeamChat } from './routes/org/OrgTeamChat'
 import { OrgWishes } from './routes/org/OrgWishes'
 import { WishDetail } from './routes/WishDetail'
 import { WishWall } from './routes/WishWall'
@@ -81,11 +79,8 @@ export default function App() {
         <RequireRole role="ORG_MEMBER" wrongRole="redirect">
           <OrgLayout />
         </RequireRole>}>
-        <Route index element={<OrgDashboard />} />
-        <Route path="wishes" element={<OrgWishes />} />
-        <Route path="claims" element={<OrgClaims />} />
-        <Route path="claims/:id" element={<OrgClaimDetail />} />
-        <Route path="overdue" element={<OrgClaims overdueOnly />} />
+        <Route index element={<OrgWishes />} />
+        <Route path="chat" element={<OrgTeamChat />} />
         <Route path="annual" element={
           <Suspense fallback={<Spinner label="載入年度回顧" />}>
             <OrgAnnualReview />

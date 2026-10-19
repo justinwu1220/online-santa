@@ -34,11 +34,13 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
  */
 async function recordConsent(headers: Record<string, string>, type: 'DONOR' | 'ORG', version: string) {
   try {
-    await fetch(`${API_BASE_URL}/api/me/terms/${type}/accept`, {
+    const response = await fetch(`${API_BASE_URL}/api/me/terms/${type}/accept`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify({ version }),
     })
+    // fetch 不會因為 HTTP 錯誤而丟例外；沒寫進去要看得到（例如後端還沒更新到有這份須知）
+    if (!response.ok) console.warn(`寫入須知同意紀錄失敗（${response.status}），之後會再請使用者同意`)
   } catch (error) {
     console.warn('註冊後寫入須知同意紀錄失敗，登入後會再請使用者同意', error)
   }

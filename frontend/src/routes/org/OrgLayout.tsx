@@ -1,95 +1,108 @@
-import { useQuery } from '@tanstack/react-query'
+import { Clock } from 'lucide-react'
 import { Outlet } from 'react-router-dom'
-import { api, withQuery } from '../../lib/api'
-import type { ClaimOrgView, OrganizationView, PageResponse } from '../../lib/types'
-import { ConsoleLayout } from '../../components/layouts/ConsoleLayout'
-import { ErrorBanner, Notice, Spinner } from '../../components/Feedback'
-import { OrganizationStatusBadge } from '../../components/StatusBadge'
+import { ConsoleShell, type ConsoleNavItem } from '../../components/console/ConsoleShell'
+import { TermsLink } from '../../components/terms/TermsLink'
+import { ORG_TERMS } from '../../components/terms/termsContent'
+import { Callout } from '../../components/ui/Callout'
+import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
+import type { OrganizationView } from '../../lib/types'
+import { useOrganization, useOrgUnread } from './orgQueries'
+
+// 選單圖示：設計稿的 path（24x24）
+const ICON_WISHES = (
+  <>
+    <rect x="3" y="8" width="18" height="4" rx="1" /><path d="M12 8v13" />
+    <path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" />
+    <path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5" />
+  </>
+)
+const ICON_CHAT = <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+const ICON_ANNUAL = (
+  <>
+    <path d="M3 3v16a2 2 0 0 0 2 2h16" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" />
+  </>
+)
+const ICON_SETTINGS = (
+  <>
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+    <circle cx="12" cy="12" r="3" />
+  </>
+)
+const ICON_TERMS = (
+  <>
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    <path d="M10 9H8" /><path d="M16 13H8" /><path d="M16 17H8" />
+  </>
+)
 
 /**
- * 機構後台的外框。
- *
- * 導覽列**沒有願望牆**——機構的工作是管理自己上架的願望與處理認領，
- * 瀏覽別人的願望對他們沒有意義。要看公開頁面可以從主網站進去。
+ * 機構後台的外框（設計稿 15.2）：左側選單「願望管理、與團隊對話、機構設定」（前兩項後方紅色未讀數），
+ * 另外多一項「年度回顧」——那是既有功能，設計稿的選單沒有，經使用者確認放在選單裡。
+ * 資料（機構本身）在這裡查一次，給底下各頁共用。
  */
 export function OrgLayout() {
-  const organization = useQuery({
-    queryKey: ['organization', 'me'],
-    queryFn: () => api.get<OrganizationView>('/api/organizations/me'),
-  })
+  const organization = useOrganization()
+  const unread = useOrgUnread()
 
-  // 逾期筆數放在導覽上，機構一進來就知道有沒有要處理的事
-  const overdue = useQuery({
-    queryKey: ['claims', 'org', 'overdue-count'],
-    queryFn: () => api.get<PageResponse<ClaimOrgView>>(
-      withQuery('/api/organizations/me/claims/overdue', { size: 1 })),
-  })
-
-  if (organization.isLoading) return <Spinner label="載入機構資料" />
+  if (organization.isLoading) return <div className="rd"><main className="page"><Spinner label="載入機構資料" /></main></div>
   if (organization.isError) {
     return (
-      <div className="mx-auto max-w-lg py-12">
-        <ErrorBanner error={organization.error} onRetry={() => void organization.refetch()} />
-      </div>
+      <div className="rd"><main className="page">
+        <ErrorNotice error={organization.error} onRetry={() => void organization.refetch()} />
+      </main></div>
     )
   }
-
   const data = organization.data!
 
+  const items: ConsoleNavItem[] = [
+    { to: '/org', label: '願望管理', icon: ICON_WISHES, badge: unread.data?.wishes, end: true },
+    { to: '/org/chat', label: '與團隊對話', icon: ICON_CHAT, badge: unread.data?.team },
+    { to: '/org/annual', label: '年度回顧', icon: ICON_ANNUAL },
+    { to: '/org/settings', label: '機構設定', icon: ICON_SETTINGS },
+  ]
+
   return (
-    <ConsoleLayout
-      title="機構後台"
-      subtitle={data.name}
-      accent="santa"
-      homePath="/org"
-      items={[
-        { to: '/org', label: '總覽', end: true },
-        { to: '/org/wishes', label: '願望管理' },
-        { to: '/org/claims', label: '認領管理' },
-        { to: '/org/overdue', label: '逾期提醒', badge: overdue.data?.totalElements },
-        { to: '/org/annual', label: '年度回顧' },
-        { to: '/org/settings', label: '機構設定' },
-      ]}
+    <ConsoleShell
+      appLabel="機構後台"
+      name={data.name}
+      items={items}
+      banner={<ReviewBanner organization={data} />}
+      terms={
+        <TermsLink terms={ORG_TERMS} className="org-side__terms">
+          <svg className="icon" viewBox="0 0 24 24" aria-hidden>{ICON_TERMS}</svg>
+          合作機構參與須知
+        </TermsLink>
+      }
     >
-      <div className="space-y-5">
-        <div className="flex items-center gap-3">
-          <OrganizationStatusBadge status={data.status} />
-          <ReviewStatusNotice organization={data} />
-        </div>
-        <Outlet context={{ organization: data }} />
-      </div>
-    </ConsoleLayout>
+      <Outlet context={{ organization: data }} />
+    </ConsoleShell>
   )
 }
 
-function ReviewStatusNotice({ organization }: { organization: OrganizationView }) {
+/** 還沒通過審核（或被退回、停權）時，內容區最上方的提示。 */
+function ReviewBanner({ organization }: { organization: OrganizationView }) {
   if (organization.status === 'APPROVED') return null
 
   if (organization.status === 'PENDING') {
     return (
-      <span className="text-sm text-slate-600">
-        審核中——核准後就能上架願望，現在可以先把願望存成草稿。
-      </span>
+      <Callout tone="warn" className="org-review" icon={<Clock className="icon" aria-hidden />}>
+        <strong>機構資料審核中。</strong>審核通過前，願望可以先存成草稿；通過後就能送出刊登。
+        審核結果會寄到 <strong>{organization.contactEmail}</strong>。
+      </Callout>
     )
   }
-
   if (organization.status === 'REJECTED') {
     return (
-      <span className="text-sm text-berry-600">
-        審核未通過{organization.reviewNote && `：${organization.reviewNote}`}
-        　請至「機構設定」補齊資料後重新送審。
-      </span>
+      <Callout tone="warn" className="org-review" icon={<Clock className="icon" aria-hidden />}>
+        <strong>機構資料審核未通過。</strong>
+        {organization.reviewNote && <>原因：{organization.reviewNote}。</>}
+        請至「機構設定」補齊資料後重新送審。
+      </Callout>
     )
   }
-
-  return <span className="text-sm text-berry-600">機構已停權，請與平台管理員聯繫。</span>
-}
-
-/** 給還沒通過審核就想上架的機構看的提示。 */
-export function NotApprovedNotice() {
   return (
-    <Notice tone="warning">
-      機構尚未通過審核，可以先建立草稿，核准後再上架。
-    </Notice>
+    <Callout tone="warn" className="org-review" icon={<Clock className="icon" aria-hidden />}>
+      <strong>機構已停權。</strong>已上架與已認領的願望不受影響，但無法建立新願望；請與平台管理員聯繫。
+    </Callout>
   )
 }
