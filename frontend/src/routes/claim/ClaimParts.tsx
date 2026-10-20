@@ -3,7 +3,8 @@ import { CalendarCheck, Check, Copy } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { api } from '../../lib/api'
 import { formatDate, formatDateTime, formatPlainDate } from '../../lib/format'
-import type { AttachmentView, ClaimDonorView } from '../../lib/types'
+import type { AttachmentView, ClaimDonorView, DonorReceiptView } from '../../lib/types'
+import { ImageLightbox } from '../../components/console/ImageViewer'
 import { Dialog } from '../../components/ui/Dialog'
 import { FormField, Input } from '../../components/ui/Fields'
 import { ErrorNotice } from '../../components/ui/Spinner'
@@ -161,7 +162,7 @@ export function ReceiptProofPanel({ claim, proofs }: { claim: ClaimDonorView; pr
             機構已於 {claim.receivedOn ? formatPlainDate(claim.receivedOn) : formatDate(claim.receivedAt)} 確認收到禮物。
           </p>
           {proofs.length > 0
-            ? <ProofGrid photos={proofs} emptyHint="" />
+            ? <ProofGrid photos={proofs} emptyHint="" preview={3} />
             : <p style={{ margin: 0, fontSize: 14, color: 'var(--fg-muted)' }}>機構沒有附上收件證明照片。</p>}
         </>
       ) : (
@@ -175,10 +176,14 @@ export function ReceiptProofPanel({ claim, proofs }: { claim: ClaimDonorView; pr
   )
 }
 
-/** 已回報寄送的摘要（物流、追蹤碼、禮物、數量、價格、日期、照片、是否索取收據）。 */
-export function ShipSummary({ claim, proofs }: {
+/**
+ * 已回報寄送的摘要（物流、追蹤碼、禮物、數量、價格、日期、照片、捐贈收據）。
+ * 有申請收據時，`receipt` 是自己送出的內容（證號已由後端遮罩）；還沒載入或讀不到就先顯示「已提供開據資料」。
+ */
+export function ShipSummary({ claim, proofs, receipt }: {
   claim: ClaimDonorView
   proofs: AttachmentView[]
+  receipt?: DonorReceiptView | null
 }) {
   return (
     <StepPanel no={2} done title="已回報寄送">
@@ -201,7 +206,26 @@ export function ShipSummary({ claim, proofs }: {
           <dt>捐贈收據</dt>
           <dd>{claim.receiptRequested ? '需要（已提供開據資料）' : '不需要另外索取'}</dd>
         </div>
+        {receipt && (
+          <>
+            <div><dt>收據抬頭</dt><dd>{receipt.name}</dd></div>
+            <div><dt>身分證字號或統一編號</dt><dd>{receipt.maskedIdNumber}</dd></div>
+            <div><dt>收據寄送信箱</dt><dd>{receipt.email}</dd></div>
+            <div><dt>收據寄送地址</dt><dd>{receipt.address}</dd></div>
+            <div>
+              <dt>發票證明</dt>
+              <dd>
+                <ProofViewer photos={receipt.proofs} title="發票證明" unit="個檔案" id="receipt-proof-title" />
+              </dd>
+            </div>
+          </>
+        )}
       </dl>
+      {receipt && (
+        <p className="ship-note">
+          證號只顯示前後各 2 碼。資料需要更正的話，請寫信到 onlinesanta2026@gmail.com，由管理員處理。
+        </p>
+      )}
       {/* 機構確認收到之後就不再提示修改 */}
       {claim.status === 'SHIPPED' && (
         <p className="ship-note">資料需要修改的話，請在下方對話告訴機構或寫信給我們。</p>
@@ -210,18 +234,33 @@ export function ShipSummary({ claim, proofs }: {
   )
 }
 
-/** 「N 張」旁邊的「查看」：按了才跳出照片。回報送出後只能檢視，不能刪除或補傳。 */
-function ProofViewer({ photos }: { photos: AttachmentView[] }) {
+/**
+ * 「N 張」旁邊的「查看」：按了才跳出照片。回報送出後只能檢視，不能刪除或補傳。
+ * 發票證明可能是 PDF，所以不是圖片的檔案以連結列出（`unit` 傳「個檔案」）。
+ */
+function ProofViewer({ photos, title = '寄件照片', unit = '張', id = 'proof-title' }: {
+  photos: AttachmentView[]
+  title?: string
+  unit?: string
+  id?: string
+}) {
   const [open, setOpen] = useState(false)
+  const images = photos.filter((photo) => photo.contentType.startsWith('image/'))
+  const others = photos.filter((photo) => !photo.contentType.startsWith('image/'))
   return (
     <>
-      {photos.length} 張
+      {photos.length} {unit}
       {photos.length > 0 && (
         <>
           <button type="button" className="link-btn" onClick={() => setOpen(true)}>查看</button>
-          <Dialog open={open} onClose={() => setOpen(false)} labelledBy="proof-title">
-            <h2 id="proof-title">寄件照片</h2>
-            <ProofGrid photos={photos} emptyHint="" />
+          <Dialog open={open} onClose={() => setOpen(false)} labelledBy={id}>
+            <h2 id={id}>{title}</h2>
+            <ProofGrid photos={images} emptyHint="" />
+            {others.map((file) => (
+              <p key={file.id} style={{ margin: '8px 0' }}>
+                <a href={file.url} target="_blank" rel="noreferrer">{file.fileName ?? '開啟檔案'}</a>
+              </p>
+            ))}
             <div className="dialog__actions">
               <button type="button" className="btn" onClick={() => setOpen(false)}>關閉</button>
             </div>
@@ -236,28 +275,47 @@ function ProofViewer({ photos }: { photos: AttachmentView[] }) {
  * 照片格線。`deletable` 只在「這組照片是目前使用者自己上傳的」時才開——
  * 機構的回饋照片對捐贈者是唯讀的。
  */
-export function ProofGrid({ photos, emptyHint, deletable, onChanged }: {
+export function ProofGrid({ photos, emptyHint, deletable, onChanged, preview }: {
   photos: AttachmentView[]
   emptyHint: string
   deletable?: boolean
   onChanged?: () => void
+  /** 先顯示前幾張，其餘收進「+N」；點任何一張都在彈窗裡看全部 */
+  preview?: number
 }) {
+  // 點縮圖在彈窗裡放大（同一組可左右切換），不跳新分頁
+  const [viewing, setViewing] = useState<number | null>(null)
   if (photos.length === 0) {
     return emptyHint ? <p style={{ margin: 0, fontSize: 14, color: 'var(--fg-muted)' }}>{emptyHint}</p> : null
   }
   return (
-    <div className="proof-grid">
-      {photos.map((photo) => (
-        <ProofTile key={photo.id} photo={photo} deletable={deletable} onChanged={onChanged} />
-      ))}
-    </div>
+    <>
+      <div className="proof-grid">
+        {photos.slice(0, preview).map((photo, index) => (
+          <ProofTile key={photo.id} photo={photo} deletable={deletable} onChanged={onChanged}
+            onOpen={() => setViewing(index)} />
+        ))}
+        {preview !== undefined && photos.length > preview && (
+          <button type="button" className="proof proof--more" onClick={() => setViewing(preview)}
+            aria-label={`再看其餘 ${photos.length - preview} 張`}>
+            +{photos.length - preview}
+          </button>
+        )}
+      </div>
+      <ImageLightbox
+        images={photos.map((photo, index) => ({
+          id: photo.id, url: photo.url, alt: photo.fileName ?? `照片 ${index + 1}`,
+        }))}
+        index={viewing} onIndex={setViewing} onClose={() => setViewing(null)} />
+    </>
   )
 }
 
-function ProofTile({ photo, deletable, onChanged }: {
+function ProofTile({ photo, deletable, onChanged, onOpen }: {
   photo: AttachmentView
   deletable?: boolean
   onChanged?: () => void
+  onOpen: () => void
 }) {
   const [confirming, setConfirming] = useState(false)
   const remove = useMutation({
@@ -267,9 +325,9 @@ function ProofTile({ photo, deletable, onChanged }: {
 
   return (
     <div className="proof">
-      <a href={photo.url} target="_blank" rel="noreferrer">
+      <button type="button" className="proof__open" onClick={onOpen} aria-label="放大檢視">
         <img src={photo.url} alt="" />
-      </a>
+      </button>
       {deletable && !confirming && (
         <button type="button" className="proof__del" onClick={() => setConfirming(true)}>刪除</button>
       )}
@@ -340,6 +398,22 @@ export function ProgressSteps({ claim }: { claim: ClaimDonorView }) {
 
 /** 期限提示：待寄送時黃色（逾期紅色）＋「還有 N 天」膠囊；寄出後改綠色說明目前狀態。 */
 export function DeadlineBar({ claim, remaining }: { claim: ClaimDonorView; remaining: number | null }) {
+  // 管理員凍結中：期限暫停，不用寄出（寄出之後的認領不受影響，照常顯示）
+  if (claim.paused && claim.status === 'CLAIMED') {
+    return (
+      <div className="deadline" data-tone="late" role="status">
+        <CalendarCheck className="icon" aria-hidden />
+        <p className="deadline__text" style={{ margin: 0 }}>
+          <strong>暫停處理中：暫時不用寄出禮物</strong>
+          <small>
+            平台正在確認這個願望的內容，寄送期限暫停計算，解除後會通知你並順延期限。
+            有問題可以在下方詢問機構，或寫信到 onlinesanta2026@gmail.com。
+          </small>
+        </p>
+        <span className="deadline__days">暫停中</span>
+      </div>
+    )
+  }
   if (claim.status === 'CLAIMED') {
     const late = remaining !== null && remaining < 0
     return (

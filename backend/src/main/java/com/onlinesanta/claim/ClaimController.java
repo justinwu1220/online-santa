@@ -25,9 +25,12 @@ import com.onlinesanta.claim.dto.ClaimDonorView;
 import com.onlinesanta.claim.dto.ClaimEventView;
 import com.onlinesanta.claim.dto.ClaimRequest;
 import com.onlinesanta.claim.dto.DonorAnnualSummaryView;
+import com.onlinesanta.claim.dto.DonorReceiptView;
 import com.onlinesanta.claim.dto.ReleaseRequest;
 import com.onlinesanta.claim.dto.ShipRequest;
 import com.onlinesanta.common.PageResponse;
+import com.onlinesanta.common.exception.ResourceNotFoundException;
+import com.onlinesanta.receipt.ClaimReceiptService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,17 +47,20 @@ public class ClaimController {
     private final AttachmentService attachments;
     private final MessageService messages;
     private final CurrentUserService currentUser;
+    private final ClaimReceiptService receipts;
 
     public ClaimController(ClaimService claims,
                            ClaimAnnualStatsService annualStats,
                            AttachmentService attachments,
                            MessageService messages,
-                           CurrentUserService currentUser) {
+                           CurrentUserService currentUser,
+                           ClaimReceiptService receipts) {
         this.claims = claims;
         this.annualStats = annualStats;
         this.attachments = attachments;
         this.messages = messages;
         this.currentUser = currentUser;
+        this.receipts = receipts;
     }
 
     @PostMapping("/wishes/{wishId}/claim")
@@ -111,6 +117,18 @@ public class ClaimController {
         // 先做權限檢查再取檔案——這些檔案含捐贈者個資與孩童影像
         claims.getVisibleById(id);
         return attachments.claimAttachments(id);
+    }
+
+    @GetMapping("/claims/{id}/receipt")
+    @Operation(summary = "我送出的捐贈收據資料",
+            description = "只有該筆認領的捐贈者本人；身分證字號／統一編號已遮罩。機構與其他人一律 404，沒申請收據也是 404")
+    public DonorReceiptView receipt(@PathVariable UUID id) {
+        Claim claim = claims.getVisibleById(id);
+        // 機構也看得到這筆認領，但收據資料不是給它的；用 404 而不是 403，不透露有沒有申請
+        if (!claim.isOwnedBy(currentUser.require().userId())) {
+            throw ResourceNotFoundException.of("捐贈收據", id);
+        }
+        return DonorReceiptView.of(receipts.readMasked(id), attachments.receiptProofs(id));
     }
 
     @PostMapping("/claims/{id}/ship")

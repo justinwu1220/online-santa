@@ -6,7 +6,7 @@ import { api } from '../lib/api'
 import { playCancelOut, playCelebration } from '../lib/claimMotion'
 import { daysUntil } from '../lib/format'
 import { clearEffects, isCurrentNav, markSpecialNavigation, startNav } from '../lib/motion'
-import type { AttachmentView, ClaimDonorView, WishPublicView } from '../lib/types'
+import type { AttachmentView, ClaimDonorView, DonorReceiptView, WishPublicView } from '../lib/types'
 import { useDetailEntry } from '../lib/useEntryAnimation'
 import { useMyProfile } from '../lib/useMyProfile'
 import { claimTabOf } from '../lib/wishStatus'
@@ -55,6 +55,22 @@ export function ClaimDetail() {
   const attachments = useQuery({
     queryKey: ['claim', id, 'attachments'],
     queryFn: () => api.get<AttachmentView[]>(`/api/claims/${id}/attachments`),
+  })
+
+  // 自己送出的收據資料（證號後端已遮罩）。含個資，不留在快取裡；404 當作沒有
+  const receiptRequested = claim.data?.receiptRequested === true
+  const receipt = useQuery({
+    queryKey: ['claim', id, 'receipt'],
+    queryFn: async () => {
+      try {
+        return await api.get<DonorReceiptView>(`/api/claims/${id}/receipt`)
+      } catch (e) {
+        if (e instanceof ApiError && e.isNotFound) return null
+        throw e
+      }
+    },
+    enabled: receiptRequested,
+    gcTime: 0,
   })
 
   // 願望大卡片要等公開的願望資料到了（成功或失敗）才算準備好，否則動畫會播在稍後被換掉的暫代版面上
@@ -168,7 +184,7 @@ export function ClaimDetail() {
             {/* 放在「回報寄送」之前：要先知道寄去哪，才談得上回報寄了沒 */}
             <AddressPanel claim={data} done={data.status !== 'CLAIMED'} />
 
-            {data.status === 'CLAIMED' && (
+            {data.status === 'CLAIMED' && !data.paused && (
               <StepPanel no={2} title="寄出後，回報寄送資訊">
                 <ShipForm claimId={id} onDone={refreshAll} />
               </StepPanel>
@@ -177,7 +193,7 @@ export function ClaimDetail() {
             {/* 待寄送時物流業者／追蹤碼／照片在「回報寄送」表單一次填完；一旦寄出，
                 改用這個合併後的唯讀摘要顯示，不要拆成兩個區塊各顯示一半 */}
             {shipped && (
-              <ShipSummary claim={data} proofs={shippingProofs} />
+              <ShipSummary claim={data} proofs={shippingProofs} receipt={receipt.data} />
             )}
 
             <ReceiptProofPanel claim={data} proofs={feedbackPhotos} />
@@ -195,7 +211,7 @@ export function ClaimDetail() {
               <p className="mini-org__intro">{data.organizationDescription}</p>
               <OrgSiteLink href={data.organizationWebsite} />
             </section>
-            {data.status === 'CLAIMED' && <CancelPanel claimId={id} onCancelled={cancelled} />}
+            {data.status === 'CLAIMED' && !data.paused && <CancelPanel claimId={id} onCancelled={cancelled} />}
           </div>
         </div>
       </div>

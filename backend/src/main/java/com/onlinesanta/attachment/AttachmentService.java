@@ -405,9 +405,9 @@ public class AttachmentService {
     }
 
     /**
-     * 某筆認領的發票證明。<strong>只有管理端點能呼叫</strong>：機構看不到收據資料，
+     * 某筆認領的發票證明。<strong>只有管理端點與認領者本人的端點能呼叫</strong>：機構看不到收據資料，
      * 所以這些檔案刻意不在 {@link #claimAttachments} 裡（那支同時給捐贈者與機構用）。
-     * 呼叫端必須自己寫稽核紀錄。
+     * 呼叫端必須自己確認身分；管理端還要寫稽核紀錄。
      */
     @Transactional(readOnly = true)
     public List<AttachmentView> receiptProofs(UUID claimId) {

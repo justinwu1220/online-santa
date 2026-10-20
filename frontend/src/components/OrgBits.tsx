@@ -1,4 +1,6 @@
 import { ExternalLink } from 'lucide-react'
+import { useState } from 'react'
+import { ImageLightbox } from './console/ImageViewer'
 
 /**
  * 機構照片與官方網站連結，結構照 prototype.html。機構沒上傳照片或沒填官網時
@@ -10,9 +12,20 @@ export function OrgPhoto({ src, orgName, mini = false }: {
   mini?: boolean
 }) {
   const cls = mini ? 'mini-org__photo' : `org__photo${src ? '' : ' org__photo--empty'}`
+  const alt = `${orgName ?? '機構'}的照片`
+  const [open, setOpen] = useState(false)
   return (
     <div className={cls}>
-      {src ? <img src={src} alt={`${orgName ?? '機構'}的照片`} /> : '【機構照片】'}
+      {src ? (
+        <>
+          <button type="button" className="org__photo-open" onClick={() => setOpen(true)}
+            aria-label={`放大檢視：${alt}`}>
+            <img src={src} alt={alt} />
+          </button>
+          <ImageLightbox images={[{ id: src, url: src, alt }]} index={open ? 0 : null}
+            onIndex={() => {}} onClose={() => setOpen(false)} />
+        </>
+      ) : '【機構照片】'}
     </div>
   )
 }

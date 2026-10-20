@@ -170,6 +170,40 @@ class ClaimReceiptApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.receipt").doesNotExist());
     }
 
+    @Test
+    @DisplayName("認領者本人讀得到自己送出的收據資料，證號遮罩、不含明文")
+    void donorReadsOwnReceiptWithMaskedIdNumber() throws Exception {
+        UUID claimId = claimReadyToShip("本人查看");
+        shipWithReceipt(claimId);
+
+        String body = mvc.perform(as(get("/api/claims/{id}/receipt", claimId), DONOR))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("王大明"))
+                .andExpect(jsonPath("$.maskedIdNumber").value("A1******89"))
+                .andExpect(jsonPath("$.email").value("receipt@example.com"))
+                .andExpect(jsonPath("$.address").value("台北市中正區某路 1 號"))
+                .andExpect(jsonPath("$.proofs.length()").value(1))
+                .andExpect(jsonPath("$.proofs[0].purpose").value("RECEIPT_PROOF"))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(body).doesNotContain("A123456789").doesNotContain("\"idNumber\"");
+    }
+
+    @Test
+    @DisplayName("機構、其他捐贈者讀收據資料一律 404；沒申請收據的認領也是 404")
+    void onlyTheClaimantCanReadReceiptViaClaimEndpoint() throws Exception {
+        UUID claimId = claimReadyToShip("只有本人");
+        shipWithReceipt(claimId);
+
+        mvc.perform(as(get("/api/claims/{id}/receipt", claimId), ORG_USER))
+                .andExpect(status().isNotFound());
+        mvc.perform(as(get("/api/claims/{id}/receipt", claimId), OTHER_DONOR))
+                .andExpect(status().isNotFound());
+
+        UUID without = claimedWish("沒申請收據");
+        mvc.perform(as(get("/api/claims/{id}/receipt", without), DONOR))
+                .andExpect(status().isNotFound());
+    }
+
     // ------------------------------------------------------------ 機構看不到
 
     @Test

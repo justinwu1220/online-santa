@@ -295,6 +295,8 @@ export interface ClaimDonorView extends ClaimBase {
   organizationPreferredDeliveryTime?: string
   /** 是否申請了捐贈收據。只有旗標，收據內容只有管理員看得到 */
   receiptRequested: boolean
+  /** 願望被管理員凍結中：寄送期限暫停，不能回報寄送或取消，認領頁顯示「暫停處理中」 */
+  paused: boolean
 }
 
 export interface ClaimOrgView extends ClaimBase {
@@ -460,6 +462,15 @@ export interface AdminClaimView {
   /** 是否申請了捐贈收據；內容要用專用端點讀取（會寫稽核） */
   receiptRequested: boolean
   releaseReason?: string
+}
+
+/** 認領者本人看自己送出的捐贈收據資料。證號已由後端遮罩（前後各 2 碼），機構看不到。 */
+export interface DonorReceiptView {
+  name: string
+  maskedIdNumber: string
+  email: string
+  address: string
+  proofs: AttachmentView[]
 }
 
 /** 管理員讀到的捐贈收據資料。身分證字號／統一編號是解密後的明文，機構與捐贈者端沒有這個型別。 */
