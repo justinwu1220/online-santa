@@ -74,6 +74,8 @@ function ClaimCard({ claim }: { claim: ClaimDonorView }) {
   const tab = claimTabOf(claim.status)
   const remaining = daysUntil(claim.shipDeadlineAt)
   const awaitingShipment = claim.status === 'CLAIMED'
+  // 願望被管理員凍結：標籤與說明改成「暫停處理中」
+  const paused = claim.paused && awaitingShipment
 
   return (
     <Link
@@ -83,7 +85,7 @@ function ClaimCard({ claim }: { claim: ClaimDonorView }) {
       data-status={tab.key}
       aria-label={`${claim.childAlias}，${claim.ageRangeLabel}，${claim.organizationName}，想要${claim.wishTitle}，${tab.label}`}
     >
-      <span className="status-tab">{tab.label}</span>
+      <span className="status-tab">{paused ? '暫停處理中' : tab.label}</span>
 
       <div className="who">
         <img className="avatar" src={avatarSrc(claim.avatar)} alt="" width={64} height={64} />
@@ -102,7 +104,9 @@ function ClaimCard({ claim }: { claim: ClaimDonorView }) {
           <span className="gift__text">{claim.wishTitle}</span>
         </span>
         <p style={{ margin: '12px 0 0', fontSize: 13, lineHeight: 1.7, color: claim.overdue ? '#fca5a5' : 'var(--fg-4)' }}>
-          {awaitingShipment && remaining !== null
+          {paused
+            ? '平台正在確認這個願望，暫時不用寄出，寄送期限暫停計算'
+            : awaitingShipment && remaining !== null
             ? remaining >= 0
               ? `請於 ${formatDate(claim.shipDeadlineAt)} 前寄出（還有 ${remaining} 天）`
               : `已逾期 ${Math.abs(remaining)} 天，機構可能會收回這個願望`

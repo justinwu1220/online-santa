@@ -25,7 +25,6 @@ const RECALL_REASONS = [
   { value: 'OVERDUE', label: '逾期未寄送' },
   { value: 'UNREACHABLE', label: '認領者聯繫不上' },
   { value: 'CANNOT_COMPLETE', label: '認領者表示無法完成' },
-  { value: 'EDIT_WISH', label: '需要修改願望內容' },
   { value: 'OTHER', label: '其他' },
 ] as const
 type RecallReason = typeof RECALL_REASONS[number]['value']
@@ -264,13 +263,9 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
         wishTitle={wish.title}
         claim={claim}
         onClose={() => setRecalling(false)}
-        onDone={async (reason, forEdit) => {
+        onDone={async (reason) => {
           setRecalling(false)
-          await afterChange(forEdit
-            ? `已收回「${wish.title}」，認領者已收到通知；接著可以修改願望`
-            : `已收回「${wish.title}」（${reason}），願望已重新上架`)
-          // 為修改而收回：直接接著走「撤下並修改」，願望目前又回到願望牆上了
-          if (forEdit) setBeginningEdit(true)
+          await afterChange(`已收回「${wish.title}」（${reason}），願望已重新上架`)
         }}
       />
     </>
@@ -454,13 +449,13 @@ function StatusCard({ wish, donor, orgPending }: { wish: WishOrgView; donor: str
       icon = 'alert'
       const late = Math.max(1, -(daysUntil(summary?.shipDeadlineAt) ?? 0))
       title = `已超過寄出期限 ${late} 天`
-      desc = `${donor} 還沒回報寄送。可以在「對話」提醒對方，或收回願望重新上架。願望內容已鎖定，要修改也請先收回。`
+      desc = `${donor} 還沒回報寄送。可以在「對話」提醒對方，或收回願望重新上架。願望內容已鎖定、不能修改。`
       break
     }
     case 'CLAIMED_WAITING':
       icon = 'clock'
       title = `等 ${donor} 寄出禮物`
-      desc = `寄出期限 ${formatDate(summary?.shipDeadlineAt)}（還有 ${daysUntil(summary?.shipDeadlineAt)} 天）。願望內容已鎖定；若需要修改，請先「收回這個願望」（原因選「需要修改願望內容」，認領者會收到通知）。`
+      desc = `寄出期限 ${formatDate(summary?.shipDeadlineAt)}（還有 ${daysUntil(summary?.shipDeadlineAt)} 天）。願望已被認領，內容已鎖定、不能修改；認領者會照目前的內容準備禮物。有問題請在「對話」與認領者溝通。`
       break
     default:
       icon = 'alert'
@@ -602,14 +597,14 @@ function RecallDialog({ open, wishTitle, claim, onClose, onDone }: {
   wishTitle: string
   claim?: ClaimOrgView
   onClose: () => void
-  onDone: (reasonLabel: string, forEdit: boolean) => void | Promise<void>
+  onDone: (reasonLabel: string) => void | Promise<void>
 }) {
   const [reason, setReason] = useState<RecallReason>('OVERDUE')
   const [detail, setDetail] = useState('')
   const recall = useMutation({
     mutationFn: () => api.post(`/api/organizations/me/claims/${claim!.id}/release`,
       { reason, detail: reason === 'OTHER' && detail.trim() ? detail.trim() : undefined }),
-    onSuccess: () => onDone(RECALL_REASONS.find((item) => item.value === reason)!.label, reason === 'EDIT_WISH'),
+    onSuccess: () => onDone(RECALL_REASONS.find((item) => item.value === reason)!.label),
   })
   function close() {
     setReason('OVERDUE')
@@ -621,7 +616,7 @@ function RecallDialog({ open, wishTitle, claim, onClose, onDone }: {
   return (
     <Dialog open={open} onClose={close} labelledBy="recallTitle" dismissible={!recall.isPending}>
       <h2 id="recallTitle">確定要收回這個願望嗎？</h2>
-      <p>收回後，「{wishTitle}」會立刻重新上架，原本的認領者會收到站內訊息與 Email 通知，不能再回報寄送。</p>
+      <p>收回後，「{wishTitle}」會立刻重新上架，原本的認領者會收到 Email 通知，並在認領頁看到收回原因，不能再回報寄送。</p>
       <fieldset className="recall-reasons">
         <legend className="field__label">收回原因</legend>
         {RECALL_REASONS.map((item) => (
@@ -632,12 +627,6 @@ function RecallDialog({ open, wishTitle, claim, onClose, onDone }: {
           </label>
         ))}
       </fieldset>
-      {reason === 'EDIT_WISH' && (
-        <p className="auth-note" style={{ marginTop: 12 }}>
-          認領者會收到「機構需要修改願望內容、通過審核後才會再上架」的通知。收回之後接著修改並重新送審；
-          審核期間願望不會出現在願望牆。建議也在「對話」向認領者說明，避免對方誤會。
-        </p>
-      )}
       {reason === 'OTHER' && (
         <div className="field" style={{ marginTop: 12 }}>
           <input className="input" maxLength={200} value={detail} placeholder="補充說明（選填）"
@@ -648,7 +637,7 @@ function RecallDialog({ open, wishTitle, claim, onClose, onDone }: {
       <div className="dialog__actions">
         <button type="button" className="btn" onClick={close} disabled={recall.isPending}>再想想</button>
         <button type="button" className="btn btn--danger-solid" disabled={recall.isPending}
-          onClick={() => recall.mutate()}>{recall.isPending ? '處理中…' : reason === 'EDIT_WISH' ? '收回並接著修改' : '收回並重新上架'}</button>
+          onClick={() => recall.mutate()}>{recall.isPending ? '處理中…' : '收回並重新上架'}</button>
       </div>
     </Dialog>
   )

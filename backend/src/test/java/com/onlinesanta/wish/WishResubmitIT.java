@@ -248,22 +248,23 @@ class WishResubmitIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("認領者還沒寄出：機構為修改內容收回認領，認領者在對話收到通知，願望回到牆上，可接著修改")
-    void recallForEditNotifiesTheDonor() throws Exception {
+    @DisplayName("已被認領的願望內容鎖定：認領者還沒寄出也不能修改，也沒有「為修改而收回」這條路")
+    void claimedWishIsLockedEvenBeforeShipping() throws Exception {
         UUID id = publishedWish("色鉛筆");
         UUID claimId = claim(id);
 
+        mvc.perform(as(post("/api/wishes/{id}/begin-edit", id), ORG_USER))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("WISH_ALREADY_CLAIMED"))
+                .andExpect(jsonPath("$.detail").value(
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("收回"))));
+
+        // 已經移除的收回原因不再被接受，認領與願望都維持原狀
         mvc.perform(as(withBody(post("/api/organizations/me/claims/{id}/release", claimId),
                 Map.of("reason", "EDIT_WISH")), ORG_USER))
-                .andExpect(status().isOk());
-        assertThat(wish(id).getStatus()).isEqualTo(WishStatus.AVAILABLE);
-        assertThat(eventTypes(id)).contains(WishEventType.RECALLED_FOR_EDIT);
-        assertThat(messageRepository.findAll()).anyMatch(message ->
-                claimId.equals(message.getClaimId()) && message.getBody().contains("需要修改願望內容"));
-
-        mvc.perform(as(post("/api/wishes/{id}/begin-edit", id), ORG_USER))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("DRAFT"));
+                .andExpect(status().isBadRequest());
+        assertThat(wish(id).getStatus()).isEqualTo(WishStatus.CLAIMED);
+        assertThat(eventTypes(id)).doesNotContain(WishEventType.RECALLED_FOR_EDIT);
     }
 
     @Test
@@ -276,7 +277,7 @@ class WishResubmitIT extends ApiIntegrationTest {
                 .andExpect(status().isOk());
 
         mvc.perform(as(withBody(post("/api/organizations/me/claims/{id}/release", claimId),
-                Map.of("reason", "EDIT_WISH")), ORG_USER))
+                Map.of("reason", "OTHER")), ORG_USER))
                 .andExpect(status().isConflict());
         mvc.perform(as(post("/api/wishes/{id}/begin-edit", id), ORG_USER))
                 .andExpect(status().isConflict())

@@ -57,6 +57,8 @@ public record ClaimDonorView(
         String donorMessage,
         /** 是否申請了捐贈收據（只有旗標，收據資料不在這裡） */
         boolean receiptRequested,
+        /** 願望被管理員凍結中：認領頁顯示「暫停處理中」，寄送期限暫停，不能回報寄送或取消 */
+        boolean paused,
         String releaseReason,
         long unreadMessageCount) {
 
@@ -117,6 +119,7 @@ public record ClaimDonorView(
                 claim.getShippedOn(),
                 claim.getDonorMessage(),
                 viewerIsDonor && claim.isReceiptRequested(),
+                wish.isFrozen(),
                 claim.getReleaseReason(),
                 unreadMessageCount);
     }

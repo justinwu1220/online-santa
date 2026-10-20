@@ -81,7 +81,8 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
                     select 1 from Claim c
                      where c.wish = w
                        and c.status = com.onlinesanta.claim.ClaimStatus.CLAIMED
-                       and c.shipDeadlineAt < :now))
+                       and c.shipDeadlineAt < :now
+                       and c.deadlinePausedAt is null))
               and w.createdAt >= :from and w.createdAt < :to
               and (:q = '' or lower(w.title) like :q or lower(w.childAlias) like :q
                             or lower(o.name) like :q)

@@ -160,7 +160,7 @@ public class WishService {
             Wish now = findById(id);
             throw switch (now.getStatus()) {
                 case CLAIMED, FULFILLED -> new BusinessRuleException("WISH_ALREADY_CLAIMED",
-                        "這個願望已經被認領，內容已鎖定。若認領者還沒寄出，可以先收回認領再修改");
+                        "這個願望已經被認領，內容已鎖定、不能修改；認領者會照目前的內容準備禮物，有問題請在對話中與認領者溝通");
                 default -> new BusinessRuleException("WISH_NOT_EDITABLE",
                         "只有上架中的願望需要先下架再修改，目前狀態為 " + now.getStatus());
             };

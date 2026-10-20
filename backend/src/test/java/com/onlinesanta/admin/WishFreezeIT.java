@@ -27,8 +27,8 @@ import com.onlinesanta.wish.WishCategory;
 import com.onlinesanta.wish.WishRepository;
 
 /**
- * 管理員暫時凍結願望（設計稿 16.3）：凍結後願望牆、詳情頁、認領者的「我的認領」都看不到，
- * 也不能被認領；機構後台仍看得到；解除後恢復。
+ * 管理員暫時凍結願望（設計稿 16.3）：凍結後願望牆與詳情頁都看不到，也不能被認領；
+ * 機構後台仍看得到；已認領的願望，認領者仍看得到自己的認領（標示暫停處理中），寄送期限暫停；解除後恢復。
  */
 @DisplayName("願望凍結")
 class WishFreezeIT extends ApiIntegrationTest {
@@ -48,6 +48,15 @@ class WishFreezeIT extends ApiIntegrationTest {
 
     @Autowired
     AdminAuditLogRepository auditLogs;
+
+    @Autowired
+    com.onlinesanta.claim.ClaimRepository claimRepository;
+
+    @Autowired
+    org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    @Autowired
+    jakarta.persistence.EntityManager em;
 
     private Organization organization;
 
@@ -100,29 +109,100 @@ class WishFreezeIT extends ApiIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
-    @Test
-    @DisplayName("已被認領的願望凍結後，認領者的「我的認領」與認領頁一併消失，機構仍看得到")
-    void frozenClaimedWishHidesFromDonorButNotOrganization() throws Exception {
-        UUID wishId = publishedWish("認領後被凍結");
+    private UUID claimedWish(String title) throws Exception {
+        UUID wishId = publishedWish(title);
         String body = mvc.perform(as(post("/api/wishes/{id}/claim", wishId), DONOR))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
-        UUID claimId = UUID.fromString(json.readTree(body).get("id").asText());
+        return UUID.fromString(json.readTree(body).get("id").asText());
+    }
 
-        mvc.perform(as(get("/api/claims/me"), DONOR)).andExpect(jsonPath("$.totalElements").value(1));
+    private UUID wishIdOf(UUID claimId) {
+        return jdbc.queryForObject("select wish_id from claims where id = ?", UUID.class, claimId);
+    }
+
+    @Test
+    @DisplayName("已被認領的願望凍結後，認領者仍看得到自己的認領並標示暫停處理中，機構也看得到")
+    void frozenClaimedWishStaysVisibleToDonorAsPaused() throws Exception {
+        UUID claimId = claimedWish("認領後被凍結");
+        UUID wishId = wishIdOf(claimId);
+
+        mvc.perform(as(get("/api/claims/{id}", claimId), DONOR))
+                .andExpect(jsonPath("$.paused").value(false));
 
         freeze(wishId, "調查中，先暫停");
 
-        mvc.perform(as(get("/api/claims/me"), DONOR)).andExpect(jsonPath("$.totalElements").value(0));
-        mvc.perform(as(get("/api/claims/{id}", claimId), DONOR)).andExpect(status().isNotFound());
-        mvc.perform(as(get("/api/claims/{id}/messages", claimId), DONOR)).andExpect(status().isNotFound());
+        mvc.perform(as(get("/api/claims/me"), DONOR)).andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].paused").value(true));
+        mvc.perform(as(get("/api/claims/{id}", claimId), DONOR))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paused").value(true));
+        mvc.perform(as(get("/api/claims/{id}/messages", claimId), DONOR)).andExpect(status().isOk());
 
+        // 公開的願望牆與詳情仍然看不到
+        mvc.perform(get("/api/wishes/{id}", wishId)).andExpect(status().isNotFound());
         // 機構後台仍保留
         mvc.perform(as(get("/api/organizations/me/wishes/{id}", wishId), ORG_USER))
                 .andExpect(status().isOk());
 
         mvc.perform(as(post("/api/admin/wishes/{id}/unfreeze", wishId), ADMIN)).andExpect(status().isOk());
-        mvc.perform(as(get("/api/claims/{id}", claimId), DONOR)).andExpect(status().isOk());
+        mvc.perform(as(get("/api/claims/{id}", claimId), DONOR))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paused").value(false));
+    }
+
+    @Test
+    @DisplayName("凍結期間認領者不能回報寄送或取消；解除後恢復")
+    void frozenClaimCannotShipOrCancel() throws Exception {
+        UUID claimId = claimedWish("凍結中不能寄");
+        UUID wishId = wishIdOf(claimId);
+        freeze(wishId, "調查中，先暫停");
+
+        mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
+                        com.onlinesanta.support.ShipRequests.of("郵局", "R1")), DONOR))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("WISH_FROZEN"));
+        mvc.perform(as(withBody(post("/api/claims/{id}/cancel", claimId),
+                        java.util.Map.of("reason", "不想送了")), DONOR))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("WISH_FROZEN"));
+
+        mvc.perform(as(post("/api/admin/wishes/{id}/unfreeze", wishId), ADMIN)).andExpect(status().isOk());
+        mvc.perform(as(withBody(post("/api/claims/{id}/cancel", claimId),
+                        java.util.Map.of("reason", "不想送了")), DONOR))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("凍結期間寄送期限暫停：不算逾期、不會被自動收回；解除後暫停的時長加回期限")
+    void freezePausesTheShipDeadline() throws Exception {
+        UUID claimId = claimedWish("期限暫停");
+        UUID wishId = wishIdOf(claimId);
+        // 測試在同一個交易裡：先寫出再用 SQL 改期限，並清掉持久化脈絡，之後才讀得到新值
+        em.flush();
+        jdbc.update("update claims set ship_deadline_at = now() - interval '1 day' where id = ?", claimId);
+        em.clear();
+        assertThat(claimRepository.findOverdue(java.time.Instant.now())).hasSize(1);
+        java.time.Instant before = claimRepository.findById(claimId).orElseThrow().getShipDeadlineAt();
+
+        freeze(wishId, "調查中，先暫停");
+        em.flush();
+        em.clear();
+
+        assertThat(claimRepository.findById(claimId).orElseThrow().getDeadlinePausedAt()).isNotNull();
+        assertThat(claimRepository.findOverdue(java.time.Instant.now())).isEmpty();
+        mvc.perform(as(get("/api/claims/{id}", claimId), DONOR))
+                .andExpect(jsonPath("$.overdue").value(false));
+
+        Thread.sleep(50);
+        mvc.perform(as(post("/api/admin/wishes/{id}/unfreeze", wishId), ADMIN)).andExpect(status().isOk());
+        em.flush();
+        em.clear();
+
+        var resumed = claimRepository.findById(claimId).orElseThrow();
+        assertThat(resumed.getDeadlinePausedAt()).isNull();
+        assertThat(resumed.getShipDeadlineAt()).isAfter(before.plusMillis(40));
+        assertThat(claimRepository.findOverdue(java.time.Instant.now())).hasSize(1);
     }
 
     @Test

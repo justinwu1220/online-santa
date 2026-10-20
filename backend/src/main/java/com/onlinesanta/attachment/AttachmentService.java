@@ -509,6 +509,7 @@ public class AttachmentService {
             throw ResourceNotFoundException.of("認領", claimId);
         }
         requireStatusIn(claim, "上傳寄送證明", ClaimStatus.CLAIMED, ClaimStatus.SHIPPED);
+        requireNotFrozen(claim);
     }
 
     /** 跟寄送證明同一套規則：只有該筆認領的捐贈者，在回報寄送之前（含當下）能上傳。 */
@@ -518,6 +519,7 @@ public class AttachmentService {
             throw ResourceNotFoundException.of("認領", claimId);
         }
         requireStatusIn(claim, "上傳發票證明", ClaimStatus.CLAIMED, ClaimStatus.SHIPPED);
+        requireNotFrozen(claim);
     }
 
     private void authorizeOrganizationFeedback(UUID claimId, AppPrincipal principal) {
@@ -528,6 +530,14 @@ public class AttachmentService {
             throw ResourceNotFoundException.of("認領", claimId);
         }
         requireStatusIn(claim, "上傳收件證明", ClaimStatus.SHIPPED, ClaimStatus.RECEIVED, ClaimStatus.COMPLETED);
+    }
+
+    /** 管理員凍結期間，認領者不用寄出，也先不收新的寄送證明。 */
+    private void requireNotFrozen(Claim claim) {
+        if (claim.getWish().isFrozen()) {
+            throw new BusinessRuleException("WISH_FROZEN",
+                    "平台正在確認這個願望的內容，暫停處理期間不用寄出；解除後會通知你");
+        }
     }
 
     private Claim findClaim(UUID claimId) {

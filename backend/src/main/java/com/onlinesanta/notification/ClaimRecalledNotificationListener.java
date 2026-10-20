@@ -30,20 +30,17 @@ public class ClaimRecalledNotificationListener {
 
     private void notify(Claim claim, ClaimRecalledEvent event) {
         String subject = "機構收回了您認領的「%s」".formatted(claim.getWish().getTitle());
-        String why = event.forEdit()
-                ? "機構需要修改這個願望的內容，通過審核後才會再次上架。"
-                : "";
         String body = """
                 您好，
 
                 機構收回了您認領的「%s」。
                 原因：%s
-                %s
+
                 您不需要再寄送禮物了，謝謝您的心意。也歡迎回到願望牆認領其他孩子的願望：
                 %s
 
                 線上聖誕老人
-                """.formatted(claim.getWish().getTitle(), event.reason(), why, properties.publicUrl());
+                """.formatted(claim.getWish().getTitle(), event.reason(), properties.publicUrl());
         notifications.send(claim.getDonor().getEmail(), subject, body);
     }
 }

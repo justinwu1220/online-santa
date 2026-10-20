@@ -124,6 +124,13 @@ public class Claim extends BaseEntity {
     @Column(name = "overdue_notified_at")
     private Instant overdueNotifiedAt;
 
+    /**
+     * 寄送期限暫停的起點：管理員凍結願望期間不用寄出，期限也不計算。解除凍結時把暫停的時長
+     * 加回 {@code shipDeadlineAt}。null 代表沒有暫停。
+     */
+    @Column(name = "deadline_paused_at")
+    private Instant deadlinePausedAt;
+
     @Version
     @Column(nullable = false)
     private long version;
@@ -214,11 +221,34 @@ public class Claim extends BaseEntity {
         return donor.getId().equals(userId);
     }
 
-    /** 逾期未寄送。已寄出或已結束的認領不算逾期。 */
+    /** 逾期未寄送。已寄出或已結束的認領不算逾期；期限暫停中（願望被凍結）也不算。 */
     public boolean isOverdue(Instant now) {
         return status == ClaimStatus.CLAIMED
+                && deadlinePausedAt == null
                 && shipDeadlineAt != null
                 && now.isAfter(shipDeadlineAt);
+    }
+
+    /** 願望被凍結：暫停寄送期限。只有還沒寄出的認領有期限可暫停；已經暫停的不重複記。 */
+    public void pauseDeadline(Instant now) {
+        if (status == ClaimStatus.CLAIMED && deadlinePausedAt == null) {
+            this.deadlinePausedAt = now;
+        }
+    }
+
+    /** 解除凍結：把暫停的時長加回期限，也讓期限提醒信可以重新判斷。 */
+    public void resumeDeadline(Instant now) {
+        if (deadlinePausedAt == null) {
+            return;
+        }
+        if (shipDeadlineAt != null) {
+            this.shipDeadlineAt = shipDeadlineAt.plus(java.time.Duration.between(deadlinePausedAt, now));
+        }
+        this.deadlinePausedAt = null;
+    }
+
+    public Instant getDeadlinePausedAt() {
+        return deadlinePausedAt;
     }
 
     public Wish getWish() {

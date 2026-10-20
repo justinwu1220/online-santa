@@ -39,7 +39,8 @@ public final class ClaimSpecifications {
             parts.add((root, query, cb) -> cb.and(
                     cb.equal(root.get("status"), ClaimStatus.CLAIMED),
                     cb.isNotNull(root.get("shipDeadlineAt")),
-                    cb.lessThan(root.get("shipDeadlineAt"), now)));
+                    cb.lessThan(root.get("shipDeadlineAt"), now),
+                    cb.isNull(root.get("deadlinePausedAt"))));
         } else if (status != null) {
             parts.add((root, query, cb) -> cb.equal(root.get("status"), status));
         }

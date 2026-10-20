@@ -1,5 +1,8 @@
 package com.onlinesanta.admin;
 
+import java.time.Instant;
+import java.util.EnumSet;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.context.ApplicationEventPublisher;
@@ -9,7 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 import com.onlinesanta.admin.dto.WishRejectRequest;
 import com.onlinesanta.auth.AppPrincipal;
 import com.onlinesanta.auth.CurrentUserService;
+import com.onlinesanta.claim.Claim;
+import com.onlinesanta.claim.ClaimRepository;
+import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
+import com.onlinesanta.event.WishFrozenEvent;
 import com.onlinesanta.event.WishReviewedEvent;
 import com.onlinesanta.message.SystemMessageService;
 import com.onlinesanta.wish.Wish;
@@ -32,16 +39,19 @@ public class WishReviewService {
     private final ApplicationEventPublisher eventPublisher;
     private final SystemMessageService systemMessages;
     private final WishEventService history;
+    private final ClaimRepository claims;
 
     public WishReviewService(WishRepository wishes, CurrentUserService currentUser,
                              AdminAuditService audit, ApplicationEventPublisher eventPublisher,
-                             SystemMessageService systemMessages, WishEventService history) {
+                             SystemMessageService systemMessages, WishEventService history,
+                             ClaimRepository claims) {
         this.wishes = wishes;
         this.currentUser = currentUser;
         this.audit = audit;
         this.eventPublisher = eventPublisher;
         this.systemMessages = systemMessages;
         this.history = history;
+        this.claims = claims;
     }
 
     @Transactional
@@ -69,7 +79,10 @@ public class WishReviewService {
         return wish;
     }
 
-    /** 暫時凍結：理由必填，稽核並通知機構。凍結只影響對外顯示，不動願望與認領的狀態。 */
+    /**
+     * 暫時凍結：理由必填，稽核並通知機構。凍結只影響對外顯示，不動願望與認領的狀態；
+     * 已認領的願望，認領者仍看得到自己的認領（顯示「暫停處理中」），寄送期限暫停計算並寄信告知。
+     */
     @Transactional
     public Wish freeze(UUID wishId, com.onlinesanta.admin.dto.WishFreezeRequest request) {
         AppPrincipal admin = currentUser.requireAdmin();
@@ -79,6 +92,11 @@ public class WishReviewService {
         audit.record(AdminAuditAction.FREEZE_WISH, wishId, wish.getTitle());
         history.record(wish, WishEventType.FROZEN, admin.userId(), reason, false);
         systemMessages.wishFrozen(wishId, reason);
+        // 只有還沒寄出的認領有期限與寄送義務可暫停、需要通知；寄出之後的認領不受凍結影響
+        activeClaim(wishId).filter(claim -> claim.getStatus() == ClaimStatus.CLAIMED).ifPresent(claim -> {
+            claim.pauseDeadline(Instant.now());
+            eventPublisher.publishEvent(new WishFrozenEvent(claim.getId(), true));
+        });
         return wish;
     }
 
@@ -90,7 +108,17 @@ public class WishReviewService {
         audit.record(AdminAuditAction.UNFREEZE_WISH, wishId, wish.getTitle());
         history.record(wish, WishEventType.UNFROZEN, admin.userId(), null, false);
         systemMessages.wishUnfrozen(wishId);
+        activeClaim(wishId).filter(claim -> claim.getStatus() == ClaimStatus.CLAIMED).ifPresent(claim -> {
+            claim.resumeDeadline(Instant.now());
+            eventPublisher.publishEvent(new WishFrozenEvent(claim.getId(), false));
+        });
         return wish;
+    }
+
+    /** 這個願望目前進行中（還沒完成）的認領；沒有認領的願望凍結不需要通知任何人。 */
+    private Optional<Claim> activeClaim(UUID wishId) {
+        return claims.findFirstByWishIdAndStatusIn(wishId,
+                EnumSet.of(ClaimStatus.CLAIMED, ClaimStatus.SHIPPED, ClaimStatus.RECEIVED));
     }
 
     private Wish find(UUID wishId) {

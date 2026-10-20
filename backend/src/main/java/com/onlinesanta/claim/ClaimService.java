@@ -35,8 +35,6 @@ import com.onlinesanta.terms.TermsService;
 import com.onlinesanta.user.User;
 import com.onlinesanta.user.UserRepository;
 import com.onlinesanta.wish.Wish;
-import com.onlinesanta.wish.WishEventService;
-import com.onlinesanta.wish.WishEventType;
 import com.onlinesanta.wish.WishRepository;
 
 /**
@@ -59,7 +57,6 @@ public class ClaimService {
     private final ClaimReceiptService receipts;
     private final TermsService terms;
     private final SystemMessageService systemMessages;
-    private final WishEventService history;
 
     public ClaimService(ClaimRepository claims,
                         ClaimEventRepository events,
@@ -71,8 +68,7 @@ public class ClaimService {
                         ApplicationEventPublisher eventPublisher,
                         ClaimReceiptService receipts,
                         TermsService terms,
-                        SystemMessageService systemMessages,
-                        WishEventService history) {
+                        SystemMessageService systemMessages) {
         this.claims = claims;
         this.events = events;
         this.wishes = wishes;
@@ -84,7 +80,6 @@ public class ClaimService {
         this.receipts = receipts;
         this.terms = terms;
         this.systemMessages = systemMessages;
-        this.history = history;
     }
 
     // ================================================================ 認領
@@ -201,6 +196,7 @@ public class ClaimService {
     public Claim ship(UUID claimId, ShipRequest request) {
         AppPrincipal principal = currentUser.require();
         Claim claim = findOwnedByDonor(claimId, principal.userId());
+        requireNotFrozen(claim);
 
         long proofCount = attachments.countByPurposeAndOwnerIdAndUploadStatus(
                 AttachmentPurpose.SHIPPING_PROOF, claimId, UploadStatus.CONFIRMED);
@@ -233,6 +229,7 @@ public class ClaimService {
     public Claim cancel(UUID claimId, ReleaseRequest request) {
         AppPrincipal principal = currentUser.require();
         Claim claim = findOwnedByDonor(claimId, principal.userId());
+        requireNotFrozen(claim);
 
         claim.cancel(request.reason());
         returnWishToWall(claim);
@@ -311,16 +308,12 @@ public class ClaimService {
         Claim claim = findOwnedByOrganization(claimId, currentUser.requireOrganizationId());
 
         String reason = request.text();
-        boolean forEdit = request.reason() == RecallRequest.Reason.EDIT_WISH;
         claim.release(reason);
         returnWishToWall(claim);
         record(claim, ClaimEventType.RELEASED_MANUAL, principal.userId(), reason);
         // 認領者要知道自己的認領被收回了：對話留系統訊息、寄信（交易提交後才寄）
-        systemMessages.claimRecalled(claim, reason, forEdit);
-        eventPublisher.publishEvent(new ClaimRecalledEvent(claim.getId(), reason, forEdit));
-        if (forEdit) {
-            history.record(claim.getWish(), WishEventType.RECALLED_FOR_EDIT, principal.userId(), reason, false);
-        }
+        systemMessages.claimRecalled(claim, reason);
+        eventPublisher.publishEvent(new ClaimRecalledEvent(claim.getId(), reason));
         return claim;
     }
 
@@ -390,10 +383,7 @@ public class ClaimService {
         if (!isDonor && !isOwningOrganization) {
             throw ResourceNotFoundException.of("認領", claimId);
         }
-        // 凍結的願望：認領者的頁面一併消失（機構仍看得到）
-        if (!isOwningOrganization && claim.getWish().isFrozen()) {
-            throw ResourceNotFoundException.of("認領", claimId);
-        }
+        // 凍結的願望：認領者仍看得到自己的認領（顯示「暫停處理中」），只是不能寄送或取消
         return claim;
     }
 
@@ -426,10 +416,18 @@ public class ClaimService {
      */
     private Claim findOwnedByDonor(UUID claimId, UUID donorId) {
         Claim claim = findById(claimId);
-        if (!claim.isOwnedBy(donorId) || claim.getWish().isFrozen()) {
+        if (!claim.isOwnedBy(donorId)) {
             throw ResourceNotFoundException.of("認領", claimId);
         }
         return claim;
+    }
+
+    /** 管理員凍結期間，認領者不用也不能回報寄送或取消，等解除凍結。 */
+    private static void requireNotFrozen(Claim claim) {
+        if (claim.getWish().isFrozen()) {
+            throw new BusinessRuleException("WISH_FROZEN",
+                    "平台正在確認這個願望的內容，暫停處理期間不用寄出，也無法回報或取消；解除後會通知你");
+        }
     }
 
     private Claim findOwnedByOrganization(UUID claimId, UUID organizationId) {

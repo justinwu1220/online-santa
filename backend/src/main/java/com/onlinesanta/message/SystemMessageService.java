@@ -106,11 +106,9 @@ public class SystemMessageService {
      * 認領者在自己的認領頁看得到結束原因，另外會收到 Email（見 ClaimRecalledNotificationListener）。
      */
     @Transactional
-    public void claimRecalled(Claim claim, String reason, boolean forEdit) {
+    public void claimRecalled(Claim claim, String reason) {
         post(claim.getWish().getId(), claim.getId(),
-                forEdit
-                        ? "你收回了這個認領，原因：%s。已寄 Email 通知認領者，他的認領頁也會顯示結束原因；願望已回到願望牆，修改並重新送審後才會再上架。".formatted(reason)
-                        : "你收回了這個認領，原因：%s。已寄 Email 通知認領者，他的認領頁也會顯示結束原因。".formatted(reason));
+                "你收回了這個認領，原因：%s。已寄 Email 通知認領者，他的認領頁也會顯示結束原因。".formatted(reason));
     }
 
     private void post(UUID wishId, UUID claimId, String body) {

@@ -186,6 +186,13 @@ Cloud Run 是 scale-to-zero 的，沒有常駐行程，`@Scheduled` 不會可靠
 
 管理員也可隨時手動觸發：`POST /api/admin/jobs/release-expired-claims`。
 
+## 願望上架後出問題怎麼辦
+
+願望一旦被認領，**內容就鎖定、不能修改**（認領者可能已經照內容買好禮物）；只有上架中、
+還沒被認領的願望，機構才能「修改並重新送審」。管理員凍結已認領的願望時，認領者仍看得到
+自己的認領（顯示「暫停處理中」），寄送期限暫停、解除後順延。完整的情境與流程見
+[docs/wish-post-publish-flow.md](docs/wish-post-publish-flow.md)。
+
 ## 部署
 
 推到 `main` 就會自動部署（`.github/workflows/deploy.yml`）：測試 → 建置映像檔 →

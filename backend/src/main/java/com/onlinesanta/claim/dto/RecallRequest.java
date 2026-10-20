@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Size;
 
 /**
  * 機構收回認領（還沒寄出的才能收回）。原因四選一，選「其他」可以補寫說明。
+ * 願望一旦被認領內容就鎖定，所以沒有「為了修改願望而收回」這個原因。
  */
 public record RecallRequest(
         @NotNull(message = "請選擇收回原因")
@@ -17,8 +18,6 @@ public record RecallRequest(
         OVERDUE("逾期未寄送"),
         UNREACHABLE("認領者聯繫不上"),
         CANNOT_COMPLETE("認領者表示無法完成"),
-        /** 機構要修改願望內容：收回後願望會下架修改、重新審核才再上架。 */
-        EDIT_WISH("需要修改願望內容"),
         OTHER("其他");
 
         private final String label;

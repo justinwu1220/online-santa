@@ -43,6 +43,7 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
               and c.status = com.onlinesanta.claim.ClaimStatus.CLAIMED
               and c.shipDeadlineAt is not null
               and c.shipDeadlineAt < :now
+              and c.deadlinePausedAt is null
             """)
     long countOverdueByOrganization(@Param("organizationId") UUID organizationId, @Param("now") Instant now);
 
@@ -73,6 +74,7 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
               and c.shipDeadlineAt >= :from
               and c.shipDeadlineAt < :to
               and c.deadlineReminderSentAt is null
+              and c.deadlinePausedAt is null
             """)
     List<Claim> findNeedingDeadlineReminder(@Param("from") Instant from, @Param("to") Instant to);
 
@@ -86,6 +88,7 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
             where c.status = com.onlinesanta.claim.ClaimStatus.CLAIMED
               and c.shipDeadlineAt is not null
               and c.shipDeadlineAt < :now
+              and c.deadlinePausedAt is null
             """)
     long countOverdue(@Param("now") Instant now);
 
@@ -93,7 +96,7 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
     @EntityGraph(attributePaths = {"wish", "wish.organization"})
     @Query("""
             select c from Claim c
-            where c.donor.id = :donorId and c.wish.frozenAt is null
+            where c.donor.id = :donorId
             order by c.claimedAt desc
             """)
     Page<Claim> findByDonorIdOrderByClaimedAtDesc(@Param("donorId") UUID donorId, Pageable pageable);
@@ -113,7 +116,6 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
     @Query("""
             select c from Claim c
             where c.donor.id = :donorId
-              and c.wish.frozenAt is null
               and c.claimedAt >= :from
               and c.claimedAt < :to
             order by c.claimedAt desc
@@ -172,6 +174,7 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
               and c.status = com.onlinesanta.claim.ClaimStatus.CLAIMED
               and c.shipDeadlineAt is not null
               and c.shipDeadlineAt < :now
+              and c.deadlinePausedAt is null
             """)
     Page<Claim> findOverdueByOrganizationId(@Param("organizationId") UUID organizationId,
                                             @Param("now") Instant now,
@@ -189,6 +192,7 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
             where c.status = com.onlinesanta.claim.ClaimStatus.CLAIMED
               and c.shipDeadlineAt is not null
               and c.shipDeadlineAt < :now
+              and c.deadlinePausedAt is null
             """)
     List<Claim> findOverdue(@Param("now") Instant now);
 

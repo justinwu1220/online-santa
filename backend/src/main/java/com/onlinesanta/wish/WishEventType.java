@@ -18,7 +18,7 @@ public enum WishEventType {
     UNFROZEN("管理員解除凍結"),
     /** 凍結中的願望被機構修改並重新送審，凍結因此解除。 */
     FREEZE_LIFTED_BY_RESUBMIT("因機構修改重新送審而解除凍結"),
-    /** 認領者還沒寄出，機構為了修改內容收回認領。 */
+    /** 已停用：認領後內容鎖定，不再有「為修改內容收回認領」。只為顯示舊紀錄與滿足 V33 的 CHECK 約束而保留。 */
     RECALLED_FOR_EDIT("機構為修改願望內容收回認領");
 
     private final String label;
