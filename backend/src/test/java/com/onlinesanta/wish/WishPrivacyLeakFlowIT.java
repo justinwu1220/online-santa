@@ -47,6 +47,7 @@ class WishPrivacyLeakFlowIT extends ApiIntegrationTest {
     @Autowired AdminAuditLogRepository auditLogs;
     @Autowired JdbcTemplate jdbc;
     @Autowired EntityManager em;
+    @Autowired WishFreezeService freezes;
 
     private Organization organization;
 
@@ -224,7 +225,7 @@ class WishPrivacyLeakFlowIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("申請的限制：沒凍結不能申請、別間機構不行、非內容疑慮的凍結不能附修改、停權連動的凍結不能在願望上申請")
+    @DisplayName("申請的限制：沒凍結不能申請、別間機構不行、舊資料的單純凍結不能附修改、停權連動的凍結不能在願望上申請")
     void unlockRequestGuards() throws Exception {
         UUID claimId = leakedClaimedWish();
         UUID wishId = wishIdOf(claimId);
@@ -234,18 +235,68 @@ class WishPrivacyLeakFlowIT extends ApiIntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("WISH_NOT_UNLOCKABLE"));
 
+        // 單純凍結（ADMIN_OTHER）現在只剩舊資料：畫面與 API 的凍結都是內容疑慮，這裡直接建立舊資料的情境
+        freezes.freeze(wishes.findById(wishId).orElseThrow(), WishFreezeCause.ADMIN_OTHER, "舊的單純凍結，先暫停", null);
         em.flush();
-        mvc.perform(as(withBody(post("/api/admin/wishes/{id}/freeze", wishId), Map.of("note", "單純凍結，先暫停")), ADMIN))
-                .andExpect(status().isOk());
         mvc.perform(as(withBody(post(path, wishId),
                         Map.of("message", "x", "revision", Map.of("childAlias", "新暱稱"))), ORG_USER))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("REVISION_NOT_ALLOWED"));
         mvc.perform(as(withBody(post(path, wishId), Map.of("message", "x")), OTHER_ORG_USER))
                 .andExpect(status().isNotFound());
-        // 非內容疑慮的凍結可以不改內容直接申請
+        // 舊的單純凍結可以不改內容直接申請
         mvc.perform(as(withBody(post(path, wishId), Map.of("message", "認為是誤判")), ORG_USER))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("只填原因、沒改欄位的凍結：一樣是內容疑慮（機構可修改後申請），歷程與稽核只記凍結，不記修改")
+    void freezeWithoutEditingAnyField() throws Exception {
+        UUID claimId = leakedClaimedWish();
+        UUID wishId = wishIdOf(claimId);
+        em.flush();
+
+        adminEdit(wishId, Map.of("reason", "接獲檢舉，信件照片可能露臉，先凍結查看"));
+        em.flush();
+        em.clear();
+
+        Wish wish = wishes.findById(wishId).orElseThrow();
+        assertThat(wish.isFrozen()).isTrue();
+        assertThat(wish.getFrozenCause()).isEqualTo(WishFreezeCause.ADMIN_CONTENT);
+        // 沒改欄位：內容不變、快照不遮蔽、沒有「修改內容」的歷程與稽核
+        assertThat(wish.getChildAlias()).isEqualTo(LEAKED);
+        assertThat(jdbc.queryForObject("select count(*) from wish_events where wish_id = ? and event_type = 'ADMIN_EDITED'",
+                Integer.class, wishId)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from wish_events where wish_id = ? and event_type = 'FROZEN'",
+                Integer.class, wishId)).isEqualTo(1);
+        assertThat(auditLogs.findAll()).extracting(log -> log.getAction())
+                .contains(AdminAuditAction.FREEZE_WISH)
+                .doesNotContain(AdminAuditAction.EDIT_WISH_CONTENT);
+
+        // 機構可以修改內容後申請解除，凍結的舊端點也是同樣的類型
+        mvc.perform(as(get("/api/organizations/me/wishes/{id}", wishId), ORG_USER))
+                .andExpect(jsonPath("$.wish.freezeCause").value("ADMIN_CONTENT"))
+                .andExpect(jsonPath("$.canReviseContent").value(true));
+    }
+
+    @Test
+    @DisplayName("有改欄位的凍結：稽核有「修改願望內容」與「凍結願望」各一筆；舊的 /freeze 端點也是內容疑慮")
+    void freezeWithEditsAndLegacyEndpointAreContentConcerns() throws Exception {
+        UUID claimId = leakedClaimedWish();
+        UUID wishId = wishIdOf(claimId);
+        em.flush();
+        adminEdit(wishId, Map.of("childAlias", "小星", "reason", "暱稱含真實姓名與學校"));
+        assertThat(auditLogs.findAll()).extracting(log -> log.getAction())
+                .contains(AdminAuditAction.EDIT_WISH_CONTENT, AdminAuditAction.FREEZE_WISH);
+
+        UUID other = leakedClaimedWish();
+        UUID otherWish = wishIdOf(other);
+        em.flush();
+        mvc.perform(as(withBody(post("/api/admin/wishes/{id}/freeze", otherWish), Map.of("note", "用舊端點凍結")), ADMIN))
+                .andExpect(status().isOk());
+        em.flush();
+        em.clear();
+        assertThat(wishes.findById(otherWish).orElseThrow().getFrozenCause()).isEqualTo(WishFreezeCause.ADMIN_CONTENT);
     }
 
     @Test

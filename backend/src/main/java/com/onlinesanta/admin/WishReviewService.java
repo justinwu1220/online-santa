@@ -78,16 +78,19 @@ public class WishReviewService {
     }
 
     /**
-     * 暫時凍結：理由必填，稽核並通知機構。凍結只影響對外顯示，不動願望與認領的狀態；
+     * 凍結（不改內容）：理由必填，稽核並通知機構。凍結只影響對外顯示，不動願望與認領的狀態；
      * 已認領的願望，認領者仍看得到自己的認領（顯示「暫停處理中」），寄送期限暫停計算並寄信告知。
      * 多個原因的疊加與期限暫停見 {@link WishFreezeService}。
+     *
+     * <p>管理員畫面只有一個「凍結」入口（{@link #editContent}，改欄位是選填）；這個端點留給既有的呼叫端，
+     * 凍結一律是「內容疑慮」（機構可以修改內容後申請解除），不再產生單純凍結（{@code ADMIN_OTHER}，只剩舊資料）。
      */
     @Transactional
     public Wish freeze(UUID wishId, com.onlinesanta.admin.dto.WishFreezeRequest request) {
         AppPrincipal admin = currentUser.requireAdmin();
         Wish wish = find(wishId);
         String reason = request.note().trim();
-        Optional<Claim> paused = freezes.freeze(wish, WishFreezeCause.ADMIN_OTHER, reason, admin.userId());
+        Optional<Claim> paused = freezes.freeze(wish, WishFreezeCause.ADMIN_CONTENT, reason, admin.userId());
         audit.record(AdminAuditAction.FREEZE_WISH, wishId, wish.getTitle());
         history.record(wish, WishEventType.FROZEN, admin.userId(), reason, false);
         systemMessages.wishFrozen(wishId, reason);
@@ -96,10 +99,12 @@ public class WishReviewService {
     }
 
     /**
-     * 個資外洩的處置：管理員直接改暱稱、年齡、興趣、說明（不含禮物），並凍結。
+     * 管理員凍結願望的唯一入口：選填地直接改暱稱、年齡、興趣、說明（不含禮物），並凍結。
+     * 不論有沒有改欄位，凍結都是「內容疑慮」：機構看得到原因，可以修改後申請解除。
      *
-     * <p>同時把這個願望歷史快照裡被改的欄位遮蔽掉，避免外洩的內容留在歷程與「舊→新」比對裡。
-     * 稽核與歷程只記錄「改了哪些欄位」與原因，不記內容本身。已經被管理員凍結的願望只改內容、不重複凍結。
+     * <p>有改欄位時，把這個願望歷史快照裡被改的欄位遮蔽掉，避免外洩的內容留在歷程與「舊→新」比對裡；
+     * 稽核與歷程只記錄「改了哪些欄位」與原因，不記內容本身。沒改欄位就只記凍結。
+     * 已經被管理員凍結的願望只改內容、不重複凍結。
      */
     @Transactional
     public Wish editContent(UUID wishId, com.onlinesanta.admin.dto.WishContentEditRequest request) {
@@ -113,24 +118,33 @@ public class WishReviewService {
         if (changed.isEmpty() && !request.shouldFreeze()) {
             throw new com.onlinesanta.common.exception.BusinessRuleException("NO_CONTENT_CHANGES", "沒有任何欄位被修改");
         }
-        history.redactSnapshots(wishId, changed);
-        history.record(wish, WishEventType.ADMIN_EDITED, admin.userId(),
-                "原因：%s；修改欄位：%s".formatted(reason, changed.isEmpty() ? "（無）" : String.join("、", changed)), true);
-        audit.record(AdminAuditAction.EDIT_WISH_CONTENT, wishId,
-                "%s；修改欄位：%s".formatted(wish.getTitle(), changed.isEmpty() ? "（無）" : String.join("、", changed)));
+        if (!changed.isEmpty()) {
+            history.redactSnapshots(wishId, changed);
+            history.record(wish, WishEventType.ADMIN_EDITED, admin.userId(),
+                    "原因：%s；修改欄位：%s".formatted(reason, String.join("、", changed)), true);
+            audit.record(AdminAuditAction.EDIT_WISH_CONTENT, wishId,
+                    "%s；修改欄位：%s".formatted(wish.getTitle(), String.join("、", changed)));
+        }
 
         Optional<Claim> paused = Optional.empty();
+        boolean frozenNow = false;
         if (request.shouldFreeze()) {
             try {
                 paused = freezes.freeze(wish, WishFreezeCause.ADMIN_CONTENT, reason, admin.userId());
                 history.record(wish, WishEventType.FROZEN, admin.userId(), reason, false);
+                audit.record(AdminAuditAction.FREEZE_WISH, wishId, wish.getTitle());
+                frozenNow = true;
             } catch (com.onlinesanta.common.exception.BusinessRuleException e) {
                 if (!"WISH_ALREADY_FROZEN".equals(e.getErrorCode())) {
                     throw e;
                 }
             }
         }
-        systemMessages.wishContentEdited(wishId, reason);
+        if (!changed.isEmpty()) {
+            systemMessages.wishContentEdited(wishId, reason);
+        } else if (frozenNow) {
+            systemMessages.wishFrozen(wishId, reason);
+        }
         paused.ifPresent(claim -> eventPublisher.publishEvent(new WishFrozenEvent(claim.getId(), true)));
         return wish;
     }

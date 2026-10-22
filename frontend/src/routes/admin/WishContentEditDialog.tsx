@@ -14,8 +14,10 @@ export interface ContentEditPayload {
 }
 
 /**
- * 個資外洩的處置：管理員直接修改願望內容並（預設）凍結。禮物（願望標題）不能改——
- * 認領者可能已經照禮物買好了。歷史快照中被改的欄位會一併遮蔽，稽核只記欄位名稱。
+ * 管理員凍結願望的唯一入口：修改欄位是選填的（發現個資再改），原因必填。
+ * 未凍結時一律凍結（機構看得到原因，可以修改後申請解除，認領者看到「暫停處理中」）；
+ * 已凍結時只修改內容。禮物（願望標題）不能改——認領者可能已經照禮物買好了。
+ * 歷史快照中被改的欄位會一併遮蔽，稽核只記欄位名稱。
  */
 export function WishContentEditDialog({ open, wish, alreadyFrozen, onClose, onSubmit }: {
   open: boolean
@@ -28,7 +30,6 @@ export function WishContentEditDialog({ open, wish, alreadyFrozen, onClose, onSu
   const [ageRange, setAgeRange] = useState('')
   const [description, setDescription] = useState(wish.description ?? '')
   const [reason, setReason] = useState('')
-  const [freeze, setFreeze] = useState(true)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -44,19 +45,21 @@ export function WishContentEditDialog({ open, wish, alreadyFrozen, onClose, onSu
     setLastOpen(open)
     if (open) {
       setAlias(wish.childAlias ?? ''); setAgeRange(''); setDescription(wish.description ?? '')
-      setReason(''); setFreeze(!alreadyFrozen); setError(''); setBusy(false)
+      setReason(''); setError(''); setBusy(false)
     }
   }
 
   async function submit() {
     const text = reason.trim()
     if (text.length < 4) { setError('請寫下處置原因（至少 4 個字）'); return }
+    const freeze = !alreadyFrozen
     const payload: ContentEditPayload = { reason: text, freeze }
     if (alias.trim() !== (wish.childAlias ?? '')) payload.childAlias = alias.trim()
     if (ageRange) payload.ageRange = ageRange
     if (description.trim() !== (wish.description ?? '')) payload.description = description.trim()
-    if (!payload.childAlias && !payload.ageRange && payload.description === undefined && !freeze) {
-      setError('沒有修改任何欄位，也沒有要凍結')
+    // 已凍結只剩「修改內容」，至少要改一個欄位；未凍結時欄位選填，不改也可以凍結
+    if (!freeze && !payload.childAlias && !payload.ageRange && payload.description === undefined) {
+      setError('沒有修改任何欄位')
       return
     }
     setBusy(true)
@@ -70,10 +73,13 @@ export function WishContentEditDialog({ open, wish, alreadyFrozen, onClose, onSu
 
   return (
     <Dialog open={open} onClose={onClose} dismissible={!busy} labelledBy="wceTitle">
-      <h2 id="wceTitle">修改內容並凍結</h2>
+      <h2 id="wceTitle">{alreadyFrozen ? '修改內容' : '凍結這個願望'}</h2>
       <p>
-        直接修改可能含個資的欄位。禮物（願望標題）不能改，因為認領者可能已經買好了。
-        歷史快照中被修改的欄位會一併遮蔽；認領者看到的是修改後的版本。
+        {alreadyFrozen
+          ? '直接修改可能含個資的欄位。'
+          : `凍結後，「${wish.title}」會立刻從願望牆消失；已認領的話，認領者看到「暫停處理中」、寄送期限暫停；機構看得到下面的原因，可以修改內容後申請解除。`}
+        如果發現個資，可以順便改掉下面的欄位（選填）；禮物（願望標題）不能改，因為認領者可能已經買好了。
+        歷史快照中被修改的欄位會一併遮蔽，認領者看到的是修改後的版本。
       </p>
       <div className="field" style={{ marginTop: 12 }}>
         <label className="field__label" htmlFor="wceAlias">孩子的暱稱</label>
@@ -93,20 +99,16 @@ export function WishContentEditDialog({ open, wish, alreadyFrozen, onClose, onSu
           onChange={(event) => setDescription(event.target.value)} />
       </div>
       <div className={`field${error ? ' is-invalid' : ''}`} style={{ marginTop: 12 }}>
-        <label className="field__label" htmlFor="wceReason">處置原因<span className="req" aria-hidden>*</span></label>
-        <span className="field__hint">機構會看到這段原因（請勿重複外洩的內容）</span>
+        <label className="field__label" htmlFor="wceReason">{alreadyFrozen ? '修改原因' : '凍結原因'}<span className="req" aria-hidden>*</span></label>
+        <span className="field__hint">機構會看到這段原因（請勿重複外洩的內容），例如：信件照片露出孩子的真實姓名</span>
         <textarea id="wceReason" className="input" rows={3} value={reason}
           onChange={(event) => { setReason(event.target.value); setError('') }} />
         {error && <span className="field__error" role="alert">{error}</span>}
       </div>
-      <label className="check-row" style={{ marginTop: 12 }}>
-        <input type="checkbox" checked={freeze} disabled={alreadyFrozen} onChange={(event) => setFreeze(event.target.checked)} />
-        <span>{alreadyFrozen ? '已經凍結中，只修改內容' : '同時凍結（機構看到原因，修改後可申請解除；認領者看到「暫停處理中」）'}</span>
-      </label>
       <div className="dialog__actions">
         <button type="button" className="btn" onClick={onClose} disabled={busy}>取消</button>
         <button type="button" className="btn btn--freeze-solid" onClick={() => void submit()} disabled={busy}>
-          {busy ? '處理中…' : freeze ? '修改並凍結' : '修改'}
+          {busy ? '處理中…' : alreadyFrozen ? '儲存修改' : '凍結'}
         </button>
       </div>
     </Dialog>

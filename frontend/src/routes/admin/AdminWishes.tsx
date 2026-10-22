@@ -50,7 +50,7 @@ const ICON_SNOW = (
 
 /**
  * 管理員「願望」（設計稿 16.3）：願望與它的認領合成一份清單；篩選七項（各帶數量）＋搜尋＋年度，
- * 點一列開抽屜。核准／退回審核中的願望、暫時凍結與解除凍結。
+ * 點一列開抽屜。核准／退回審核中的願望、凍結（選填地修改內容）與解除凍結。
  * 價格與捐贈人資料只有管理員看得到；附件、對話、捐贈收據是點擊載入並寫稽核。
  */
 export function AdminWishes() {
@@ -178,7 +178,7 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
   const invalidate = useInvalidateAdmin()
   const detail = useAdminWish(wishId)
   const [tab, setTab] = useState('info')
-  const [dialog, setDialog] = useState<'return' | 'freeze' | 'edit' | 'rejectUnlock' | 'approveUnlock' | null>(null)
+  const [dialog, setDialog] = useState<'return' | 'edit' | 'rejectUnlock' | 'approveUnlock' | null>(null)
   const [redactId, setRedactId] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -195,7 +195,8 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
     if (celebrate && !reducedMotion()) burst(...center(celebrate), 16, 100)
     toast.show(message)
     await invalidate()
-    if (path === 'freeze' && !reducedMotion()) {
+    // 剛凍結：狀態卡輕彈一下
+    if (path === 'content' && (body as { freeze?: boolean }).freeze && !reducedMotion()) {
       window.requestAnimationFrame(() => document.querySelector('dialog.drawer[open] .dstatus')?.animate(
         [{ transform: 'scale(.97)' }, { transform: 'none' }], { duration: 320, easing: EASE_OUT }))
     }
@@ -254,8 +255,7 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
     </div>
   ) : (
     <div className="drawer__foot">
-      <button type="button" className="btn" onClick={() => setDialog('edit')}>修改並凍結</button>
-      <button type="button" className="btn btn--freeze" onClick={() => setDialog('freeze')}>{ICON_SNOW}暫時凍結</button>
+      <button type="button" className="btn btn--freeze" onClick={() => setDialog('edit')}>{ICON_SNOW}凍結</button>
     </div>
   )
 
@@ -314,19 +314,10 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
               setDialog(null)
               onClose()
             }} />
-          <ReasonDialog open={dialog === 'freeze'} onClose={() => setDialog(null)} tone="freeze" rows={3}
-            title="暫時凍結這個願望？"
-            body={`凍結後，「${wish.title}」會立刻從願望牆消失，信件照片也不再對外顯示；已認領的話，認領者的認領頁會顯示「暫停處理中」、寄送期限暫停，機構看得到凍結原因。機構後台與管理員後台仍會保留，處理完可以解除凍結。`}
-            label="凍結原因" hint="例如：信件照片露出孩子的真實姓名" minLength={4}
-            tooShort="請寫下凍結原因" okText="凍結"
-            onSubmit={async (reason) => {
-              await post('freeze', { note: reason }, `已凍結「${wish.title}」，已從願望牆移除`)
-              setDialog(null)
-            }} />
           <WishContentEditDialog open={dialog === 'edit'} wish={wish} alreadyFrozen={frozen}
             onClose={() => setDialog(null)}
             onSubmit={async (payload) => {
-              await post('content', payload, `已修改「${wish.title}」的內容${payload.freeze ? '並凍結' : ''}`, null, 'patch')
+              await post('content', payload, payload.freeze ? `已凍結「${wish.title}」，已從願望牆移除` : `已修改「${wish.title}」的內容`, null, 'patch')
               setDialog(null)
             }} />
           <ReasonDialog open={dialog === 'rejectUnlock'} onClose={() => setDialog(null)}
