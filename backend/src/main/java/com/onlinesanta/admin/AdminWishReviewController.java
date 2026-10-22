@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -35,10 +36,13 @@ public class AdminWishReviewController {
 
     private final WishReviewService review;
     private final AdminWishQueryService query;
+    private final com.onlinesanta.unlock.WishUnlockService unlocks;
 
-    public AdminWishReviewController(WishReviewService review, AdminWishQueryService query) {
+    public AdminWishReviewController(WishReviewService review, AdminWishQueryService query,
+                                     com.onlinesanta.unlock.WishUnlockService unlocks) {
         this.review = review;
         this.query = query;
+        this.unlocks = unlocks;
     }
 
     @GetMapping
@@ -94,5 +98,29 @@ public class AdminWishReviewController {
     @Operation(summary = "解除凍結", description = "願望回到凍結前的狀態並重新顯示")
     public AdminWishView unfreeze(@PathVariable UUID id) {
         return AdminWishView.from(review.unfreeze(id));
+    }
+
+    @PatchMapping("/{id}/content")
+    @Operation(summary = "修改願望內容並凍結（個資外洩處置）",
+            description = "改暱稱、年齡、興趣、說明（不含禮物）；reason 必填，預設同時凍結。"
+                    + "歷史快照中被改的欄位會被遮蔽，稽核只記欄位名稱")
+    public AdminWishView editContent(@PathVariable UUID id,
+                                     @Valid @RequestBody com.onlinesanta.admin.dto.WishContentEditRequest request) {
+        return AdminWishView.from(review.editContent(id, request));
+    }
+
+    @PostMapping("/{id}/unlock-request/approve")
+    @Operation(summary = "核准機構的解除凍結申請",
+            description = "套用機構修改的內容（有的話）、解除凍結、恢復認領者的寄送期限並通知")
+    public AdminWishView approveUnlock(@PathVariable UUID id,
+                                       @RequestBody(required = false) com.onlinesanta.admin.dto.ReviewReasonRequest request) {
+        return AdminWishView.from(unlocks.approve(id, request == null ? null : request.note()));
+    }
+
+    @PostMapping("/{id}/unlock-request/reject")
+    @Operation(summary = "退回機構的解除凍結申請", description = "維持凍結；note 必填，機構會看到原因並可修改後再申請")
+    public AdminWishView rejectUnlock(@PathVariable UUID id,
+                                      @Valid @RequestBody com.onlinesanta.admin.dto.ReviewReasonRequest request) {
+        return AdminWishView.from(unlocks.reject(id, request.note()));
     }
 }

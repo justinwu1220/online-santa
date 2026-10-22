@@ -42,11 +42,15 @@ public class OrganizationWishQueryService {
     private final AttachmentService attachments;
     private final CurrentUserService currentUser;
     private final WishEventService history;
+    private final com.onlinesanta.unlock.WishUnlockService unlocks;
+    private final WishFreezeService freezes;
 
     public OrganizationWishQueryService(WishService wishes, WishRepository wishRepository,
                                         ClaimRepository claims, MessageRepository messages,
                                         AttachmentService attachments, CurrentUserService currentUser,
-                                        WishEventService history) {
+                                        WishEventService history,
+                                        com.onlinesanta.unlock.WishUnlockService unlocks,
+                                        WishFreezeService freezes) {
         this.wishes = wishes;
         this.wishRepository = wishRepository;
         this.claims = claims;
@@ -54,6 +58,8 @@ public class OrganizationWishQueryService {
         this.attachments = attachments;
         this.currentUser = currentUser;
         this.history = history;
+        this.unlocks = unlocks;
+        this.freezes = freezes;
     }
 
     /**
@@ -98,7 +104,14 @@ public class OrganizationWishQueryService {
                         wishId, EnumSet.of(ClaimStatus.RELEASED, ClaimStatus.CANCELLED))
                 .stream().map(PastClaimView::from).toList();
 
-        return new WishOrgDetailView(view, active == null ? null : ClaimOrgView.from(active), past);
+        var unlock = unlocks.latestOf(wishId);
+        boolean pendingUnlock = unlock.map(u -> u.status() == com.onlinesanta.unlock.UnlockStatus.PENDING).orElse(false);
+        var causes = freezes.activeFreezes(wishId).stream().map(WishFreeze::getCause).toList();
+        boolean adminFrozen = causes.stream().anyMatch(c -> !c.isSystem());
+        return new WishOrgDetailView(view, active == null ? null : ClaimOrgView.from(active), past,
+                unlock.orElse(null),
+                adminFrozen && !pendingUnlock,
+                causes.contains(WishFreezeCause.ADMIN_CONTENT) && !pendingUnlock);
     }
 
     /** 篩選列各項的數量，加上頂端待辦提示需要的細項。 */

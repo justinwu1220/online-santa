@@ -8,6 +8,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -74,6 +75,15 @@ public class AdminCatalogController {
     @Operation(summary = "認領的對話", description = "可能涉及收件細節等資訊。**這個操作會寫入稽核紀錄**")
     public List<AdminMessageView> messages(@PathVariable UUID id) {
         return catalog.messagesOf(id);
+    }
+
+    @PostMapping("/claims/{id}/messages/{messageId}/redact")
+    @Operation(summary = "遮蔽對話中的訊息",
+            description = "含個資等內容時使用：原文保留給稽核，雙方看到「此訊息已被管理員遮蔽」；reason 必填")
+    public void redactMessage(@PathVariable UUID id, @PathVariable Long messageId,
+                              @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody
+                              com.onlinesanta.admin.dto.ReviewReasonRequest request) {
+        catalog.redactMessage(id, messageId, request.note());
     }
 
     @GetMapping("/claims/{id}/attachments")

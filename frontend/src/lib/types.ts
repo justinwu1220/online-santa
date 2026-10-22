@@ -128,6 +128,32 @@ export interface WishOrgDetail {
   wish: WishOrgView
   activeClaim?: ClaimOrgView
   pastClaims: PastClaimView[]
+  /** 最近一筆解除凍結申請（待審或已決定）；沒申請過為 null */
+  unlockRequest?: UnlockRequestView | null
+  /** 管理員凍結中、沒有待審申請：可以申請解除 */
+  canRequestUnlock: boolean
+  /** 凍結原因是內容疑慮：申請時可以附上修改後的內容（不含禮物） */
+  canReviseContent: boolean
+}
+
+/** 凍結期間機構修改的內容（不含禮物）；欄位沒填代表不修改。 */
+export interface WishRevisionBody {
+  childAlias?: string
+  ageRange?: string
+  interests?: string
+  description?: string
+}
+
+export type UnlockStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN'
+
+export interface UnlockRequestView {
+  id: number
+  status: UnlockStatus
+  message?: string
+  revision?: WishRevisionBody | null
+  decisionNote?: string
+  createdAt: string
+  decidedAt?: string
 }
 
 /** 篩選列各項的數量 */
@@ -508,6 +534,8 @@ export interface AdminMessageView {
   senderRole: AdminMessageSenderRole
   body: string
   sentAt: string
+  /** 已被管理員遮蔽：body 是原文（只有管理員看得到），雙方看到的是「已被遮蔽」 */
+  redacted?: boolean
 }
 
 // ---------------------------------------------------------------- 年度回顧
@@ -631,6 +659,9 @@ export interface AdminWishListItem {
   resubmission: boolean
   organizationId: string
   organizationName: string
+  freezeCause?: FreezeCause | null
+  /** 機構送出了解除凍結申請，等管理員審核 */
+  unlockRequested?: boolean
 }
 
 /** 篩選列各項的數量（草稿不算）。 */
@@ -642,6 +673,8 @@ export interface AdminWishCounts {
   late: number
   done: number
   frozen: number
+  /** 等管理員審核的解除凍結申請數 */
+  unlockRequests?: number
 }
 
 export type AdminWishFilter = 'ALL' | 'REVIEW' | 'OPEN' | 'CLAIMED' | 'LATE' | 'DONE' | 'FROZEN'
@@ -680,7 +713,7 @@ export interface AdminWishDetail {
   status: WishStatus
   createdAt: string
   reviewNote?: string
-  frozen?: { at: string; reason: string }
+  frozen?: { at: string; reason: string; cause?: FreezeCause }
   late: boolean
   organization: {
     id: string
@@ -697,6 +730,10 @@ export interface AdminWishDetail {
   changes?: WishChanges
   /** 願望歷程時間軸，由舊到新 */
   history: WishHistoryItem[]
+  /** 機構待審的解除凍結申請 */
+  unlockRequest?: UnlockRequestView | null
+  /** 申請裡機構修改的內容與目前線上內容的差異（舊→新） */
+  unlockChanges?: { field: string; before: string; after: string }[]
 }
 
 export interface WishChanges {

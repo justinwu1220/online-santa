@@ -95,6 +95,46 @@ public class WishReviewService {
         return wish;
     }
 
+    /**
+     * 個資外洩的處置：管理員直接改暱稱、年齡、興趣、說明（不含禮物），並凍結。
+     *
+     * <p>同時把這個願望歷史快照裡被改的欄位遮蔽掉，避免外洩的內容留在歷程與「舊→新」比對裡。
+     * 稽核與歷程只記錄「改了哪些欄位」與原因，不記內容本身。已經被管理員凍結的願望只改內容、不重複凍結。
+     */
+    @Transactional
+    public Wish editContent(UUID wishId, com.onlinesanta.admin.dto.WishContentEditRequest request) {
+        AppPrincipal admin = currentUser.requireAdmin();
+        Wish wish = find(wishId);
+        wish.requireFreezable();
+        String reason = request.reason().trim();
+
+        java.util.Set<String> changed = wish.applyContentFix(
+                request.childAlias(), request.ageRange(), request.interests(), request.description());
+        if (changed.isEmpty() && !request.shouldFreeze()) {
+            throw new com.onlinesanta.common.exception.BusinessRuleException("NO_CONTENT_CHANGES", "沒有任何欄位被修改");
+        }
+        history.redactSnapshots(wishId, changed);
+        history.record(wish, WishEventType.ADMIN_EDITED, admin.userId(),
+                "原因：%s；修改欄位：%s".formatted(reason, changed.isEmpty() ? "（無）" : String.join("、", changed)), true);
+        audit.record(AdminAuditAction.EDIT_WISH_CONTENT, wishId,
+                "%s；修改欄位：%s".formatted(wish.getTitle(), changed.isEmpty() ? "（無）" : String.join("、", changed)));
+
+        Optional<Claim> paused = Optional.empty();
+        if (request.shouldFreeze()) {
+            try {
+                paused = freezes.freeze(wish, WishFreezeCause.ADMIN_CONTENT, reason, admin.userId());
+                history.record(wish, WishEventType.FROZEN, admin.userId(), reason, false);
+            } catch (com.onlinesanta.common.exception.BusinessRuleException e) {
+                if (!"WISH_ALREADY_FROZEN".equals(e.getErrorCode())) {
+                    throw e;
+                }
+            }
+        }
+        systemMessages.wishContentEdited(wishId, reason);
+        paused.ifPresent(claim -> eventPublisher.publishEvent(new WishFrozenEvent(claim.getId(), true)));
+        return wish;
+    }
+
     @Transactional
     public Wish unfreeze(UUID wishId) {
         AppPrincipal admin = currentUser.requireAdmin();

@@ -15,7 +15,7 @@ import com.onlinesanta.message.Message;
  * <p>這是認領詳情的一部分：開啟詳情時已經寫入 {@code VIEW_CLAIM_DETAIL} 稽核，這裡
  * 不另外記一筆。
  */
-public record AdminMessageView(Long id, SenderRole senderRole, String body, Instant sentAt) {
+public record AdminMessageView(Long id, SenderRole senderRole, String body, Instant sentAt, boolean redacted) {
 
     public enum SenderRole { DONOR, ORGANIZATION }
 
@@ -24,6 +24,7 @@ public record AdminMessageView(Long id, SenderRole senderRole, String body, Inst
                 message.getId(),
                 message.isSentBy(donorUserId) ? SenderRole.DONOR : SenderRole.ORGANIZATION,
                 message.getBody(),
-                message.getCreatedAt());
+                message.getCreatedAt(),
+                message.isRedacted());
     }
 }

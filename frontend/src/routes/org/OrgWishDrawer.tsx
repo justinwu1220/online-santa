@@ -14,12 +14,13 @@ import { Dialog } from '../../components/ui/Dialog'
 import { ApiError, api } from '../../lib/api'
 import { formatDate, formatDateTime, formatMonthDay, formatPlainDate, daysUntil, todayPlainDate } from '../../lib/format'
 import { burst, center, reducedMotion } from '../../lib/motion'
-import type { AttachmentView, ClaimOrgView, WishConversation, WishOrgView } from '../../lib/types'
+import type { AttachmentView, ClaimOrgView, UnlockRequestView, WishConversation, WishOrgView } from '../../lib/types'
 import { uploadImage, validateImage } from '../../lib/upload'
 import { actionsOf, chipLabelOf, STAGE_INFO } from '../../lib/wishFlow'
 import { avatarSrc } from '../../lib/avatar'
 import { useInvalidateOrg, useOrgWish } from './orgQueries'
 import { useOrgContext } from './orgContext'
+import { UnlockRequestDialog } from './UnlockRequestDialog'
 
 const RECALL_REASONS = [
   { value: 'OVERDUE', label: '逾期未寄送' },
@@ -215,6 +216,12 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
               wish={wish}
               claim={claim}
               past={data?.pastClaims ?? []}
+              unlock={data ? {
+                request: data.unlockRequest ?? null,
+                canRequest: data.canRequestUnlock,
+                canRevise: data.canReviseContent,
+              } : undefined}
+              onUnlockChanged={afterChange}
               attachments={claimAttachments.data ?? []}
               orgPending={pending}
               confirming={confirming}
@@ -309,9 +316,11 @@ function ConversationSender({ wishId, donor }: { wishId: string; donor: string }
 }
 
 /** 願望與寄送：狀態卡 → 確認收到區塊 → 進度 → 寄送資訊 → 孩子的願望 →（有的話）過往認領紀錄。 */
-function WishInfo({ wish, claim, past, attachments, orgPending, confirming, onConfirmed, onAttachmentsChanged }: {
+function WishInfo({ wish, claim, past, unlock, onUnlockChanged, attachments, orgPending, confirming, onConfirmed, onAttachmentsChanged }: {
   wish: WishOrgView
   claim?: ClaimOrgView
+  unlock?: UnlockInfo
+  onUnlockChanged: (message: string) => void | Promise<void>
   past: { claimId: string; status: string; donorName?: string; claimedAt: string; endedAt?: string; reason?: string }[]
   attachments: AttachmentView[]
   orgPending: boolean
@@ -327,7 +336,7 @@ function WishInfo({ wish, claim, past, attachments, orgPending, confirming, onCo
 
   return (
     <>
-      <FreezeNotice wish={wish} />
+      <FreezeNotice wish={wish} unlock={unlock} onChanged={onUnlockChanged} />
       <StatusCard wish={wish} donor={donor} orgPending={orgPending} />
 
       {confirming && claim && (
@@ -403,7 +412,24 @@ function Thumbs({ photos, label }: { photos: AttachmentView[]; label: string }) 
  * 凍結提示：願望被凍結（管理員凍結、機構停權或認領者停權連動）時，說明原因與目前能做什麼。
  * 管理員的原因（含內容疑慮）原文顯示；停權連動的說明由系統給。
  */
-function FreezeNotice({ wish }: { wish: WishOrgView }) {
+interface UnlockInfo {
+  request: UnlockRequestView | null
+  canRequest: boolean
+  canRevise: boolean
+}
+
+function FreezeNotice({ wish, unlock, onChanged }: {
+  wish: WishOrgView
+  unlock?: UnlockInfo
+  onChanged: (message: string) => void | Promise<void>
+}) {
+  const toast = useToast()
+  const [requesting, setRequesting] = useState(false)
+  const withdraw = useMutation({
+    mutationFn: () => api.post(`/api/organizations/me/wishes/${wish.id}/unlock-request/withdraw`),
+    onSuccess: () => onChanged('已撤回解除凍結申請'),
+    onError: (error) => toast.show(errorText(error), 'danger'),
+  })
   if (!wish.frozen) return null
   let body: React.ReactNode
   switch (wish.freezeCause) {
@@ -416,9 +442,31 @@ function FreezeNotice({ wish }: { wish: WishOrgView }) {
     default:
       body = <>管理員凍結了這個願望，原因：{wish.frozenReason ?? '—'}。處理期間無法收回認領、確認收到或傳訊，有問題請到「與團隊對話」。</>
   }
+  const request = unlock?.request
+  const pending = request?.status === 'PENDING'
   return (
     <div className="notice notice--warn" role="status" style={{ marginBottom: 16 }}>
       <strong>已凍結</strong>　{body}
+      {pending && (
+        <p style={{ margin: '8px 0 0' }}>
+          已送出解除凍結申請，等管理員審核。
+          <button type="button" className="link-btn" disabled={withdraw.isPending}
+            onClick={() => withdraw.mutate()}>撤回申請</button>
+        </p>
+      )}
+      {request?.status === 'REJECTED' && (
+        <p style={{ margin: '8px 0 0' }}>上一次的申請被退回：{request.decisionNote ?? '—'}。可以修改後再申請。</p>
+      )}
+      {unlock?.canRequest && (
+        <p style={{ margin: '8px 0 0' }}>
+          <button type="button" className="btn btn--tone" onClick={() => setRequesting(true)}>
+            {unlock.canRevise ? '修改並申請解除凍結' : '申請解除凍結'}
+          </button>
+        </p>
+      )}
+      <UnlockRequestDialog open={requesting} wish={wish} canRevise={Boolean(unlock?.canRevise)}
+        onClose={() => setRequesting(false)}
+        onDone={async () => { setRequesting(false); await onChanged('已送出解除凍結申請，等管理員審核') }} />
     </div>
   )
 }

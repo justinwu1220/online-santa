@@ -19,7 +19,14 @@ public enum WishEventType {
     /** 凍結中的願望被機構修改並重新送審，凍結因此解除。 */
     FREEZE_LIFTED_BY_RESUBMIT("因機構修改重新送審而解除凍結"),
     /** 已停用：認領後內容鎖定，不再有「為修改內容收回認領」。只為顯示舊紀錄與滿足 V33 的 CHECK 約束而保留。 */
-    RECALLED_FOR_EDIT("機構為修改願望內容收回認領");
+    RECALLED_FOR_EDIT("機構為修改願望內容收回認領"),
+    /** 管理員直接修改了願望內容（個資外洩處置）。 */
+    ADMIN_EDITED("管理員修改內容"),
+    /** 機構申請解除凍結（可能附上修改後的內容）。 */
+    UNLOCK_REQUESTED("機構申請解除凍結"),
+    UNLOCK_APPROVED("管理員核准解除申請"),
+    UNLOCK_REJECTED("管理員退回解除申請"),
+    UNLOCK_WITHDRAWN("機構撤回解除申請");
 
     private final String label;
 

@@ -10,5 +10,11 @@ import com.onlinesanta.claim.dto.ClaimOrgView;
 public record WishOrgDetailView(
         WishOrgView wish,
         ClaimOrgView activeClaim,
-        List<PastClaimView> pastClaims) {
+        List<PastClaimView> pastClaims,
+        /** 最近一筆解除凍結申請（待審或已決定）；沒有申請過為 null */
+        com.onlinesanta.unlock.UnlockRequestView unlockRequest,
+        /** 可以申請解除凍結：管理員凍結中、沒有待審的申請 */
+        boolean canRequestUnlock,
+        /** 可以隨申請附上修改後的內容：凍結原因是內容疑慮 */
+        boolean canReviseContent) {
 }

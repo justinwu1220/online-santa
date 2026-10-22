@@ -48,6 +48,7 @@ public class AdminCatalogService {
     private final AttachmentService attachments;
     private final AdminAuditService audit;
     private final ClaimReceiptService receipts;
+    private final com.onlinesanta.auth.CurrentUserService currentUser;
 
     public AdminCatalogService(WishRepository wishes,
                                ClaimRepository claims,
@@ -55,7 +56,8 @@ public class AdminCatalogService {
                                MessageRepository messages,
                                AttachmentService attachments,
                                AdminAuditService audit,
-                               ClaimReceiptService receipts) {
+                               ClaimReceiptService receipts,
+                               com.onlinesanta.auth.CurrentUserService currentUser) {
         this.wishes = wishes;
         this.claims = claims;
         this.claimEvents = claimEvents;
@@ -63,6 +65,7 @@ public class AdminCatalogService {
         this.attachments = attachments;
         this.audit = audit;
         this.receipts = receipts;
+        this.currentUser = currentUser;
     }
 
     // ---------------------------------------------------------------- 願望
@@ -150,6 +153,25 @@ public class AdminCatalogService {
                         claim.getWish().getTitle(),
                         views.size()));
         return views;
+    }
+
+    /**
+     * 遮蔽對話中的一則訊息（含個資等）：原文保留給稽核，雙方之後看到「此訊息已被管理員遮蔽」。
+     * 稽核只記訊息編號與原因，不記內容。
+     */
+    @Transactional
+    public void redactMessage(UUID claimId, Long messageId, String reason) {
+        com.onlinesanta.auth.AppPrincipal admin = currentUser.requireAdmin();
+        Claim claim = claims.findWithDetailsById(claimId)
+                .orElseThrow(() -> ResourceNotFoundException.of("認領", claimId));
+        com.onlinesanta.message.Message message = messages.findById(messageId)
+                .filter(m -> claimId.equals(m.getClaimId()))
+                .orElseThrow(() -> ResourceNotFoundException.of("訊息", messageId));
+        message.redact(admin.userId(), reason.strip());
+        audit.record(AdminAuditAction.REDACT_MESSAGE, claimId,
+                "%s / %s，遮蔽訊息 #%d，原因：%s".formatted(
+                        claim.getWish().getOrganization().getName(), claim.getWish().getTitle(),
+                        messageId, reason.strip()));
     }
 
     /**

@@ -48,6 +48,35 @@ public class WishEventService {
                 withSnapshot ? write(snapshotOf(wish)) : null));
     }
 
+    /**
+     * 個資外洩處置：把這個願望所有歷史快照中被修改過的欄位遮蔽掉，避免外洩的內容留在歷程與
+     * 管理員抽屜的「舊→新」比對裡。事件的其他資料不動。
+     *
+     * @param fields 要遮蔽的欄位名稱：title、childAlias、ageRange、description
+     */
+    @Transactional
+    public void redactSnapshots(UUID wishId, java.util.Set<String> fields) {
+        if (fields.isEmpty()) {
+            return;
+        }
+        for (WishEvent event : events.findByWishIdOrderByCreatedAtAscIdAsc(wishId)) {
+            WishSnapshot snapshot = read(event.getSnapshot());
+            if (snapshot == null) {
+                continue;
+            }
+            WishSnapshot redacted = new WishSnapshot(
+                    fields.contains("title") ? REDACTED : snapshot.title(),
+                    fields.contains("childAlias") ? REDACTED : snapshot.childAlias(),
+                    fields.contains("ageRange") ? null : snapshot.ageRange(),
+                    fields.contains("description") ? REDACTED : snapshot.description(),
+                    snapshot.letterIds());
+            events.replaceSnapshot(event.getId(), write(redacted));
+        }
+    }
+
+    /** 歷程與比對裡被遮蔽欄位顯示的文字。 */
+    public static final String REDACTED = "[已遮蔽]";
+
     public WishSnapshot snapshotOf(Wish wish) {
         List<String> letterIds = attachments.wishLetters(wish.getId()).stream()
                 .map(AttachmentView::id).map(UUID::toString).toList();

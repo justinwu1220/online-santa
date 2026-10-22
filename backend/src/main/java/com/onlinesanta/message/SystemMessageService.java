@@ -86,7 +86,22 @@ public class SystemMessageService {
     /** 管理員暫時凍結願望；只有機構看得到這則系統訊息。 */
     @Transactional
     public void wishFrozen(UUID wishId, String reason) {
-        post(wishId, null, "管理員暫時凍結了這個願望，期間不會顯示在願望牆與認領者的頁面。原因：%s。有疑問請到「與團隊對話」詢問。".formatted(reason));
+        post(wishId, null, "管理員暫時凍結了這個願望，期間不會顯示在願望牆；已認領的話，認領者的頁面會顯示「暫停處理中」。原因：%s。有疑問請到「與團隊對話」詢問。".formatted(reason));
+    }
+
+    /** 管理員直接修改了願望內容並凍結（個資外洩處置）。 */
+    @Transactional
+    public void wishContentEdited(UUID wishId, String reason) {
+        post(wishId, null, "管理員修改了這個願望的內容（可能含個資的欄位），並已凍結。原因：%s。你看到的是修改後的版本；如要調整，可以在願望抽屜修改後申請解除凍結。".formatted(reason));
+    }
+
+    /** 管理員處理了機構的解除申請。 */
+    @Transactional
+    public void unlockDecided(UUID wishId, boolean approved, String note) {
+        boolean hasNote = note != null && !note.isBlank();
+        post(wishId, null, approved
+                ? "管理員已核准你的解除凍結申請，願望已解除凍結%s。".formatted(hasNote ? "（" + note.strip() + "）" : "")
+                : "管理員退回了你的解除凍結申請，願望仍然凍結。原因：%s。可以修改後再申請。".formatted(hasNote ? note.strip() : "—"));
     }
 
     /** 管理員解除凍結。 */

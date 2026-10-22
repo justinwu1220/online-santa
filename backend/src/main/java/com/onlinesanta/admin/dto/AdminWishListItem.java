@@ -18,14 +18,23 @@ public record AdminWishListItem(
         /** 曾上架過、修改後重新送審（審核中） */
         boolean resubmission,
         UUID organizationId,
-        String organizationName) {
+        String organizationName,
+        /** 凍結的原因（WishFreezeCause 名稱）；沒有凍結為 null */
+        String freezeCause,
+        /** 機構送出了解除凍結申請，等管理員審核 */
+        boolean unlockRequested) {
 
     public static AdminWishListItem from(Wish wish, boolean late) {
+        return from(wish, late, false);
+    }
+
+    public static AdminWishListItem from(Wish wish, boolean late, boolean unlockRequested) {
         return new AdminWishListItem(
                 wish.getId(), wish.getTitle(), wish.getChildAlias(),
                 wish.getAgeRange() == null ? null : wish.getAgeRange().getLabel(),
                 wish.getAvatar(), wish.getStatus(), wish.isFrozen(), late,
                 wish.getStatus() == WishStatus.PENDING_REVIEW && wish.getPublishedAt() != null,
-                wish.getOrganization().getId(), wish.getOrganization().getName());
+                wish.getOrganization().getId(), wish.getOrganization().getName(),
+                wish.getFrozenCause() == null ? null : wish.getFrozenCause().name(), unlockRequested);
     }
 }

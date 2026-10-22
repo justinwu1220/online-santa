@@ -32,7 +32,7 @@ public record MessageView(
         };
         return new MessageView(
                 message.getId(),
-                message.getBody(),
+                message.isRedacted() ? "此訊息已被管理員遮蔽" : message.getBody(),
                 fromMe,
                 message.getReadAt() != null,
                 message.getCreatedAt(),

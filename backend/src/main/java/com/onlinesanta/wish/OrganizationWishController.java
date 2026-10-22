@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -32,10 +33,13 @@ public class OrganizationWishController {
 
     private final WishService wishes;
     private final OrganizationWishQueryService queries;
+    private final com.onlinesanta.unlock.WishUnlockService unlocks;
 
-    public OrganizationWishController(WishService wishes, OrganizationWishQueryService queries) {
+    public OrganizationWishController(WishService wishes, OrganizationWishQueryService queries,
+                                      com.onlinesanta.unlock.WishUnlockService unlocks) {
         this.wishes = wishes;
         this.queries = queries;
+        this.unlocks = unlocks;
     }
 
     @GetMapping
@@ -67,5 +71,22 @@ public class OrganizationWishController {
             description = "自己機構的願望有 createdAt 紀錄的年份，供年度篩選下拉使用")
     public List<Integer> years() {
         return wishes.availableYears();
+    }
+
+    @PostMapping("/{id}/unlock-request")
+    @Operation(summary = "申請解除凍結",
+            description = "管理員凍結的願望：說明並（內容疑慮時）附上修改後的內容（不含禮物）；"
+                    + "核准前線上內容不變，同時只能有一筆待審的申請")
+    public com.onlinesanta.unlock.UnlockRequestView requestUnlock(
+            @PathVariable UUID id,
+            @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody
+            com.onlinesanta.unlock.UnlockRequestBody body) {
+        return unlocks.request(id, body.message(), body.revision());
+    }
+
+    @PostMapping("/{id}/unlock-request/withdraw")
+    @Operation(summary = "撤回解除申請", description = "只能撤回還沒被審核的申請")
+    public com.onlinesanta.unlock.UnlockRequestView withdrawUnlock(@PathVariable UUID id) {
+        return unlocks.withdraw(id);
     }
 }

@@ -47,10 +47,17 @@ public class WishFrozenNotificationListener {
                 您好，
 
                 您認領的「%s」已經恢復處理，暫停的時間會加回寄送期限，請到認領頁確認新的期限。
+                願望內容可能已經更新，目前的內容如下：
+                  孩子的暱稱：%s
+                  年齡：%s
+                  願望說明：%s
                 認領頁：%s
 
                 線上聖誕老人
-                """.formatted(title, properties.publicUrl());
+                """.formatted(title, claim.getWish().getChildAlias(),
+                        claim.getWish().getAgeRange() == null ? "—" : claim.getWish().getAgeRange().getLabel(),
+                        claim.getWish().getDescription() == null ? "—" : claim.getWish().getDescription(),
+                        properties.publicUrl());
         notifications.send(claim.getDonor().getEmail(), subject, body);
     }
 }

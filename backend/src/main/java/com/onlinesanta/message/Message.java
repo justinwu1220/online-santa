@@ -54,6 +54,16 @@ public class Message {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    /** 被管理員遮蔽的時間（含個資等）；原文保留給稽核，雙方看到的是「已被管理員遮蔽」。 */
+    @Column(name = "redacted_at")
+    private Instant redactedAt;
+
+    @Column(name = "redacted_by")
+    private UUID redactedBy;
+
+    @Column(name = "redacted_reason", columnDefinition = "text")
+    private String redactedReason;
+
     protected Message() {
         // JPA
     }
@@ -82,6 +92,19 @@ public class Message {
         Message message = new Message(MessageKind.WELCOME, wishId, claimId, null, body);
         message.readAt = message.createdAt;
         return message;
+    }
+
+    /** 管理員遮蔽這則訊息。重複呼叫不會改寫第一次的紀錄。 */
+    public void redact(UUID adminId, String reason) {
+        if (redactedAt == null) {
+            this.redactedAt = Instant.now();
+            this.redactedBy = adminId;
+            this.redactedReason = reason;
+        }
+    }
+
+    public boolean isRedacted() {
+        return redactedAt != null;
     }
 
     /** 標記為已讀。重複呼叫不會改寫第一次的時間。 */

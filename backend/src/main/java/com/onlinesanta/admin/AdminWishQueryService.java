@@ -47,16 +47,19 @@ public class AdminWishQueryService {
     private final AdminAuditService audit;
     private final CurrentUserService currentUser;
     private final WishEventService history;
+    private final com.onlinesanta.unlock.WishUnlockService unlocks;
 
     public AdminWishQueryService(WishRepository wishes, ClaimRepository claims,
                                  AttachmentService attachments, AdminAuditService audit,
-                                 CurrentUserService currentUser, WishEventService history) {
+                                 CurrentUserService currentUser, WishEventService history,
+                                 com.onlinesanta.unlock.WishUnlockService unlocks) {
         this.wishes = wishes;
         this.claims = claims;
         this.attachments = attachments;
         this.audit = audit;
         this.currentUser = currentUser;
         this.history = history;
+        this.unlocks = unlocks;
     }
 
     @Transactional(readOnly = true)
@@ -77,8 +80,11 @@ public class AdminWishQueryService {
         Page<Wish> page = wishes.adminSearch(statuses, organizationId, filter == Filter.FROZEN,
                 filter == Filter.LATE, now, from, to, q, pageable);
 
-        Set<UUID> lateIds = lateWishIds(page.getContent().stream().map(Wish::getId).toList(), now);
-        return page.map(wish -> AdminWishListItem.from(wish, lateIds.contains(wish.getId())));
+        List<UUID> ids = page.getContent().stream().map(Wish::getId).toList();
+        Set<UUID> lateIds = lateWishIds(ids, now);
+        Set<UUID> unlockIds = unlocks.wishIdsWithPending(ids);
+        return page.map(wish -> AdminWishListItem.from(wish, lateIds.contains(wish.getId()),
+                unlockIds.contains(wish.getId())));
     }
 
     @Transactional(readOnly = true)
@@ -102,7 +108,8 @@ public class AdminWishQueryService {
         return new AdminWishCounts(review + open + claimed + done, review, open, claimed,
                 organizationId == null ? claims.countOverdue(now) : claims.countOverdueByOrganization(organizationId, now),
                 done,
-                organizationId == null ? wishes.countFrozen() : wishes.countFrozenByOrganization(organizationId));
+                organizationId == null ? wishes.countFrozen() : wishes.countFrozenByOrganization(organizationId),
+                unlocks.pendingCount());
     }
 
     /**
@@ -121,8 +128,10 @@ public class AdminWishQueryService {
         }
         boolean late = active != null && active.isOverdue(Instant.now());
         boolean resubmission = wish.getStatus() == WishStatus.PENDING_REVIEW && wish.getPublishedAt() != null;
+        var unlock = unlocks.pendingOf(wishId).orElse(null);
         return AdminWishDetailView.from(wish, active, late, attachments.wishLetters(wishId),
-                resubmission ? history.changesSinceLastApproval(wish) : null, history.history(wishId));
+                resubmission ? history.changesSinceLastApproval(wish) : null, history.history(wishId),
+                unlock, unlock == null ? List.of() : unlockChanges(wish, unlock.revision()));
     }
 
     /** 點擊載入：目前認領的寄件照片（含捐贈者個資）。寫稽核。孩子的手寫信件是公開的，在 {@link #get} 直接帶出。 */
@@ -136,6 +145,28 @@ public class AdminWishQueryService {
                 .stream().findFirst()
                 .ifPresent(claim -> result.addAll(attachments.claimAttachments(claim.getId())));
         return result;
+    }
+
+    /** 機構申請裡修改的內容與目前線上內容的差異。 */
+    private static List<com.onlinesanta.wish.dto.WishChanges.FieldChange> unlockChanges(
+            Wish wish, com.onlinesanta.unlock.WishRevision revision) {
+        List<com.onlinesanta.wish.dto.WishChanges.FieldChange> changes = new java.util.ArrayList<>();
+        if (revision == null) {
+            return changes;
+        }
+        addChange(changes, "孩子的暱稱", wish.getChildAlias(), revision.childAlias());
+        addChange(changes, "孩子的年齡", wish.getAgeRange() == null ? null : wish.getAgeRange().getLabel(),
+                revision.ageRange() == null ? null : revision.ageRange().getLabel());
+        addChange(changes, "願望描述", wish.getDescription(), revision.description());
+        addChange(changes, "興趣", wish.getInterests(), revision.interests());
+        return changes;
+    }
+
+    private static void addChange(List<com.onlinesanta.wish.dto.WishChanges.FieldChange> changes,
+                                  String field, String before, String after) {
+        if (after != null && !after.strip().equals(before == null ? "" : before.strip())) {
+            changes.add(new com.onlinesanta.wish.dto.WishChanges.FieldChange(field, before == null ? "" : before, after));
+        }
     }
 
     private Set<UUID> lateWishIds(List<UUID> wishIds, Instant now) {

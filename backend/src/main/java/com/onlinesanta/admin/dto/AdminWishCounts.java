@@ -8,5 +8,7 @@ public record AdminWishCounts(
         long claimed,
         long late,
         long done,
-        long frozen) {
+        long frozen,
+        /** 機構送出、等管理員審核的解除凍結申請數 */
+        long unlockRequests) {
 }

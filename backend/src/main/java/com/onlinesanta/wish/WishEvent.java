@@ -44,6 +44,10 @@ public class WishEvent {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    /** 快照被遮蔽（個資外洩處置）的時間；沒遮蔽過為 null。由 WishEventRepository 的專用更新寫入。 */
+    @Column(name = "redacted_at", insertable = false, updatable = false)
+    private Instant redactedAt;
+
     protected WishEvent() {
         // JPA
     }
@@ -55,6 +59,10 @@ public class WishEvent {
         this.note = note;
         this.snapshot = snapshot;
         this.createdAt = Instant.now();
+    }
+
+    public Instant getRedactedAt() {
+        return redactedAt;
     }
 
     public static WishEvent by(UUID wishId, WishEventType type, UUID actorUserId, String note, String snapshot) {

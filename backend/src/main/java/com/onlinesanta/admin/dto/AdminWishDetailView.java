@@ -40,9 +40,14 @@ public record AdminWishDetailView(
         /** 與上次核准版本的差異；從沒有核准紀錄（功能上線前的舊願望）為 null */
         WishChanges changes,
         /** 這個願望的歷程時間軸 */
-        List<WishHistoryItem> history) {
+        List<WishHistoryItem> history,
+        /** 機構待審的解除凍結申請；沒有為 null */
+        com.onlinesanta.unlock.UnlockRequestView unlockRequest,
+        /** 申請裡機構修改的內容與目前線上內容的差異（舊→新）；沒有修改為空 */
+        List<WishChanges.FieldChange> unlockChanges) {
 
-    public record Frozen(Instant at, String reason) {
+    /** @param cause 優先度最高的凍結原因（WishFreezeCause 名稱） */
+    public record Frozen(Instant at, String reason, String cause) {
     }
 
     public record OrganizationCard(
@@ -90,17 +95,20 @@ public record AdminWishDetailView(
     }
 
     public static AdminWishDetailView from(Wish wish, Claim active, boolean late, List<AttachmentView> letterPhotos,
-                                           WishChanges changes, List<WishHistoryItem> history) {
+                                           WishChanges changes, List<WishHistoryItem> history,
+                                           com.onlinesanta.unlock.UnlockRequestView unlockRequest,
+                                           List<WishChanges.FieldChange> unlockChanges) {
         return new AdminWishDetailView(
                 wish.getId(), wish.getTitle(), wish.getChildAlias(),
                 wish.getAgeRange() == null ? null : wish.getAgeRange().getLabel(),
                 wish.getAvatar(), wish.getDescription(), letterPhotos, wish.getStatus(), wish.getCreatedAt(),
                 wish.getReviewNote(),
-                wish.isFrozen() ? new Frozen(wish.getFrozenAt(), wish.getFrozenReason()) : null,
+                wish.isFrozen() ? new Frozen(wish.getFrozenAt(), wish.getFrozenReason(),
+                        wish.getFrozenCause() == null ? null : wish.getFrozenCause().name()) : null,
                 late,
                 OrganizationCard.from(wish.getOrganization()),
                 active == null ? null : ClaimCard.from(active),
                 wish.getStatus() == WishStatus.PENDING_REVIEW && wish.getPublishedAt() != null,
-                changes, history);
+                changes, history, unlockRequest, unlockChanges);
     }
 }

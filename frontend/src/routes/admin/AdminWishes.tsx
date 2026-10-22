@@ -7,8 +7,10 @@ import {
   DCard, DrawerTabs, DStatus, DSteps, Kv, type StepState,
 } from '../../components/console/DrawerParts'
 import { ClaimProofs } from './ClaimProofs'
+import { WishContentEditDialog } from './WishContentEditDialog'
 import { ResubmitChanges, WishHistoryTimeline } from './WishHistory'
 import { LazyBox } from '../../components/console/LazyBox'
+import { ConfirmDialog } from '../../components/console/ConfirmDialog'
 import { ReasonDialog } from '../../components/console/ReasonDialog'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { useToast } from '../../components/ui/toastContext'
@@ -150,6 +152,7 @@ export function AdminWishes() {
                   <span className="org-row__badges">
                     {wish.resubmission && <span className="badge badge--resubmit">修改後重審</span>}
                     {wish.frozen && <span className="badge badge--frozen">{ICON_SNOW}已凍結</span>}
+                    {wish.unlockRequested && <span className="badge badge--resubmit">申請解除</span>}
                     {wish.late && <span className="badge badge--late">逾期未寄</span>}
                   </span>
                   <ChevronRight className="icon org-row__go" aria-hidden />
@@ -175,7 +178,8 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
   const invalidate = useInvalidateAdmin()
   const detail = useAdminWish(wishId)
   const [tab, setTab] = useState('info')
-  const [dialog, setDialog] = useState<'return' | 'freeze' | null>(null)
+  const [dialog, setDialog] = useState<'return' | 'freeze' | 'edit' | 'rejectUnlock' | 'approveUnlock' | null>(null)
+  const [redactId, setRedactId] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
 
   // 換一個願望回到第一個分頁；留住最後一筆資料，關閉動畫期間內容不會消失
@@ -186,8 +190,8 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
   const wish = detail.data ?? (wishId === shown?.id ? shown : null)
   const open = wishId !== null
 
-  async function post(path: string, body: unknown, message: string, celebrate?: Element | null) {
-    await api.post(`/api/admin/wishes/${wishId}/${path}`, body)
+  async function post(path: string, body: unknown, message: string, celebrate?: Element | null, method: 'post' | 'patch' = 'post') {
+    await (method === 'patch' ? api.patch : api.post)(`/api/admin/wishes/${wishId}/${path}`, body)
     if (celebrate && !reducedMotion()) burst(...center(celebrate), 16, 100)
     toast.show(message)
     await invalidate()
@@ -232,12 +236,25 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
       <button type="button" className="btn btn--tone-solid" disabled={busy}
         onClick={(event) => void approve(event.currentTarget)}>核准上架</button>
     </div>
+  ) : frozen && wish.unlockRequest ? (
+    <div className="drawer__foot">
+      <button type="button" className="btn" onClick={() => setDialog('edit')}>修改內容</button>
+      <button type="button" className="btn btn--danger" onClick={() => setDialog('rejectUnlock')}>退回申請</button>
+      <button type="button" className="btn btn--tone-solid" disabled={busy}
+        onClick={() => setDialog('approveUnlock')}>核准並解除凍結</button>
+    </div>
   ) : frozen ? (
     <div className="drawer__foot">
-      <button type="button" className="btn btn--freeze" disabled={busy} onClick={() => void unfreeze()}>解除凍結</button>
+      <button type="button" className="btn" onClick={() => setDialog('edit')}>修改內容</button>
+      {isSuspensionFreeze(wish) ? (
+        <span className="auth-note" style={{ margin: 0 }}>這是因停權而凍結，請從停權處理。</span>
+      ) : (
+        <button type="button" className="btn btn--freeze" disabled={busy} onClick={() => void unfreeze()}>解除凍結</button>
+      )}
     </div>
   ) : (
     <div className="drawer__foot">
+      <button type="button" className="btn" onClick={() => setDialog('edit')}>修改並凍結</button>
       <button type="button" className="btn btn--freeze" onClick={() => setDialog('freeze')}>{ICON_SNOW}暫時凍結</button>
     </div>
   )
@@ -267,8 +284,16 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
                     {messages.map((message) => (
                       <div key={message.id} className={`msg ${message.senderRole === 'ORGANIZATION' ? 'msg--org' : 'msg--me'}`}>
                         <span className="msg__who">{message.senderRole === 'ORGANIZATION' ? wish.organization.name : claim.donorDisplayName}</span>
-                        <span className="msg__text">{message.body}</span>
-                        <span className="msg__time">{formatDateTime(message.sentAt)}</span>
+                        <span className="msg__text">
+                          {message.body}
+                          {message.redacted && <em>（已遮蔽，雙方看不到原文）</em>}
+                        </span>
+                        <span className="msg__time">
+                          {formatDateTime(message.sentAt)}
+                          {!message.redacted && (
+                            <button type="button" className="link-btn" onClick={() => setRedactId(message.id)}>遮蔽</button>
+                          )}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -291,17 +316,58 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
             }} />
           <ReasonDialog open={dialog === 'freeze'} onClose={() => setDialog(null)} tone="freeze" rows={3}
             title="暫時凍結這個願望？"
-            body={`凍結後，「${wish.title}」會立刻從願望牆與認領者的頁面消失，連同信件照片與對話都不再對外顯示；機構後台與管理員後台仍會保留，處理完可以解除凍結。`}
+            body={`凍結後，「${wish.title}」會立刻從願望牆消失，信件照片也不再對外顯示；已認領的話，認領者的認領頁會顯示「暫停處理中」、寄送期限暫停，機構看得到凍結原因。機構後台與管理員後台仍會保留，處理完可以解除凍結。`}
             label="凍結原因" hint="例如：信件照片露出孩子的真實姓名" minLength={4}
             tooShort="請寫下凍結原因" okText="凍結"
             onSubmit={async (reason) => {
               await post('freeze', { note: reason }, `已凍結「${wish.title}」，已從願望牆移除`)
               setDialog(null)
             }} />
+          <WishContentEditDialog open={dialog === 'edit'} wish={wish} alreadyFrozen={frozen}
+            onClose={() => setDialog(null)}
+            onSubmit={async (payload) => {
+              await post('content', payload, `已修改「${wish.title}」的內容${payload.freeze ? '並凍結' : ''}`, null, 'patch')
+              setDialog(null)
+            }} />
+          <ReasonDialog open={dialog === 'rejectUnlock'} onClose={() => setDialog(null)}
+            title="退回解除凍結申請？" body="願望維持凍結，機構會看到你寫的原因，可以修改後再次申請。"
+            label="退回原因" hint="請具體說明還需要修改的地方" minLength={4}
+            tooShort="請寫下退回原因（至少 4 個字）" okText="退回申請"
+            onSubmit={async (reason) => {
+              await post('unlock-request/reject', { note: reason }, '已退回解除申請，機構會收到原因')
+              setDialog(null)
+            }} />
+          <ConfirmDialog open={dialog === 'approveUnlock'} tone="primary"
+            title="核准並解除凍結？"
+            body={`機構修改的內容會套用上線，「${wish.title}」解除凍結，認領者的寄送期限恢復（順延暫停的時間），並收到新版內容的通知。`}
+            okText="核准並解除" busy={busy}
+            onOk={() => {
+              setBusy(true)
+              post('unlock-request/approve', undefined, '已核准，願望解除凍結')
+                .then(() => setDialog(null))
+                .catch((e) => toast.show(e instanceof ApiError ? e.detail : '核准失敗，請稍後再試', 'danger'))
+                .finally(() => setBusy(false))
+            }}
+            onClose={() => setDialog(null)} />
+          <ReasonDialog open={redactId !== null} onClose={() => setRedactId(null)}
+            title="遮蔽這則訊息？" body="原文會保留給稽核，機構與認領者之後看到「此訊息已被管理員遮蔽」。"
+            label="遮蔽原因" hint="例如：含個人住址" minLength={4}
+            tooShort="請寫下遮蔽原因（至少 4 個字）" okText="遮蔽"
+            onSubmit={async (reason) => {
+              if (wish.claim) await api.post(`/api/admin/claims/${wish.claim.claimId}/messages/${redactId}/redact`, { note: reason })
+              toast.show('已遮蔽這則訊息')
+              setRedactId(null)
+              setTab('info')
+            }} />
         </>
       )}
     </>
   )
+}
+
+/** 因機構或認領者停權而連動的凍結，不能在願望上直接解除。 */
+function isSuspensionFreeze(wish: AdminWishDetail): boolean {
+  return wish.frozen?.cause === 'ORG_SUSPENDED' || wish.frozen?.cause === 'DONOR_SUSPENDED'
 }
 
 function statusTone(wish: AdminWishDetail): string {
@@ -317,7 +383,11 @@ function statusCard(wish: AdminWishDetail) {
   const who = claim?.donorDisplayName ?? ''
   if (wish.frozen) {
     return <DStatus tone="frozen" icon="snow" title="已凍結"
-      desc={<>{formatDateTime(wish.frozen.at)}：{wish.frozen.reason}<br />目前不顯示在願望牆與認領者頁面；機構後台與管理員後台仍保留。</>} />
+      desc={<>{formatDateTime(wish.frozen.at)}：{wish.frozen.reason}<br />
+        不顯示在願望牆；認領者的頁面顯示「暫停處理中」；機構後台與管理員後台仍保留。
+        {wish.frozen.cause === 'ADMIN_CONTENT' && '（內容疑慮：機構可以修改後申請解除）'}
+        {wish.frozen.cause === 'ORG_SUSPENDED' && '（機構停權連動）'}
+        {wish.frozen.cause === 'DONOR_SUSPENDED' && '（認領者停權連動）'}</>} />
   }
   if (wish.status === 'PENDING_REVIEW') {
     return wish.resubmission
@@ -373,6 +443,18 @@ function WishInfo({ wish }: { wish: AdminWishDetail }) {
   return (
     <>
       {statusCard(wish)}
+      {wish.unlockRequest && (
+        <DCard icon="pencil" title="機構申請解除凍結" className="dcard--key">
+          <p className="dquote">{wish.unlockRequest.message || '（沒有附說明）'}</p>
+          {(wish.unlockChanges ?? []).length > 0 ? (
+            <ul className="changes">
+              {wish.unlockChanges!.map((change) => (
+                <li key={change.field}><strong>{change.field}</strong>：{change.before || '（空）'} → {change.after}</li>
+              ))}
+            </ul>
+          ) : <p className="auth-note">機構沒有修改內容，只說明並申請解除。</p>}
+        </DCard>
+      )}
       {claim && wish.status !== 'PENDING_REVIEW' && claimSteps(wish)}
       {claim?.shippedAt && (
         <DCard icon="truck" title="寄送資訊" className="dcard--key">

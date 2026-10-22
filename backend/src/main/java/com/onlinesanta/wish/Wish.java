@@ -199,6 +199,35 @@ public class Wish extends BaseEntity {
         this.reviewedAt = Instant.now();
     }
 
+    /**
+     * 管理員（或管理員核准的機構修訂）直接改內容：個資外洩的處置，不受「認領後內容鎖定」限制。
+     * 只改暱稱、年齡區間、興趣與說明；<strong>禮物（標題）不在這裡</strong>，認領者可能已經買好了。
+     * null 代表不修改。
+     *
+     * @return 實際有變動的欄位名稱（title 不會出現），供歷程快照遮蔽用
+     */
+    public java.util.Set<String> applyContentFix(String childAlias, AgeRange ageRange, String interests,
+                                                 String description) {
+        java.util.Set<String> changed = new java.util.LinkedHashSet<>();
+        if (childAlias != null && !childAlias.equals(this.childAlias)) {
+            this.childAlias = childAlias;
+            changed.add("childAlias");
+        }
+        if (ageRange != null && ageRange != this.ageRange) {
+            this.avatar = WishAvatar.afterEdit(this.avatar, this.ageRange, ageRange);
+            this.ageRange = ageRange;
+            changed.add("ageRange");
+        }
+        if (interests != null && !interests.equals(this.interests)) {
+            this.interests = interests;
+        }
+        if (description != null && !description.equals(this.description)) {
+            this.description = description;
+            changed.add("description");
+        }
+        return changed;
+    }
+
     /** 還沒公開的願望（草稿、審核中）不需要凍結。 */
     public void requireFreezable() {
         if (status == WishStatus.DRAFT || status == WishStatus.PENDING_REVIEW) {
