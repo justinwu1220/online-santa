@@ -75,6 +75,7 @@ export function useInvalidateAdmin() {
       queryClient.invalidateQueries({ queryKey: ['admin-wish'] }),
       queryClient.invalidateQueries({ queryKey: ['admin-wish-counts'] }),
       queryClient.invalidateQueries({ queryKey: ['admin-organizations'] }),
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
       queryClient.invalidateQueries({ queryKey: ['audit-logs'] }),
       queryClient.invalidateQueries({ queryKey: ['admin-team-chat'] }),
