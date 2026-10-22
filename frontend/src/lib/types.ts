@@ -675,13 +675,15 @@ export type AdminAuditAction =
   | 'VIEW_ORGANIZATION_PHOTO'
   | 'APPROVE_WISH' | 'REJECT_WISH' | 'FREEZE_WISH' | 'UNFREEZE_WISH' | 'VIEW_WISH_ATTACHMENTS'
   | 'DELETE_ATTACHMENT' | 'DELETE_ORGANIZATION_DOCUMENT'
+  | 'SUSPEND_USER' | 'REACTIVATE_USER' | 'EDIT_WISH_CONTENT' | 'RELEASE_CLAIM_BY_ADMIN'
+  | 'DECIDE_UNLOCK_REQUEST' | 'NOTIFY_AFFECTED_DONORS' | 'VIEW_SUSPENSION_RECORD' | 'REDACT_MESSAGE'
   | 'RUN_RELEASE_SWEEP' | 'RUN_ATTACHMENT_CLEANUP' | 'RUN_DEADLINE_REMINDERS'
 
 export interface AuditLogView {
   id: number
   adminEmail?: string
   action: AdminAuditAction
-  targetType: 'CLAIM' | 'ORGANIZATION' | 'WISH' | 'SYSTEM'
+  targetType: 'CLAIM' | 'ORGANIZATION' | 'WISH' | 'USER' | 'SYSTEM'
   targetId?: string
   detail?: string
   occurredAt: string

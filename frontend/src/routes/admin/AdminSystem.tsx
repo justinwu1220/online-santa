@@ -10,7 +10,7 @@ import type {
   PageResponse, ReleaseSweepResult,
 } from '../../lib/types'
 
-const ACTION_LABELS: Record<AdminAuditAction, string> = {
+export const ACTION_LABELS: Record<AdminAuditAction, string> = {
   VIEW_CLAIM_DETAIL: '檢視認領詳情',
   VIEW_CLAIM_ATTACHMENTS: '檢視認領附件',
   VIEW_CLAIM_MESSAGES: '檢視認領對話',
@@ -28,6 +28,14 @@ const ACTION_LABELS: Record<AdminAuditAction, string> = {
   VIEW_WISH_ATTACHMENTS: '檢視願望附件',
   DELETE_ATTACHMENT: '刪除附件',
   DELETE_ORGANIZATION_DOCUMENT: '刪除機構文件',
+  SUSPEND_USER: '停權認領者',
+  REACTIVATE_USER: '解除認領者停權',
+  EDIT_WISH_CONTENT: '修改願望內容',
+  RELEASE_CLAIM_BY_ADMIN: '釋出認領',
+  DECIDE_UNLOCK_REQUEST: '處理解除申請',
+  NOTIFY_AFFECTED_DONORS: '通知受影響的認領者',
+  VIEW_SUSPENSION_RECORD: '檢視停權處置資料',
+  REDACT_MESSAGE: '遮蔽對話訊息',
   RUN_RELEASE_SWEEP: '執行逾期掃描',
   RUN_ATTACHMENT_CLEANUP: '執行附件清理',
   RUN_DEADLINE_REMINDERS: '執行期限提醒',
@@ -38,6 +46,7 @@ const SENSITIVE: AdminAuditAction[] = [
   'VIEW_CLAIM_DETAIL', 'VIEW_CLAIM_ATTACHMENTS', 'VIEW_CLAIM_MESSAGES', 'VIEW_CLAIM_RECEIPT',
   'VIEW_ORGANIZATION_DOCUMENTS', 'VIEW_ORGANIZATION_PHOTO', 'VIEW_WISH_ATTACHMENTS',
   'DELETE_ATTACHMENT', 'DELETE_ORGANIZATION_DOCUMENT',
+  'VIEW_SUSPENSION_RECORD', 'REDACT_MESSAGE', 'EDIT_WISH_CONTENT',
 ]
 
 const SCHEDULER_NOTE = '正式環境由 Cloud Scheduler 每日自動執行，走的是獨立的驗證鏈（Google OIDC token），與這裡的手動觸發是同一段邏輯。'
@@ -120,7 +129,7 @@ function JobPanel<T>({ title, desc, button, busyText, jobKey, result }: {
  * 管理員操作紀錄。對所有管理員公開——有權限的人不該能安靜地做任何事；
  * 管理員之間互相看得到彼此的操作，這本身就是一種約束。
  */
-function AuditPanel() {
+export function AuditPanel() {
   const [action, setAction] = useState<AdminAuditAction | ''>('')
   const [page, setPage] = useState(0)
   const logs = useQuery({
@@ -161,7 +170,7 @@ function AuditPanel() {
                     <td>{formatDateTime(log.occurredAt)}</td>
                     <td>{log.adminEmail ?? '—'}</td>
                     <td style={SENSITIVE.includes(log.action) ? { color: '#fca5a5', fontWeight: 700 } : undefined}>
-                      {ACTION_LABELS[log.action]}
+                      {ACTION_LABELS[log.action] ?? log.action}
                     </td>
                     <td>{log.detail ?? '—'}</td>
                   </tr>
