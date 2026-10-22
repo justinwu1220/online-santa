@@ -30,13 +30,16 @@ public class OrganizationController {
     private final OrganizationService organizations;
     private final AttachmentService attachments;
     private final CurrentUserService currentUser;
+    private final com.onlinesanta.suspension.OrganizationSuspensionService suspensions;
 
     public OrganizationController(OrganizationService organizations,
                                   AttachmentService attachments,
-                                  CurrentUserService currentUser) {
+                                  CurrentUserService currentUser,
+                                  com.onlinesanta.suspension.OrganizationSuspensionService suspensions) {
         this.organizations = organizations;
         this.attachments = attachments;
         this.currentUser = currentUser;
+        this.suspensions = suspensions;
     }
 
     @PostMapping
@@ -59,6 +62,25 @@ public class OrganizationController {
     public OrganizationView updateMine(@Valid @RequestBody OrganizationUpdateRequest request) {
         Organization updated = organizations.updateMine(request);
         return OrganizationView.from(updated, attachments.organizationPhotoUrl(updated.getId()));
+    }
+
+    @GetMapping("/me/unlock-request")
+    @Operation(summary = "我的解除停權申請", description = "最近一筆（待審或已決定）；沒申請過為 null")
+    public com.onlinesanta.unlock.UnlockRequestView unlockRequest() {
+        return suspensions.latestForMyOrganization().orElse(null);
+    }
+
+    @PostMapping("/me/unlock-request")
+    @Operation(summary = "申請解除停權", description = "資料修改好、文件補上之後申請；同時只能有一筆待審")
+    public com.onlinesanta.unlock.UnlockRequestView requestUnlock(
+            @Valid @RequestBody(required = false) com.onlinesanta.unlock.UnlockRequestBody body) {
+        return suspensions.requestUnlock(body == null ? null : body.message());
+    }
+
+    @PostMapping("/me/unlock-request/withdraw")
+    @Operation(summary = "撤回解除停權申請")
+    public com.onlinesanta.unlock.UnlockRequestView withdrawUnlock() {
+        return suspensions.withdrawUnlock();
     }
 
     @PostMapping("/me/resubmit")

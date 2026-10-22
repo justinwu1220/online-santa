@@ -151,6 +151,21 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
     @EntityGraph(attributePaths = "organization")
     Page<Wish> findByOrganizationId(UUID organizationId, Pageable pageable);
 
+    /** 機構停權連動凍結用：這間機構目前公開中（可認領、已認領）的願望。 */
+    @EntityGraph(attributePaths = "organization")
+    java.util.List<Wish> findByOrganizationIdAndStatusIn(UUID organizationId, java.util.Collection<WishStatus> statuses);
+
+    /** 機構復權解除凍結用：這間機構因停權而凍結、還沒解除的願望。 */
+    @EntityGraph(attributePaths = "organization")
+    @Query("""
+            select w from Wish w
+            where w.organization.id = :organizationId
+              and exists (select 1 from WishFreeze f
+                           where f.wishId = w.id and f.cause = com.onlinesanta.wish.WishFreezeCause.ORG_SUSPENDED
+                             and f.liftedAt is null)
+            """)
+    java.util.List<Wish> findFrozenByOrganizationSuspension(@Param("organizationId") UUID organizationId);
+
     @EntityGraph(attributePaths = "organization")
     Page<Wish> findByOrganizationIdAndStatus(UUID organizationId, WishStatus status, Pageable pageable);
 

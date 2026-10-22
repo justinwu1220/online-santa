@@ -136,6 +136,17 @@ export interface WishOrgDetail {
   canReviseContent: boolean
 }
 
+/** 管理員看停權機構的處置資料（停權當下保全的原始資訊、停權期間的修改、解除申請）。 */
+export interface SuspensionDetail {
+  reason?: string | null
+  suspendedAt?: string | null
+  snapshot?: Record<string, unknown> & { documents?: { id: string; fileName?: string }[] } | null
+  revisions: { changes: Record<string, { before: string; after: string }>; at: string }[]
+  unlockRequest?: UnlockRequestView | null
+  openWishes: number
+  affectedClaims: number
+}
+
 /** 凍結期間機構修改的內容（不含禮物）；欄位沒填代表不修改。 */
 export interface WishRevisionBody {
   childAlias?: string

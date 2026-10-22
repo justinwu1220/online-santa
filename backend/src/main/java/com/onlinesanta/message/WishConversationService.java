@@ -57,7 +57,8 @@ public class WishConversationService {
         long unread = messages.countWishUnread(wishId, activeId, viewer.userId());
         return new WishConversationItem(
                 active == null ? null : active.getDonor().getDisplayName(),
-                active != null && active.getStatus().allowsMessages(),
+                active != null && active.getStatus().allowsMessages()
+                        && !com.onlinesanta.claim.ClaimRestriction.of(active).isRestricted(),
                 unread, views);
     }
 

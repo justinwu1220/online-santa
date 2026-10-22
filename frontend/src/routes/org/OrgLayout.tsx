@@ -104,7 +104,10 @@ function ReviewBanner({ organization }: { organization: OrganizationView }) {
   }
   return (
     <Callout tone="warn" className="org-review" icon={<Clock className="icon" aria-hidden />}>
-      <strong>機構已停權。</strong>已上架與已認領的願望不受影響，但無法建立新願望；請與平台管理員聯繫。
+      <strong>機構已停權。</strong>
+      {organization.reviewNote && <>原因：{organization.reviewNote}。</>}
+      你仍可登入、在「與團隊對話」與管理員聯繫、修改機構資料並補上傳證明文件；但無法對願望進行任何操作，
+      也無法聯繫認領者，你的願望已凍結。資料處理好後，請到「機構設定」申請解除停權。
     </Callout>
   )
 }

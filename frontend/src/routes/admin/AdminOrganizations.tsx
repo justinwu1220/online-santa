@@ -7,6 +7,7 @@ import { Drawer } from '../../components/console/Drawer'
 import { DCard, DStatus, DrawerTabs, Kv } from '../../components/console/DrawerParts'
 import { LazyBox } from '../../components/console/LazyBox'
 import { ReasonDialog } from '../../components/console/ReasonDialog'
+import { SuspensionPanel } from './SuspensionPanel'
 import { useToast } from '../../components/ui/toastContext'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { ApiError, api } from '../../lib/api'
@@ -169,7 +170,7 @@ function OrgDrawer({ org, onClose }: { org: OrganizationReviewView | null; onClo
     REJECTED: <DStatus tone="returned" icon="alert" title="已退回，等機構修改"
       desc={`退回原因：${current.reviewNote ?? ''}`} />,
     SUSPENDED: <DStatus tone="frozen" icon="alert" title="已停權"
-      desc={`${current.reviewedAt ? formatDateTime(current.reviewedAt) + ' 停權。' : ''}機構無法登入後台與刊登願望；已上架的願望不受影響。`} />,
+      desc={`${current.reviewedAt ? formatDateTime(current.reviewedAt) + ' 停權。' : ''}機構仍可登入、對話、改資料與補文件，但不能對願望操作；它的願望已全部凍結，認領者看到停權說明。`} />,
   }[current.status]
 
   // 已核准／已停權的機構才有願望可看：連結放在底部按鈕列的最左側，其餘動作靠右
@@ -229,6 +230,9 @@ function OrgDrawer({ org, onClose }: { org: OrganizationReviewView | null; onClo
               </DCard>
             </>
           )}
+          {tab === 'info' && current.status === 'SUSPENDED' && (
+            <SuspensionPanel orgId={current.id} orgName={current.name} />
+          )}
           {tab === 'docs' && (
             <>
               <LazyBox key={`photo-${current.id}`} title="機構照片" desc="照片可能拍到孩子或機構環境。" button="載入照片"
@@ -261,8 +265,8 @@ function OrgDrawer({ org, onClose }: { org: OrganizationReviewView | null; onClo
 
       <ReasonDialog open={dialog === 'suspend'} onClose={() => setDialog(null)} tone="freeze"
         title={`停權「${current.name}」？`}
-        body="停權後這個機構無法登入後台、無法刊登新願望；已上架與已認領的願望不受影響。之後可以解除停權。"
-        label="停權原因" hint="只有管理員看得到，會寫進稽核紀錄" minLength={2} rows={3}
+        body="會保全機構目前的原始資訊作為證據；機構的所有公開願望會凍結（還沒寄出的認領暫停寄送期限），認領者看到停權說明並收到通知；機構仍可登入、與你對話、改資料與補文件，但不能對願望操作。之後可以解除停權。"
+        label="停權原因" hint="機構會在團隊對話看到這段原因，也會寫進稽核紀錄" minLength={2} rows={3}
         tooShort="請寫下停權原因" okText="停權"
         onSubmit={async (reason) => {
           await act('suspend', { note: reason }, `已停權「${current.name}」`)
@@ -271,7 +275,7 @@ function OrgDrawer({ org, onClose }: { org: OrganizationReviewView | null; onClo
         }} />
 
       <ConfirmDialog open={dialog === 'unsuspend'} onClose={() => { setDialog(null); setError('') }}
-        title={`解除「${current.name}」的停權？`} body="解除後機構可以重新登入後台與刊登願望。"
+        title={`解除「${current.name}」的停權？`} body="機構恢復正常，因停權而凍結的願望解除（其他原因的凍結保留），認領者的寄送期限順延停權的時間。"
         okText="解除停權" tone="primary" busy={busy} error={error}
         onOk={async () => {
           setBusy(true)

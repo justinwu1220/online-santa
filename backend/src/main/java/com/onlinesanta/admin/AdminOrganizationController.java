@@ -38,9 +38,12 @@ import jakarta.validation.Valid;
 public class AdminOrganizationController {
 
     private final OrganizationReviewService review;
+    private final com.onlinesanta.suspension.OrganizationSuspensionService suspensions;
 
-    public AdminOrganizationController(OrganizationReviewService review) {
+    public AdminOrganizationController(OrganizationReviewService review,
+                                       com.onlinesanta.suspension.OrganizationSuspensionService suspensions) {
         this.review = review;
+        this.suspensions = suspensions;
     }
 
     @GetMapping
@@ -70,12 +73,37 @@ public class AdminOrganizationController {
 
     @PostMapping("/{id}/suspend")
     @Operation(summary = "停權機構",
-            description = "資安事件應變手冊第一步：立即讓該機構的願望從公開曝光下架，"
-                    + "進行中的認領不受影響。note 必填，只有 APPROVED 的機構能被停權")
+            description = "保全原始資訊快照、機構狀態 SUSPENDED、該機構公開中的願望全部凍結（還沒寄出的認領暫停寄送期限）、"
+                    + "通知機構與認領者。機構仍可登入、對話、改資料與補文件，但不能對願望操作。"
+                    + "note 必填，只有 APPROVED 的機構能被停權")
     public OrganizationReviewView suspend(
             @PathVariable UUID id,
             @Valid @RequestBody ReviewReasonRequest request) {
-        return OrganizationReviewView.from(review.suspend(id, request));
+        return OrganizationReviewView.from(suspensions.suspend(id, request));
+    }
+
+    @GetMapping("/{id}/suspension")
+    @Operation(summary = "停權處置資料",
+            description = "停權當下保全的原始資訊、停權期間機構的資料修改、機構的解除申請、受影響的願望與認領數。**會寫入稽核紀錄**")
+    public com.onlinesanta.suspension.SuspensionDetailView suspension(@PathVariable UUID id) {
+        return suspensions.detailOf(id);
+    }
+
+    @PostMapping("/{id}/notify-donors")
+    @Operation(summary = "通知受影響的認領者",
+            description = "寄 Email 給這間機構所有進行中認領（含已寄出）的認領者；message 是你要說的話。**會寫入稽核紀錄**")
+    public java.util.Map<String, Integer> notifyDonors(
+            @PathVariable UUID id,
+            @Valid @RequestBody ReviewReasonRequest request) {
+        return java.util.Map.of("notified", suspensions.notifyAffectedDonors(id, request.note()));
+    }
+
+    @PostMapping("/{id}/unlock-request/reject")
+    @Operation(summary = "退回機構的解除停權申請", description = "維持停權；note 必填，機構會在團隊對話看到原因")
+    public com.onlinesanta.unlock.UnlockRequestView rejectUnlock(
+            @PathVariable UUID id,
+            @Valid @RequestBody ReviewReasonRequest request) {
+        return suspensions.rejectUnlock(id, request.note());
     }
 
     @GetMapping("/{id}/documents")
@@ -92,11 +120,13 @@ public class AdminOrganizationController {
     }
 
     @PostMapping("/{id}/reactivate")
-    @Operation(summary = "恢復機構", description = "停權後恢復為 APPROVED，願望重新出現在公開曝光。只有 SUSPENDED 的機構能被恢復")
+    @Operation(summary = "恢復機構",
+            description = "停權後恢復為 APPROVED：解除「機構停權」的凍結（其他原因的凍結保留），認領者的寄送期限順延。"
+                    + "只有 SUSPENDED 的機構能被恢復；機構有待審的解除申請會一併結案")
     public OrganizationReviewView reactivate(
             @PathVariable UUID id,
             @Valid @RequestBody(required = false) ReviewDecisionRequest request) {
         return OrganizationReviewView.from(
-                review.reactivate(id, request == null ? ReviewDecisionRequest.empty() : request));
+                suspensions.reactivate(id, request == null ? ReviewDecisionRequest.empty() : request));
     }
 }

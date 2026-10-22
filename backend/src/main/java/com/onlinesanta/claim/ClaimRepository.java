@@ -78,6 +78,16 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
             """)
     List<Claim> findNeedingDeadlineReminder(@Param("from") Instant from, @Param("to") Instant to);
 
+    /** 這間機構進行中（還沒完成）的認領，管理員通知受影響的認領者用。 */
+    @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
+    @Query("""
+            select c from Claim c
+            where c.wish.organization.id = :organizationId
+              and c.status in :statuses
+            """)
+    List<Claim> findByOrganizationIdAndStatusIn(@Param("organizationId") UUID organizationId,
+                                               @Param("statuses") Collection<ClaimStatus> statuses);
+
     /** 依狀態分組計數，供監控中心的統計使用。 */
     @Query("select c.status, count(c) from Claim c group by c.status")
     List<Object[]> countByStatus();

@@ -124,15 +124,26 @@ class OrganizationSuspensionIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("進行中的認領不受停權影響，寄送流程能繼續走完")
-    void inProgressClaimsContinueAfterSuspension() throws Exception {
+    @DisplayName("進行中的認領因停權而暫停（不能寄出）；復權後可以繼續走完")
+    void inProgressClaimsArePausedUntilReactivation() throws Exception {
         UUID wishId = publishedWish("認領中的願望");
         String body = mvc.perform(as(post("/api/wishes/{id}/claim", wishId), DONOR))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         UUID claimId = UUID.fromString(json.readTree(body).get("id").asText());
 
-        suspend(organization.getId(), "查核中，但不影響已經在途的送禮");
+        suspend(organization.getId(), "查核中，認領者先不要寄");
+
+        // 停權期間認領者不用也不能寄出（可能把禮物寄給正在被查的機構）
+        var upload = new com.onlinesanta.attachment.dto.UploadUrlRequest(
+                AttachmentPurpose.SHIPPING_PROOF, claimId, "image/jpeg", 120_000);
+        mvc.perform(as(withBody(post("/api/uploads/signed-url"), upload), DONOR))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("CLAIM_RESTRICTED"));
+
+        mvc.perform(as(withBody(post("/api/admin/organizations/{id}/reactivate", organization.getId()),
+                        new ReviewDecisionRequest("查核完畢")), ADMIN))
+                .andExpect(status().isOk());
 
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),

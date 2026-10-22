@@ -479,6 +479,7 @@ public class AttachmentService {
         if (!wish.getOrganization().getId().equals(organizationId)) {
             throw ResourceNotFoundException.of("願望", wishId);
         }
+        requireOrganizationNotSuspended(wish);
         requireDraft(wish);
     }
 
@@ -486,6 +487,14 @@ public class AttachmentService {
         if (!wish.getStatus().isEditable()) {
             throw new BusinessRuleException("WISH_NOT_EDITABLE",
                     "願望已送審或上架，無法更動信件照片；要修改請先按「修改並重新送審」，目前狀態為 " + wish.getStatus());
+        }
+    }
+
+    /** 機構停權期間不能對願望做任何事，包括願望的示意圖與信件照片上傳；機構文件與機構照片可以補。 */
+    private void requireOrganizationNotSuspended(Wish wish) {
+        if (wish.getOrganization().getStatus() == com.onlinesanta.organization.OrganizationStatus.SUSPENDED) {
+            throw new BusinessRuleException("ORGANIZATION_SUSPENDED",
+                    "貴機構目前被停權，無法對願望進行操作；請到「與團隊對話」與管理員聯繫");
         }
     }
 
@@ -498,6 +507,7 @@ public class AttachmentService {
         if (!wish.getOrganization().getId().equals(organizationId)) {
             throw ResourceNotFoundException.of("願望", wishId);
         }
+        requireOrganizationNotSuspended(wish);
         if (!wish.getStatus().isEditable()) {
             throw new BusinessRuleException("WISH_NOT_EDITABLE",
                     "願望已進入認領流程，無法更換示意圖，目前狀態為 " + wish.getStatus());

@@ -109,8 +109,8 @@ public class ClaimService {
         Wish wish = wishes.findWithOrganizationById(wishId)
                 .orElseThrow(() -> ResourceNotFoundException.of("願望", wishId));
         Organization organization = wish.getOrganization();
-        if (wish.isFrozen()) {
-            // 凍結的願望對外不存在
+        if (wish.isFrozen() || organization.getStatus() != com.onlinesanta.organization.OrganizationStatus.APPROVED) {
+            // 凍結的願望、停權（或尚未核准）機構的願望對外不存在
             throw ResourceNotFoundException.of("願望", wishId);
         }
 

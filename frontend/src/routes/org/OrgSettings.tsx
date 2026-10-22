@@ -10,7 +10,7 @@ import { ApiError, api } from '../../lib/api'
 import { pageTitle } from '../../lib/brand'
 import { EASE_OUT, reducedMotion } from '../../lib/motion'
 import { isCompleteLandline, isCompleteMobile } from '../../lib/phone'
-import type { AttachmentView, OrganizationView, ReleasePolicy } from '../../lib/types'
+import type { AttachmentView, OrganizationView, ReleasePolicy, UnlockRequestView } from '../../lib/types'
 import {
   ACCEPTED_ORG_DOCUMENT_TYPES, ACCEPTED_ORG_PHOTO_TYPES, MAX_ORG_DOCUMENTS, uploadImage,
   validateOrgDocument, validateOrgPhoto,
@@ -303,6 +303,8 @@ export function OrgSettings() {
           )}
         </section>
 
+        {organization.status === 'SUSPENDED' && <UnlockSuspensionSection />}
+
         {organization.status === 'REJECTED' && (
           <section className="panel set-sec" aria-labelledby="setResubmitTitle">
             <h2 className="set-sec__title" id="setResubmitTitle">重新送審</h2>
@@ -323,6 +325,64 @@ export function OrgSettings() {
           </button>
         </div>
       </form>
+    </section>
+  )
+}
+
+/**
+ * 停權期間：資料修改好、證明文件補上之後，申請解除停權。同時只能有一筆待審，可以撤回；
+ * 被退回會看到原因，可以修改後再申請。管理員核准就是復權。
+ */
+function UnlockSuspensionSection() {
+  const queryClient = useQueryClient()
+  const [message, setMessage] = useState('')
+  const request = useQuery({
+    queryKey: ['org-unlock-request'],
+    queryFn: () => api.get<UnlockRequestView | null>('/api/organizations/me/unlock-request'),
+  })
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['org-unlock-request'] })
+  const submit = useMutation({
+    mutationFn: () => api.post<UnlockRequestView>('/api/organizations/me/unlock-request', { message: message.trim() || undefined }),
+    onSuccess: () => { setMessage(''); void refresh() },
+  })
+  const withdraw = useMutation({
+    mutationFn: () => api.post<UnlockRequestView>('/api/organizations/me/unlock-request/withdraw'),
+    onSuccess: () => void refresh(),
+  })
+  const latest = request.data
+  const pending = latest?.status === 'PENDING'
+
+  return (
+    <section className="panel set-sec" aria-labelledby="setUnlockTitle">
+      <h2 className="set-sec__title" id="setUnlockTitle">申請解除停權</h2>
+      <p className="set-sec__desc">
+        請先在上面修改機構資料、在「相關文件證明」補上傳文件，並在「與團隊對話」說明處理情況，再送出申請。
+        管理員審核通過後，機構與願望會恢復。
+      </p>
+      {pending ? (
+        <p className="set-sec__desc">
+          已送出申請，等管理員審核。
+          <button type="button" className="link-btn" disabled={withdraw.isPending}
+            onClick={() => withdraw.mutate()}>撤回申請</button>
+        </p>
+      ) : (
+        <>
+          {latest?.status === 'REJECTED' && (
+            <p className="set-sec__desc">上一次的申請被退回：{latest.decisionNote ?? '—'}。可以處理後再次申請。</p>
+          )}
+          <div className="field">
+            <label className="field__label" htmlFor="unsMessage">給管理員的說明（選填）</label>
+            <textarea id="unsMessage" className="input" rows={3} maxLength={1000} value={message}
+              onChange={(event) => setMessage(event.target.value)} />
+          </div>
+          {submit.isError && <ErrorNotice error={submit.error} />}
+          <div>
+            <button type="button" className="btn btn--primary" disabled={submit.isPending}
+              onClick={() => submit.mutate()}>{submit.isPending ? '送出中…' : '送出申請'}</button>
+          </div>
+        </>
+      )}
+      {withdraw.isError && <ErrorNotice error={withdraw.error} />}
     </section>
   )
 }
