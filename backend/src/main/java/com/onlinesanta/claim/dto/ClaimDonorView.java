@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 import com.onlinesanta.claim.Claim;
+import com.onlinesanta.claim.ClaimRestriction;
 import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.wish.AgeRange;
 import com.onlinesanta.wish.Wish;
@@ -59,6 +60,8 @@ public record ClaimDonorView(
         boolean receiptRequested,
         /** 願望被管理員凍結中：認領頁顯示「暫停處理中」，寄送期限暫停，不能回報寄送或取消 */
         boolean paused,
+        /** 暫停的原因（ClaimRestriction 名稱：WISH_FROZEN／ORG_SUSPENDED／DONOR_SUSPENDED），沒有暫停為 null */
+        String pauseReason,
         String releaseReason,
         long unreadMessageCount) {
 
@@ -119,7 +122,8 @@ public record ClaimDonorView(
                 claim.getShippedOn(),
                 claim.getDonorMessage(),
                 viewerIsDonor && claim.isReceiptRequested(),
-                wish.isFrozen(),
+                ClaimRestriction.of(claim).isRestricted(),
+                ClaimRestriction.of(claim).isRestricted() ? ClaimRestriction.of(claim).name() : null,
                 claim.getReleaseReason(),
                 unreadMessageCount);
     }

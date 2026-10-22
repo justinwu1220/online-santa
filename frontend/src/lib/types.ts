@@ -182,9 +182,19 @@ export interface WishOrgView {
   canBeginEdit: boolean
   /** 下架修改後內容完全沒變：可以直接恢復上架，不必重審（只有抽屜詳情會算） */
   canRestore: boolean
-  /** 被管理員凍結中 */
+  /** 凍結中（任何原因：管理員凍結、機構停權或認領者停權連動） */
   frozen: boolean
+  /** 目前優先度最高的凍結原因；沒有凍結為 null */
+  freezeCause?: FreezeCause | null
+  /** 管理員給的凍結原因；沒有凍結為 null */
+  frozenReason?: string | null
 }
+
+/** 願望凍結的原因（優先度由高到低）。 */
+export type FreezeCause = 'DONOR_SUSPENDED' | 'ORG_SUSPENDED' | 'ADMIN_CONTENT' | 'ADMIN_OTHER'
+
+/** 一筆認領目前被什麼限制（後端 ClaimRestriction）。 */
+export type ClaimRestriction = 'NONE' | 'WISH_FROZEN' | 'ORG_SUSPENDED' | 'DONOR_SUSPENDED'
 
 export interface WishRequestBody {
   childAlias: string
@@ -297,12 +307,17 @@ export interface ClaimDonorView extends ClaimBase {
   receiptRequested: boolean
   /** 願望被管理員凍結中：寄送期限暫停，不能回報寄送或取消，認領頁顯示「暫停處理中」 */
   paused: boolean
+  /** 暫停的原因；沒有暫停為 null */
+  pauseReason?: Exclude<ClaimRestriction, 'NONE'> | null
 }
 
 export interface ClaimOrgView extends ClaimBase {
   /** 認領者的顯示名稱。機構看不到認領者的信箱與電話，聯繫一律用站內對話 */
   donorName?: string
   releasePolicySnapshot: ReleasePolicy
+  /** 目前被什麼限制：凍結或停權期間機構不能收回認領、傳訊等 */
+  restriction?: ClaimRestriction
+  restrictionMessage?: string | null
 }
 
 export type ClaimEventType =

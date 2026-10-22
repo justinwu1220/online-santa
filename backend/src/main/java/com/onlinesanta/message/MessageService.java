@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.onlinesanta.auth.AppPrincipal;
 import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.claim.Claim;
+import com.onlinesanta.claim.ClaimRestriction;
 import com.onlinesanta.claim.ClaimService;
 import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.event.NewMessageEvent;
@@ -65,6 +66,13 @@ public class MessageService {
         if (!claim.getStatus().allowsMessages()) {
             throw new BusinessRuleException("CLAIM_CLOSED",
                     "這筆認領已經結束（%s），無法再傳送訊息".formatted(claim.getStatus()));
+        }
+
+        // 凍結或停權期間雙方都不能傳訊（機構不能聯繫認領者，認領者也不用對著被處理中的認領說話）
+        ClaimRestriction restriction = ClaimRestriction.of(claim);
+        if (restriction.isRestricted()) {
+            throw new BusinessRuleException("CLAIM_RESTRICTED",
+                    claim.isOwnedBy(sender.userId()) ? restriction.donorMessage() : restriction.organizationMessage());
         }
 
         // 防轟炸：這個判斷必須在存這則新訊息「之前」算，不然這則訊息自己一定會讓

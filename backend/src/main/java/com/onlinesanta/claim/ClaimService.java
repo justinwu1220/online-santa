@@ -196,7 +196,7 @@ public class ClaimService {
     public Claim ship(UUID claimId, ShipRequest request) {
         AppPrincipal principal = currentUser.require();
         Claim claim = findOwnedByDonor(claimId, principal.userId());
-        requireNotFrozen(claim);
+        requireNotRestricted(claim);
 
         long proofCount = attachments.countByPurposeAndOwnerIdAndUploadStatus(
                 AttachmentPurpose.SHIPPING_PROOF, claimId, UploadStatus.CONFIRMED);
@@ -229,7 +229,7 @@ public class ClaimService {
     public Claim cancel(UUID claimId, ReleaseRequest request) {
         AppPrincipal principal = currentUser.require();
         Claim claim = findOwnedByDonor(claimId, principal.userId());
-        requireNotFrozen(claim);
+        requireNotRestricted(claim);
 
         claim.cancel(request.reason());
         returnWishToWall(claim);
@@ -269,6 +269,10 @@ public class ClaimService {
     public Claim confirmReceivedAndComplete(UUID claimId, ConfirmReceivedRequest request) {
         AppPrincipal principal = currentUser.require();
         Claim claim = findOwnedByOrganization(claimId, currentUser.requireOrganizationId());
+        // 認領者違規被停權時，機構仍可確認收到實體禮物（避免孩子受影響）；其他限制一律不行
+        if (ClaimRestriction.of(claim) != ClaimRestriction.DONOR_SUSPENDED) {
+            requireOrganizationActionAllowed(claim);
+        }
 
         if (claim.getStatus() != ClaimStatus.SHIPPED && claim.getStatus() != ClaimStatus.RECEIVED) {
             throw new BusinessRuleException("ILLEGAL_CLAIM_TRANSITION",
@@ -306,6 +310,7 @@ public class ClaimService {
     public Claim release(UUID claimId, RecallRequest request) {
         AppPrincipal principal = currentUser.require();
         Claim claim = findOwnedByOrganization(claimId, currentUser.requireOrganizationId());
+        requireOrganizationActionAllowed(claim);
 
         String reason = request.text();
         claim.release(reason);
@@ -422,11 +427,22 @@ public class ClaimService {
         return claim;
     }
 
-    /** 管理員凍結期間，認領者不用也不能回報寄送或取消，等解除凍結。 */
-    private static void requireNotFrozen(Claim claim) {
-        if (claim.getWish().isFrozen()) {
-            throw new BusinessRuleException("WISH_FROZEN",
-                    "平台正在確認這個願望的內容，暫停處理期間不用寄出，也無法回報或取消；解除後會通知你");
+    /**
+     * 認領被凍結或停權期間，認領者不用也不能回報寄送或取消，等解除。
+     * 限制的判定只有 {@link ClaimRestriction}，這裡只負責翻成錯誤。
+     */
+    private static void requireNotRestricted(Claim claim) {
+        ClaimRestriction restriction = ClaimRestriction.of(claim);
+        if (restriction.isRestricted()) {
+            throw new BusinessRuleException("CLAIM_RESTRICTED", restriction.donorMessage());
+        }
+    }
+
+    /** 機構端的操作（收回認領、確認收到）在凍結或停權期間一律不行，避免機構在處理期間單方面結束認領。 */
+    private static void requireOrganizationActionAllowed(Claim claim) {
+        ClaimRestriction restriction = ClaimRestriction.of(claim);
+        if (restriction.isRestricted()) {
+            throw new BusinessRuleException("CLAIM_RESTRICTED", restriction.organizationMessage());
         }
     }
 

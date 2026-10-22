@@ -83,3 +83,28 @@ describe('chipLabelOf（狀態標籤文字）', () => {
     expect(chipLabelOf({ stage: 'PENDING_REVIEW', takenDown: false })).toBe('審核中')
   })
 })
+
+describe('凍結或停權期間機構能做的事', () => {
+  const base = { deletable: false, canBeginEdit: false, canRestore: false }
+
+  it('願望被凍結：不能收回認領、不能確認收到', () => {
+    for (const freezeCause of ['ADMIN_CONTENT', 'ADMIN_OTHER', 'ORG_SUSPENDED'] as const) {
+      const wish = { ...base, frozen: true, freezeCause }
+      expect(actionsOf('CLAIMED_WAITING', wish).recall).toBe(false)
+      expect(actionsOf('CLAIMED_OVERDUE', wish).recall).toBe(false)
+      expect(actionsOf('SHIPPED', wish).confirm).toBe(false)
+    }
+  })
+
+  it('認領者違規被停權：仍可確認收到實體禮物，但不能收回認領', () => {
+    const wish = { ...base, frozen: true, freezeCause: 'DONOR_SUSPENDED' as const }
+    expect(actionsOf('SHIPPED', wish).confirm).toBe(true)
+    expect(actionsOf('CLAIMED_WAITING', wish).recall).toBe(false)
+  })
+
+  it('凍結時狀態標籤顯示「已凍結」', () => {
+    expect(chipLabelOf({ stage: 'CLAIMED_WAITING', takenDown: false, frozen: true })).toBe('已凍結')
+    expect(chipLabelOf({ stage: 'CLAIMED_WAITING', takenDown: false })).toBe(STAGE_INFO.CLAIMED_WAITING.label)
+  })
+})
+

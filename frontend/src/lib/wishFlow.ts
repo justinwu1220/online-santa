@@ -66,7 +66,10 @@ export interface StageActions {
   report: boolean
 }
 
-export function actionsOf(stage: WishStage, wish?: Pick<WishOrgView, 'deletable' | 'canBeginEdit' | 'canRestore'>): StageActions {
+export function actionsOf(stage: WishStage, wish?: Pick<WishOrgView, 'deletable' | 'canBeginEdit' | 'canRestore'> & Partial<Pick<WishOrgView, 'frozen' | 'freezeCause'>>): StageActions {
+  // 凍結或停權期間機構不能收回認領；認領者違規被停權時仍可確認收到實體禮物
+  const frozen = Boolean(wish?.frozen)
+  const canConfirm = !frozen || wish?.freezeCause === 'DONOR_SUSPENDED'
   return {
     edit: stage === 'DRAFT',
     // 曾經上架過的願望（被退回或下架修改中）不能刪除，保留歷程給管理員重審時看
@@ -77,13 +80,14 @@ export function actionsOf(stage: WishStage, wish?: Pick<WishOrgView, 'deletable'
     restore: stage === 'DRAFT' && Boolean(wish?.canRestore),
     submit: stage === 'DRAFT',
     withdraw: stage === 'PENDING_REVIEW',
-    recall: stage === 'CLAIMED_WAITING' || stage === 'CLAIMED_OVERDUE',
-    confirm: stage === 'SHIPPED',
-    report: stage === 'SHIPPED',
+    recall: !frozen && (stage === 'CLAIMED_WAITING' || stage === 'CLAIMED_OVERDUE'),
+    confirm: canConfirm && stage === 'SHIPPED',
+    report: canConfirm && stage === 'SHIPPED',
   }
 }
 
 /** 清單與抽屜的狀態標籤文字：曾經上架過的草稿標示為「下架修改中」，才看得出它原本在牆上。 */
-export function chipLabelOf(wish: Pick<WishOrgView, 'stage' | 'takenDown'>): string {
+export function chipLabelOf(wish: Pick<WishOrgView, 'stage' | 'takenDown'> & { frozen?: boolean }): string {
+  if (wish.frozen) return '已凍結'
   return wish.takenDown && wish.stage === 'DRAFT' ? '下架修改中' : STAGE_INFO[wish.stage].label
 }

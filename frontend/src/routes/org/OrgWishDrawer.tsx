@@ -327,6 +327,7 @@ function WishInfo({ wish, claim, past, attachments, orgPending, confirming, onCo
 
   return (
     <>
+      <FreezeNotice wish={wish} />
       <StatusCard wish={wish} donor={donor} orgPending={orgPending} />
 
       {confirming && claim && (
@@ -396,6 +397,30 @@ function WishInfo({ wish, claim, past, attachments, orgPending, confirming, onCo
 
 function Thumbs({ photos, label }: { photos: AttachmentView[]; label: string }) {
   return <AttachmentGallery files={photos} altPrefix={label} />
+}
+
+/**
+ * 凍結提示：願望被凍結（管理員凍結、機構停權或認領者停權連動）時，說明原因與目前能做什麼。
+ * 管理員的原因（含內容疑慮）原文顯示；停權連動的說明由系統給。
+ */
+function FreezeNotice({ wish }: { wish: WishOrgView }) {
+  if (!wish.frozen) return null
+  let body: React.ReactNode
+  switch (wish.freezeCause) {
+    case 'DONOR_SUSPENDED':
+      body = '認領者出現違規行為，正在積極處理中。處理期間無法收回認領或傳訊；實體禮物到了仍可確認收到。'
+      break
+    case 'ORG_SUSPENDED':
+      body = '貴機構目前被停權，無法對願望進行操作。請到「與團隊對話」與管理員聯繫。'
+      break
+    default:
+      body = <>管理員凍結了這個願望，原因：{wish.frozenReason ?? '—'}。處理期間無法收回認領、確認收到或傳訊，有問題請到「與團隊對話」。</>
+  }
+  return (
+    <div className="notice notice--warn" role="status" style={{ marginBottom: 16 }}>
+      <strong>已凍結</strong>　{body}
+    </div>
+  )
 }
 
 /** 狀態卡：現在怎樣、下一步要做什麼（設計稿 orgWishStatus）。 */

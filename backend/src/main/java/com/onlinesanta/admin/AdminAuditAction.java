@@ -55,6 +55,30 @@ public enum AdminAuditAction {
     /** 看了某個願望的附件（孩子的手寫信件、寄件照片，可能含孩童影像與個資）。 */
     VIEW_WISH_ATTACHMENTS,
 
+    /** 管理員停權認領者。 */
+    SUSPEND_USER,
+
+    /** 管理員解除認領者停權。 */
+    REACTIVATE_USER,
+
+    /** 管理員直接修改願望內容（個資外洩處置）。 */
+    EDIT_WISH_CONTENT,
+
+    /** 管理員釋出某筆認領（例如認領者違規）。 */
+    RELEASE_CLAIM_BY_ADMIN,
+
+    /** 管理員核准或退回機構的「申請解除」（凍結或停權）。 */
+    DECIDE_UNLOCK_REQUEST,
+
+    /** 管理員通知受影響的認領者（例如機構停權）。 */
+    NOTIFY_AFFECTED_DONORS,
+
+    /** 查看停權當下保全的原始資訊快照。 */
+    VIEW_SUSPENSION_RECORD,
+
+    /** 管理員遮蔽對話中的訊息（含個資的內容），原文保留給稽核。 */
+    REDACT_MESSAGE,
+
     /** 手動觸發逾期釋回掃描。 */
     RUN_RELEASE_SWEEP,
 
@@ -73,7 +97,10 @@ public enum AdminAuditAction {
                  SUSPEND_ORGANIZATION, REACTIVATE_ORGANIZATION, VIEW_ORGANIZATION_DOCUMENTS, VIEW_ORGANIZATION_PHOTO,
                  DELETE_ORGANIZATION_DOCUMENT
                     -> AdminAuditTargetType.ORGANIZATION;
-            case APPROVE_WISH, REJECT_WISH, FREEZE_WISH, UNFREEZE_WISH, VIEW_WISH_ATTACHMENTS -> AdminAuditTargetType.WISH;
+            case APPROVE_WISH, REJECT_WISH, FREEZE_WISH, UNFREEZE_WISH, VIEW_WISH_ATTACHMENTS, EDIT_WISH_CONTENT,
+                 DECIDE_UNLOCK_REQUEST -> AdminAuditTargetType.WISH;
+            case SUSPEND_USER, REACTIVATE_USER, VIEW_SUSPENSION_RECORD -> AdminAuditTargetType.USER;
+            case RELEASE_CLAIM_BY_ADMIN, NOTIFY_AFFECTED_DONORS, REDACT_MESSAGE -> AdminAuditTargetType.CLAIM;
             case RUN_RELEASE_SWEEP, RUN_ATTACHMENT_CLEANUP, RUN_DEADLINE_REMINDERS -> AdminAuditTargetType.SYSTEM;
         };
     }

@@ -281,7 +281,7 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
     @Query(value = """
             update wishes
                set status = 'DRAFT', version = version + 1, updated_at = now(),
-                   frozen_at = null, frozen_reason = null, frozen_by = null
+                   frozen_at = null, frozen_reason = null, frozen_by = null, frozen_cause = null
              where id = :wishId and status = 'AVAILABLE'
             """, nativeQuery = true)
     int markTakenDownForEdit(@Param("wishId") UUID wishId);

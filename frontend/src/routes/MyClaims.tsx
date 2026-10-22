@@ -10,6 +10,7 @@ import { useListEntry } from '../lib/useEntryAnimation'
 import type { ClaimDonorView, PageResponse } from '../lib/types'
 import { claimTabOf } from '../lib/wishStatus'
 import { Pager } from '../components/ui/Pager'
+import { pauseCopy } from './claim/ClaimParts'
 import { ErrorNotice, Spinner } from '../components/ui/Spinner'
 
 /** 一次取回的筆數。原型是一次列出全部，沒有分頁；認領者的認領數遠小於這個數字。 */
@@ -75,7 +76,7 @@ function ClaimCard({ claim }: { claim: ClaimDonorView }) {
   const remaining = daysUntil(claim.shipDeadlineAt)
   const awaitingShipment = claim.status === 'CLAIMED'
   // 願望被管理員凍結：標籤與說明改成「暫停處理中」
-  const paused = claim.paused && awaitingShipment
+  const paused = claim.paused && ['CLAIMED', 'SHIPPED', 'RECEIVED'].includes(claim.status)
 
   return (
     <Link
@@ -105,7 +106,7 @@ function ClaimCard({ claim }: { claim: ClaimDonorView }) {
         </span>
         <p style={{ margin: '12px 0 0', fontSize: 13, lineHeight: 1.7, color: claim.overdue ? '#fca5a5' : 'var(--fg-4)' }}>
           {paused
-            ? '平台正在確認這個願望，暫時不用寄出，寄送期限暫停計算'
+            ? pauseCopy(claim).body
             : awaitingShipment && remaining !== null
             ? remaining >= 0
               ? `請於 ${formatDate(claim.shipDeadlineAt)} 前寄出（還有 ${remaining} 天）`

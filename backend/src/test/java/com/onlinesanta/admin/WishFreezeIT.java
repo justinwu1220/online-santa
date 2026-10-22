@@ -161,11 +161,11 @@ class WishFreezeIT extends ApiIntegrationTest {
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                         com.onlinesanta.support.ShipRequests.of("郵局", "R1")), DONOR))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.errorCode").value("WISH_FROZEN"));
+                .andExpect(jsonPath("$.errorCode").value("CLAIM_RESTRICTED"));
         mvc.perform(as(withBody(post("/api/claims/{id}/cancel", claimId),
                         java.util.Map.of("reason", "不想送了")), DONOR))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.errorCode").value("WISH_FROZEN"));
+                .andExpect(jsonPath("$.errorCode").value("CLAIM_RESTRICTED"));
 
         mvc.perform(as(post("/api/admin/wishes/{id}/unfreeze", wishId), ADMIN)).andExpect(status().isOk());
         mvc.perform(as(withBody(post("/api/claims/{id}/cancel", claimId),

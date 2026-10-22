@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 import com.onlinesanta.claim.Claim;
+import com.onlinesanta.claim.ClaimRestriction;
 import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.organization.ReleasePolicy;
 
@@ -38,6 +39,10 @@ public record ClaimOrgView(
         LocalDate shippedOn,
         String donorMessage,
         String releaseReason,
+        /** 這筆認領目前被什麼限制（ClaimRestriction 名稱），NONE 代表沒有 */
+        String restriction,
+        /** 限制期間給機構看的說明；沒有限制為 null */
+        String restrictionMessage,
         long unreadMessageCount) {
 
     public static ClaimOrgView from(Claim claim) {
@@ -67,6 +72,8 @@ public record ClaimOrgView(
                 claim.getShippedOn(),
                 claim.getDonorMessage(),
                 claim.getReleaseReason(),
+                ClaimRestriction.of(claim).name(),
+                ClaimRestriction.of(claim).isRestricted() ? ClaimRestriction.of(claim).organizationMessage() : null,
                 unreadMessageCount);
     }
 }

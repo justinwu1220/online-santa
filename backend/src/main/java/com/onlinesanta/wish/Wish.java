@@ -97,6 +97,11 @@ public class Wish extends BaseEntity {
     @Column(name = "frozen_by")
     private java.util.UUID frozenBy;
 
+    /** 目前優先度最高的凍結原因（反正規化自 wish_freezes）；沒有凍結為 null。 */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "frozen_cause", length = 20)
+    private WishFreezeCause frozenCause;
+
     protected Wish() {
         // JPA
     }
@@ -194,32 +199,31 @@ public class Wish extends BaseEntity {
         this.reviewedAt = Instant.now();
     }
 
-    /** 管理員凍結：願望從公開處消失（機構與管理員後台仍保留），原因必填。 */
-    public void freeze(java.util.UUID adminId, String reason) {
+    /** 還沒公開的願望（草稿、審核中）不需要凍結。 */
+    public void requireFreezable() {
         if (status == WishStatus.DRAFT || status == WishStatus.PENDING_REVIEW) {
             throw new BusinessRuleException("WISH_NOT_FREEZABLE",
                     "還沒公開的願望不需要凍結，目前狀態為 " + status);
         }
-        if (frozenAt != null) {
-            throw new BusinessRuleException("WISH_ALREADY_FROZEN", "這個願望已經凍結了");
-        }
-        this.frozenAt = Instant.now();
-        this.frozenReason = reason;
-        this.frozenBy = adminId;
     }
 
-    /** 解除凍結：回到凍結前的狀態，重新對外顯示。 */
-    public void unfreeze() {
-        if (frozenAt == null) {
-            throw new BusinessRuleException("WISH_NOT_FROZEN", "這個願望目前沒有被凍結");
-        }
-        this.frozenAt = null;
-        this.frozenReason = null;
-        this.frozenBy = null;
+    /**
+     * 由 {@link WishFreezeService} 維護的反正規化狀態：願望是否凍結、最優先的原因與理由。
+     * 凍結的詳細紀錄與多原因疊加在 wish_freezes，不要直接呼叫這個方法。
+     */
+    void applyFreezeState(Instant at, String reason, java.util.UUID by, WishFreezeCause cause) {
+        this.frozenAt = at;
+        this.frozenReason = reason;
+        this.frozenBy = by;
+        this.frozenCause = cause;
     }
 
     public boolean isFrozen() {
         return frozenAt != null;
+    }
+
+    public WishFreezeCause getFrozenCause() {
+        return frozenCause;
     }
 
     public Instant getFrozenAt() {

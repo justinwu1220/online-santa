@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import type { ClaimDonorView, DonorReceiptView } from '../../lib/types'
-import { DeadlineBar, ReceiptProofPanel, ShipSummary } from './ClaimParts'
+import { DeadlineBar, pauseCopy, ReceiptProofPanel, ShipSummary } from './ClaimParts'
 
 const claim = {
   status: 'SHIPPED',
@@ -90,5 +90,16 @@ describe('DeadlineBar 的暫停處理中', () => {
     render(<DeadlineBar claim={{ ...claim, status: 'CLAIMED', paused: false, shipDeadlineAt: '2026-12-01T00:00:00Z' }} remaining={5} />)
     expect(screen.getByText(/前寄出禮物/)).toBeInTheDocument()
     expect(screen.queryByText(/暫停處理中/)).toBeNull()
+  })
+
+  it('機構被停權：顯示機構停權的說明與聯絡信箱', () => {
+    render(<DeadlineBar claim={{ ...claim, status: 'CLAIMED', paused: true, pauseReason: 'ORG_SUSPENDED' }} remaining={3} />)
+    expect(screen.getByText(/此機構已被管理員暫時停權，正在積極處理中。若有問題可聯絡：onlinesanta2026@gmail.com/)).toBeInTheDocument()
+  })
+
+  it('已寄出的認領遇到停權：也要說明，標題不再叫「不用寄出」', () => {
+    const copy = pauseCopy({ status: 'SHIPPED', pauseReason: 'ORG_SUSPENDED' })
+    expect(copy.title).not.toContain('不用寄出')
+    expect(copy.body).toContain('停權')
   })
 })

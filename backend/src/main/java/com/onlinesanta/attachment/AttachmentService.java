@@ -18,6 +18,7 @@ import com.onlinesanta.auth.AppPrincipal;
 import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.claim.Claim;
 import com.onlinesanta.claim.ClaimRepository;
+import com.onlinesanta.claim.ClaimRestriction;
 import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.common.exception.ForbiddenException;
@@ -509,7 +510,7 @@ public class AttachmentService {
             throw ResourceNotFoundException.of("認領", claimId);
         }
         requireStatusIn(claim, "上傳寄送證明", ClaimStatus.CLAIMED, ClaimStatus.SHIPPED);
-        requireNotFrozen(claim);
+        requireNotRestricted(claim);
     }
 
     /** 跟寄送證明同一套規則：只有該筆認領的捐贈者，在回報寄送之前（含當下）能上傳。 */
@@ -519,7 +520,7 @@ public class AttachmentService {
             throw ResourceNotFoundException.of("認領", claimId);
         }
         requireStatusIn(claim, "上傳發票證明", ClaimStatus.CLAIMED, ClaimStatus.SHIPPED);
-        requireNotFrozen(claim);
+        requireNotRestricted(claim);
     }
 
     private void authorizeOrganizationFeedback(UUID claimId, AppPrincipal principal) {
@@ -529,14 +530,19 @@ public class AttachmentService {
         if (!claim.getWish().getOrganization().getId().equals(organizationId)) {
             throw ResourceNotFoundException.of("認領", claimId);
         }
+        // 認領者違規被停權時機構仍可確認收到（見 ClaimService.confirmReceivedAndComplete），其他限制不行
+        ClaimRestriction restriction = ClaimRestriction.of(claim);
+        if (restriction.isRestricted() && restriction != ClaimRestriction.DONOR_SUSPENDED) {
+            throw new BusinessRuleException("CLAIM_RESTRICTED", restriction.organizationMessage());
+        }
         requireStatusIn(claim, "上傳收件證明", ClaimStatus.SHIPPED, ClaimStatus.RECEIVED, ClaimStatus.COMPLETED);
     }
 
-    /** 管理員凍結期間，認領者不用寄出，也先不收新的寄送證明。 */
-    private void requireNotFrozen(Claim claim) {
-        if (claim.getWish().isFrozen()) {
-            throw new BusinessRuleException("WISH_FROZEN",
-                    "平台正在確認這個願望的內容，暫停處理期間不用寄出；解除後會通知你");
+    /** 凍結或停權期間，認領者不用寄出，也先不收新的寄送證明。 */
+    private void requireNotRestricted(Claim claim) {
+        ClaimRestriction restriction = ClaimRestriction.of(claim);
+        if (restriction.isRestricted()) {
+            throw new BusinessRuleException("CLAIM_RESTRICTED", restriction.donorMessage());
         }
     }
 

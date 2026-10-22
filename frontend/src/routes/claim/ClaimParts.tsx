@@ -397,18 +397,36 @@ export function ProgressSteps({ claim }: { claim: ClaimDonorView }) {
 }
 
 /** 期限提示：待寄送時黃色（逾期紅色）＋「還有 N 天」膠囊；寄出後改綠色說明目前狀態。 */
+/**
+ * 認領被凍結或停權時，認領者看到的說明（依原因）。後端 ClaimRestriction.donorMessage 有對應的文字。
+ * 還沒寄出：暫時不用寄；已經寄出：禮物不受影響，但流程暫停。
+ */
+export function pauseCopy(claim: Pick<ClaimDonorView, 'pauseReason' | 'status'>): { title: string; body: string } {
+  const shipped = claim.status !== 'CLAIMED'
+  const title = shipped ? '處理中：這筆認領暫時停住了' : '暫停處理中：暫時不用寄出禮物'
+  switch (claim.pauseReason) {
+    case 'ORG_SUSPENDED':
+      return { title, body: '此機構已被管理員暫時停權，正在積極處理中。若有問題可聯絡：onlinesanta2026@gmail.com' }
+    case 'DONOR_SUSPENDED':
+      return { title, body: '你的帳號目前受到限制，這筆認領暫停處理。若有問題可聯絡：onlinesanta2026@gmail.com' }
+    default:
+      return {
+        title,
+        body: '平台正在確認這個願望的內容，寄送期限暫停計算，解除後會通知你並順延期限。有問題可以寫信到 onlinesanta2026@gmail.com。',
+      }
+  }
+}
+
 export function DeadlineBar({ claim, remaining }: { claim: ClaimDonorView; remaining: number | null }) {
-  // 管理員凍結中：期限暫停，不用寄出（寄出之後的認領不受影響，照常顯示）
-  if (claim.paused && claim.status === 'CLAIMED') {
+  // 凍結或停權中：期限暫停（已寄出的認領禮物不受影響，但流程暫停，同樣要說明）
+  if (claim.paused && ['CLAIMED', 'SHIPPED', 'RECEIVED'].includes(claim.status)) {
+    const copy = pauseCopy(claim)
     return (
       <div className="deadline" data-tone="late" role="status">
         <CalendarCheck className="icon" aria-hidden />
         <p className="deadline__text" style={{ margin: 0 }}>
-          <strong>暫停處理中：暫時不用寄出禮物</strong>
-          <small>
-            平台正在確認這個願望的內容，寄送期限暫停計算，解除後會通知你並順延期限。
-            有問題可以在下方詢問機構，或寫信到 onlinesanta2026@gmail.com。
-          </small>
+          <strong>{copy.title}</strong>
+          <small>{copy.body}</small>
         </p>
         <span className="deadline__days">暫停中</span>
       </div>

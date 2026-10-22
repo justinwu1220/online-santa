@@ -37,19 +37,22 @@ public class WishService {
     private final AttachmentService attachments;
     private final WishEventService history;
     private final SystemMessageService systemMessages;
+    private final WishFreezeService freezes;
 
     public WishService(WishRepository wishes,
                        OrganizationService organizations,
                        CurrentUserService currentUser,
                        AttachmentService attachments,
                        WishEventService history,
-                       SystemMessageService systemMessages) {
+                       SystemMessageService systemMessages,
+                       WishFreezeService freezes) {
         this.wishes = wishes;
         this.organizations = organizations;
         this.currentUser = currentUser;
         this.attachments = attachments;
         this.history = history;
         this.systemMessages = systemMessages;
+        this.freezes = freezes;
     }
 
     // ---------------------------------------------------------------- 公開瀏覽
@@ -170,6 +173,7 @@ public class WishService {
         UUID actor = currentUser.require().userId();
         history.record(wish, WishEventType.TAKEN_DOWN_FOR_EDIT, actor, null, true);
         if (wasFrozen) {
+            freezes.liftAll(id, actor);
             history.record(wish, WishEventType.FREEZE_LIFTED_BY_RESUBMIT, actor, null, false);
             systemMessages.freezeLiftedByEdit(id);
         }
