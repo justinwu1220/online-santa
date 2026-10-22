@@ -40,7 +40,7 @@ import com.onlinesanta.wish.WishRepository;
 class AttachmentServiceTest {
 
     private static final AppPrincipal PRINCIPAL = new AppPrincipal(
-            UUID.randomUUID(), "org@example.org", UserRole.ORG_MEMBER, UUID.randomUUID(), true);
+            UUID.randomUUID(), "org@example.org", UserRole.ORG_MEMBER, UUID.randomUUID(), true, false);
 
     private static final List<String> ALLOWED_TYPES = List.of("image/jpeg", "image/png", "image/webp");
 

@@ -14,6 +14,9 @@ export interface CurrentUser {
   role: UserRole
   organizationId?: string
   emailVerified: boolean
+  /** 認領者被停權（受限登入）：可登入讀取，所有寫入動作被後端擋下 */
+  suspended?: boolean
+  suspendedReason?: string | null
 }
 
 /** 個人檔案設定頁使用的自身資料，見 GET/PATCH /api/me/profile */
@@ -134,6 +137,36 @@ export interface WishOrgDetail {
   canRequestUnlock: boolean
   /** 凍結原因是內容疑慮：申請時可以附上修改後的內容（不含禮物） */
   canReviseContent: boolean
+}
+
+/** 管理員的認領者清單與處置（停權／受限登入）。 */
+export interface AdminUserView {
+  id: string
+  email: string
+  displayName?: string
+  /** 真實姓名：只有管理員看得到 */
+  name?: string
+  createdAt: string
+  suspended: boolean
+  suspendedAt?: string | null
+  suspendedReason?: string | null
+}
+
+export interface AdminUserDetail {
+  user: AdminUserView
+  phone?: string
+  claims: {
+    claimId: string
+    wishId: string
+    wishTitle: string
+    organizationName: string
+    status: ClaimStatus
+    restriction: ClaimRestriction
+    claimedAt: string
+    /** 只有還沒寄出的認領能由管理員釋出 */
+    canRelease: boolean
+  }[]
+  snapshot?: Record<string, unknown> | null
 }
 
 /** 管理員看停權機構的處置資料（停權當下保全的原始資訊、停權期間的修改、解除申請）。 */
@@ -359,7 +392,7 @@ export interface ClaimOrgView extends ClaimBase {
 
 export type ClaimEventType =
   | 'CLAIMED' | 'SHIPPED' | 'RECEIVED' | 'COMPLETED'
-  | 'RELEASED_MANUAL' | 'RELEASED_AUTO' | 'CANCELLED' | 'FEEDBACK_UPLOADED'
+  | 'RELEASED_MANUAL' | 'RELEASED_AUTO' | 'RELEASED_ADMIN' | 'CANCELLED' | 'FEEDBACK_UPLOADED'
 
 export interface ClaimEventView {
   eventType: ClaimEventType

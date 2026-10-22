@@ -51,6 +51,19 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private boolean disabled;
 
+    /**
+     * 認領者違規被停權的時間；沒有停權為 null。受限登入：仍可登入並看到停權通知，
+     * 但所有寫入動作被擋（見 SuspendedUserInterceptor）。和 {@link #disabled}（完全拒絕登入）不同。
+     */
+    @Column(name = "suspended_at")
+    private Instant suspendedAt;
+
+    @Column(name = "suspended_reason", columnDefinition = "text")
+    private String suspendedReason;
+
+    @Column(name = "suspended_by")
+    private UUID suspendedBy;
+
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
@@ -162,6 +175,30 @@ public class User extends BaseEntity {
 
     public UUID getOrganizationId() {
         return organizationId;
+    }
+
+    public void suspend(UUID adminId, String reason) {
+        this.suspendedAt = Instant.now();
+        this.suspendedReason = reason;
+        this.suspendedBy = adminId;
+    }
+
+    public void reinstate() {
+        this.suspendedAt = null;
+        this.suspendedReason = null;
+        this.suspendedBy = null;
+    }
+
+    public boolean isSuspended() {
+        return suspendedAt != null;
+    }
+
+    public Instant getSuspendedAt() {
+        return suspendedAt;
+    }
+
+    public String getSuspendedReason() {
+        return suspendedReason;
     }
 
     public boolean isDisabled() {

@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.onlinesanta.auth.AppPrincipal;
 import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.user.dto.CurrentUserView;
 import com.onlinesanta.user.dto.UserProfileUpdateRequest;
@@ -23,17 +24,23 @@ public class MeController {
 
     private final CurrentUserService currentUser;
     private final UserProfileService profile;
+    private final UserRepository users;
 
-    public MeController(CurrentUserService currentUser, UserProfileService profile) {
+    public MeController(CurrentUserService currentUser, UserProfileService profile, UserRepository users) {
         this.currentUser = currentUser;
         this.profile = profile;
+        this.users = users;
     }
 
     @GetMapping
     @Operation(summary = "取得自己的身分與角色",
             description = "首次呼叫會依 Firebase ID token 就地建立本地帳號")
     public CurrentUserView me() {
-        return CurrentUserView.from(currentUser.require());
+        AppPrincipal principal = currentUser.require();
+        String reason = principal.suspended()
+                ? users.findById(principal.userId()).map(User::getSuspendedReason).orElse(null)
+                : null;
+        return CurrentUserView.from(principal, reason);
     }
 
     @GetMapping("/profile")

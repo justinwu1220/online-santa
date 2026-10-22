@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, withQuery } from '../../lib/api'
 import type {
-  AdminWishCounts, AdminWishDetail, AdminWishFilter, AdminWishListItem,
+  AdminUserView, AdminWishCounts, AdminWishDetail, AdminWishFilter, AdminWishListItem,
   OrganizationReviewView, PageResponse, PlatformStats,
 } from '../../lib/types'
 
@@ -38,6 +38,14 @@ export function useAdminWish(id: string | null) {
     queryKey: ['admin-wish', id],
     queryFn: () => api.get<AdminWishDetail>(`/api/admin/wishes/${id}`),
     enabled: id !== null,
+  })
+}
+
+/** 認領者清單（依信箱、顯示名稱或姓名搜尋）。 */
+export function useAdminUsers(q: string) {
+  return useQuery({
+    queryKey: ['admin-users', q],
+    queryFn: () => api.get<PageResponse<AdminUserView>>(withQuery('/api/admin/users', { q: q || undefined, size: 50 })),
   })
 }
 

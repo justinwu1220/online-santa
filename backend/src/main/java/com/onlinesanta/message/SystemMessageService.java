@@ -126,6 +126,13 @@ public class SystemMessageService {
                 "你收回了這個認領，原因：%s。已寄 Email 通知認領者，他的認領頁也會顯示結束原因。".formatted(reason));
     }
 
+    /** 管理員釋出了這筆認領（例如認領者違規）；願望已回到願望牆。只有機構看得到。 */
+    @Transactional
+    public void claimReleasedByAdmin(Claim claim, String reason) {
+        post(claim.getWish().getId(), claim.getId(),
+                "管理員釋出了這筆認領，原因：%s。願望已回到願望牆，可以被其他人認領。".formatted(reason));
+    }
+
     private void post(UUID wishId, UUID claimId, String body) {
         messages.save(Message.system(wishId, claimId, body));
     }

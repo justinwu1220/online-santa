@@ -10,6 +10,8 @@ public enum ClaimEventType {
     RELEASED_MANUAL,
     /** 逾期未寄送，由排程自動收回（M5）。 */
     RELEASED_AUTO,
+    /** 管理員釋出（例如認領者違規）。 */
+    RELEASED_ADMIN,
     CANCELLED,
     /** 機構上傳了送禮回饋照片（M4）。 */
     FEEDBACK_UPLOADED

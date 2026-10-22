@@ -17,12 +17,14 @@ public record AppPrincipal(
         String email,
         UserRole role,
         UUID organizationId,
-        boolean emailVerified) {
+        boolean emailVerified,
+        /** 認領者被停權（受限登入）：可以讀取，所有寫入動作被擋 */
+        boolean suspended) {
 
     public static AppPrincipal from(User user, boolean emailVerified) {
         return new AppPrincipal(
                 user.getId(), user.getEmail(), user.getRole(),
-                user.getOrganizationId(), emailVerified);
+                user.getOrganizationId(), emailVerified, user.isSuspended());
     }
 
     /**

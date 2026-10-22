@@ -12,6 +12,7 @@ import { Snowfall } from '../Snowfall'
 import { TermsGate } from '../terms/TermsGate'
 import { TransitionProvider } from '../transition/TransitionProvider'
 import { ToastProvider } from '../ui/Toast'
+import { SuspendedBar } from '../ui/SuspendedBar'
 import { VerifyBar } from '../ui/VerifyBar'
 
 /**
@@ -39,6 +40,7 @@ export function PublicLayout() {
             </div>
           )}
           <VerifyBar />
+          <SuspendedBar />
           <TermsGate />
           <main className="page">
             <Outlet />

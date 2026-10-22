@@ -22,6 +22,16 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     List<User> findByIdIn(Collection<UUID> ids);
 
+    /** 管理員的認領者清單：只列一般認領者，依信箱、顯示名稱或真實姓名搜尋（q 永遠有值，沒搜尋傳空字串）。 */
+    @Query("""
+            select u from User u
+            where u.role = com.onlinesanta.user.UserRole.DONOR
+              and (:q = '' or lower(u.email) like :q or lower(u.displayName) like :q or lower(u.name) like :q)
+            order by u.createdAt desc
+            """)
+    org.springframework.data.domain.Page<User> searchDonors(@Param("q") String q,
+                                                            org.springframework.data.domain.Pageable pageable);
+
     /**
      * 該年度以指定角色註冊的新使用者數，供年度營運頁的「新捐贈者」使用。
      *

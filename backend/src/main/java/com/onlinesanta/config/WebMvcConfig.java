@@ -9,13 +9,17 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private final SuspendedOrganizationInterceptor suspendedOrganization;
+    private final SuspendedUserInterceptor suspendedUser;
 
-    public WebMvcConfig(SuspendedOrganizationInterceptor suspendedOrganization) {
+    public WebMvcConfig(SuspendedOrganizationInterceptor suspendedOrganization,
+                        SuspendedUserInterceptor suspendedUser) {
         this.suspendedOrganization = suspendedOrganization;
+        this.suspendedUser = suspendedUser;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(suspendedOrganization).addPathPatterns("/api/**");
+        registry.addInterceptor(suspendedUser).addPathPatterns("/api/**");
     }
 }

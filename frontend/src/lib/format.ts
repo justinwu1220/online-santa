@@ -78,6 +78,7 @@ export const CLAIM_EVENT_LABELS: Record<ClaimEventType, string> = {
   COMPLETED: '流程完成',
   RELEASED_MANUAL: '機構收回認領',
   RELEASED_AUTO: '逾期未寄送，系統自動收回',
+  RELEASED_ADMIN: '管理員釋出認領',
   CANCELLED: '取消認領',
   FEEDBACK_UPLOADED: '機構上傳了收件證明',
 }

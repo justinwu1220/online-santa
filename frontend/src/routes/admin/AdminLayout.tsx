@@ -23,6 +23,12 @@ const ICON_WISHES = (
   </>
 )
 const ICON_CHAT = <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+const ICON_USERS = (
+  <>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </>
+)
 const ICON_ANNUAL = (
   <>
     <path d="M3 3v16a2 2 0 0 0 2 2h16" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" />
@@ -48,6 +54,7 @@ export function AdminLayout() {
       badgeLabel: (n) => `${n} 間待審核` },
     { to: '/admin/wishes', label: '願望', icon: ICON_WISHES, badge: wishes.data?.review,
       badgeLabel: (n) => `${n} 個待審核` },
+    { to: '/admin/users', label: '認領者', icon: ICON_USERS },
     { to: '/admin/chat', label: '團隊對話', icon: ICON_CHAT, badge: teamUnread.data?.unread,
       badgeLabel: (n) => `${n} 則機構來訊` },
     { to: '/admin/annual', label: '年度營運', icon: ICON_ANNUAL },

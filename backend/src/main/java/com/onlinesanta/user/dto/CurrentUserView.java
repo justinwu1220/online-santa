@@ -20,11 +20,20 @@ public record CurrentUserView(
          * 信箱未驗證時，實際權限會降為一般民眾——前端要知道這件事，
          * 才能說明「管理功能為什麼不見了」而不是讓人以為系統壞了。
          */
-        boolean emailVerified) {
+        boolean emailVerified,
+        /** 認領者被停權（受限登入）：前端顯示停權通知，寫入動作都會被後端擋下 */
+        boolean suspended,
+        /** 停權原因；沒有停權為 null */
+        String suspendedReason) {
 
     public static CurrentUserView from(AppPrincipal principal) {
+        return from(principal, null);
+    }
+
+    public static CurrentUserView from(AppPrincipal principal, String suspendedReason) {
         return new CurrentUserView(
                 principal.userId(), principal.email(), principal.role(),
-                principal.organizationId(), principal.emailVerified());
+                principal.organizationId(), principal.emailVerified(),
+                principal.suspended(), suspendedReason);
     }
 }

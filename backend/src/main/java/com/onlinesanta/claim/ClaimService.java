@@ -323,6 +323,28 @@ public class ClaimService {
     }
 
     /**
+     * 管理員釋出一筆還沒寄出的認領（例如認領者違規）：認領結束、願望回到願望牆，認領者收到通知，
+     * 機構在對話留下系統訊息。已寄出的認領不能釋出（禮物在途，要由機構確認收到實體禮物）。
+     * 願望上是否還有其他凍結原因，不在這裡處理。
+     */
+    @Transactional
+    public Claim releaseByAdmin(UUID claimId, String reason) {
+        AppPrincipal admin = currentUser.requireAdmin();
+        Claim claim = findById(claimId);
+        if (claim.getStatus() != ClaimStatus.CLAIMED) {
+            throw new BusinessRuleException("CLAIM_NOT_RELEASABLE",
+                    "只有還沒寄出的認領能由管理員釋出，目前是 " + claim.getStatus());
+        }
+        String text = reason.strip();
+        claim.release("管理員釋出：" + text);
+        returnWishToWall(claim);
+        record(claim, ClaimEventType.RELEASED_ADMIN, admin.userId(), text);
+        systemMessages.claimReleasedByAdmin(claim, text);
+        eventPublisher.publishEvent(new com.onlinesanta.event.ClaimReleasedByAdminEvent(claim.getId(), text));
+        return claim;
+    }
+
+    /**
      * 本機構逾期未寄送的認領。
      *
      * <p>手動釋回政策的機構靠這份清單自行決定要不要收回；自動政策的機構理論上
