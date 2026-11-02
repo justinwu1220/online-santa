@@ -7,6 +7,7 @@ import {
   DCard, DrawerTabs, DStatus, DSteps, Kv, type StepState,
 } from '../../components/console/DrawerParts'
 import { ClaimProofs } from './ClaimProofs'
+import { hasDraft } from '../../lib/drafts'
 import { WishContentEditDialog } from './WishContentEditDialog'
 import { ResubmitChanges, WishHistoryTimeline } from './WishHistory'
 import { LazyBox } from '../../components/console/LazyBox'
@@ -184,7 +185,12 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
 
   // 換一個願望回到第一個分頁；留住最後一筆資料，關閉動畫期間內容不會消失
   const [lastId, setLastId] = useState<string | null>(null)
-  if (wishId && wishId !== lastId) { setLastId(wishId); setTab('info') }
+  if (wishId && wishId !== lastId) {
+    setLastId(wishId); setTab('info')
+    // 上次打到一半的「修改內容」（含凍結）還在，打開就直接回到編輯區
+    setDialog(hasDraft(`admin-wish:${wishId}:content`) ? 'edit' : null)
+  }
+  if (!wishId && lastId) setLastId(null)   // 關掉後再打開同一個願望，也要重新判斷
   const [shown, setShown] = useState<AdminWishDetail | null>(null)
   if (detail.data && detail.data !== shown) setShown(detail.data)
   const wish = detail.data ?? (wishId === shown?.id ? shown : null)

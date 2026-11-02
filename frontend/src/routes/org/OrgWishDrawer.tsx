@@ -13,7 +13,7 @@ import { useToast } from '../../components/ui/toastContext'
 import { Dialog } from '../../components/ui/Dialog'
 import { ImageCropDialog } from '../../components/ui/ImageCropDialog'
 import { ApiError, api } from '../../lib/api'
-import { clearDraft, useDraftState } from '../../lib/drafts'
+import { clearDraft, hasDraft, useDraftState } from '../../lib/drafts'
 import { formatDate, formatDateTime, formatMonthDay, formatPlainDate, daysUntil, todayPlainDate } from '../../lib/format'
 import { burst, center, reducedMotion } from '../../lib/motion'
 import type { AttachmentView, ClaimOrgView, UnlockRequestView, WishConversation, WishOrgView } from '../../lib/types'
@@ -225,6 +225,7 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
                 canRevise: data.canReviseContent,
               } : undefined}
               onUnlockChanged={afterChange}
+              openedFor={wishId}
               attachments={claimAttachments.data ?? []}
               orgPending={pending}
               confirming={confirming}
@@ -319,7 +320,8 @@ function ConversationSender({ wishId, donor }: { wishId: string; donor: string }
 }
 
 /** 願望與寄送：狀態卡 → 確認收到區塊 → 進度 → 寄送資訊 → 孩子的願望 →（有的話）過往認領紀錄。 */
-function WishInfo({ wish, claim, past, unlock, onUnlockChanged, attachments, orgPending, confirming, onConfirmed, onAttachmentsChanged }: {
+function WishInfo({ wish, claim, past, unlock, onUnlockChanged, attachments, orgPending, confirming, onConfirmed, onAttachmentsChanged, openedFor }: {
+  openedFor: string | null
   wish: WishOrgView
   claim?: ClaimOrgView
   unlock?: UnlockInfo
@@ -339,7 +341,7 @@ function WishInfo({ wish, claim, past, unlock, onUnlockChanged, attachments, org
 
   return (
     <>
-      <FreezeNotice wish={wish} unlock={unlock} onChanged={onUnlockChanged} />
+      <FreezeNotice wish={wish} unlock={unlock} onChanged={onUnlockChanged} openedFor={openedFor} />
       <StatusCard wish={wish} donor={donor} orgPending={orgPending} />
 
       {confirming && claim && (
@@ -421,13 +423,20 @@ interface UnlockInfo {
   canRevise: boolean
 }
 
-function FreezeNotice({ wish, unlock, onChanged }: {
+function FreezeNotice({ wish, unlock, onChanged, openedFor }: {
   wish: WishOrgView
   unlock?: UnlockInfo
   onChanged: (message: string) => void | Promise<void>
+  /** 抽屜目前打開的願望 id；每次打開時，上次打到一半的申請內容還在就直接回到申請視窗 */
+  openedFor: string | null
 }) {
   const toast = useToast()
   const [requesting, setRequesting] = useState(false)
+  const [lastOpenedFor, setLastOpenedFor] = useState<string | null>(null)
+  if (openedFor !== lastOpenedFor) {
+    setLastOpenedFor(openedFor)
+    if (openedFor === wish.id && unlock?.canRequest && hasDraft(`unlock-wish:${wish.id}`)) setRequesting(true)
+  }
   const withdraw = useMutation({
     mutationFn: () => api.post(`/api/organizations/me/wishes/${wish.id}/unlock-request/withdraw`),
     onSuccess: () => onChanged('已撤回解除凍結申請'),

@@ -2,9 +2,10 @@ import { ChevronRight, MessageCircle, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { pageTitle } from '../../lib/brand'
+import { hasDraft } from '../../lib/drafts'
 import { reducedMotion, rise } from '../../lib/motion'
 import type { OrganizationStageCounts, WishOrgView } from '../../lib/types'
-import { chipLabelOf, compareByStage, FILTERS, STAGE_INFO, type FilterKey } from '../../lib/wishFlow'
+import { actionsOf, chipLabelOf, compareByStage, FILTERS, STAGE_INFO, type FilterKey } from '../../lib/wishFlow'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { useOrgContext } from './orgContext'
 import { OrgWishDrawer } from './OrgWishDrawer'
@@ -60,6 +61,12 @@ export function OrgWishes() {
     }
   }
 
+  /** 點一列：這個願望有打到一半的編輯內容，就直接回到編輯區，不用再按一次「編輯」 */
+  function openWish(wish: WishOrgView) {
+    if (hasDraft(`wish-form:${wish.id}`) && actionsOf(wish.stage, wish).edit) setForm({ open: true, wish })
+    else setOpenId(wish.id)
+  }
+
   return (
     <section className="org-tab" aria-labelledby="orgWishTitle">
       <div className="org-head">
@@ -91,7 +98,7 @@ export function OrgWishes() {
             counts.data && counts.data.all > 0
               ? <p className="org-empty">這個分類目前沒有願望。</p>
               : <div className="org-empty"><p>還沒有任何願望。按右上角「新增願望」，把孩子的願望放上來吧。</p></div>
-          ) : rows.map((wish) => <WishRow key={wish.id} wish={wish} onOpen={() => setOpenId(wish.id)} />)}
+          ) : rows.map((wish) => <WishRow key={wish.id} wish={wish} onOpen={() => openWish(wish)} />)}
         </div>
       )}
 
