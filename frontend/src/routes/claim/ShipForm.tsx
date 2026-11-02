@@ -9,6 +9,7 @@ import {
   uploadImage, validateImage, validateReceiptProof,
 } from '../../lib/upload'
 import { FormField, Input, UnitInput } from '../../components/ui/Fields'
+import { ImageCropDialog } from '../../components/ui/ImageCropDialog'
 import { ErrorNotice } from '../../components/ui/Spinner'
 
 /** 畫面上有對應欄位的後端欄位錯誤 key；其餘的錯誤沒有地方顯示，要用通用提示框。 */
@@ -215,6 +216,7 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
           validate={validateImage}
           error={errors.photos ?? photoError}
           onError={setPhotoError}
+          crop={{ aspect: 4 / 3, outputWidth: 1280, title: '裁切寄件照片' }}
         />
 
         <div className="c-6">
@@ -330,7 +332,7 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
  * 外框用 div 而不是 label：label 會把範圍內任何點擊轉給裡面的 file input，
  * 結果點同一列就開啟檔案選擇，只有按鈕該觸發。
  */
-function FilePicker({ label, hint, buttonText, icon, required = true, files, onChange, max, accept, validate, error, onError }: {
+function FilePicker({ label, hint, buttonText, icon, required = true, files, onChange, max, accept, validate, error, onError, crop }: {
   label: string
   hint?: string
   buttonText: string
@@ -343,21 +345,29 @@ function FilePicker({ label, hint, buttonText, icon, required = true, files, onC
   validate: (file: File) => string | null
   error: string | null
   onError: (message: string | null) => void
+  /** 有給：選到的圖片逐張先裁成這個比例與輸出寬度（PDF 不裁）；只上傳裁切後的圖片 */
+  crop?: { aspect: number; outputWidth: number; title: string }
 }) {
+  // 等著裁切的圖片（一次選多張時逐張處理）
+  const [queue, setQueue] = useState<File[]>([])
+
   /** 一次可以選多個：逐一驗證，遇到第一個不合格或超過上限就停下並顯示原因，前面合格的照樣加入。 */
   function handleFiles(picked: File[]) {
     const next = [...files]
     let problem: string | null = null
+    const toCrop: File[] = []
     for (const file of picked) {
-      if (next.length >= max) {
+      if (next.length + queue.length + toCrop.length >= max) {
         problem = `最多上傳 ${max} 個檔案`
         break
       }
       problem = validate(file)
       if (problem) break
-      next.push(file)
+      if (crop && file.type.startsWith('image/')) toCrop.push(file)
+      else next.push(file)
     }
     if (next.length !== files.length) onChange(next)
+    if (toCrop.length > 0) setQueue((current) => [...current, ...toCrop])
     onError(problem)
   }
 
@@ -390,6 +400,15 @@ function FilePicker({ label, hint, buttonText, icon, required = true, files, onC
           </span>
         ))}
       </div>
+      {crop && (
+        <ImageCropDialog file={queue[0] ?? null} aspect={crop.aspect} outputWidth={crop.outputWidth}
+          title={queue.length > 1 ? `${crop.title}（還有 ${queue.length - 1} 張）` : crop.title}
+          onCancel={() => setQueue((current) => current.slice(1))}
+          onConfirm={(cropped) => {
+            setQueue((current) => current.slice(1))
+            if (files.length < max) onChange([...files, cropped])
+          }} />
+      )}
     </FormField>
   )
 }

@@ -6,6 +6,14 @@ const COMPRESS_QUALITY = 0.8
 // 已經夠小就別再重編碼一次，省一趟 canvas 往返
 const SKIP_COMPRESSION_MAX_BYTES = 300 * 1024
 
+/** 已經處理好、上傳時原樣送出的檔案（例如裁切後的圖片） */
+const READY_TO_UPLOAD = new WeakSet<File>()
+
+export function markReadyToUpload(file: File): File {
+  READY_TO_UPLOAD.add(file)
+  return file
+}
+
 /**
  * 上傳前在瀏覽器端把圖片壓小：長邊縮到 1280px、輸出 JPEG 品質 0.8。
  *
@@ -17,6 +25,8 @@ const SKIP_COMPRESSION_MAX_BYTES = 300 * 1024
  * 任何一步失敗（罕見格式、瀏覽器不支援）都退回原始檔案，不擋使用者上傳。
  */
 async function compressImage(file: File): Promise<File> {
+  // 裁切過的圖已經是固定尺寸的 JPEG，不再重新壓縮一次
+  if (READY_TO_UPLOAD.has(file)) return file
   // PDF（或其他非圖片格式）沒辦法丟進 canvas 解壓縮，原樣直接送出
   if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) return file
 

@@ -3,6 +3,7 @@ import { FilePlus, ImagePlus, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { AttachmentGallery, PreviewImage } from '../../components/console/ImageViewer'
 import { FormField, Input, SelectBox, TextArea } from '../../components/ui/Fields'
+import { ImageCropDialog } from '../../components/ui/ImageCropDialog'
 import { PhoneInput } from '../../components/ui/PhoneInput'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { useToast } from '../../components/ui/toastContext'
@@ -48,6 +49,8 @@ export function OrgSettings() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [focusTick, setFocusTick] = useState(0)
   const photoUrlRef = useRef<string | null>(null)
+  // 剛選的照片先進裁切，確定後才成為待上傳的機構照片（原圖不會上傳）
+  const [cropping, setCropping] = useState<File | null>(null)
   // 使用者主動切到「自動收回」才播寬限天數列的浮下動畫（一進頁面就是自動收回時不播）
   const graceAnimate = useRef(false)
 
@@ -88,6 +91,10 @@ export function OrgSettings() {
       setErrors((current) => ({ ...current, photo: problem }))
       return
     }
+    setCropping(file)
+  }
+
+  function applyPhoto(file: File) {
     if (photoUrlRef.current) URL.revokeObjectURL(photoUrlRef.current)
     const url = URL.createObjectURL(file)
     photoUrlRef.current = url
@@ -216,7 +223,7 @@ export function OrgSettings() {
                 value={form.website} onChange={update('website')} />
             </FormField>
             <FormField as="div" label="機構照片" required span={6} error={err('photo')}
-              hint={<>橫式 3:2，建議 1200 × 800 像素以上；請避免<span className="nobr">拍到孩子的臉。</span></>}>
+              hint={<>選好照片後可以拖曳、縮放，裁成橫式 3:2（輸出 1200 × 800）；只會保存裁切後的照片。請避免<span className="nobr">拍到孩子的臉。</span></>}>
               <div className="photo-pick">
                 <div className={`photo-preview${previewUrl ? ' has-img' : ''}`} aria-hidden={previewUrl ? undefined : true}>
                   <PreviewImage src={previewUrl} alt="機構照片" />
@@ -325,6 +332,10 @@ export function OrgSettings() {
           </button>
         </div>
       </form>
+      <ImageCropDialog file={cropping} aspect={3 / 2} outputWidth={1200} safeArea title="裁切機構照片"
+        hint="拖曳照片移動位置，用滑桿或滾輪放大縮小；白色虛線框是 3:2 的完整範圍，綠色虛線之間是手機與側欄一定看得到的部分，重要的人事物請放在這裡面。"
+        onCancel={() => setCropping(null)}
+        onConfirm={(cropped) => { applyPhoto(cropped); setCropping(null) }} />
     </section>
   )
 }

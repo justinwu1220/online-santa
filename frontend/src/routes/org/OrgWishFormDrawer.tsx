@@ -3,6 +3,7 @@ import { AlertTriangle, Mail } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { PreviewImage } from '../../components/console/ImageViewer'
 import { Callout } from '../../components/ui/Callout'
+import { ImageCropDialog } from '../../components/ui/ImageCropDialog'
 import { Drawer } from '../../components/console/Drawer'
 import { useToast } from '../../components/ui/toastContext'
 import { ApiError, api } from '../../lib/api'
@@ -66,6 +67,8 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
     setForm((current) => ({ ...current, values: update(current.values) }))
   const setLetterFile = (file: File | null) => setForm((current) => ({ ...current, letterFile: file }))
   const [errors, setErrors] = useState<Record<string, string>>({})
+  // 剛選的照片先進裁切，確定後才成為待上傳的信件照片（原圖不會上傳）
+  const [cropping, setCropping] = useState<File | null>(null)
   const [letterUrl, setLetterUrl] = useState<string>()
   useEffect(() => {
     if (!letterFile) { setLetterUrl(undefined); return }
@@ -135,7 +138,7 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
       setErrors((current) => ({ ...current, letter: problem }))
       return
     }
-    setLetterFile(file)
+    setCropping(file)
     setErrors((current) => { const { letter: _gone, ...rest } = current; return rest })
   }
 
@@ -225,7 +228,7 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
             <span className="field__label" id="wLetterLabel">
               願望信件照片<span className="req" aria-hidden>*</span><span className="opt">孩子的手寫願望卡片</span>
             </span>
-            <span className="field__hint">直式、橫式都可以，拍攝時讓卡片佔滿畫面、光線充足，<span className="nobr">文字才看得清楚。</span></span>
+            <span className="field__hint">拍攝時讓卡片佔滿畫面、光線充足，文字才看得清楚。選好照片後可以拖曳、縮放，裁成 4:3 橫式；<span className="nobr">只會保存裁切後的照片。</span></span>
             <div className="letter-pick">
               <div className="letter-preview" aria-hidden={previewUrl ? undefined : true}>
                 <PreviewImage src={previewUrl} alt="孩子的手寫信件">願望詳細頁<br />顯示效果</PreviewImage>
@@ -262,6 +265,10 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
             : '提交後由管理員審核，通過後才會出現在願望牆。上架後就不能再修改。'}
         </p>
       </form>
+      <ImageCropDialog file={cropping} aspect={4 / 3} outputWidth={1280} title="裁切信件照片"
+        hint="拖曳照片移動位置，用滑桿或滾輪放大縮小；虛線框內就是願望詳細頁會顯示的範圍。"
+        onCancel={() => setCropping(null)}
+        onConfirm={(cropped) => { setLetterFile(cropped); setCropping(null) }} />
     </Drawer>
   )
 }

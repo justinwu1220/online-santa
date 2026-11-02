@@ -20,6 +20,7 @@ import { Snowfall } from '../../components/Snowfall'
 import { TermsDialog } from '../../components/terms/TermsDialog'
 import { ORG_TERMS } from '../../components/terms/termsContent'
 import { PreviewImage } from '../../components/console/ImageViewer'
+import { ImageCropDialog } from '../../components/ui/ImageCropDialog'
 import { Callout } from '../../components/ui/Callout'
 import { FormField, Input, TextArea } from '../../components/ui/Fields'
 import { PhoneInput } from '../../components/ui/PhoneInput'
@@ -154,6 +155,8 @@ function ApplyForm({ email }: { email: string }) {
   // 機構照片預覽：3:2 框內以 cover 顯示；直式或寬度不足時給提醒（不擋送出）。
   // 預覽網址在選檔的事件裡建立；換掉、移除或離開這頁時釋放
   const photoUrlRef = useRef<string | null>(null)
+  // 剛選的照片先進裁切，確定後才成為待上傳的機構照片（原圖不會上傳）
+  const [cropping, setCropping] = useState<File | null>(null)
   useEffect(() => () => {
     if (photoUrlRef.current) URL.revokeObjectURL(photoUrlRef.current)
   }, [])
@@ -414,7 +417,7 @@ function ApplyForm({ email }: { email: string }) {
 
               {/* 外框用 div：label 會把範圍內任何點擊轉給裡面的 file input */}
               <FormField as="div" label="機構照片" required span={6} error={err('photo')}
-                hint={<>橫式 3:2，建議 1200 × 800 像素以上，JPG 或 PNG。重要的人事物放在畫面中間（手機與側欄會裁成較扁的比例）；請避免<span className="nobr">拍到孩子的臉。</span></>}>
+                hint={<>JPG 或 PNG。選好照片後可以拖曳、縮放，裁成橫式 3:2（輸出 1200 × 800），只會保存裁切後的照片；重要的人事物放在中間（手機與側欄會顯示較扁的中段）。請避免<span className="nobr">拍到孩子的臉。</span></>}>
                 <div className="photo-pick">
                   <div className={`photo-preview${photo ? ' has-img' : ''}`} aria-hidden={photo ? undefined : true}>
                     <PreviewImage src={photo?.url} alt="機構照片" />
@@ -436,14 +439,17 @@ function ApplyForm({ email }: { email: string }) {
                             setErrors((current) => ({ ...current, photo: problem }))
                             return
                           }
-                          choosePhoto(file)
-                          clearError('photo')
+                          setCropping(file)
                         }} />
                     </label>
                     {photo && <FileChip name={photo.file.name} onRemove={() => choosePhoto(null)} />}
                   </div>
                 </div>
                 {photo?.warn && <span className="photo-warn">{photo.warn}</span>}
+                <ImageCropDialog file={cropping} aspect={3 / 2} outputWidth={1200} safeArea title="裁切機構照片"
+                  hint="拖曳照片移動位置，用滑桿或滾輪放大縮小；白色虛線框是 3:2 的完整範圍，綠色虛線之間是手機與側欄一定看得到的部分，重要的人事物請放在這裡面。"
+                  onCancel={() => setCropping(null)}
+                  onConfirm={(cropped) => { choosePhoto(cropped); clearError('photo'); setCropping(null) }} />
               </FormField>
 
               <FormField as="div" label="相關文件證明" required span={6} error={err('documents')}

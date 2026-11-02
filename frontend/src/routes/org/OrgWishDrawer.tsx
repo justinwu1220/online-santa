@@ -11,6 +11,7 @@ import {
 import { ImagePlus } from 'lucide-react'
 import { useToast } from '../../components/ui/toastContext'
 import { Dialog } from '../../components/ui/Dialog'
+import { ImageCropDialog } from '../../components/ui/ImageCropDialog'
 import { ApiError, api } from '../../lib/api'
 import { clearDraft, useDraftState } from '../../lib/drafts'
 import { formatDate, formatDateTime, formatMonthDay, formatPlainDate, daysUntil, todayPlainDate } from '../../lib/format'
@@ -584,6 +585,8 @@ function ConfirmReceivedBox({ wish, claim, proofs, onConfirmed, onProofsChanged 
   const setChecked = (value: boolean) => setForm((current) => ({ ...current, checked: value }))
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
+  // 剛選的照片先進裁切，確定後才上傳（原圖不會上傳）
+  const [cropping, setCropping] = useState<File | null>(null)
   const toast = useToast()
 
   useEffect(() => {
@@ -623,6 +626,10 @@ function ConfirmReceivedBox({ wish, claim, proofs, onConfirmed, onProofsChanged 
     if (!file) return
     const problem = validateImage(file)
     if (problem) { setError(problem); return }
+    setCropping(file)
+  }
+
+  async function uploadProof(file: File) {
     setUploading(true)
     try {
       await uploadImage('ORG_FEEDBACK', claim.id, file)
@@ -666,6 +673,9 @@ function ConfirmReceivedBox({ wish, claim, proofs, onConfirmed, onProofsChanged 
         </label>
         <span className="field__error" role="alert">{error}</span>
       </form>
+      <ImageCropDialog file={cropping} aspect={4 / 3} outputWidth={1280} title="裁切收件證明照片"
+        onCancel={() => setCropping(null)}
+        onConfirm={(cropped) => { setCropping(null); void uploadProof(cropped) }} />
     </section>
   )
 }
