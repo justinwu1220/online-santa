@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useEffect } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { cropImage } from '../../lib/cropImage'
-import { frameSize, ImageCropDialog } from './ImageCropDialog'
+import { frameSize, ImageCropDialog, minZoomFor } from './ImageCropDialog'
 
 // 裁切元件本身靠真實的圖片與版面，jsdom 跑不了：換成會立刻回報裁切範圍的假元件
 vi.mock('react-easy-crop', () => ({
@@ -26,6 +26,21 @@ describe('frameSize（舞台中央的固定比例裁切框）', () => {
   it('寬度受限時以寬為準，高度受限時以高為準，四周留邊', () => {
     expect(frameSize({ width: 500, height: 400 }, 4 / 3)).toEqual({ width: 430, height: 323 })
     expect(frameSize({ width: 800, height: 200 }, 4 / 3)).toEqual({ width: 229, height: 172 })
+  })
+})
+
+describe('minZoomFor（縮放下限：圖片短邊剛好等於裁切框）', () => {
+  const frame = { width: 400, height: 300 }
+  it('直式圖：寬度對齊裁切框的寬', () => {
+    // 縮放 1 倍時圖片顯示 200 × 300（塞進舞台）→ 要放大到寬 400
+    expect(minZoomFor(frame, { width: 200, height: 300 })).toBe(2)
+  })
+  it('橫式圖：高度對齊裁切框的高；已經比裁切框大就可以縮小', () => {
+    expect(minZoomFor(frame, { width: 800, height: 600 })).toBe(0.5)
+    expect(minZoomFor(frame, { width: 600, height: 300 })).toBe(1)
+  })
+  it('還沒載入圖片尺寸時維持 1 倍', () => {
+    expect(minZoomFor(frame, { width: 0, height: 0 })).toBe(1)
   })
 })
 

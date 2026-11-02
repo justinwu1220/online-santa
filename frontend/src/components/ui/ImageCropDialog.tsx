@@ -15,6 +15,15 @@ export function frameSize(stage: { width: number; height: number }, aspect: numb
 }
 
 /**
+ * 縮放的下限：圖片剛好蓋滿裁切框（短邊與裁切框的長或寬相同）。
+ * `media` 是縮放 1 倍時圖片顯示的大小（react-easy-crop 回報的 mediaSize）；再小就會露出空白。
+ */
+export function minZoomFor(frame: { width: number; height: number }, media: { width: number; height: number }) {
+  if (media.width <= 0 || media.height <= 0) return MIN_ZOOM
+  return Math.max(frame.width / media.width, frame.height / media.height)
+}
+
+/**
  * 圖片裁切：裁切框尺寸（比例）固定，畫面中央用虛線標出；使用者拖曳或縮放圖片來決定留下哪一塊。
  * 確定後輸出固定尺寸的 JPEG——只上傳裁切結果，原圖不離開瀏覽器。
  *
@@ -41,11 +50,24 @@ export function ImageCropDialog({ file, aspect, outputWidth, title, hint, safeAr
   const [error, setError] = useState('')
   const stageRef = useRef<HTMLDivElement>(null)
   const [stage, setStage] = useState({ width: 0, height: 0 })
+  const [media, setMedia] = useState<{ width: number; height: number } | null>(null)
+  const frame = stage.width > 0 ? frameSize(stage, aspect) : undefined
+  // 縮放 1 倍時圖片塞進舞台（contain）的大小。用原始尺寸與「目前」的舞台算，
+  // 不用元件回報的 mediaSize——對話框剛打開、舞台大小還在變的時候，它會是舊的
+  const fit = media ? Math.min(stage.width / media.width, stage.height / media.height) : 0
+  const minZoom = frame && media && fit > 0
+    ? minZoomFor(frame, { width: media.width * fit, height: media.height * fit })
+    : MIN_ZOOM
+  // 縮放下限變了（剛載入圖片、視窗大小改變）：起始就停在剛好蓋滿裁切框的大小
+  const [lastMin, setLastMin] = useState(minZoom)
+  if (minZoom !== lastMin) { setLastMin(minZoom); setZoom(minZoom) }
 
   // 舞台的實際大小（對話框打開後才有尺寸）
   useEffect(() => {
     const element = stageRef.current
-    if (!element || !file || typeof ResizeObserver === 'undefined') return
+    if (!element || !file) return
+    // 沒有 ResizeObserver（測試環境）就用固定大小
+    if (typeof ResizeObserver === 'undefined') { setStage({ width: 480, height: 360 }); return }
     const observer = new ResizeObserver(() => setStage({ width: element.clientWidth, height: element.clientHeight }))
     observer.observe(element)
     return () => observer.disconnect()
@@ -55,7 +77,7 @@ export function ImageCropDialog({ file, aspect, outputWidth, title, hint, safeAr
     if (!file) { setUrl(undefined); return }
     const objectUrl = URL.createObjectURL(file)
     setUrl(objectUrl)
-    setCrop({ x: 0, y: 0 }); setZoom(MIN_ZOOM); setArea(null); setError(''); setBusy(false)
+    setCrop({ x: 0, y: 0 }); setZoom(MIN_ZOOM); setMedia(null); setArea(null); setError(''); setBusy(false)
     return () => URL.revokeObjectURL(objectUrl)
   }, [file])
 
@@ -77,10 +99,11 @@ export function ImageCropDialog({ file, aspect, outputWidth, title, hint, safeAr
         {hint ?? '拖曳圖片移動位置，用滑桿或滾輪放大縮小；虛線框內就是會留下的範圍。'}
       </p>
       <div className="crop-stage" ref={stageRef}>
-        {url && (
-          <Cropper image={url} crop={crop} zoom={zoom} aspect={aspect} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}
-            showGrid={false} objectFit="cover"
-            cropSize={stage.width > 0 ? frameSize(stage, aspect) : undefined}
+        {/* 舞台量到大小、裁切框尺寸確定之後才掛載：react-easy-crop 只在載入時採用 cropSize，之後換掉不會重算 */}
+        {url && frame && (
+          <Cropper key={`${url}:${frame.width}`} image={url} crop={crop} zoom={zoom} aspect={aspect} minZoom={minZoom} maxZoom={minZoom * MAX_ZOOM}
+            showGrid={false} objectFit="contain" cropSize={frame}
+            onMediaLoaded={(size) => setMedia({ width: size.naturalWidth, height: size.naturalHeight })}
             classes={{ cropAreaClassName: `crop-area${safeArea ? ' crop-area--safe' : ''}` }}
             onCropChange={setCrop} onZoomChange={setZoom}
             onCropComplete={(_percent, pixels) => setArea(pixels)} />
@@ -88,7 +111,7 @@ export function ImageCropDialog({ file, aspect, outputWidth, title, hint, safeAr
       </div>
       <label className="crop-zoom">
         <span>縮放</span>
-        <input type="range" min={MIN_ZOOM} max={MAX_ZOOM} step={0.01} value={zoom}
+        <input type="range" min={minZoom} max={minZoom * MAX_ZOOM} step={0.01} value={zoom}
           onChange={(event) => setZoom(Number(event.target.value))} aria-label="縮放" />
       </label>
       {error && <p className="field__error" role="alert">{error}</p>}
