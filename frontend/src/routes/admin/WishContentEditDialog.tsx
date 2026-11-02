@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Dialog } from '../../components/ui/Dialog'
 import { api } from '../../lib/api'
+import { clearDraft, hasDraft, useDraftState } from '../../lib/drafts'
 import type { AdminWishDetail, WishFilterOptions } from '../../lib/types'
 
 export interface ContentEditPayload {
@@ -19,17 +20,23 @@ export interface ContentEditPayload {
  * 已凍結時只修改內容。禮物（願望標題）不能改——認領者可能已經照禮物買好了。
  * 歷史快照中被改的欄位會一併遮蔽，稽核只記欄位名稱。
  */
-export function WishContentEditDialog({ open, wish, alreadyFrozen, onClose, onSubmit }: {
+export function WishContentEditDialog({ open, wish, alreadyFrozen, draftKey, onClose, onSubmit }: {
   open: boolean
   wish: AdminWishDetail
   alreadyFrozen: boolean
+  /** 有給就保留打到一半的內容（取消、關閉後再打開還在），送出成功才清掉 */
+  draftKey?: string
   onClose: () => void
   onSubmit: (payload: ContentEditPayload) => Promise<void>
 }) {
-  const [alias, setAlias] = useState(wish.childAlias ?? '')
-  const [ageRange, setAgeRange] = useState('')
-  const [description, setDescription] = useState(wish.description ?? '')
-  const [reason, setReason] = useState('')
+  const fresh = { alias: wish.childAlias ?? '', ageRange: '', description: wish.description ?? '', reason: '' }
+  const [form, setForm, resetForm] = useDraftState(draftKey, fresh)
+  const { alias, ageRange, description, reason } = form
+  const field = (key: keyof typeof fresh) => (value: string) => setForm((current) => ({ ...current, [key]: value }))
+  const setAlias = field('alias')
+  const setAgeRange = field('ageRange')
+  const setDescription = field('description')
+  const setReason = field('reason')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -39,13 +46,13 @@ export function WishContentEditDialog({ open, wish, alreadyFrozen, onClose, onSu
     enabled: open,
   })
 
-  // 每次開啟以目前內容為起點
+  // 每次開啟以目前內容為起點，除非有保留的草稿
   const [lastOpen, setLastOpen] = useState(false)
   if (open !== lastOpen) {
     setLastOpen(open)
     if (open) {
-      setAlias(wish.childAlias ?? ''); setAgeRange(''); setDescription(wish.description ?? '')
-      setReason(''); setError(''); setBusy(false)
+      if (!hasDraft(draftKey)) resetForm(fresh)
+      setError(''); setBusy(false)
     }
   }
 
@@ -65,6 +72,7 @@ export function WishContentEditDialog({ open, wish, alreadyFrozen, onClose, onSu
     setBusy(true)
     try {
       await onSubmit(payload)
+      clearDraft(draftKey)
     } catch (e) {
       setError(e instanceof Error ? e.message : '送出失敗，請稍後再試')
       setBusy(false)

@@ -1,5 +1,6 @@
 import { Send } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
+import { useDraftState } from '../../lib/drafts'
 import { formatDateTime } from '../../lib/format'
 import { useRiseLastOnGrow } from '../../lib/useRiseLastOnGrow'
 import type { MessageView, TeamMessageView } from '../../lib/types'
@@ -48,7 +49,7 @@ export function ConversationLog({ messages, counterpart, empty = '還沒有對�
 }
 
 /** 輸入框與「傳送」（Ctrl／⌘＋Enter 也能送出）。 */
-export function ConversationForm({ placeholder, busy, error, onSend, rows = 2, extra, initial = '' }: {
+export function ConversationForm({ placeholder, busy, error, onSend, rows = 2, extra, initial = '', draftKey }: {
   placeholder: string
   busy?: boolean
   error?: string | null
@@ -57,8 +58,10 @@ export function ConversationForm({ placeholder, busy, error, onSend, rows = 2, e
   /** 傳送鈕左邊的額外按鈕（團隊對話的「緊急」） */
   extra?: React.ReactNode
   initial?: string
+  /** 有給就保留打到一半的訊息（關掉抽屜再打開還在），傳送成功才清掉；key 要帶上對象 */
+  draftKey?: string
 }) {
-  const [text, setText] = useState(initial)
+  const [text, setText] = useDraftState(draftKey, initial)
 
   async function submit() {
     const value = text.trim()

@@ -113,7 +113,7 @@ function ThreadDrawer({ thread, onClose }: { thread: AdminTeamThread | null; onC
           <ConversationLog messages={messages.data} counterpart={current.organizationName}
             viewer="team" className="team-chat__log" label={`與${current.organizationName}的對話`} />
         )}
-        <ConversationForm placeholder={`回覆${current.organizationName}…`} rows={3}
+        <ConversationForm placeholder={`回覆${current.organizationName}…`} rows={3} draftKey={`team-chat:${current.organizationId}`}
           busy={reply.isPending}
           error={reply.isError ? (reply.error instanceof ApiError ? reply.error.detail : '傳送失敗，請稍後再試') : null}
           onSend={async (text) => { await reply.mutateAsync(text) }} />

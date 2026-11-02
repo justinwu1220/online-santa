@@ -12,6 +12,7 @@ import { ImagePlus } from 'lucide-react'
 import { useToast } from '../../components/ui/toastContext'
 import { Dialog } from '../../components/ui/Dialog'
 import { ApiError, api } from '../../lib/api'
+import { clearDraft, useDraftState } from '../../lib/drafts'
 import { formatDate, formatDateTime, formatMonthDay, formatPlainDate, daysUntil, todayPlainDate } from '../../lib/format'
 import { burst, center, reducedMotion } from '../../lib/motion'
 import type { AttachmentView, ClaimOrgView, UnlockRequestView, WishConversation, WishOrgView } from '../../lib/types'
@@ -49,7 +50,8 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
   const navigate = useNavigate()
 
   const [tab, setTab] = useState<'info' | 'chat'>('info')
-  const [confirming, setConfirming] = useState(false)
+  // 展開著「確認收到」的願望，關掉抽屜再打開仍展開（未重新整理前）
+  const [confirming, setConfirming] = useDraftState(wishId ? `confirm-open:${wishId}` : undefined, false)
   const [deleting, setDeleting] = useState(false)
   const [recalling, setRecalling] = useState(false)
   const [beginningEdit, setBeginningEdit] = useState(false)
@@ -57,7 +59,7 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
   const [shown, setShown] = useState(detail.data)
   useEffect(() => { if (detail.data) setShown(detail.data) }, [detail.data])
   useEffect(() => {
-    if (wishId) { setTab('info'); setConfirming(false) }
+    if (wishId) setTab('info')
   }, [wishId])
 
   const data = detail.data ?? shown
@@ -309,7 +311,7 @@ function ConversationSender({ wishId, donor }: { wishId: string; donor: string }
     onSuccess: () => invalidate(),
   })
   return (
-    <ConversationForm placeholder={`傳訊息給 ${donor}…`} busy={send.isPending}
+    <ConversationForm placeholder={`傳訊息給 ${donor}…`} busy={send.isPending} draftKey={`chat:${wishId}`}
       error={send.isError ? errorText(send.error) : null}
       onSend={async (text) => { await send.mutateAsync(text) }} />
   )
@@ -574,8 +576,12 @@ function ConfirmReceivedBox({ wish, claim, proofs, onConfirmed, onProofsChanged 
   onProofsChanged: () => void
 }) {
   const box = useRef<HTMLElement>(null)
-  const [date, setDate] = useState(todayPlainDate())
-  const [checked, setChecked] = useState(false)
+  // 日期與勾選：關掉抽屜再打開還在，確認成功才清掉
+  const draftKey = `confirm-received:${claim.id}`
+  const [form, setForm] = useDraftState(draftKey, { date: todayPlainDate(), checked: false })
+  const { date, checked } = form
+  const setDate = (value: string) => setForm((current) => ({ ...current, date: value }))
+  const setChecked = (value: boolean) => setForm((current) => ({ ...current, checked: value }))
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
   const toast = useToast()
@@ -590,7 +596,7 @@ function ConfirmReceivedBox({ wish, claim, proofs, onConfirmed, onProofsChanged 
   const complete = useMutation({
     mutationFn: () => api.post(`/api/organizations/me/claims/${claim.id}/complete`,
       { receivedOn: date, inspected: true }),
-    onSuccess: () => onConfirmed(),
+    onSuccess: () => { clearDraft(draftKey); clearDraft(`confirm-open:${claim.wishId}`); return onConfirmed() },
     onError: (e) => setError(errorText(e)),
   })
 
@@ -672,16 +678,18 @@ function RecallDialog({ open, wishTitle, claim, onClose, onDone }: {
   onClose: () => void
   onDone: (reasonLabel: string) => void | Promise<void>
 }) {
-  const [reason, setReason] = useState<RecallReason>('OVERDUE')
-  const [detail, setDetail] = useState('')
+  // 選到一半的原因：取消後再打開還在，收回成功才清掉
+  const draftKey = claim ? `recall:${claim.id}` : undefined
+  const [form, setForm] = useDraftState<{ reason: RecallReason; detail: string }>(draftKey, { reason: 'OVERDUE', detail: '' })
+  const { reason, detail } = form
+  const setReason = (value: RecallReason) => setForm((current) => ({ ...current, reason: value }))
+  const setDetail = (value: string) => setForm((current) => ({ ...current, detail: value }))
   const recall = useMutation({
     mutationFn: () => api.post(`/api/organizations/me/claims/${claim!.id}/release`,
       { reason, detail: reason === 'OTHER' && detail.trim() ? detail.trim() : undefined }),
-    onSuccess: () => onDone(RECALL_REASONS.find((item) => item.value === reason)!.label),
+    onSuccess: () => { clearDraft(draftKey); return onDone(RECALL_REASONS.find((item) => item.value === reason)!.label) },
   })
   function close() {
-    setReason('OVERDUE')
-    setDetail('')
     recall.reset()
     onClose()
   }

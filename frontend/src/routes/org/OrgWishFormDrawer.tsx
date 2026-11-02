@@ -6,6 +6,7 @@ import { Callout } from '../../components/ui/Callout'
 import { Drawer } from '../../components/console/Drawer'
 import { useToast } from '../../components/ui/toastContext'
 import { ApiError, api } from '../../lib/api'
+import { clearDraft, hasDraft, useDraftState } from '../../lib/drafts'
 import { reducedMotion } from '../../lib/motion'
 import type { WishFilterOptions, WishOrgView } from '../../lib/types'
 import { uploadImage, validateImage } from '../../lib/upload'
@@ -47,28 +48,43 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
     staleTime: Infinity,
   })
 
-  const [values, setValues] = useState<FormState>(EMPTY)
+  // 打到一半的內容（含選好的信件照片）：關掉抽屜再打開還在（未重新整理前），儲存成功才清掉
+  const draftKey = `wish-form:${wish?.id ?? 'new'}`
+  const initialForm = (): { values: FormState; letterFile: File | null } => ({
+    values: wish ? {
+      nick: wish.childAlias ?? '',
+      age: wish.ageRange ?? '',
+      title: wish.title,
+      category: wish.category ?? '',
+      note: wish.description ?? '',
+    } : EMPTY,
+    letterFile: null,
+  })
+  const [form, setForm, resetForm] = useDraftState(draftKey, initialForm())
+  const { values, letterFile } = form
+  const setValues = (update: (current: FormState) => FormState) =>
+    setForm((current) => ({ ...current, values: update(current.values) }))
+  const setLetterFile = (file: File | null) => setForm((current) => ({ ...current, letterFile: file }))
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [letter, setLetter] = useState<{ file: File; url: string } | null>(null)
+  const [letterUrl, setLetterUrl] = useState<string>()
+  useEffect(() => {
+    if (!letterFile) { setLetterUrl(undefined); return }
+    const url = URL.createObjectURL(letterFile)
+    setLetterUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [letterFile])
+  const letter = letterFile && letterUrl ? { file: letterFile, url: letterUrl } : null
   const [busy, setBusy] = useState(false)
   const [focusTick, setFocusTick] = useState(0)
 
-  // 每次開啟重設表單（編輯時帶入既有資料）。在 render 期間依 props 的變化調整 state，
+  // 每次開啟重設表單（編輯時帶入既有資料），有保留的草稿就用草稿。在 render 期間依 props 的變化調整 state，
   // 不用 effect——那樣會多一次 render，第一幀還會閃過上一次的內容
   const [lastOpen, setLastOpen] = useState(false)
   if (open !== lastOpen) {
     setLastOpen(open)
     if (open) {
-      setValues(wish ? {
-        nick: wish.childAlias ?? '',
-        age: wish.ageRange ?? '',
-        title: wish.title,
-        category: wish.category ?? '',
-        note: wish.description ?? '',
-      } : EMPTY)
+      if (!hasDraft(draftKey)) resetForm(initialForm())
       setErrors({})
-      if (letter) URL.revokeObjectURL(letter.url)
-      setLetter(null)
     }
   }
 
@@ -119,7 +135,7 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
       setErrors((current) => ({ ...current, letter: problem }))
       return
     }
-    setLetter((current) => { if (current) URL.revokeObjectURL(current.url); return { file, url: URL.createObjectURL(file) } })
+    setLetterFile(file)
     setErrors((current) => { const { letter: _gone, ...rest } = current; return rest })
   }
 
@@ -139,6 +155,8 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
         : await api.post<WishOrgView>('/api/wishes', body)
       if (letter) await uploadImage('WISH_LETTER', saved.id, letter.file)
       if (submit) await api.post(`/api/wishes/${saved.id}/submit`)
+      clearDraft(draftKey)
+      clearDraft('wish-form:new')
       await invalidate()
       toast.show(submit
         ? `「${values.title.trim()}」已提交審核，通過後會${wish?.takenDown ? '重新' : '自動'}上架`
@@ -225,7 +243,7 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
                       <span>{letter?.file.name ?? '孩子的信件'}</span>
                       {letter && (
                         <button type="button" aria-label="移除這張照片"
-                          onClick={() => setLetter((current) => { if (current) URL.revokeObjectURL(current.url); return null })}>×</button>
+                          onClick={() => setLetterFile(null)}>×</button>
                       )}
                     </span>
                   )}

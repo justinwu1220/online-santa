@@ -66,4 +66,27 @@ describe('ReasonDialog（退回／凍結／停權的必填原因）', () => {
     )
     expect(screen.getByLabelText(/退回原因/)).toHaveValue('')
   })
+
+  it('有 draftKey：關閉再打開保留打到一半的原因，送出成功後清掉；沒送出的草稿不影響別的 key', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    const dialog = (open: boolean, draftKey: string) => (
+      <ReasonDialog open={open} draftKey={draftKey} title="t" body="b" label="退回原因" minLength={5} tooShort="太短"
+        okText="退回" onSubmit={onSubmit} onClose={() => {}} />
+    )
+    const view = render(dialog(true, 'test:a'))
+    fireEvent.change(screen.getByLabelText(/退回原因/), { target: { value: '打到一半的原因' } })
+    view.rerender(dialog(false, 'test:a'))
+    view.rerender(dialog(true, 'test:a'))
+    expect(screen.getByLabelText(/退回原因/)).toHaveValue('打到一半的原因')
+
+    view.rerender(dialog(true, 'test:b'))
+    expect(screen.getByLabelText(/退回原因/)).toHaveValue('')
+    view.rerender(dialog(true, 'test:a'))
+
+    fireEvent.click(screen.getByRole('button', { name: '退回' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('打到一半的原因'))
+    view.rerender(dialog(false, 'test:a'))
+    view.rerender(dialog(true, 'test:a'))
+    expect(screen.getByLabelText(/退回原因/)).toHaveValue('')
+  })
 })
