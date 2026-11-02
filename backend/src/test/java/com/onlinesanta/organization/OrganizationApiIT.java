@@ -29,6 +29,9 @@ class OrganizationApiIT extends ApiIntegrationTest {
     @Autowired
     UserRepository users;
 
+    @Autowired
+    OrganizationRepository organizations;
+
     private OrganizationRegistrationRequest registration(String name) {
         return new OrganizationRegistrationRequest(
                 name, "王承辦", "contact@example.org", "02-1234-5678", "0912-345-678",
@@ -371,6 +374,75 @@ class OrganizationApiIT extends ApiIntegrationTest {
         mvc.perform(as(withBody(patch("/api/organizations/me"), good), ORG_USER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.website").value("https://www.example.org"));
+    }
+
+    @Test
+    void registrationRequiresResponsiblePersonAndEightDigitWithholdingTaxId() throws Exception {
+        var missing = new OrganizationRegistrationRequest(
+                "缺法定資料之家", "王承辦", "contact@example.org", "02-1234-5678", "0912-345-678",
+                "台北市中正區某路 1 號", "平日上午9:00-下午5:00", "服務失依兒童的機構", null, null, null);
+        mvc.perform(as(withBody(post("/api/organizations"), missing), ORG_USER))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.responsiblePerson").exists())
+                .andExpect(jsonPath("$.fieldErrors.withholdingTaxId").exists());
+
+        for (String bad : new String[] {"1234567", "123456789", "ABCDEFGH", "1234 5678"}) {
+            var invalid = new OrganizationRegistrationRequest(
+                    "統編格式之家", "王承辦", "contact@example.org", "02-1234-5678", "0912-345-678",
+                    "台北市中正區某路 1 號", "平日上午9:00-下午5:00", "服務失依兒童的機構", null, "王負責", bad);
+            mvc.perform(as(withBody(post("/api/organizations"), invalid), ORG_USER))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fieldErrors.withholdingTaxId").exists())
+                    .andExpect(jsonPath("$.fieldErrors.responsiblePerson").doesNotExist());
+        }
+
+        var ok = new OrganizationRegistrationRequest(
+                "法定資料之家", "王承辦", "contact@example.org", "02-1234-5678", "0912-345-678",
+                "台北市中正區某路 1 號", "平日上午9:00-下午5:00", "服務失依兒童的機構", null, "  陳代表  ", "87654321");
+        mvc.perform(as(withBody(post("/api/organizations"), ok), ORG_USER))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.responsiblePerson").value("陳代表"))
+                .andExpect(jsonPath("$.withholdingTaxId").value("87654321"));
+        mvc.perform(as(get("/api/organizations/me"), ORG_USER))
+                .andExpect(jsonPath("$.responsiblePerson").value("陳代表"))
+                .andExpect(jsonPath("$.withholdingTaxId").value("87654321"));
+    }
+
+    @Test
+    void settingsSaveRequiresTheTwoFieldsSoOlderOrganizationsMustFillThemIn() throws Exception {
+        String body = mvc.perform(as(withBody(post("/api/organizations"), registration("舊機構之家")), ORG_USER))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        // 模擬這兩個欄位上線前就核准的機構：資料庫裡沒有值
+        UUID orgId = UUID.fromString(json.readTree(body).get("id").asText());
+        organizations.findById(orgId).orElseThrow().updateLegalInfo(null, null);
+        organizations.flush();
+
+        mvc.perform(as(get("/api/organizations/me"), ORG_USER))
+                .andExpect(jsonPath("$.responsiblePerson").doesNotExist())
+                .andExpect(jsonPath("$.withholdingTaxId").doesNotExist());
+
+        var withoutThem = new OrganizationUpdateRequest("舊機構之家", "王承辦", "contact@example.org",
+                "02-1234-5678", "0912-345-678", "台北市中正區某路 1 號", "平日上午9:00-下午5:00",
+                "服務失依兒童的機構", null, ReleasePolicy.MANUAL, null, null, null);
+        mvc.perform(as(withBody(patch("/api/organizations/me"), withoutThem), ORG_USER))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.responsiblePerson").exists())
+                .andExpect(jsonPath("$.fieldErrors.withholdingTaxId").exists());
+
+        var withThem = new OrganizationUpdateRequest("舊機構之家", "王承辦", "contact@example.org",
+                "02-1234-5678", "0912-345-678", "台北市中正區某路 1 號", "平日上午9:00-下午5:00",
+                "服務失依兒童的機構", null, ReleasePolicy.MANUAL, null, "林負責", "11223344");
+        mvc.perform(as(withBody(patch("/api/organizations/me"), withThem), ORG_USER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.responsiblePerson").value("林負責"))
+                .andExpect(jsonPath("$.withholdingTaxId").value("11223344"));
+
+        var badTaxId = new OrganizationUpdateRequest("舊機構之家", "王承辦", "contact@example.org",
+                "02-1234-5678", "0912-345-678", "台北市中正區某路 1 號", "平日上午9:00-下午5:00",
+                "服務失依兒童的機構", null, ReleasePolicy.MANUAL, null, "林負責", "1122334");
+        mvc.perform(as(withBody(patch("/api/organizations/me"), badTaxId), ORG_USER))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.withholdingTaxId").exists());
     }
 
     @Test

@@ -80,6 +80,7 @@ public class OrganizationService {
                 request.preferredDeliveryTime(),
                 request.description().trim());
         organization.updateWebsite(request.website());
+        organization.updateLegalInfo(request.responsiblePerson(), request.withholdingTaxId());
         organization = organizations.save(organization);
 
         User user = users.findById(principal.userId())
@@ -115,6 +116,7 @@ public class OrganizationService {
                 request.preferredDeliveryTime(),
                 request.description().trim());
         organization.updateWebsite(request.website());
+        organization.updateLegalInfo(request.responsiblePerson(), request.withholdingTaxId());
         organization.updateReleasePolicy(request.releasePolicy(), request.releaseAfterDays());
 
         // 停權期間的修改留紀錄（欄位舊→新），不覆蓋停權當下的原始快照，管理員審核解除申請時比對
@@ -128,6 +130,8 @@ public class OrganizationService {
         java.util.Map<String, String> profile = new java.util.LinkedHashMap<>();
         profile.put("name", organization.getName());
         profile.put("contactPerson", organization.getContactPerson());
+        profile.put("responsiblePerson", organization.getResponsiblePerson());
+        profile.put("withholdingTaxId", organization.getWithholdingTaxId());
         profile.put("contactEmail", organization.getContactEmail());
         profile.put("contactPhone", organization.getContactPhone());
         profile.put("mobilePhone", organization.getMobilePhone());

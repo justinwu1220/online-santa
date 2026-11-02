@@ -5,6 +5,7 @@ import { AttachmentGallery, PreviewImage } from '../../components/console/ImageV
 import { FormField, Input, SelectBox, TextArea } from '../../components/ui/Fields'
 import { ImageCropDialog } from '../../components/ui/ImageCropDialog'
 import { PhoneInput } from '../../components/ui/PhoneInput'
+import { digitsOnly, isValidTaxId } from '../../lib/taxId'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { useToast } from '../../components/ui/toastContext'
 import { ApiError, api } from '../../lib/api'
@@ -35,6 +36,9 @@ export function OrgSettings() {
   const [form, setForm] = useState({
     name: organization.name,
     contactPerson: organization.contactPerson ?? '',
+    // 這兩欄上線前核准的機構還沒有值：要補齊才存得了設定
+    responsiblePerson: organization.responsiblePerson ?? '',
+    withholdingTaxId: organization.withholdingTaxId ?? '',
     contactEmail: organization.contactEmail,
     contactPhone: organization.contactPhone ?? '',
     mobilePhone: organization.mobilePhone ?? '',
@@ -154,6 +158,9 @@ export function OrgSettings() {
     }
     need('name', '請填寫機構名稱')
     need('contactPerson', '請填寫承辦人姓名')
+    need('responsiblePerson', '請填寫負責人姓名')
+    need('withholdingTaxId', '請填寫扣繳單位統一編號')
+    if (form.withholdingTaxId.trim() && !isValidTaxId(form.withholdingTaxId)) next.withholdingTaxId = '請填寫 8 碼數字的統一編號'
     need('contactEmail', '請填寫聯絡信箱')
     if (form.contactEmail.trim() && !/^\S+@\S+\.\S+$/.test(form.contactEmail.trim())) {
       next.contactEmail = '聯絡信箱格式不正確'
@@ -202,6 +209,19 @@ export function OrgSettings() {
               hint="不會顯示給認領者">
               <Input type="email" maxLength={255} autoComplete="email" value={form.contactEmail}
                 onChange={update('contactEmail')} />
+            </FormField>
+            <FormField label="負責人姓名" required span={3} error={err('responsiblePerson')}
+              hint="機構的負責人、代表人或管理人">
+              <Input maxLength={100} autoComplete="off" value={form.responsiblePerson}
+                onChange={update('responsiblePerson')} />
+            </FormField>
+            <FormField label="扣繳單位統一編號" required span={3} error={err('withholdingTaxId')}
+              hint="8 碼數字">
+              <Input inputMode="numeric" maxLength={8} autoComplete="off" value={form.withholdingTaxId}
+                onChange={(event) => {
+                  setForm((current) => ({ ...current, withholdingTaxId: digitsOnly(event.target.value) }))
+                  clearError('withholdingTaxId')
+                }} />
             </FormField>
             <FormField label="行動電話" required span={3} error={err('mobilePhone')}>
               <PhoneInput kind="mobile" placeholder="0912-345-678"

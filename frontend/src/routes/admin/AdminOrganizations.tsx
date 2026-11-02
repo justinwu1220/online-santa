@@ -211,6 +211,8 @@ function OrgDrawer({ org, onClose }: { org: OrganizationReviewView | null; onClo
               <DCard icon="user" title="承辦人與聯絡" className="dcard--key">
                 <Kv rows={[
                   { label: '承辦人姓名', value: current.contactPerson },
+                  { label: '負責人姓名', value: current.responsiblePerson || '—' },
+                  { label: '扣繳單位統一編號', value: current.withholdingTaxId || '—' },
                   { label: '行動電話', value: current.mobilePhone || '—' },
                   { label: '聯絡電話', value: current.contactPhone || '—' },
                   { label: '申請時間', value: formatDateTime(current.createdAt) },

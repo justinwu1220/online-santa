@@ -67,6 +67,7 @@ class OrganizationSuspensionFlowIT extends ApiIntegrationTest {
     @BeforeEach
     void setUp() throws Exception {
         organization = Organization.register("停權測試機構", "王承辦", "contact@example.org", null, null, null);
+        organization.updateLegalInfo("王負責", "12345678");
         organization.approve(null, "測試資料");
         organizations.save(organization);
         User member = User.newDonor(TestJwtSupport.uidFor(ORG_USER), ORG_USER, ORG_USER);
@@ -212,6 +213,8 @@ class OrganizationSuspensionFlowIT extends ApiIntegrationTest {
         request.put("preferredDeliveryTime", "平日上午");
         request.put("description", "機構簡介");
         request.put("releasePolicy", "MANUAL");
+        request.put("responsiblePerson", "王負責");
+        request.put("withholdingTaxId", "12345678");
         return request;
     }
 
@@ -230,6 +233,8 @@ class OrganizationSuspensionFlowIT extends ApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.reason").value("疑似冒名，先停權調查"))
                 .andExpect(jsonPath("$.snapshot.name").value("停權測試機構"))
+                .andExpect(jsonPath("$.snapshot.responsiblePerson").value("王負責"))
+                .andExpect(jsonPath("$.snapshot.withholdingTaxId").value("12345678"))
                 .andExpect(jsonPath("$.unlockRequest.status").value("PENDING"))
                 .andExpect(jsonPath("$.openWishes").value(3))
                 .andExpect(jsonPath("$.affectedClaims").value(2));

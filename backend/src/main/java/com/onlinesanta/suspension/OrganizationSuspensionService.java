@@ -276,6 +276,8 @@ public class OrganizationSuspensionService {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("name", organization.getName());
         snapshot.put("contactPerson", organization.getContactPerson());
+        snapshot.put("responsiblePerson", organization.getResponsiblePerson());
+        snapshot.put("withholdingTaxId", organization.getWithholdingTaxId());
         snapshot.put("contactEmail", organization.getContactEmail());
         snapshot.put("contactPhone", organization.getContactPhone());
         snapshot.put("mobilePhone", organization.getMobilePhone());

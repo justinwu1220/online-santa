@@ -48,13 +48,34 @@ public record OrganizationRegistrationRequest(
         /** 選填；須為完整網址（http:// 或 https:// 開頭）。 */
         @Size(max = 255, message = "官方網站不可超過 255 字")
         @Pattern(regexp = "^$|^https?://\\S+$", message = "官方網站請填完整網址（https:// 開頭）")
-        String website) {
+        String website,
 
-    /** 沒有官網的呼叫端（含測試）。 */
+        @NotBlank(message = "負責人姓名不可為空")
+        @Size(max = 100, message = "負責人姓名不可超過 100 字")
+        String responsiblePerson,
+
+        @NotBlank(message = "扣繳單位統一編號不可為空")
+        @Pattern(regexp = "^\\d{8}$", message = "扣繳單位統一編號請填 8 碼數字")
+        String withholdingTaxId) {
+
+    /** 測試用的預設值：不是這兩個欄位的測試，不必一一補。 */
+    public static final String DEFAULT_RESPONSIBLE_PERSON = "王負責";
+    public static final String DEFAULT_WITHHOLDING_TAX_ID = "12345678";
+
+    /** 沒有官網與新增欄位的呼叫端（含測試）。 */
     public OrganizationRegistrationRequest(String name, String contactPerson, String contactEmail,
                                            String contactPhone, String mobilePhone, String address,
                                            String preferredDeliveryTime, String description) {
         this(name, contactPerson, contactEmail, contactPhone, mobilePhone, address,
                 preferredDeliveryTime, description, null);
+    }
+
+    /** 沒有負責人與統編的呼叫端（含測試）：用預設值。 */
+    public OrganizationRegistrationRequest(String name, String contactPerson, String contactEmail,
+                                           String contactPhone, String mobilePhone, String address,
+                                           String preferredDeliveryTime, String description, String website) {
+        this(name, contactPerson, contactEmail, contactPhone, mobilePhone, address,
+                preferredDeliveryTime, description, website,
+                DEFAULT_RESPONSIBLE_PERSON, DEFAULT_WITHHOLDING_TAX_ID);
     }
 }

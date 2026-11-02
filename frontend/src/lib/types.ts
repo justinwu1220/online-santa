@@ -297,6 +297,9 @@ export interface OrganizationView {
   name: string
   /** 承辦人姓名。是機構的屬性，不是某位使用者的 display_name */
   contactPerson: string
+  /** 負責人姓名、扣繳單位統一編號：既有機構可能還沒填 */
+  responsiblePerson?: string
+  withholdingTaxId?: string
   contactEmail: string
   contactPhone?: string
   mobilePhone?: string

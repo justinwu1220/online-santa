@@ -10,7 +10,7 @@ const detail: SuspensionDetail = {
   reason: '疑似冒名，先停權調查',
   suspendedAt: '2026-10-22T02:00:00Z',
   snapshot: { name: '停權測試機構', contactPerson: '王承辦', documents: [{ id: 'd1', fileName: '立案證書.pdf' }] },
-  revisions: [{ changes: { contactPerson: { before: '王承辦', after: '新的承辦人' } }, at: '2026-10-22T03:00:00Z' }],
+  revisions: [{ changes: { contactPerson: { before: '王承辦', after: '新的承辦人' }, withholdingTaxId: { before: '', after: '12345678' } }, at: '2026-10-22T03:00:00Z' }],
   unlockRequest: { id: 1, status: 'PENDING', message: '資料已補齊', createdAt: '2026-10-22T04:00:00Z' },
   openWishes: 3,
   affectedClaims: 2,
@@ -35,6 +35,8 @@ describe('SuspensionPanel（停權機構的處置資料）', () => {
     expect(screen.getByText(/影響 3 個公開中的願望、2 筆進行中的認領/)).toBeInTheDocument()
     expect(screen.getByText(/立案證書\.pdf/)).toBeInTheDocument()
     expect(screen.getByText(/王承辦 → 新的承辦人/)).toBeInTheDocument()
+    // 新增的兩個欄位有中文標籤，不是欄位代號
+    expect(screen.getByText(/扣繳單位統一編號/)).toBeInTheDocument()
     expect(screen.getByText('資料已補齊')).toBeInTheDocument()
   })
 

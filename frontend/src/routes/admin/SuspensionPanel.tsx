@@ -9,7 +9,7 @@ import type { SuspensionDetail } from '../../lib/types'
 import { useInvalidateAdmin } from './adminQueries'
 
 const FIELD_LABELS: Record<string, string> = {
-  name: '機構名稱', contactPerson: '承辦人', contactEmail: '聯絡信箱', contactPhone: '聯絡電話',
+  name: '機構名稱', contactPerson: '承辦人', responsiblePerson: '負責人', withholdingTaxId: '扣繳單位統一編號', contactEmail: '聯絡信箱', contactPhone: '聯絡電話',
   mobilePhone: '行動電話', address: '地址', preferredDeliveryTime: '方便收件時間', description: '簡介', website: '官網',
 }
 

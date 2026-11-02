@@ -27,6 +27,17 @@ public class Organization extends BaseEntity {
     @Column(name = "contact_person", length = 100)
     private String contactPerson;
 
+    /**
+     * 負責人姓名（機構的負責人、代表人或管理人）。新申請與設定頁儲存時必填（DTO 把關）；
+     * 資料庫與這裡都不擋：既有機構沒有值，大量測試資料也用 null 建機構，原因同 mobilePhone
+     */
+    @Column(name = "responsible_person", length = 100)
+    private String responsiblePerson;
+
+    /** 扣繳單位統一編號（8 碼數字）。必填規則同 responsiblePerson。 */
+    @Column(name = "withholding_tax_id", length = 8)
+    private String withholdingTaxId;
+
     @Column(name = "contact_email", nullable = false, length = 255)
     private String contactEmail;
 
@@ -127,6 +138,19 @@ public class Organization extends BaseEntity {
         this.address = address;
         this.preferredDeliveryTime = preferredDeliveryTime;
         this.description = description;
+    }
+
+    public void updateLegalInfo(String responsiblePerson, String withholdingTaxId) {
+        this.responsiblePerson = responsiblePerson == null ? null : responsiblePerson.trim();
+        this.withholdingTaxId = withholdingTaxId == null ? null : withholdingTaxId.trim();
+    }
+
+    public String getResponsiblePerson() {
+        return responsiblePerson;
+    }
+
+    public String getWithholdingTaxId() {
+        return withholdingTaxId;
     }
 
     public void updateWebsite(String website) {

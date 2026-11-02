@@ -12,6 +12,9 @@ public record OrganizationView(
         UUID id,
         String name,
         String contactPerson,
+        /** 負責人姓名、扣繳單位統一編號：既有機構可能還沒填（null） */
+        String responsiblePerson,
+        String withholdingTaxId,
         String contactEmail,
         String contactPhone,
         String mobilePhone,
@@ -40,6 +43,8 @@ public record OrganizationView(
                 org.getId(),
                 org.getName(),
                 org.getContactPerson(),
+                org.getResponsiblePerson(),
+                org.getWithholdingTaxId(),
                 org.getContactEmail(),
                 org.getContactPhone(),
                 org.getMobilePhone(),
