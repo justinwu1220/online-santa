@@ -17,7 +17,7 @@ public record WishContentEditRequest(
         AgeRange ageRange,
         @Size(max = 500, message = "興趣描述不可超過 500 字")
         String interests,
-        @Size(max = 20, message = "願望說明不可超過 20 字")
+        @Size(max = 50, message = "願望說明不可超過 50 字")
         String description,
         @NotBlank(message = "請填寫處置原因")
         @Size(min = 4, max = 500, message = "處置原因至少 4 個字，最多 500 字")

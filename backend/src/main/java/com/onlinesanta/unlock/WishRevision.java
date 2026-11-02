@@ -14,7 +14,7 @@ public record WishRevision(
         AgeRange ageRange,
         @Size(max = 500, message = "興趣描述不可超過 500 字")
         String interests,
-        @Size(max = 20, message = "願望說明不可超過 20 字")
+        @Size(max = 50, message = "願望說明不可超過 50 字")
         String description) {
 
     public boolean isEmpty() {

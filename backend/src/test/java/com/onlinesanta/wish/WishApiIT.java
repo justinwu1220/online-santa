@@ -606,16 +606,16 @@ class WishApiIT extends ApiIntegrationTest {
     }
 
     @Test
-    void descriptionIsTheWishNoteLimitedToTwentyCharactersWhenWritten() throws Exception {
+    void descriptionIsTheWishNoteLimitedToFiftyCharactersWhenWritten() throws Exception {
         UUID id = createWish("有說明");
-        String note = "我想要藍色的，跑步才會像風一樣快！";
+        String note = "我想要藍色的，跑步才會像風一樣快！".repeat(2) + "一二三四五六七八九十一二三四五六";  // 剛好 50 字
         mvc.perform(as(withBody(patch("/api/wishes/{id}", id), wishRequestWithAge("有說明", AgeRange.AGE_7_9, note)),
                 ORG_USER)).andExpect(status().isOk()).andExpect(jsonPath("$.description").value(note));
         submitAndApproveWish(id, ORG_USER);
         mvc.perform(get("/api/wishes/{id}", id)).andExpect(jsonPath("$.description").value(note));
 
         mvc.perform(as(withBody(patch("/api/wishes/{id}", id),
-                wishRequestWithAge("有說明", AgeRange.AGE_7_9, "一二三四五六七八九十一二三四五六七八九十一")), ORG_USER))
+                wishRequestWithAge("有說明", AgeRange.AGE_7_9, note + "一")), ORG_USER))
                 .andExpect(status().isBadRequest());
     }
 

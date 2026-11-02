@@ -12,7 +12,7 @@ import { uploadImage, validateImage } from '../../lib/upload'
 import { useInvalidateOrg } from './orgQueries'
 import { useOrgContext } from './orgContext'
 
-const NOTE_MAX = 20
+const NOTE_MAX = 50
 
 interface FormState {
   nick: string
@@ -197,7 +197,7 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
             </select>
           </Field>
           <Field cls="c-6" label="願望說明" error={errors.note}
-            hint={<>請用孩子的口吻寫，像孩子親口說的一句話（「我想要…」「因為…」），認領者讀起來會更有溫度。20 字以內，顯示在願望詳細頁的標題下方；衣物鞋子請一併寫上<span className="nobr">尺寸或顏色。</span></>}>
+            hint={<>請用孩子的口吻寫，像孩子親口說的一句話（「我想要…」「因為…」），認領者讀起來會更有溫度。50 字以內，顯示在願望詳細頁的標題下方；衣物鞋子請一併寫上<span className="nobr">尺寸或顏色。</span></>}>
             <textarea className="input" rows={2} maxLength={NOTE_MAX} aria-describedby="wNoteCount"
               placeholder="例：我想要藍色的，跑步才會像風一樣快！" value={values.note} onChange={set('note')} />
             <span id="wNoteCount" className={`char-count${noteLength >= NOTE_MAX ? ' is-full' : ''}`}

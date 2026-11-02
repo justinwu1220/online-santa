@@ -94,8 +94,8 @@ export function WishContentEditDialog({ open, wish, alreadyFrozen, onClose, onSu
         </select>
       </div>
       <div className="field" style={{ marginTop: 12 }}>
-        <label className="field__label" htmlFor="wceDesc">願望說明（20 字內）</label>
-        <input id="wceDesc" className="input" maxLength={20} value={description}
+        <label className="field__label" htmlFor="wceDesc">願望說明（50 字內）</label>
+        <textarea id="wceDesc" className="input" rows={2} maxLength={50} value={description}
           onChange={(event) => setDescription(event.target.value)} />
       </div>
       <div className={`field${error ? ' is-invalid' : ''}`} style={{ marginTop: 12 }}>

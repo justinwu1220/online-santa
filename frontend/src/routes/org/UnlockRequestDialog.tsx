@@ -79,8 +79,8 @@ export function UnlockRequestDialog({ open, wish, canRevise, onClose, onDone }: 
             </select>
           </div>
           <div className="field" style={{ marginTop: 12 }}>
-            <label className="field__label" htmlFor="unDesc">願望說明（20 字內）</label>
-            <input id="unDesc" className="input" maxLength={20} value={description}
+            <label className="field__label" htmlFor="unDesc">願望說明（50 字內）</label>
+            <textarea id="unDesc" className="input" rows={2} maxLength={50} value={description}
               onChange={(event) => setDescription(event.target.value)} />
           </div>
         </>
