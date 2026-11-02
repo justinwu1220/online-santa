@@ -6,13 +6,18 @@
  *
  * `prefers-reduced-motion` 由 index.css 的 .snowflake 規則處理（直接不顯示）。
  */
-const FLAKES = Array.from({ length: 24 }, () => ({
-  left: `${Math.random() * 100}%`,
-  size: `${Math.random() * 8 + 4}px`,
-  duration: `${Math.random() * 10 + 12}s`,
-  delay: `${Math.random() * 12}s`,
-  opacity: Math.random() * 0.35 + 0.1,
-}))
+const FLAKES = Array.from({ length: 24 }, () => {
+  const duration = Math.random() * 10 + 12
+  return {
+    left: `${Math.random() * 100}%`,
+    size: `${Math.random() * 8 + 4}px`,
+    duration: `${duration}s`,
+    // 負的 delay：一掛載就像已經下了一段時間，雪花散在整個畫面。
+    // 正的 delay 會讓雪花在等待期間停在最上緣不動，換頁（重新掛載）又重來一次
+    delay: `${-Math.random() * duration}s`,
+    opacity: Math.random() * 0.35 + 0.1,
+  }
+})
 
 export function Snowfall() {
   return (
