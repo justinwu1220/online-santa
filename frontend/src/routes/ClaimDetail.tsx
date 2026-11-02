@@ -8,7 +8,6 @@ import { daysUntil } from '../lib/format'
 import { clearEffects, isCurrentNav, markSpecialNavigation, startNav } from '../lib/motion'
 import type { AttachmentView, ClaimDonorView, DonorReceiptView, WishPublicView } from '../lib/types'
 import { useDetailEntry } from '../lib/useEntryAnimation'
-import { useMyProfile } from '../lib/useMyProfile'
 import { claimTabOf } from '../lib/wishStatus'
 import { OrgPhoto, OrgSiteLink } from '../components/OrgBits'
 import { WishFeature } from '../components/WishFeature'
@@ -33,7 +32,6 @@ export function ClaimDetail() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const toast = useToast()
-  const profile = useMyProfile()
   const location = useLocation()
   const root = useRef<HTMLDivElement>(null)
   // 剛認領成功換過來：播緞帶與蝴蝶結（SPEC 11.3），這一頁就不再播一般的進場
@@ -104,7 +102,6 @@ export function ClaimDetail() {
   const feedbackPhotos = attachments.data?.filter((a) => a.purpose === 'ORG_FEEDBACK') ?? []
   const shippingProofs = attachments.data?.filter((a) => a.purpose === 'SHIPPING_PROOF') ?? []
   const shipped = data.status !== 'CLAIMED' && data.trackingNumber != null
-  const nickname = profile.data?.displayName
 
   /**
    * 取消認領（SPEC 11.2、11.4）：資料在確認當下已經改回可認領。先播「緞帶解開、禮物收回」，
@@ -167,7 +164,7 @@ export function ClaimDetail() {
           <span className="ribbon__line ribbon__line--r" />
         </div>
         <h2 className="task__thanks">
-          謝謝你成為 <span className="grad-text">{nickname ?? '孩子'}</span> 的聖誕老人
+          謝謝你成為 <span className="grad-text">{data.childAlias}</span> 的聖誕老人
         </h2>
         <p className="task__sub">接下來照著下面三步，把禮物送到孩子身邊。</p>
 
