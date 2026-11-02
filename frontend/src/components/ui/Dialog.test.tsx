@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { createPortal } from 'react-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { Dialog } from './Dialog'
 
@@ -58,6 +59,24 @@ describe('Dialog', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
     await Promise.resolve()
     expect(dialogEl()).not.toHaveAttribute('open')
+  })
+
+  it('疊在上面的內層視窗（含 portal 出去的）關閉，不會連外層一起關', async () => {
+    const outerClose = vi.fn()
+    render(
+      <Dialog open onClose={outerClose}>
+        <p>外層</p>
+        {createPortal(<Dialog open onClose={() => {}}><p>內層</p></Dialog>, document.body)}
+      </Dialog>,
+    )
+    const [outer, inner] = [...document.querySelectorAll('dialog')]
+    expect(outer).toHaveAttribute('open')
+    expect(inner).toHaveAttribute('open')
+
+    inner.close()
+    await Promise.resolve()
+    expect(outerClose).not.toHaveBeenCalled()
+    expect(outer).toHaveAttribute('open')
   })
 
   it('點到視窗本身（背景區）才關，點裡面的內容不關', () => {

@@ -55,7 +55,9 @@ export function Dialog({ open, onClose, children, className = 'dialog', dismissi
       aria-labelledby={labelledBy}
       // 瀏覽器的 Esc 防濫用規則：取消被擋下後，沒有新的點擊就再按一次 Esc 會直接關掉，不給我們擋的機會。
       // 不可略過的視窗（首次說明、送出中）被這樣關掉就立刻重開；可略過的則通知外層同步狀態
-      onClose={() => {
+      onClose={(event) => {
+        // 疊在上面的子視窗（含 portal 出去的須知）關閉時，close 事件會沿 React 元件樹傳上來，不是這個視窗自己關了
+        if (event.target !== event.currentTarget) return
         const element = ref.current
         if (!open || !element) return
         if (dismissible) onClose()
