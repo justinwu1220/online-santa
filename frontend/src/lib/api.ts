@@ -62,8 +62,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new ApiError(response.status, detail, body)
   }
 
-  if (response.status === 204) return undefined as T
-  return response.json() as Promise<T>
+  // 204 或回 void 的端點（200 空內容）都沒有 JSON 可解析
+  const text = await response.text()
+  return (text ? JSON.parse(text) : undefined) as T
 }
 
 export const api = {
