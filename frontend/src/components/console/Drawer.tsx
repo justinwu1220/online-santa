@@ -80,6 +80,8 @@ export function Drawer({ open, onClose, tone, labelledBy, title, chip, tabs, foo
       data-tone={tone}
       aria-labelledby={labelledBy}
       onCancel={(event) => {
+        // 檔案選擇器按取消、抽屜裡的對話框按 Esc，都會有 cancel 事件冒泡上來；只處理抽屜自己的 Esc
+        if (event.target !== event.currentTarget) return
         event.preventDefault()
         if (dismissible) onClose()
       }}

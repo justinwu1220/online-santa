@@ -62,6 +62,8 @@ export function Dialog({ open, onClose, children, className = 'dialog', dismissi
         else window.requestAnimationFrame(() => openModal(element, () => wanted.current))
       }}
       onCancel={(event) => {
+        // 檔案選擇器按取消的 cancel 事件會冒泡上來，不是這個視窗自己的 Esc
+        if (event.target !== event.currentTarget) return
         // 原生的 Esc 預設會直接關掉；先擋下，由外層決定要不要關
         event.preventDefault()
         if (dismissible) onClose()

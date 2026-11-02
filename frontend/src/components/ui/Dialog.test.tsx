@@ -27,6 +27,13 @@ describe('Dialog', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('裡面的檔案選擇器按取消（會冒泡的 cancel）不會關掉視窗', () => {
+    const onClose = vi.fn()
+    render(<Dialog open onClose={onClose}><input type="file" aria-label="選檔" /></Dialog>)
+    screen.getByLabelText('選檔').dispatchEvent(new Event('cancel', { bubbles: true, cancelable: true }))
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
   it('不可略過的視窗（dismissible=false）：Esc 與點背景都不會關', () => {
     const onClose = vi.fn()
     render(<Dialog open dismissible={false} onClose={onClose}><p>內容</p></Dialog>)
