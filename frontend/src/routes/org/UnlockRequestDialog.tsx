@@ -2,7 +2,6 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Dialog } from '../../components/ui/Dialog'
 import { api, ApiError } from '../../lib/api'
-import { clearDraft, hasDraft, useDraftState } from '../../lib/drafts'
 import type { UnlockRequestView, WishFilterOptions, WishOrgView, WishRevisionBody } from '../../lib/types'
 
 /**
@@ -17,16 +16,10 @@ export function UnlockRequestDialog({ open, wish, canRevise, onClose, onDone }: 
   onClose: () => void
   onDone: (request: UnlockRequestView) => void | Promise<void>
 }) {
-  // 打到一半關掉再打開還在（未重新整理前），送出成功才清掉
-  const draftKey = `unlock-wish:${wish.id}`
-  const fresh = { message: '', alias: wish.childAlias ?? '', ageRange: wish.ageRange, description: wish.description ?? '' }
-  const [form, setForm, resetForm] = useDraftState(draftKey, fresh)
-  const { message, alias, ageRange, description } = form
-  const field = (key: keyof typeof fresh) => (value: string) => setForm((current) => ({ ...current, [key]: value }))
-  const setMessage = field('message')
-  const setAlias = field('alias')
-  const setAgeRange = field('ageRange')
-  const setDescription = field('description')
+  const [message, setMessage] = useState('')
+  const [alias, setAlias] = useState(wish.childAlias ?? '')
+  const [ageRange, setAgeRange] = useState(wish.ageRange)
+  const [description, setDescription] = useState(wish.description ?? '')
   const [error, setError] = useState('')
 
   const options = useQuery({
@@ -35,13 +28,13 @@ export function UnlockRequestDialog({ open, wish, canRevise, onClose, onDone }: 
     enabled: open && canRevise,
   })
 
-  // 每次開啟都以目前內容為起點，除非有保留的草稿（render 期間依 props 調整，不用 effect）
+  // 每次開啟都以目前內容為起點（render 期間依 props 調整，不用 effect）
   const [lastOpen, setLastOpen] = useState(false)
   if (open !== lastOpen) {
     setLastOpen(open)
     if (open) {
-      if (!hasDraft(draftKey)) resetForm(fresh)
-      setError('')
+      setMessage(''); setAlias(wish.childAlias ?? ''); setAgeRange(wish.ageRange)
+      setDescription(wish.description ?? ''); setError('')
     }
   }
 
@@ -58,7 +51,7 @@ export function UnlockRequestDialog({ open, wish, canRevise, onClose, onDone }: 
         revision: Object.keys(revision).length > 0 ? revision : undefined,
       })
     },
-    onSuccess: (request) => { clearDraft(draftKey); return onDone(request) },
+    onSuccess: (request) => onDone(request),
     onError: (e) => setError(e instanceof ApiError ? e.detail : '送出失敗，請稍後再試'),
   })
 

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { clearDraft, hasDraft, useDraftState } from '../../lib/drafts'
 import { Dialog } from '../ui/Dialog'
 
 /**
@@ -7,9 +6,8 @@ import { Dialog } from '../ui/Dialog'
  * 原因不夠長時欄位下方顯示紅字，不送出；送出失敗把後端的訊息顯示在原因欄下方。
  *
  * @param tone 主要按鈕：`danger` 紅色實心（退回），`freeze` 藍色實心（凍結、停權）
- * @param draftKey 有給就保留打到一半的原因：取消、關閉後再打開還在，送出成功才清掉（key 要帶上對象）；沒給就每次開啟清空
  */
-export function ReasonDialog({ open, title, body, label, hint, minLength, tooShort, okText, tone = 'danger', rows = 4, draftKey, onSubmit, onClose }: {
+export function ReasonDialog({ open, title, body, label, hint, minLength, tooShort, okText, tone = 'danger', rows = 4, onSubmit, onClose }: {
   open: boolean
   title: string
   body: string
@@ -20,22 +18,18 @@ export function ReasonDialog({ open, title, body, label, hint, minLength, tooSho
   okText: string
   tone?: 'danger' | 'freeze'
   rows?: number
-  draftKey?: string
   onSubmit: (reason: string) => Promise<void>
   onClose: () => void
 }) {
-  const [reason, setReason, resetReason] = useDraftState(draftKey, '')
+  const [reason, setReason] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  // 每次開啟清空，除非有保留的草稿（render 期間依 props 變化調整，不用 effect）
+  // 每次開啟清空（render 期間依 props 變化調整，不用 effect）
   const [lastOpen, setLastOpen] = useState(false)
   if (open !== lastOpen) {
     setLastOpen(open)
-    if (open) {
-      if (!hasDraft(draftKey)) resetReason('')
-      setError(''); setBusy(false)
-    }
+    if (open) { setReason(''); setError(''); setBusy(false) }
   }
 
   async function submit() {
@@ -48,7 +42,6 @@ export function ReasonDialog({ open, title, body, label, hint, minLength, tooSho
     setBusy(true)
     try {
       await onSubmit(text)
-      clearDraft(draftKey)
     } catch (e) {
       setError(e instanceof Error ? e.message : '送出失敗，請稍後再試')
       setBusy(false)

@@ -253,7 +253,7 @@ function OrgDrawer({ org, onClose }: { org: OrganizationReviewView | null; onClo
         </div>
       </Drawer>
 
-      <ReasonDialog open={dialog === 'return'} onClose={() => setDialog(null)} draftKey={`admin-org:${current.id}:return`}
+      <ReasonDialog open={dialog === 'return'} onClose={() => setDialog(null)}
         title={`退回「${current.name}」的申請？`} body="機構會收到通知與退回原因，修改後可以重新送出申請。"
         label="退回原因" hint="會原封不動寄給對方，請具體說明需要補充或修改的地方" minLength={5}
         tooShort="請寫下具體的退回原因（至少 5 個字）" okText="退回"
@@ -263,7 +263,7 @@ function OrgDrawer({ org, onClose }: { org: OrganizationReviewView | null; onClo
           onClose()
         }} />
 
-      <ReasonDialog open={dialog === 'suspend'} onClose={() => setDialog(null)} tone="freeze" draftKey={`admin-org:${current.id}:suspend`}
+      <ReasonDialog open={dialog === 'suspend'} onClose={() => setDialog(null)} tone="freeze"
         title={`停權「${current.name}」？`}
         body="會保全機構目前的原始資訊作為證據；機構的所有公開願望會凍結（還沒寄出的認領暫停寄送期限），認領者看到停權說明並收到通知；機構仍可登入、與你對話、改資料與補文件，但不能對願望操作。之後可以解除停權。"
         label="停權原因" hint="機構會在團隊對話看到這段原因，也會寫進稽核紀錄" minLength={2} rows={3}

@@ -165,7 +165,7 @@ function UserDrawer({ userId, summary, onClose }: {
         </div>
       </Drawer>
 
-      <ReasonDialog open={dialog === 'suspend'} onClose={() => setDialog(null)} tone="freeze" rows={3} draftKey={`admin-user:${user.id}:suspend`}
+      <ReasonDialog open={dialog === 'suspend'} onClose={() => setDialog(null)} tone="freeze" rows={3}
         title={`停權「${user.displayName ?? user.email}」？`}
         body="受限登入：他仍可登入看停權通知，但無法認領、傳訊、回報寄送、取消或修改資料。他進行中認領的願望會凍結（還沒寄出的暫停寄送期限），機構後台標示「認領者出現違規行為」。會保全他當下的資訊，並寄信通知他。"
         label="停權原因" hint="會寄給認領者本人，也會寫進稽核紀錄" minLength={4} tooShort="請寫下停權原因（至少 4 個字）" okText="停權"
@@ -188,7 +188,7 @@ function UserDrawer({ userId, summary, onClose }: {
             setBusy(false)
           }
         }} />
-      <ReasonDialog open={releaseId !== null} onClose={() => setReleaseId(null)} draftKey={`admin-claim:${releaseId}:release`}
+      <ReasonDialog open={releaseId !== null} onClose={() => setReleaseId(null)}
         title="釋出這筆認領？" body="認領結束、願望回到願望牆讓其他人認領，認領者會收到通知、不需要再寄，機構會在對話看到系統訊息。"
         label="釋出原因" hint="會寄給認領者，也會寫進稽核紀錄" minLength={4} tooShort="請寫下釋出原因（至少 4 個字）" okText="釋出"
         onSubmit={async (reason) => {

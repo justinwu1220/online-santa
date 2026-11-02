@@ -7,7 +7,6 @@ import {
   DCard, DrawerTabs, DStatus, DSteps, Kv, type StepState,
 } from '../../components/console/DrawerParts'
 import { ClaimProofs } from './ClaimProofs'
-import { hasDraft } from '../../lib/drafts'
 import { WishContentEditDialog } from './WishContentEditDialog'
 import { ResubmitChanges, WishHistoryTimeline } from './WishHistory'
 import { LazyBox } from '../../components/console/LazyBox'
@@ -185,12 +184,7 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
 
   // 換一個願望回到第一個分頁；留住最後一筆資料，關閉動畫期間內容不會消失
   const [lastId, setLastId] = useState<string | null>(null)
-  if (wishId && wishId !== lastId) {
-    setLastId(wishId); setTab('info')
-    // 上次打到一半的「修改內容」（含凍結）還在，打開就直接回到編輯區
-    setDialog(hasDraft(`admin-wish:${wishId}:content`) ? 'edit' : null)
-  }
-  if (!wishId && lastId) setLastId(null)   // 關掉後再打開同一個願望，也要重新判斷
+  if (wishId && wishId !== lastId) { setLastId(wishId); setTab('info') }
   const [shown, setShown] = useState<AdminWishDetail | null>(null)
   if (detail.data && detail.data !== shown) setShown(detail.data)
   const wish = detail.data ?? (wishId === shown?.id ? shown : null)
@@ -311,7 +305,7 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
 
       {wish && (
         <>
-          <ReasonDialog open={dialog === 'return'} onClose={() => setDialog(null)} draftKey={`admin-wish:${wish.id}:return`}
+          <ReasonDialog open={dialog === 'return'} onClose={() => setDialog(null)}
             title={`退回「${wish.title}」？`} body="願望會改回草稿，機構會在該願望收到一則新訊息與退回原因。"
             label="退回原因" hint="會原封不動給機構看，請具體說明需要修改的地方" minLength={5}
             tooShort="請寫下具體的退回原因（至少 5 個字）" okText="退回"
@@ -320,13 +314,13 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
               setDialog(null)
               onClose()
             }} />
-          <WishContentEditDialog open={dialog === 'edit'} wish={wish} alreadyFrozen={frozen} draftKey={`admin-wish:${wish.id}:content`}
+          <WishContentEditDialog open={dialog === 'edit'} wish={wish} alreadyFrozen={frozen}
             onClose={() => setDialog(null)}
             onSubmit={async (payload) => {
               await post('content', payload, payload.freeze ? `已凍結「${wish.title}」，已從願望牆移除` : `已修改「${wish.title}」的內容`, null, 'patch')
               setDialog(null)
             }} />
-          <ReasonDialog open={dialog === 'rejectUnlock'} onClose={() => setDialog(null)} draftKey={`admin-wish:${wish.id}:rejectUnlock`}
+          <ReasonDialog open={dialog === 'rejectUnlock'} onClose={() => setDialog(null)}
             title="退回解除凍結申請？" body="願望維持凍結，機構會看到你寫的原因，可以修改後再次申請。"
             label="退回原因" hint="請具體說明還需要修改的地方" minLength={4}
             tooShort="請寫下退回原因（至少 4 個字）" okText="退回申請"
@@ -346,7 +340,7 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
                 .finally(() => setBusy(false))
             }}
             onClose={() => setDialog(null)} />
-          <ReasonDialog open={redactId !== null} onClose={() => setRedactId(null)} draftKey={`admin-message:${redactId}:redact`}
+          <ReasonDialog open={redactId !== null} onClose={() => setRedactId(null)}
             title="遮蔽這則訊息？" body="原文會保留給稽核，機構與認領者之後看到「此訊息已被管理員遮蔽」。"
             label="遮蔽原因" hint="例如：含個人住址" minLength={4}
             tooShort="請寫下遮蔽原因（至少 4 個字）" okText="遮蔽"

@@ -13,7 +13,6 @@ import { useToast } from '../../components/ui/toastContext'
 import { Dialog } from '../../components/ui/Dialog'
 import { ImageCropDialog } from '../../components/ui/ImageCropDialog'
 import { ApiError, api } from '../../lib/api'
-import { clearDraft, hasDraft, useDraftState } from '../../lib/drafts'
 import { formatDate, formatDateTime, formatMonthDay, formatPlainDate, daysUntil, todayPlainDate } from '../../lib/format'
 import { burst, center, reducedMotion } from '../../lib/motion'
 import type { AttachmentView, ClaimOrgView, UnlockRequestView, WishConversation, WishOrgView } from '../../lib/types'
@@ -51,8 +50,7 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
   const navigate = useNavigate()
 
   const [tab, setTab] = useState<'info' | 'chat'>('info')
-  // 展開著「確認收到」的願望，關掉抽屜再打開仍展開（未重新整理前）
-  const [confirming, setConfirming] = useDraftState(wishId ? `confirm-open:${wishId}` : undefined, false)
+  const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [recalling, setRecalling] = useState(false)
   const [beginningEdit, setBeginningEdit] = useState(false)
@@ -60,7 +58,7 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
   const [shown, setShown] = useState(detail.data)
   useEffect(() => { if (detail.data) setShown(detail.data) }, [detail.data])
   useEffect(() => {
-    if (wishId) setTab('info')
+    if (wishId) { setTab('info'); setConfirming(false) }
   }, [wishId])
 
   const data = detail.data ?? shown
@@ -225,7 +223,6 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
                 canRevise: data.canReviseContent,
               } : undefined}
               onUnlockChanged={afterChange}
-              openedFor={wishId}
               attachments={claimAttachments.data ?? []}
               orgPending={pending}
               confirming={confirming}
@@ -313,15 +310,14 @@ function ConversationSender({ wishId, donor }: { wishId: string; donor: string }
     onSuccess: () => invalidate(),
   })
   return (
-    <ConversationForm placeholder={`傳訊息給 ${donor}…`} busy={send.isPending} draftKey={`chat:${wishId}`}
+    <ConversationForm placeholder={`傳訊息給 ${donor}…`} busy={send.isPending}
       error={send.isError ? errorText(send.error) : null}
       onSend={async (text) => { await send.mutateAsync(text) }} />
   )
 }
 
 /** 願望與寄送：狀態卡 → 確認收到區塊 → 進度 → 寄送資訊 → 孩子的願望 →（有的話）過往認領紀錄。 */
-function WishInfo({ wish, claim, past, unlock, onUnlockChanged, attachments, orgPending, confirming, onConfirmed, onAttachmentsChanged, openedFor }: {
-  openedFor: string | null
+function WishInfo({ wish, claim, past, unlock, onUnlockChanged, attachments, orgPending, confirming, onConfirmed, onAttachmentsChanged }: {
   wish: WishOrgView
   claim?: ClaimOrgView
   unlock?: UnlockInfo
@@ -341,7 +337,7 @@ function WishInfo({ wish, claim, past, unlock, onUnlockChanged, attachments, org
 
   return (
     <>
-      <FreezeNotice wish={wish} unlock={unlock} onChanged={onUnlockChanged} openedFor={openedFor} />
+      <FreezeNotice wish={wish} unlock={unlock} onChanged={onUnlockChanged} />
       <StatusCard wish={wish} donor={donor} orgPending={orgPending} />
 
       {confirming && claim && (
@@ -423,20 +419,13 @@ interface UnlockInfo {
   canRevise: boolean
 }
 
-function FreezeNotice({ wish, unlock, onChanged, openedFor }: {
+function FreezeNotice({ wish, unlock, onChanged }: {
   wish: WishOrgView
   unlock?: UnlockInfo
   onChanged: (message: string) => void | Promise<void>
-  /** 抽屜目前打開的願望 id；每次打開時，上次打到一半的申請內容還在就直接回到申請視窗 */
-  openedFor: string | null
 }) {
   const toast = useToast()
   const [requesting, setRequesting] = useState(false)
-  const [lastOpenedFor, setLastOpenedFor] = useState<string | null>(null)
-  if (openedFor !== lastOpenedFor) {
-    setLastOpenedFor(openedFor)
-    if (openedFor === wish.id && unlock?.canRequest && hasDraft(`unlock-wish:${wish.id}`)) setRequesting(true)
-  }
   const withdraw = useMutation({
     mutationFn: () => api.post(`/api/organizations/me/wishes/${wish.id}/unlock-request/withdraw`),
     onSuccess: () => onChanged('已撤回解除凍結申請'),
@@ -586,12 +575,8 @@ function ConfirmReceivedBox({ wish, claim, proofs, onConfirmed, onProofsChanged 
   onProofsChanged: () => void
 }) {
   const box = useRef<HTMLElement>(null)
-  // 日期與勾選：關掉抽屜再打開還在，確認成功才清掉
-  const draftKey = `confirm-received:${claim.id}`
-  const [form, setForm] = useDraftState(draftKey, { date: todayPlainDate(), checked: false })
-  const { date, checked } = form
-  const setDate = (value: string) => setForm((current) => ({ ...current, date: value }))
-  const setChecked = (value: boolean) => setForm((current) => ({ ...current, checked: value }))
+  const [date, setDate] = useState(todayPlainDate())
+  const [checked, setChecked] = useState(false)
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
   // 剛選的照片先進裁切，確定後才上傳（原圖不會上傳）
@@ -608,7 +593,7 @@ function ConfirmReceivedBox({ wish, claim, proofs, onConfirmed, onProofsChanged 
   const complete = useMutation({
     mutationFn: () => api.post(`/api/organizations/me/claims/${claim.id}/complete`,
       { receivedOn: date, inspected: true }),
-    onSuccess: () => { clearDraft(draftKey); clearDraft(`confirm-open:${claim.wishId}`); return onConfirmed() },
+    onSuccess: () => onConfirmed(),
     onError: (e) => setError(errorText(e)),
   })
 
@@ -697,18 +682,16 @@ function RecallDialog({ open, wishTitle, claim, onClose, onDone }: {
   onClose: () => void
   onDone: (reasonLabel: string) => void | Promise<void>
 }) {
-  // 選到一半的原因：取消後再打開還在，收回成功才清掉
-  const draftKey = claim ? `recall:${claim.id}` : undefined
-  const [form, setForm] = useDraftState<{ reason: RecallReason; detail: string }>(draftKey, { reason: 'OVERDUE', detail: '' })
-  const { reason, detail } = form
-  const setReason = (value: RecallReason) => setForm((current) => ({ ...current, reason: value }))
-  const setDetail = (value: string) => setForm((current) => ({ ...current, detail: value }))
+  const [reason, setReason] = useState<RecallReason>('OVERDUE')
+  const [detail, setDetail] = useState('')
   const recall = useMutation({
     mutationFn: () => api.post(`/api/organizations/me/claims/${claim!.id}/release`,
       { reason, detail: reason === 'OTHER' && detail.trim() ? detail.trim() : undefined }),
-    onSuccess: () => { clearDraft(draftKey); return onDone(RECALL_REASONS.find((item) => item.value === reason)!.label) },
+    onSuccess: () => onDone(RECALL_REASONS.find((item) => item.value === reason)!.label),
   })
   function close() {
+    setReason('OVERDUE')
+    setDetail('')
     recall.reset()
     onClose()
   }

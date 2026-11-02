@@ -49,8 +49,9 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
     staleTime: Infinity,
   })
 
-  // 打到一半的內容（含選好的信件照片）：關掉抽屜再打開還在（未重新整理前），儲存成功才清掉
-  const draftKey = `wish-form:${wish?.id ?? 'new'}`
+  // 只有「新增願望」會保留打到一半的內容（含選好的信件照片）：關掉抽屜再打開還在（未重新整理前），儲存成功才清掉。
+  // 編輯既有願望不保留（key 是 undefined 就不存）
+  const draftKey = wish ? undefined : 'wish-form:new'
   const initialForm = (): { values: FormState; letterFile: File | null } => ({
     values: wish ? {
       nick: wish.childAlias ?? '',
@@ -159,7 +160,6 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
       if (letter) await uploadImage('WISH_LETTER', saved.id, letter.file)
       if (submit) await api.post(`/api/wishes/${saved.id}/submit`)
       clearDraft(draftKey)
-      clearDraft('wish-form:new')
       await invalidate()
       toast.show(submit
         ? `「${values.title.trim()}」已提交審核，通過後會${wish?.takenDown ? '重新' : '自動'}上架`

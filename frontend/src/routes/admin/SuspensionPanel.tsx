@@ -85,7 +85,7 @@ export function SuspensionPanel({ orgId, orgName }: { orgId: string; orgName: st
         )}
       </LazyBox>
 
-      <ReasonDialog open={dialog === 'notify'} onClose={() => setDialog(null)} tone="freeze" rows={4} draftKey={`admin-org:${orgId}:notify`}
+      <ReasonDialog open={dialog === 'notify'} onClose={() => setDialog(null)} tone="freeze" rows={4}
         title="通知受影響的認領者？"
         body={`會寄 Email 給「${orgName}」所有進行中認領（含已寄出禮物）的認領者，並寫入稽核紀錄。`}
         label="要告訴認領者的話" hint="例如：該機構疑似冒名，請先不要再寄任何東西，我們正在處理" minLength={10}
@@ -95,7 +95,7 @@ export function SuspensionPanel({ orgId, orgName }: { orgId: string; orgName: st
           toast.show(`已通知 ${result.notified} 位認領者`)
           setDialog(null)
         }} />
-      <ReasonDialog open={dialog === 'reject'} onClose={() => setDialog(null)} draftKey={`admin-org:${orgId}:rejectUnlock`}
+      <ReasonDialog open={dialog === 'reject'} onClose={() => setDialog(null)}
         title="退回解除停權申請？" body="機構維持停權，會在團隊對話看到你寫的原因，可以修改後再申請。"
         label="退回原因" hint="請具體說明還缺什麼" minLength={4} tooShort="請寫下退回原因（至少 4 個字）" okText="退回申請"
         onSubmit={async (reason) => {
