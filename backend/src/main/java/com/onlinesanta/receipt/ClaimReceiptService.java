@@ -34,8 +34,7 @@ public class ClaimReceiptService {
                 claimId,
                 request.name().trim(),
                 crypto.encrypt(idNumber),
-                request.email().trim(),
-                request.address().trim()));
+                request.email().trim()));
     }
 
     /** 管理端讀取：回傳解密後的資料。沒有申請就 404。 */
@@ -44,7 +43,7 @@ public class ClaimReceiptService {
         ClaimReceipt receipt = receipts.findByClaimId(claimId)
                 .orElseThrow(() -> ResourceNotFoundException.of("捐贈收據", claimId));
         return new ReceiptData(receipt.getName(), crypto.decrypt(receipt.getIdNumberEncrypted()),
-                receipt.getEmail(), receipt.getAddress());
+                receipt.getEmail());
     }
 
     /**
@@ -54,7 +53,7 @@ public class ClaimReceiptService {
     @Transactional(readOnly = true)
     public ReceiptData readMasked(UUID claimId) {
         ReceiptData data = read(claimId);
-        return new ReceiptData(data.name(), mask(data.idNumber()), data.email(), data.address());
+        return new ReceiptData(data.name(), mask(data.idNumber()), data.email());
     }
 
     static String mask(String idNumber) {
@@ -67,6 +66,6 @@ public class ClaimReceiptService {
     }
 
     /** 收據資料。證號是明文（管理端）或已遮罩（認領者本人），看是哪個方法回傳的。 */
-    public record ReceiptData(String name, String idNumber, String email, String address) {
+    public record ReceiptData(String name, String idNumber, String email) {
     }
 }

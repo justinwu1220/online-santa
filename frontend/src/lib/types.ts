@@ -554,7 +554,6 @@ export interface DonorReceiptView {
   name: string
   maskedIdNumber: string
   email: string
-  address: string
   proofs: AttachmentView[]
 }
 
@@ -563,7 +562,6 @@ export interface ClaimReceiptView {
   name: string
   idNumber: string
   email: string
-  address: string
   proofs: AttachmentView[]
 }
 

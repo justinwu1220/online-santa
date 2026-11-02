@@ -515,7 +515,6 @@ function WishInfo({ wish }: { wish: AdminWishDetail }) {
                   { label: '收據抬頭', value: receipt.name },
                   { label: '身分證字號或統一編號', value: receipt.idNumber },
                   { label: '收據寄送信箱', value: receipt.email },
-                  { label: '收據寄送地址', value: receipt.address },
                 ]} />
                 {receipt.proofs.length > 0 && <AttachmentGallery files={receipt.proofs} altPrefix="發票證明" />}
               </>

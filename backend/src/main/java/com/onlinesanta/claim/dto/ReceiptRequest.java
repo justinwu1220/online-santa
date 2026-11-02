@@ -29,9 +29,5 @@ public record ReceiptRequest(
         @NotBlank(message = "請填寫電子信箱")
         @Email(message = "電子信箱格式不正確")
         @Size(max = 255, message = "電子信箱不可超過 255 字")
-        String email,
-
-        @NotBlank(message = "請填寫收件地址")
-        @Size(max = 255, message = "收件地址不可超過 255 字")
-        String address) {
+        String email) {
 }

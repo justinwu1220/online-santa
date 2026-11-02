@@ -16,11 +16,10 @@ public record ClaimReceiptView(
         String name,
         String idNumber,
         String email,
-        String address,
         List<AttachmentView> proofs) {
 
     public static ClaimReceiptView of(ReceiptData data, List<AttachmentView> proofs) {
         return new ClaimReceiptView(
-                data.name(), data.idNumber(), data.email(), data.address(), proofs);
+                data.name(), data.idNumber(), data.email(), proofs);
     }
 }

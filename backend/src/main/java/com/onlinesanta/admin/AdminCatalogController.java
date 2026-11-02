@@ -95,7 +95,7 @@ public class AdminCatalogController {
 
     @GetMapping("/claims/{id}/receipt")
     @Operation(summary = "認領的捐贈收據資料",
-            description = "含身分證字號／統一編號（解密後）、姓名、信箱、地址與發票證明。"
+            description = "含身分證字號／統一編號（解密後）、姓名、信箱與發票證明。"
                     + "只有管理員讀得到，機構看不到。沒有申請回 404。**這個操作會寫入稽核紀錄**")
     public ClaimReceiptView receipt(@PathVariable UUID id) {
         return catalog.receiptOf(id);

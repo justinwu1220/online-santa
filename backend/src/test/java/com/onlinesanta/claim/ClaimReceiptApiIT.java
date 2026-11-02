@@ -123,7 +123,7 @@ class ClaimReceiptApiIT extends ApiIntegrationTest {
     void validatesReceiptFields() throws Exception {
         UUID claimId = claimReadyToShip("驗證收據欄位");
 
-        var invalid = new ReceiptRequest("", "123", "not-an-email", "");
+        var invalid = new ReceiptRequest("", "123", "not-an-email");
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                         ShipRequests.withReceipt("郵局", "R1", invalid)), DONOR))
                 .andExpect(status().isBadRequest())
@@ -131,7 +131,7 @@ class ClaimReceiptApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.fieldErrors['receipt.name']").exists())
                 .andExpect(jsonPath("$.fieldErrors['receipt.idNumber']").exists())
                 .andExpect(jsonPath("$.fieldErrors['receipt.email']").exists())
-                .andExpect(jsonPath("$.fieldErrors['receipt.address']").exists());
+                .andExpect(jsonPath("$.fieldErrors['receipt.address']").doesNotExist());
     }
 
     @Test
@@ -140,14 +140,14 @@ class ClaimReceiptApiIT extends ApiIntegrationTest {
         UUID personal = claimReadyToShip("個人收據");
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", personal),
                         ShipRequests.withReceipt("郵局", "R1",
-                                new ReceiptRequest("王大明", "a123456789", "a@example.com", "台北市"))),
+                                new ReceiptRequest("王大明", "a123456789", "a@example.com"))),
                         DONOR))
                 .andExpect(status().isOk());
 
         UUID company = claimReadyToShip("公司收據");
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", company),
                         ShipRequests.withReceipt("郵局", "R2",
-                                new ReceiptRequest("某某股份有限公司", "12345678", "b@example.com", "台北市"))),
+                                new ReceiptRequest("某某股份有限公司", "12345678", "b@example.com"))),
                         DONOR))
                 .andExpect(status().isOk());
 
@@ -181,7 +181,7 @@ class ClaimReceiptApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.name").value("王大明"))
                 .andExpect(jsonPath("$.maskedIdNumber").value("A1******89"))
                 .andExpect(jsonPath("$.email").value("receipt@example.com"))
-                .andExpect(jsonPath("$.address").value("台北市中正區某路 1 號"))
+                .andExpect(jsonPath("$.address").doesNotExist())
                 .andExpect(jsonPath("$.proofs.length()").value(1))
                 .andExpect(jsonPath("$.proofs[0].purpose").value("RECEIPT_PROOF"))
                 .andReturn().getResponse().getContentAsString();
@@ -271,7 +271,7 @@ class ClaimReceiptApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.name").value("王大明"))
                 .andExpect(jsonPath("$.idNumber").value("A123456789"))
                 .andExpect(jsonPath("$.email").value("receipt@example.com"))
-                .andExpect(jsonPath("$.address").value("台北市中正區某路 1 號"))
+                .andExpect(jsonPath("$.address").doesNotExist())
                 .andExpect(jsonPath("$.proofs.length()").value(1))
                 .andExpect(jsonPath("$.proofs[0].purpose").value("RECEIPT_PROOF"));
     }

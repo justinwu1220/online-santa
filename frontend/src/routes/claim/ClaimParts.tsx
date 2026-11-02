@@ -212,7 +212,6 @@ export function ShipSummary({ claim, proofs, receipt }: {
             <div><dt>收據抬頭</dt><dd>{receipt.name}</dd></div>
             <div><dt>身分證字號或統一編號</dt><dd>{receipt.maskedIdNumber}</dd></div>
             <div><dt>收據寄送信箱</dt><dd>{receipt.email}</dd></div>
-            <div><dt>收據寄送地址</dt><dd>{receipt.address}</dd></div>
             <div>
               <dt>發票證明</dt>
               <dd>

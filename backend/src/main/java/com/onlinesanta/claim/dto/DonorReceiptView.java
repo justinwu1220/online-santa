@@ -16,11 +16,10 @@ public record DonorReceiptView(
         String name,
         String maskedIdNumber,
         String email,
-        String address,
         List<AttachmentView> proofs) {
 
     public static DonorReceiptView of(ReceiptData masked, List<AttachmentView> proofs) {
         return new DonorReceiptView(
-                masked.name(), masked.idNumber(), masked.email(), masked.address(), proofs);
+                masked.name(), masked.idNumber(), masked.email(), proofs);
     }
 }

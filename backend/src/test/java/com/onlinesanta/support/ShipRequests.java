@@ -19,7 +19,7 @@ public final class ShipRequests {
     /** 申請捐贈收據的回報寄送，收據欄位用固定的合理預設值。 */
     public static ShipRequest withReceipt(String carrier, String trackingNumber) {
         return withReceipt(carrier, trackingNumber,
-                new ReceiptRequest("王大明", "A123456789", "receipt@example.com", "台北市中正區某路 1 號"));
+                new ReceiptRequest("王大明", "A123456789", "receipt@example.com"));
     }
 
     public static ShipRequest withReceipt(String carrier, String trackingNumber, ReceiptRequest receipt) {

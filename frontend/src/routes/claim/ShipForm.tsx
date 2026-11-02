@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { FileUp, ImagePlus, Lock, X } from 'lucide-react'
+import { FileUp, ImagePlus, Info, Lock, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ApiError, api } from '../../lib/api'
 import { todayPlainDate } from '../../lib/format'
@@ -15,7 +15,7 @@ import { ErrorNotice } from '../../components/ui/Spinner'
 /** 畫面上有對應欄位的後端欄位錯誤 key；其餘的錯誤沒有地方顯示，要用通用提示框。 */
 const SHOWN_FIELDS = new Set([
   'carrier', 'trackingNumber', 'giftDescription', 'giftQuantity', 'giftPrice', 'shippedOn',
-  'receipt.name', 'receipt.idNumber', 'receipt.email', 'receipt.address',
+  'receipt.name', 'receipt.idNumber', 'receipt.email',
 ])
 
 const RECEIPT_ID_PATTERN = /^([A-Za-z][A-Da-d0-9]\d{8}|\d{8})$/
@@ -46,7 +46,7 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
 
   // 捐贈收據：預設關閉，開啟後下面這些全部必填
   const [receiptEnabled, setReceiptEnabled] = useState(false)
-  const [receipt, setReceipt] = useState({ name: '', idNumber: '', email: '', address: '' })
+  const [receipt, setReceipt] = useState({ name: '', idNumber: '', email: '' })
   const [receiptProofs, setReceiptProofs] = useState<File[]>([])
   const [receiptProofError, setReceiptProofError] = useState<string | null>(null)
   const [idNumberError, setIdNumberError] = useState<string | null>(null)
@@ -129,7 +129,6 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
       }
       if (!receipt.email.trim()) found['receipt.email'] = '請填寫收據寄送信箱'
       else if (!/^\S+@\S+\.\S+$/.test(receipt.email.trim())) found['receipt.email'] = '請確認信箱格式'
-      needText('receipt.address', receipt.address, '收據寄送地址')
       if (receiptProofs.length === 0) found.receiptProofs = '請至少上傳一個檔案'
     }
 
@@ -251,15 +250,10 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
                         value={receipt.idNumber} onChange={updateReceipt('idNumber')} />
                     </FormField>
                     <FormField label="收據寄送信箱" required={receiptEnabled} span={3}
-                      hint="電子收據會寄到這裡" error={errors['receipt.email'] ?? fieldErrors?.['receipt.email']}>
+                      hint="預設寄電子檔；要紙本請寫信到 onlinesanta2026@gmail.com"
+                      error={errors['receipt.email'] ?? fieldErrors?.['receipt.email']}>
                       <Input required={receiptEnabled} type="email" maxLength={255}
                         value={receipt.email} onChange={updateReceipt('email')} />
-                    </FormField>
-                    <FormField label="收據寄送地址" required={receiptEnabled} span={3}
-                      hint="預設寄電子檔；要紙本請寫信到 onlinesanta2026@gmail.com"
-                      error={errors['receipt.address'] ?? fieldErrors?.['receipt.address']}>
-                      <Input required={receiptEnabled} maxLength={255}
-                        value={receipt.address} onChange={updateReceipt('address')} />
                     </FormField>
                     <FilePicker
                       label="紙本或電子發票"
@@ -295,8 +289,8 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
             <li>送出後<strong>無法更改</strong>，請再確認物流與禮物資訊都正確。</li>
             {receiptEnabled ? (
               <li>
-                你有申請捐贈收據，請確實填寫姓名、身分證字號或統一編號、電子信箱、
-                收件地址並附上發票證明——這些資料送出後<strong>無法更改</strong>，
+                你有申請捐贈收據，請確實填寫姓名、身分證字號或統一編號、電子信箱
+                並附上發票證明——這些資料送出後<strong>無法更改</strong>，
                 填錯會影響收據開立，如需更正只能聯繫 onlinesanta2026@gmail.com。
               </li>
             ) : (
@@ -320,6 +314,12 @@ export function ShipForm({ claimId, onDone }: { claimId: string; onDone: () => v
       ) : (
         <div className="form-actions">
           <button type="submit" className="btn btn--primary">我已經寄出了</button>
+          {receiptEnabled && (
+            <p className="form-actions__note" role="note">
+              <Info className="icon" size={16} aria-hidden />
+              本次捐贈為實物，活動不會替您自動上傳捐贈資料；若想列舉扣除，屆時請憑協會收據及所需文件，自行至國稅局網站申報。
+            </p>
+          )}
         </div>
       )}
     </form>

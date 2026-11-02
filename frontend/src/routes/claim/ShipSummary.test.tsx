@@ -16,7 +16,6 @@ const receipt: DonorReceiptView = {
   name: '王大明',
   maskedIdNumber: 'A1******89',
   email: 'receipt@example.com',
-  address: '台北市中正區某路 1 號',
   proofs: [{
     id: 'p1', purpose: 'RECEIPT_PROOF', url: 'https://example.com/invoice.pdf',
     contentType: 'application/pdf', uploadedAt: '2026-10-01T00:00:00Z', fileName: 'invoice.pdf',
@@ -29,7 +28,7 @@ describe('ShipSummary 的捐贈收據', () => {
     expect(screen.getByText('王大明')).toBeInTheDocument()
     expect(screen.getByText('A1******89')).toBeInTheDocument()
     expect(screen.getByText('receipt@example.com')).toBeInTheDocument()
-    expect(screen.getByText('台北市中正區某路 1 號')).toBeInTheDocument()
+    expect(screen.queryByText('收據寄送地址')).toBeNull()
     expect(screen.getByText(/1 個檔案/)).toBeInTheDocument()
   })
 

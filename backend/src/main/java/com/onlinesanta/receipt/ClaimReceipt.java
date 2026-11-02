@@ -32,20 +32,16 @@ public class ClaimReceipt extends BaseEntity {
     @Column(nullable = false, length = 255)
     private String email;
 
-    @Column(nullable = false, length = 255)
-    private String address;
-
     protected ClaimReceipt() {
         // JPA
     }
 
     public ClaimReceipt(UUID claimId, String name, String idNumberEncrypted,
-                        String email, String address) {
+                        String email) {
         this.claimId = claimId;
         this.name = name;
         this.idNumberEncrypted = idNumberEncrypted;
         this.email = email;
-        this.address = address;
     }
 
     public UUID getClaimId() {
@@ -64,7 +60,4 @@ public class ClaimReceipt extends BaseEntity {
         return email;
     }
 
-    public String getAddress() {
-        return address;
-    }
 }

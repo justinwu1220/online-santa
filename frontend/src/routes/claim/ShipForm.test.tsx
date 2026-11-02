@@ -52,7 +52,7 @@ describe('ShipForm（回報寄送）必填驗證', () => {
 
     fireEvent.click(checkbox)
     submit()
-    expect(invalidLabels()).toEqual(expect.arrayContaining(['收據抬頭', '身分證字號或統一編號', '收據寄送信箱', '收據寄送地址']))
+    expect(invalidLabels()).toEqual(expect.arrayContaining(['收據抬頭', '身分證字號或統一編號', '收據寄送信箱']))
 
     fireEvent.click(checkbox)
     submit()
@@ -78,5 +78,28 @@ describe('ShipForm（回報寄送）必填驗證', () => {
     type('身分證字號或統一編號', 'abc')
     submit()
     expect(field('身分證字號或統一編號').querySelector('.field__error')).toHaveTextContent('格式不正確')
+  })
+})
+
+describe('ShipForm 的捐贈收據提示', () => {
+  const NOTE = '本次捐贈為實物，活動不會替您自動上傳捐贈資料；若想列舉扣除，屆時請憑協會收據及所需文件，自行至國稅局網站申報。'
+
+  it('沒勾收據時沒有提示；勾了才出現在「我已經寄出了」旁邊', () => {
+    renderForm()
+    expect(screen.queryByText(NOTE)).toBeNull()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /我需要捐贈收據/ }))
+    const note = screen.getByRole('note')
+    expect(note).toHaveTextContent(NOTE)
+    expect(note.parentElement).toContainElement(screen.getByRole('button', { name: '我已經寄出了' }))
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /我需要捐贈收據/ }))
+    expect(screen.queryByText(NOTE)).toBeNull()
+  })
+
+  it('收據表單沒有地址欄位', () => {
+    renderForm()
+    fireEvent.click(screen.getByRole('checkbox', { name: /我需要捐贈收據/ }))
+    expect(screen.queryByText('收據寄送地址', { selector: '.field__label' })).toBeNull()
   })
 })
