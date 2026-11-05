@@ -1,17 +1,23 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { cropImage } from '../../lib/cropImage'
 import { frameSize, ImageCropDialog, minZoomFor } from './ImageCropDialog'
 
 // 裁切元件本身靠真實的圖片與版面，jsdom 跑不了：換成會立刻回報裁切範圍的假元件
-vi.mock('react-easy-crop', () => ({
-  default: ({ onCropComplete, aspect }: { onCropComplete: (a: unknown, b: unknown) => void; aspect: number }) => {
-    useEffect(() => { onCropComplete({}, { x: 10, y: 20, width: 400 * aspect, height: 400 }) }, [])
-    return <div data-testid="cropper" data-aspect={aspect} />
-  },
-}))
+function MockCropper({ onCropComplete, aspect }: { onCropComplete: (a: unknown, b: unknown) => void; aspect: number }) {
+  // 只回報一次：onCropComplete 每次 render 都是新函式，不擋的話會一直重送而無限重繪
+  const reported = useRef(false)
+  useEffect(() => {
+    if (reported.current) return
+    reported.current = true
+    onCropComplete({}, { x: 10, y: 20, width: 400 * aspect, height: 400 })
+  }, [onCropComplete, aspect])
+  return <div data-testid="cropper" data-aspect={aspect} />
+}
+
+vi.mock('react-easy-crop', () => ({ default: MockCropper }))
 vi.mock('../../lib/cropImage', () => ({ cropImage: vi.fn() }))
 
 const file = new File(['x'], '信.png', { type: 'image/png' })
