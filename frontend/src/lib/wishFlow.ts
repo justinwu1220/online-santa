@@ -74,8 +74,8 @@ export function actionsOf(stage: WishStage, wish?: Pick<WishOrgView, 'deletable'
     edit: stage === 'DRAFT',
     // 曾經上架過的願望（被退回或下架修改中）不能刪除，保留歷程給管理員重審時看
     remove: stage === 'DRAFT' && (wish?.deletable ?? true),
-    /** 修改並重新送審：上架中、還沒人認領的願望，會先從願望牆撤下 */
-    beginEdit: stage === 'OPEN' && Boolean(wish?.canBeginEdit),
+    /** 修改並重新送審：上架中、還沒人認領的願望，會先從願望牆撤下。凍結中不能用，只能申請解除凍結 */
+    beginEdit: stage === 'OPEN' && Boolean(wish?.canBeginEdit) && !frozen,
     /** 恢復上架：為修改而下架、內容完全沒改 */
     restore: stage === 'DRAFT' && Boolean(wish?.canRestore),
     submit: stage === 'DRAFT',

@@ -39,6 +39,12 @@ describe('actionsOf（每個階段機構可以做的事）', () => {
     }
   })
 
+  it('凍結中的願望不能「修改並重新送審」，只能申請解除凍結；解除後恢復', () => {
+    const open = { deletable: false, canBeginEdit: true, canRestore: false }
+    expect(actionsOf('OPEN', { ...open, frozen: true, freezeCause: 'ADMIN_CONTENT' }).beginEdit).toBe(false)
+    expect(actionsOf('OPEN', { ...open, frozen: false }).beginEdit).toBe(true)
+  })
+
   it('曾經上架過的草稿（下架修改中、被退回）不能刪除；內容沒改才能恢復上架', () => {
     const takenDown = { deletable: false, canBeginEdit: false, canRestore: true }
     expect(actionsOf('DRAFT', takenDown)).toMatchObject({ edit: true, remove: false, submit: true, restore: true })
