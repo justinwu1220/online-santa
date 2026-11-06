@@ -129,7 +129,7 @@
   @media (max-width: 420px) { .page { padding: 0 16px 56px; } }
 
   /* ---------- 大標：聯名式 B（容器寬 ≤720px 縮小字體，維持橫向排列） ---------- */
-  .hero { container-type: inline-size; padding: 48px 0 40px; text-align: center; }
+  .hero { container-type: inline-size; padding: 40px 0 40px; text-align: center; }
   .hero__row { display: flex; align-items: center; justify-content: center; gap: 22px; }
   .hero__title-wrap { display: flex; align-items: center; justify-content: center; gap: 12px; }
   .hero__spark { width: 44px; height: 44px; color: var(--spark); }
@@ -142,7 +142,7 @@
   .hero__org-name strong { display: block; font-size: 22px; font-weight: 700; letter-spacing: .06em; color: var(--fg); }
   .hero__sub { margin: 18px 0 0; font-size: 20px; font-weight: 700; letter-spacing: .08em; color: var(--fg-3); }
   @container (max-width: 720px) {
-    .hero { padding: 36px 0 32px; }
+    .hero { padding: 20px 0 20px; }
     .hero__row { gap: 12px; }
     .hero__title-wrap { gap: 8px; }
     .hero__title { font-size: 36px; letter-spacing: .04em; }
@@ -156,7 +156,7 @@
   }
   /* 手機：三塊並排要塞進約 330px，字體再縮 */
   @container (max-width: 480px) {
-    .hero { padding: 24px 0 24px; }
+    .hero { padding: 20px 0 20px; }
     .hero__row { gap: 6px; }
     .hero__title-wrap { gap: 4px; }
     .hero__title { font-size: 22px; letter-spacing: .02em; }
