@@ -86,8 +86,10 @@ export function actionsOf(stage: WishStage, wish?: Pick<WishOrgView, 'deletable'
   }
 }
 
-/** 清單與抽屜的狀態標籤文字：曾經上架過的草稿標示為「下架修改中」，才看得出它原本在牆上。 */
-export function chipLabelOf(wish: Pick<WishOrgView, 'stage' | 'takenDown'> & { frozen?: boolean }): string {
-  if (wish.frozen) return '已凍結'
+/**
+ * 清單與抽屜的狀態標籤文字：曾經上架過的草稿標示為「下架修改中」，才看得出它原本在牆上。
+ * 凍結不取代認領狀態，另外用「已凍結」徽章並列（見 WishBadges）。
+ */
+export function chipLabelOf(wish: Pick<WishOrgView, 'stage' | 'takenDown'>): string {
   return wish.takenDown && wish.stage === 'DRAFT' ? '下架修改中' : STAGE_INFO[wish.stage].label
 }

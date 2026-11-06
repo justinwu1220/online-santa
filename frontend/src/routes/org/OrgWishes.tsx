@@ -5,6 +5,7 @@ import { pageTitle } from '../../lib/brand'
 import { reducedMotion, rise } from '../../lib/motion'
 import type { OrganizationStageCounts, WishOrgView } from '../../lib/types'
 import { chipLabelOf, compareByStage, FILTERS, STAGE_INFO, type FilterKey } from '../../lib/wishFlow'
+import { SnowIcon } from '../../components/console/SnowIcon'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { useOrgContext } from './orgContext'
 import { OrgWishDrawer } from './OrgWishDrawer'
@@ -115,12 +116,13 @@ function WishRow({ wish, onOpen }: { wish: WishOrgView; onOpen: () => void }) {
   const label = chipLabelOf(wish)
   return (
     <button type="button" className="org-row" data-s={info.chip} data-id={wish.id} role="listitem"
-      aria-label={[label, wish.title, wish.childAlias, wish.ageRangeLabel].filter(Boolean).join('，')}
+      aria-label={[label, wish.frozen ? '已凍結' : null, wish.title, wish.childAlias, wish.ageRangeLabel].filter(Boolean).join('，')}
       onClick={onOpen}>
       <span className="st-chip" data-s={info.chip}>{label}</span>
       <span className="org-row__title">{wish.title}</span>
       <span className="org-row__who">{[wish.childAlias, wish.ageRangeLabel].filter(Boolean).join('・')}</span>
       <span className="org-row__badges">
+        <WishBadges wish={wish} />
         {wish.unreadCount > 0 && (
           <span className="badge badge--msg">
             <MessageCircle className="icon" aria-hidden />{wish.unreadCount} 則新訊息
@@ -129,5 +131,21 @@ function WishRow({ wish, onOpen }: { wish: WishOrgView; onOpen: () => void }) {
       </span>
       <ChevronRight className="icon org-row__go" aria-hidden />
     </button>
+  )
+}
+
+/**
+ * 清單與抽屜標題旁的徽章：修改後重審、已凍結、申請解除、逾期未寄。
+ * 與管理員的願望清單一致；認領狀態本身由主標籤顯示（凍結時也不會被取代）。
+ */
+export function WishBadges({ wish }: { wish: WishOrgView }) {
+  const resubmission = wish.status === 'PENDING_REVIEW' && Boolean(wish.publishedAt)
+  return (
+    <>
+      {resubmission && <span className="badge badge--resubmit">修改後重審</span>}
+      {wish.frozen && <span className="badge badge--frozen"><SnowIcon />已凍結</span>}
+      {wish.unlockRequested && <span className="badge badge--resubmit">申請解除</span>}
+      {wish.stage === 'CLAIMED_OVERDUE' && <span className="badge badge--late">逾期未寄</span>}
+    </>
   )
 }

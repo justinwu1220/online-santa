@@ -161,6 +161,11 @@ class WishPrivacyLeakFlowIT extends ApiIntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("UNLOCK_ALREADY_REQUESTED"));
 
+        // 機構的願望清單：凍結中、有待審的解除申請（清單上標「申請解除」）
+        mvc.perform(as(get("/api/organizations/me/wishes"), ORG_USER))
+                .andExpect(jsonPath("$.content[?(@.id=='" + wishId + "')].frozen").value(true))
+                .andExpect(jsonPath("$.content[?(@.id=='" + wishId + "')].unlockRequested").value(true));
+
         // 核准前：認領者看到的仍是管理員處理過的版本，機構的修改不會提早上線
         mvc.perform(as(get("/api/claims/{id}", claimId), DONOR))
                 .andExpect(jsonPath("$.childAlias").value("小星"));

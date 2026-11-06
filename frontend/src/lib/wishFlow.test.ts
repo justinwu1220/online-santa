@@ -103,7 +103,8 @@ describe('凍結或停權期間機構能做的事', () => {
   })
 
   it('凍結時狀態標籤顯示「已凍結」', () => {
-    expect(chipLabelOf({ stage: 'CLAIMED_WAITING', takenDown: false, frozen: true })).toBe('已凍結')
+    // 凍結不取代認領狀態：標籤維持「已認領」，凍結用另外的徽章
+    expect(chipLabelOf({ stage: 'CLAIMED_WAITING', takenDown: false, frozen: true } as never)).toBe(STAGE_INFO.CLAIMED_WAITING.label)
     expect(chipLabelOf({ stage: 'CLAIMED_WAITING', takenDown: false })).toBe(STAGE_INFO.CLAIMED_WAITING.label)
   })
 })

@@ -35,9 +35,17 @@ const FILTERS: { key: Filter; label: string; status?: OrganizationStatus }[] = [
   { key: 'suspended', label: '已停權', status: 'SUSPENDED' },
 ]
 
+/**
+ * 退件後重新送審：狀態回到待審核、但上次的退回原因還在。只有「退件 → 機構修改後重送」會有這個組合
+ * （核准、停權都要求待審核狀態，而且不會再回到待審核）。
+ */
+function isResubmission(org: OrganizationReviewView) {
+  return org.status === 'PENDING' && Boolean(org.reviewNote)
+}
+
 /** 清單右側的日期說明：申請於／核准於／退回於／停權於。 */
 function whenLabel(org: OrganizationReviewView) {
-  if (org.status === 'PENDING') return `申請於 ${formatDate(org.createdAt)}`
+  if (org.status === 'PENDING') return isResubmission(org) ? '修改後重新送審' : `申請於 ${formatDate(org.createdAt)}`
   if (!org.reviewedAt) return ''
   const verb = { APPROVED: '核准於', REJECTED: '退回於', SUSPENDED: '停權於' }[org.status]
   return `${verb} ${formatDate(org.reviewedAt)}`
@@ -111,7 +119,9 @@ export function AdminOrganizations() {
                 <span className="org-row__sub">{[org.contactPerson, org.mobilePhone].filter(Boolean).join('・')}</span>
               </span>
               <span className="org-row__who">{whenLabel(org)}</span>
-              <span className="org-row__badges" />
+              <span className="org-row__badges">
+                {isResubmission(org) && <span className="badge badge--resubmit">重新送審</span>}
+              </span>
               <ChevronRight className="icon org-row__go" aria-hidden />
             </button>
           ))}
@@ -163,8 +173,11 @@ function OrgDrawer({ org, onClose }: { org: OrganizationReviewView | null; onClo
   if (!current) return null
   const tone = CHIP[current.status]
   const status = {
-    PENDING: <DStatus tone="review" icon="search" title="等你審核"
-      desc={`申請於 ${formatDateTime(current.createdAt)}。請核對資料，並在「照片與文件」分頁看過證明文件，再核准或退回。`} />,
+    PENDING: isResubmission(current)
+      ? <DStatus tone="review" icon="search" title="重新送審，等你審核"
+          desc={`機構修改後重新送審。上次退回原因：${current.reviewNote}。請核對資料與證明文件，再核准或退回。`} />
+      : <DStatus tone="review" icon="search" title="等你審核"
+          desc={`申請於 ${formatDateTime(current.createdAt)}。請核對資料，並在「照片與文件」分頁看過證明文件，再核准或退回。`} />,
     APPROVED: <DStatus tone="open" icon="check" title="已核准"
       desc={`${formatDateTime(current.reviewedAt)} 核准，機構可以提交願望。`} />,
     REJECTED: <DStatus tone="returned" icon="alert" title="已退回，等機構修改"

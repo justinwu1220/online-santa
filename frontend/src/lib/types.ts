@@ -258,6 +258,8 @@ export interface WishOrgView {
   freezeCause?: FreezeCause | null
   /** 管理員給的凍結原因；沒有凍結為 null */
   frozenReason?: string | null
+  /** 有待審的解除凍結申請（清單與抽屜詳情才有） */
+  unlockRequested?: boolean
 }
 
 /** 願望凍結的原因（優先度由高到低）。 */

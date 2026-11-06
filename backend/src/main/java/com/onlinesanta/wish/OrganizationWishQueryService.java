@@ -5,6 +5,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -76,11 +77,13 @@ public class OrganizationWishQueryService {
         Map<UUID, Long> unread = unreadCounts(wishIds);
         Map<UUID, String> imageUrls = attachments.wishImageUrls(wishIds);
         Map<UUID, List<AttachmentView>> letters = attachments.wishLetters(wishIds);
+        Set<UUID> unlockRequested = unlocks.wishIdsWithPending(wishIds);
         Instant now = Instant.now();
 
         return page.map(wish -> WishOrgView.from(wish, imageUrls.get(wish.getId()),
                 letters.getOrDefault(wish.getId(), List.of()),
-                active.get(wish.getId()), unread.getOrDefault(wish.getId(), 0L), now));
+                active.get(wish.getId()), unread.getOrDefault(wish.getId(), 0L), now)
+                .withUnlockRequested(unlockRequested.contains(wish.getId())));
     }
 
     /** 抽屜：願望、目前認領的完整資料、過往認領紀錄。別家機構的願望一律 404。 */

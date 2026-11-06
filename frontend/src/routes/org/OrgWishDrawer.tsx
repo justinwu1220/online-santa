@@ -5,6 +5,7 @@ import { AttachmentGallery, PreviewImage } from '../../components/console/ImageV
 import { ConfirmDialog } from '../../components/console/ConfirmDialog'
 import { ConversationForm, ConversationLog } from '../../components/console/ConversationLog'
 import { Drawer } from '../../components/console/Drawer'
+import { SnowIcon } from '../../components/console/SnowIcon'
 import {
   DCard, DrawerTabs, DStatus, DSteps, Kv, type DrawerIcon, type StepState,
 } from '../../components/console/DrawerParts'
@@ -171,7 +172,12 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
         tone={info.tone}
         labelledBy="owTitle"
         title={wish.title}
-        chip={<span className="st-chip" data-s={info.chip}>{chipLabelOf(wish)}</span>}
+        chip={(
+          <>
+            <span className="st-chip" data-s={info.chip}>{chipLabelOf(wish)}</span>
+            {wish.frozen && <span className="badge badge--frozen"><SnowIcon />已凍結</span>}
+          </>
+        )}
         tabs={<DrawerTabs tabs={tabs} active={active} onChange={(key) => setTab(key as 'info' | 'chat')} />}
         foot={active === 'chat' ? null : (
           <div className="drawer__foot">

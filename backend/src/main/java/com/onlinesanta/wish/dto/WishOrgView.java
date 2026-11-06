@@ -54,7 +54,9 @@ public record WishOrgView(
         /** 目前優先度最高的凍結原因（WishFreezeCause 名稱）；沒有凍結為 null */
         String freezeCause,
         /** 管理員給的凍結原因（機構停權、認領者停權連動時是系統說明）；沒有凍結為 null */
-        String frozenReason) {
+        String frozenReason,
+        /** 有待審的解除凍結申請（清單上標「申請解除」）；只有清單與抽屜詳情會算 */
+        boolean unlockRequested) {
 
     public static WishOrgView from(Wish wish) {
         return from(wish, null, List.of());
@@ -99,14 +101,22 @@ public record WishOrgView(
                 false,
                 wish.isFrozen(),
                 wish.getFrozenCause() == null ? null : wish.getFrozenCause().name(),
-                wish.getFrozenReason());
+                wish.getFrozenReason(),
+                false);
     }
 
     public WishOrgView withCanRestore(boolean canRestore) {
         return new WishOrgView(id, title, description, category, ageRange, ageRangeLabel, priceRange,
                 childAlias, interests, avatar, status, reviewNote, editable, deletable, version, stage,
                 activeClaim, unreadCount, publishedAt, createdAt, updatedAt, imageUrl, letterPhotos,
-                takenDown, canBeginEdit, canRestore, frozen, freezeCause, frozenReason);
+                takenDown, canBeginEdit, canRestore, frozen, freezeCause, frozenReason, unlockRequested);
+    }
+
+    public WishOrgView withUnlockRequested(boolean unlockRequested) {
+        return new WishOrgView(id, title, description, category, ageRange, ageRangeLabel, priceRange,
+                childAlias, interests, avatar, status, reviewNote, editable, deletable, version, stage,
+                activeClaim, unreadCount, publishedAt, createdAt, updatedAt, imageUrl, letterPhotos,
+                takenDown, canBeginEdit, canRestore, frozen, freezeCause, frozenReason, unlockRequested);
     }
 
     /** 願望狀態＋目前認領 → 機構後台看到的合併狀態。逾期沿用 {@link Claim#isOverdue} 的同一個條件。 */
