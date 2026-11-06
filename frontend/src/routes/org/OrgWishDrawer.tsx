@@ -418,6 +418,9 @@ function WishInfo({ wish, claim, past, unlock, onUnlockChanged, attachments, org
         <div className="dletter">
           <PreviewImage src={wish.letterPhotos[0]?.url} alt="孩子的手寫信件">【孩子的手寫信件照片】</PreviewImage>
         </div>
+        {wish.letterMasked && (
+          <p className="auth-note" role="status">管理員已屏蔽這張信件照片：認領者與公開頁暫時看不到。可以在申請解除凍結時附上新的信件照片。</p>
+        )}
       </DCard>
 
       {past.length > 0 && (

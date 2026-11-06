@@ -95,6 +95,12 @@ public class SystemMessageService {
         post(wishId, null, "管理員修改了這個願望的內容（可能含個資的欄位），並已凍結。原因：%s。你看到的是修改後的版本；如要調整，可以在願望抽屜修改後申請解除凍結。".formatted(reason));
     }
 
+    /** 管理員刪除了願望的信件照片（外洩個資處置）。 */
+    @Transactional
+    public void wishLetterDeleted(UUID wishId, String reason) {
+        post(wishId, null, "管理員刪除了這個願望的信件照片。原因：%s。你可以在申請解除凍結時附上新的信件照片，經管理員核准後才會顯示。".formatted(reason));
+    }
+
     /** 管理員處理了機構的解除申請。 */
     @Transactional
     public void unlockDecided(UUID wishId, boolean approved, String note) {

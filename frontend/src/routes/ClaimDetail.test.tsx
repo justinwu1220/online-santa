@@ -18,7 +18,7 @@ vi.mock('../lib/api', async (original) => ({
     get: vi.fn(async (path: string) => {
       if (path === '/api/claims/c1') return claim
       if (path.endsWith('/attachments')) return []
-      if (path.startsWith('/api/wishes/')) return { id: 'w1', title: '色鉛筆組', childAlias: '小星', letterPhotos: [] }
+      if (path === '/api/claims/c1/wish') return { id: 'w1', title: '色鉛筆組', childAlias: '小星', letterPhotoUrls: [] }
       if (path.endsWith('/messages')) return []
       throw new Error(`unexpected GET ${path}`)
     }),

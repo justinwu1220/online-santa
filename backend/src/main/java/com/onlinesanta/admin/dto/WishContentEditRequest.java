@@ -22,9 +22,15 @@ public record WishContentEditRequest(
         @NotBlank(message = "請填寫處置原因")
         @Size(min = 4, max = 500, message = "處置原因至少 4 個字，最多 500 字")
         String reason,
-        Boolean freeze) {
+        Boolean freeze,
+        /** 屏蔽信件照片（預設不屏蔽）：認領者與公開頁看不到，管理員與機構仍看得到 */
+        Boolean maskLetter) {
 
     public boolean shouldFreeze() {
         return freeze == null || freeze;
+    }
+
+    public boolean shouldMaskLetter() {
+        return Boolean.TRUE.equals(maskLetter);
     }
 }

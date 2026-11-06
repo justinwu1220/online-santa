@@ -138,8 +138,17 @@ public class WishUnlockService {
     /** 核准：套用機構的修訂（有的話）、解除管理員的凍結、恢復期限，並通知認領者與機構。 */
     @Transactional
     public Wish approve(UUID wishId, String note) {
+        return approve(wishId, note, false);
+    }
+
+    /** @param restoreLetter 信件照片目前被屏蔽時，是否一併恢復顯示（不恢復＝願望回牆但沒有信件） */
+    @Transactional
+    public Wish approve(UUID wishId, String note, boolean restoreLetter) {
         AppPrincipal admin = currentUser.requireAdmin();
         Wish wish = findWish(wishId);
+        if (restoreLetter && wish.isLetterMasked()) {
+            wish.restoreLetter();
+        }
         UnlockRequest pending = pendingRequest(wishId);
 
         WishRevision revision = read(pending.getPayload());

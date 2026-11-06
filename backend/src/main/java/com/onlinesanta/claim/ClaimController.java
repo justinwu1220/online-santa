@@ -104,6 +104,18 @@ public class ClaimController {
                 claim.isOwnedBy(currentUser.require().userId()));
     }
 
+    @GetMapping("/claims/{id}/wish")
+    @Operation(summary = "這筆認領的願望內容（認領者頁面的大卡片用）",
+            description = "與公開的願望詳情同一個格式，但願望被凍結（含機構、認領者停權）時仍可讀，因為認領者要看自己認領的孩子；"
+                    + "只有管理員屏蔽了信件照片時，letterPhotoUrls 才是空的（letterMasked = true）")
+    public com.onlinesanta.wish.dto.WishPublicView wish(@PathVariable UUID id) {
+        com.onlinesanta.wish.Wish wish = claims.getVisibleById(id).getWish();
+        return com.onlinesanta.wish.dto.WishPublicView.from(
+                wish, attachments.wishImageUrl(wish.getId()), attachments.wishLetterUrls(wish.getId()),
+                claims.shipDeadlineDays(wish.getOrganization()),
+                attachments.organizationPhotoUrl(wish.getOrganization().getId()));
+    }
+
     @GetMapping("/claims/{id}/timeline")
     @Operation(summary = "認領歷程")
     public List<ClaimEventView> timeline(@PathVariable UUID id) {

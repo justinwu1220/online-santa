@@ -11,6 +11,8 @@ export interface ContentEditPayload {
   description?: string
   reason: string
   freeze: boolean
+  /** 屏蔽信件照片：認領者與公開頁看不到，機構與管理員仍看得到 */
+  maskLetter?: boolean
 }
 
 /**
@@ -18,6 +20,7 @@ export interface ContentEditPayload {
  * 未凍結時一律凍結（機構看得到原因，可以修改後申請解除，認領者看到「暫停處理中」）；
  * 已凍結時只修改內容。禮物（願望標題）不能改——認領者可能已經照禮物買好了。
  * 歷史快照中被改的欄位會一併遮蔽，稽核只記欄位名稱。
+ * 信件照片只有在這裡勾選「屏蔽」才會對認領者隱藏（凍結本身不會）；預設不勾，避免信件沒有問題卻被遮住。
  */
 export function WishContentEditDialog({ open, wish, alreadyFrozen, onClose, onSubmit }: {
   open: boolean
@@ -30,8 +33,11 @@ export function WishContentEditDialog({ open, wish, alreadyFrozen, onClose, onSu
   const [ageRange, setAgeRange] = useState('')
   const [description, setDescription] = useState(wish.description ?? '')
   const [reason, setReason] = useState('')
+  const [maskLetter, setMaskLetter] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // 有信件、而且還沒被屏蔽，才能勾選屏蔽
+  const canMask = (wish.letterPhotos?.length ?? 0) > 0 && !wish.letterMasked
 
   const options = useQuery({
     queryKey: ['wish-options'],
@@ -45,7 +51,7 @@ export function WishContentEditDialog({ open, wish, alreadyFrozen, onClose, onSu
     setLastOpen(open)
     if (open) {
       setAlias(wish.childAlias ?? ''); setAgeRange(''); setDescription(wish.description ?? '')
-      setReason(''); setError(''); setBusy(false)
+      setReason(''); setMaskLetter(false); setError(''); setBusy(false)
     }
   }
 
@@ -57,8 +63,9 @@ export function WishContentEditDialog({ open, wish, alreadyFrozen, onClose, onSu
     if (alias.trim() !== (wish.childAlias ?? '')) payload.childAlias = alias.trim()
     if (ageRange) payload.ageRange = ageRange
     if (description.trim() !== (wish.description ?? '')) payload.description = description.trim()
-    // 已凍結只剩「修改內容」，至少要改一個欄位；未凍結時欄位選填，不改也可以凍結
-    if (!freeze && !payload.childAlias && !payload.ageRange && payload.description === undefined) {
+    if (canMask && maskLetter) payload.maskLetter = true
+    // 已凍結只剩「修改內容」，至少要改一個欄位（或屏蔽信件）；未凍結時欄位選填，不改也可以凍結
+    if (!freeze && !payload.childAlias && !payload.ageRange && payload.description === undefined && !payload.maskLetter) {
       setError('沒有修改任何欄位')
       return
     }
@@ -98,6 +105,12 @@ export function WishContentEditDialog({ open, wish, alreadyFrozen, onClose, onSu
         <textarea id="wceDesc" className="input" rows={2} maxLength={50} value={description}
           onChange={(event) => setDescription(event.target.value)} />
       </div>
+      {canMask && (
+        <label className="check-row" style={{ marginTop: 12 }}>
+          <input type="checkbox" checked={maskLetter} onChange={(event) => setMaskLetter(event.target.checked)} />
+          <span>屏蔽信件照片：認領者與公開頁暫時看不到（機構與你仍看得到；信件沒有外洩個資就不用勾）</span>
+        </label>
+      )}
       <div className={`field${error ? ' is-invalid' : ''}`} style={{ marginTop: 12 }}>
         <label className="field__label" htmlFor="wceReason">{alreadyFrozen ? '修改原因' : '凍結原因'}<span className="req" aria-hidden>*</span></label>
         <span className="field__hint">機構會看到這段原因（請勿重複外洩的內容），例如：信件照片露出孩子的真實姓名</span>

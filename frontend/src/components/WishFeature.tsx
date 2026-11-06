@@ -43,7 +43,9 @@ export function WishFeature({ wish, statusKey, statusLabel, footer, orgAnchor }:
             </button>
           ) : (
             <div className="letter__frame" style={{ cursor: 'default' }}>
-              <div className="letter__placeholder"><span>手寫信件即將上傳</span></div>
+              <div className="letter__placeholder">
+                <span>{wish.letterMasked ? '這張信件照片暫時無法顯示' : '手寫信件即將上傳'}</span>
+              </div>
             </div>
           )}
           {photos.length > 1 && (

@@ -96,6 +96,8 @@ export interface WishPublicView {
   letterPhotoUrls: string[]
   /** 認領後預計要在幾天內寄出（依機構的逾期處理設定），認領前用來預告寄出日期 */
   shipDeadlineDays: number
+  /** 管理員屏蔽了信件照片：letterPhotoUrls 是空的，畫面顯示「暫時無法顯示」 */
+  letterMasked?: boolean
 }
 
 export type WishStage =
@@ -260,6 +262,8 @@ export interface WishOrgView {
   frozenReason?: string | null
   /** 有待審的解除凍結申請（清單與抽屜詳情才有） */
   unlockRequested?: boolean
+  /** 管理員屏蔽了信件照片（認領者與公開頁看不到；機構仍看得到） */
+  letterMasked?: boolean
 }
 
 /** 願望凍結的原因（優先度由高到低）。 */
@@ -679,7 +683,7 @@ export type AdminAuditAction =
   | 'APPROVE_WISH' | 'REJECT_WISH' | 'FREEZE_WISH' | 'UNFREEZE_WISH' | 'VIEW_WISH_ATTACHMENTS'
   | 'DELETE_ATTACHMENT' | 'DELETE_ORGANIZATION_DOCUMENT'
   | 'SUSPEND_USER' | 'REACTIVATE_USER' | 'EDIT_WISH_CONTENT' | 'RELEASE_CLAIM_BY_ADMIN'
-  | 'DECIDE_UNLOCK_REQUEST' | 'NOTIFY_AFFECTED_DONORS' | 'VIEW_SUSPENSION_RECORD' | 'REDACT_MESSAGE'
+  | 'DECIDE_UNLOCK_REQUEST' | 'NOTIFY_AFFECTED_DONORS' | 'VIEW_SUSPENSION_RECORD' | 'REDACT_MESSAGE' | 'DELETE_WISH_LETTER'
   | 'RUN_RELEASE_SWEEP' | 'RUN_ATTACHMENT_CLEANUP' | 'RUN_DEADLINE_REMINDERS'
 
 export interface AuditLogView {
@@ -759,6 +763,8 @@ export interface AdminWishDetail {
   avatar?: string
   description?: string
   letterPhotos: AttachmentView[]
+  /** 信件照片被屏蔽（認領者與公開頁看不到） */
+  letterMasked?: boolean
   status: WishStatus
   createdAt: string
   reviewNote?: string

@@ -79,6 +79,9 @@ public enum AdminAuditAction {
     /** 管理員遮蔽對話中的訊息（含個資的內容），原文保留給稽核。 */
     REDACT_MESSAGE,
 
+    /** 管理員刪除願望的信件照片（外洩個資處置）。 */
+    DELETE_WISH_LETTER,
+
     /** 手動觸發逾期釋回掃描。 */
     RUN_RELEASE_SWEEP,
 
@@ -98,7 +101,7 @@ public enum AdminAuditAction {
                  DELETE_ORGANIZATION_DOCUMENT, NOTIFY_AFFECTED_DONORS
                     -> AdminAuditTargetType.ORGANIZATION;
             case APPROVE_WISH, REJECT_WISH, FREEZE_WISH, UNFREEZE_WISH, VIEW_WISH_ATTACHMENTS, EDIT_WISH_CONTENT,
-                 DECIDE_UNLOCK_REQUEST -> AdminAuditTargetType.WISH;
+                 DECIDE_UNLOCK_REQUEST, DELETE_WISH_LETTER -> AdminAuditTargetType.WISH;
             case SUSPEND_USER, REACTIVATE_USER, VIEW_SUSPENSION_RECORD -> AdminAuditTargetType.USER;
             case RELEASE_CLAIM_BY_ADMIN, REDACT_MESSAGE -> AdminAuditTargetType.CLAIM;
             case RUN_RELEASE_SWEEP, RUN_ATTACHMENT_CLEANUP, RUN_DEADLINE_REMINDERS -> AdminAuditTargetType.SYSTEM;

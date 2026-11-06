@@ -44,7 +44,9 @@ public record AdminWishDetailView(
         /** 機構待審的解除凍結申請；沒有為 null */
         com.onlinesanta.unlock.UnlockRequestView unlockRequest,
         /** 申請裡機構修改的內容與目前線上內容的差異（舊→新）；沒有修改為空 */
-        List<WishChanges.FieldChange> unlockChanges) {
+        List<WishChanges.FieldChange> unlockChanges,
+        /** 信件照片被屏蔽（認領者與公開頁看不到） */
+        boolean letterMasked) {
 
     /** @param cause 優先度最高的凍結原因（WishFreezeCause 名稱） */
     public record Frozen(Instant at, String reason, String cause) {
@@ -109,6 +111,6 @@ public record AdminWishDetailView(
                 OrganizationCard.from(wish.getOrganization()),
                 active == null ? null : ClaimCard.from(active),
                 wish.getStatus() == WishStatus.PENDING_REVIEW && wish.getPublishedAt() != null,
-                changes, history, unlockRequest, unlockChanges);
+                changes, history, unlockRequest, unlockChanges, wish.isLetterMasked());
     }
 }

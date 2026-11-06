@@ -102,6 +102,13 @@ public class Wish extends BaseEntity {
     @Column(name = "frozen_cause", length = 20)
     private WishFreezeCause frozenCause;
 
+    /**
+     * 管理員屏蔽了信件照片：認領者與公開頁都不再看到信件（機構與管理員仍看得到）。
+     * 只有管理員明確選擇屏蔽才會為真——凍結本身（含機構、認領者停權連動）不影響信件顯示。
+     */
+    @Column(name = "letter_masked", nullable = false)
+    private boolean letterMasked;
+
     protected Wish() {
         // JPA
     }
@@ -249,6 +256,20 @@ public class Wish extends BaseEntity {
 
     public boolean isFrozen() {
         return frozenAt != null;
+    }
+
+    public boolean isLetterMasked() {
+        return letterMasked;
+    }
+
+    /** 管理員屏蔽信件照片。 */
+    public void maskLetter() {
+        this.letterMasked = true;
+    }
+
+    /** 恢復顯示信件照片（管理員勾選恢復、機構換了新信件並獲核准，或信件已被刪除）。 */
+    public void restoreLetter() {
+        this.letterMasked = false;
     }
 
     public WishFreezeCause getFrozenCause() {

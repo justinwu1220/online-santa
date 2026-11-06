@@ -95,9 +95,17 @@ public class AdminWishReviewController {
     }
 
     @PostMapping("/{id}/unfreeze")
-    @Operation(summary = "解除凍結", description = "願望回到凍結前的狀態並重新顯示")
-    public AdminWishView unfreeze(@PathVariable UUID id) {
-        return AdminWishView.from(review.unfreeze(id));
+    @Operation(summary = "解除凍結", description = "願望回到凍結前的狀態並重新顯示；信件被屏蔽時 restoreLetter=true 才會一併恢復顯示")
+    public AdminWishView unfreeze(@PathVariable UUID id,
+                                  @RequestBody(required = false) com.onlinesanta.admin.dto.UnfreezeRequest request) {
+        return AdminWishView.from(review.unfreeze(id, request != null && request.shouldRestoreLetter()));
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/{id}/letter")
+    @Operation(summary = "刪除願望的信件照片", description = "外洩個資時直接刪除信件照片；reason 必填，機構會在對話看到。機構可在解除申請時換新的")
+    public AdminWishView deleteLetter(@PathVariable UUID id,
+                                      @Valid @RequestBody com.onlinesanta.admin.dto.DeleteLetterRequest request) {
+        return AdminWishView.from(review.deleteLetter(id, request.reason()));
     }
 
     @PatchMapping("/{id}/content")
@@ -113,8 +121,9 @@ public class AdminWishReviewController {
     @Operation(summary = "核准機構的解除凍結申請",
             description = "套用機構修改的內容（有的話）、解除凍結、恢復認領者的寄送期限並通知")
     public AdminWishView approveUnlock(@PathVariable UUID id,
-                                       @RequestBody(required = false) com.onlinesanta.admin.dto.ReviewReasonRequest request) {
-        return AdminWishView.from(unlocks.approve(id, request == null ? null : request.note()));
+                                       @Valid @RequestBody(required = false) com.onlinesanta.admin.dto.ApproveUnlockRequest request) {
+        return AdminWishView.from(request == null ? unlocks.approve(id, null)
+                : unlocks.approve(id, request.note(), request.shouldRestoreLetter()));
     }
 
     @PostMapping("/{id}/unlock-request/reject")

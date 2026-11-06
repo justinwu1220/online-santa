@@ -202,6 +202,22 @@ public class AttachmentService {
     }
 
     /**
+     * 管理員刪除某願望的信件照片（外洩個資處置）：儲存檔與資料列都刪。授權由呼叫端（{@code WishReviewService}）的 requireAdmin 負責。
+     *
+     * @return 刪掉幾張
+     */
+    @Transactional
+    public int deleteWishLettersByAdmin(UUID wishId) {
+        List<Attachment> letters = attachments.findByPurposeAndOwnerIdAndUploadStatusOrderByCreatedAtAsc(
+                AttachmentPurpose.WISH_LETTER, wishId, UploadStatus.CONFIRMED);
+        for (Attachment letter : letters) {
+            storage.delete(letter.getPurpose().bucket(), letter.getObjectName());
+            attachments.delete(letter);
+        }
+        return letters.size();
+    }
+
+    /**
      * 內部用：清理排程刪除一筆放棄的 PENDING 附件，不做任何使用者授權檢查。
      *
      * <p>清理排程沒有「使用者」這個概念——呼叫端的身分驗證（Cloud Scheduler 的

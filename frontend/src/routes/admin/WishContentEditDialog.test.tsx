@@ -51,6 +51,35 @@ describe('WishContentEditDialog（凍結的唯一入口）', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ childAlias: '小星', reason: '暱稱含真實姓名與學校', freeze: true }))
   })
 
+  it('有信件照片才出現「屏蔽信件照片」，預設不勾；勾了會帶 maskLetter，已凍結時只屏蔽也算有修改', async () => {
+    const user = userEvent.setup()
+    const withLetter = { ...wish, letterPhotos: [{ id: 'a1' }] } as unknown as AdminWishDetail
+    const onSubmit = vi.fn(async () => {})
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <WishContentEditDialog open wish={withLetter} alreadyFrozen onClose={vi.fn()} onSubmit={onSubmit} />
+      </QueryClientProvider>,
+    )
+    const dialog = within(await screen.findByRole('dialog', { hidden: true }))
+    const mask = dialog.getByRole('checkbox', { hidden: true })
+    expect(mask).not.toBeChecked()
+    await user.type(dialog.getByLabelText(/修改原因/), '查看後發現信件含個資')
+    await user.click(mask)
+    await user.click(dialog.getByRole('button', { name: '儲存修改', hidden: true }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ reason: '查看後發現信件含個資', freeze: false, maskLetter: true }))
+  })
+
+  it('信件已經被屏蔽就不再出現勾選', async () => {
+    const masked = { ...wish, letterPhotos: [{ id: 'a1' }], letterMasked: true } as unknown as AdminWishDetail
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <WishContentEditDialog open wish={masked} alreadyFrozen onClose={vi.fn()} onSubmit={vi.fn()} />
+      </QueryClientProvider>,
+    )
+    const dialog = within(await screen.findByRole('dialog', { hidden: true }))
+    expect(dialog.queryByRole('checkbox', { hidden: true })).toBeNull()
+  })
+
   it('已凍結：只修改內容，不再凍結；至少要改一個欄位', async () => {
     const user = userEvent.setup()
     const onSubmit = renderDialog(true)

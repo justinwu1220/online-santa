@@ -38,11 +38,12 @@ public class WishReviewService {
     private final SystemMessageService systemMessages;
     private final WishEventService history;
     private final WishFreezeService freezes;
+    private final com.onlinesanta.attachment.AttachmentService attachments;
 
     public WishReviewService(WishRepository wishes, CurrentUserService currentUser,
                              AdminAuditService audit, ApplicationEventPublisher eventPublisher,
                              SystemMessageService systemMessages, WishEventService history,
-                             WishFreezeService freezes) {
+                             WishFreezeService freezes, com.onlinesanta.attachment.AttachmentService attachments) {
         this.wishes = wishes;
         this.currentUser = currentUser;
         this.audit = audit;
@@ -50,6 +51,7 @@ public class WishReviewService {
         this.systemMessages = systemMessages;
         this.history = history;
         this.freezes = freezes;
+        this.attachments = attachments;
     }
 
     @Transactional
@@ -115,8 +117,14 @@ public class WishReviewService {
 
         java.util.Set<String> changed = wish.applyContentFix(
                 request.childAlias(), request.ageRange(), request.interests(), request.description());
-        if (changed.isEmpty() && !request.shouldFreeze()) {
+        boolean maskLetter = request.shouldMaskLetter() && !wish.isLetterMasked();
+        if (changed.isEmpty() && !request.shouldFreeze() && !maskLetter) {
             throw new com.onlinesanta.common.exception.BusinessRuleException("NO_CONTENT_CHANGES", "沒有任何欄位被修改");
+        }
+        if (maskLetter) {
+            wish.maskLetter();
+            history.record(wish, WishEventType.ADMIN_EDITED, admin.userId(), "原因：%s；屏蔽信件照片".formatted(reason), true);
+            audit.record(AdminAuditAction.EDIT_WISH_CONTENT, wishId, "%s；屏蔽信件照片".formatted(wish.getTitle()));
         }
         if (!changed.isEmpty()) {
             history.redactSnapshots(wishId, changed);
@@ -151,13 +159,43 @@ public class WishReviewService {
 
     @Transactional
     public Wish unfreeze(UUID wishId) {
+        return unfreeze(wishId, false);
+    }
+
+    /** @param restoreLetter 信件照片目前被屏蔽時，是否一併恢復顯示；不恢復就維持屏蔽（願望回牆但沒有信件） */
+    @Transactional
+    public Wish unfreeze(UUID wishId, boolean restoreLetter) {
         AppPrincipal admin = currentUser.requireAdmin();
         Wish wish = find(wishId);
+        if (restoreLetter && wish.isLetterMasked()) {
+            wish.restoreLetter();
+            history.record(wish, WishEventType.ADMIN_EDITED, admin.userId(), "恢復顯示信件照片", false);
+        }
         Optional<Claim> resumed = freezes.liftAdminCauses(wish, admin.userId());
         audit.record(AdminAuditAction.UNFREEZE_WISH, wishId, wish.getTitle());
         history.record(wish, WishEventType.UNFROZEN, admin.userId(), null, false);
         systemMessages.wishUnfrozen(wishId);
         resumed.ifPresent(claim -> eventPublisher.publishEvent(new WishFrozenEvent(claim.getId(), false)));
+        return wish;
+    }
+
+    /**
+     * 管理員刪除願望的信件照片（信件外洩個資、屏蔽不夠時用）：刪除儲存檔與資料列，機構可以在解除申請時換新的。
+     * 稽核與歷程只記原因，不記照片內容。
+     */
+    @Transactional
+    public Wish deleteLetter(UUID wishId, String reason) {
+        AppPrincipal admin = currentUser.requireAdmin();
+        Wish wish = find(wishId);
+        int removed = attachments.deleteWishLettersByAdmin(wishId);
+        if (removed == 0) {
+            throw new com.onlinesanta.common.exception.BusinessRuleException("NO_LETTER_PHOTO", "這個願望沒有信件照片");
+        }
+        wish.restoreLetter();   // 沒有信件了，不需要再屏蔽
+        String text = reason.trim();
+        history.record(wish, WishEventType.ADMIN_EDITED, admin.userId(), "原因：%s；刪除信件照片".formatted(text), true);
+        audit.record(AdminAuditAction.DELETE_WISH_LETTER, wishId, "%s；刪除信件照片，原因：%s".formatted(wish.getTitle(), text));
+        systemMessages.wishLetterDeleted(wishId, text);
         return wish;
     }
 

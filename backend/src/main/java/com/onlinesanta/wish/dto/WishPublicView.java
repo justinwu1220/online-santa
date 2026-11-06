@@ -42,7 +42,9 @@ public record WishPublicView(
         String organizationPhotoUrl,
         String imageUrl,
         List<String> letterPhotoUrls,
-        int shipDeadlineDays) {
+        int shipDeadlineDays,
+        /** 管理員屏蔽了信件照片：letterPhotoUrls 是空的，畫面顯示「暫時無法顯示」 */
+        boolean letterMasked) {
 
     private static String blankToNull(String text) {
         return text == null || text.isBlank() ? null : text.trim();
@@ -60,6 +62,7 @@ public record WishPublicView(
     public static WishPublicView from(
             Wish wish, String imageUrl, List<String> letterPhotoUrls, int shipDeadlineDays,
             String organizationPhotoUrl) {
+        boolean masked = wish.isLetterMasked();
         return new WishPublicView(
                 wish.getId(),
                 wish.getTitle(),
@@ -81,7 +84,8 @@ public record WishPublicView(
                 wish.getOrganization().getWebsite(),
                 organizationPhotoUrl,
                 imageUrl,
-                letterPhotoUrls,
-                shipDeadlineDays);
+                masked ? List.of() : letterPhotoUrls,
+                shipDeadlineDays,
+                masked);
     }
 }

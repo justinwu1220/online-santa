@@ -7,10 +7,10 @@ import {
   DCard, DrawerTabs, DStatus, DSteps, Kv, type StepState,
 } from '../../components/console/DrawerParts'
 import { ClaimProofs } from './ClaimProofs'
+import { LetterRestoreDialog } from './LetterRestoreDialog'
 import { WishContentEditDialog } from './WishContentEditDialog'
 import { ResubmitChanges, WishHistoryTimeline } from './WishHistory'
 import { LazyBox } from '../../components/console/LazyBox'
-import { ConfirmDialog } from '../../components/console/ConfirmDialog'
 import { ReasonDialog } from '../../components/console/ReasonDialog'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { useToast } from '../../components/ui/toastContext'
@@ -178,7 +178,7 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
   const invalidate = useInvalidateAdmin()
   const detail = useAdminWish(wishId)
   const [tab, setTab] = useState('info')
-  const [dialog, setDialog] = useState<'return' | 'edit' | 'rejectUnlock' | 'approveUnlock' | null>(null)
+  const [dialog, setDialog] = useState<'return' | 'edit' | 'rejectUnlock' | 'approveUnlock' | 'unfreeze' | 'deleteLetter' | null>(null)
   const [redactId, setRedactId] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -215,11 +215,12 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
     }
   }
 
-  async function unfreeze() {
+  async function unfreeze(restoreLetter = false) {
     if (!wish || busy) return
     setBusy(true)
     try {
-      await post('unfreeze', undefined, `已解除凍結，「${wish.title}」重新顯示在願望牆`)
+      await post('unfreeze', restoreLetter ? { restoreLetter: true } : undefined, `已解除凍結，「${wish.title}」重新顯示在願望牆`)
+      setDialog(null)
     } catch (e) {
       toast.show(e instanceof ApiError ? e.detail : '解除失敗，請稍後再試', 'danger')
     } finally {
@@ -250,7 +251,8 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
       {isSuspensionFreeze(wish) ? (
         <span className="auth-note" style={{ margin: 0 }}>這是因停權而凍結，請從停權處理。</span>
       ) : (
-        <button type="button" className="btn btn--freeze" disabled={busy} onClick={() => void unfreeze()}>解除凍結</button>
+        <button type="button" className="btn btn--freeze" disabled={busy}
+          onClick={() => (wish.letterMasked ? setDialog('unfreeze') : void unfreeze())}>解除凍結</button>
       )}
     </div>
   ) : (
@@ -273,7 +275,7 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
         <div className="drawer__body">
           {!wish && detail.isLoading && <Spinner label="載入願望" />}
           {detail.isError && <ErrorNotice error={detail.error} onRetry={() => void detail.refetch()} />}
-          {wish && tab === 'info' && <WishInfo wish={wish} />}
+          {wish && tab === 'info' && <WishInfo wish={wish} onDeleteLetter={() => setDialog('deleteLetter')} />}
           {wish && claim && tab === 'chat' && (
             <LazyBox key={`chat-${claim.claimId}`} title="對話" desc="機構與認領者的站內對話，可能涉及收件細節。" button="載入對話"
               load={() => api.get<AdminMessageView[]>(`/api/admin/claims/${claim.claimId}/messages`)}>
@@ -328,18 +330,32 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
               await post('unlock-request/reject', { note: reason }, '已退回解除申請，機構會收到原因')
               setDialog(null)
             }} />
-          <ConfirmDialog open={dialog === 'approveUnlock'} tone="primary"
+          <LetterRestoreDialog open={dialog === 'approveUnlock'} letterMasked={Boolean(wish.letterMasked)} busy={busy}
             title="核准並解除凍結？"
             body={`機構修改的內容會套用上線，「${wish.title}」解除凍結，認領者的寄送期限恢復（順延暫停的時間），並收到新版內容的通知。`}
-            okText="核准並解除" busy={busy}
-            onOk={() => {
+            okText="核准並解除"
+            onConfirm={(restoreLetter) => {
               setBusy(true)
-              post('unlock-request/approve', undefined, '已核准，願望解除凍結')
+              post('unlock-request/approve', restoreLetter ? { restoreLetter: true } : undefined, '已核准，願望解除凍結')
                 .then(() => setDialog(null))
                 .catch((e) => toast.show(e instanceof ApiError ? e.detail : '核准失敗，請稍後再試', 'danger'))
                 .finally(() => setBusy(false))
             }}
             onClose={() => setDialog(null)} />
+          <LetterRestoreDialog open={dialog === 'unfreeze'} letterMasked={Boolean(wish.letterMasked)} busy={busy}
+            title="解除凍結？" body={`「${wish.title}」會重新顯示在願望牆，認領者的寄送期限恢復。`}
+            okText="解除凍結" onConfirm={(restoreLetter) => void unfreeze(restoreLetter)}
+            onClose={() => setDialog(null)} />
+          <ReasonDialog open={dialog === 'deleteLetter'} onClose={() => setDialog(null)} tone="freeze" rows={3}
+            title="刪除信件照片？" body="直接刪除信件照片，無法復原；機構會在願望的對話看到原因，可以在申請解除凍結時附上新的信件照片。"
+            label="刪除原因" hint="機構會看到這段原因，請勿重複外洩的內容" minLength={4}
+            tooShort="請寫下刪除原因（至少 4 個字）" okText="刪除"
+            onSubmit={async (reason) => {
+              await api.delete(`/api/admin/wishes/${wish.id}/letter`, { reason })
+              await invalidate()
+              toast.show('已刪除信件照片')
+              setDialog(null)
+            }} />
           <ReasonDialog open={redactId !== null} onClose={() => setRedactId(null)}
             title="遮蔽這則訊息？" body="原文會保留給稽核，機構與認領者之後看到「此訊息已被管理員遮蔽」。"
             label="遮蔽原因" hint="例如：含個人住址" minLength={4}
@@ -418,7 +434,7 @@ function claimSteps(wish: AdminWishDetail) {
   return <DSteps steps={steps} complete={done} />
 }
 
-function WishInfo({ wish }: { wish: AdminWishDetail }) {
+function WishInfo({ wish, onDeleteLetter }: { wish: AdminWishDetail; onDeleteLetter: () => void }) {
   const claim = wish.claim
   const org = (
     <DCard icon="building" title="機構">
@@ -481,6 +497,14 @@ function WishInfo({ wish }: { wish: AdminWishDetail }) {
         <div className="dletter">
           <PreviewImage src={wish.letterPhotos[0]?.url} alt="孩子的手寫信件">【孩子的手寫信件照片】</PreviewImage>
         </div>
+        {wish.letterMasked && (
+          <p className="auth-note" role="status">這張信件照片已被屏蔽：認領者與公開頁看不到，機構與你看得到。</p>
+        )}
+        {wish.letterPhotos.length > 0 && (
+          <p style={{ margin: '8px 0 0' }}>
+            <button type="button" className="btn btn--sm btn--danger" onClick={() => onDeleteLetter()}>刪除信件照片</button>
+          </p>
+        )}
       </DCard>
       {wish.resubmission && (
         <DCard icon="pencil" title="變更內容" className="dcard--key">

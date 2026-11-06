@@ -43,10 +43,11 @@ export function ClaimDetail() {
   })
 
   const wishId = claim.data?.wishId
-  // 願望大卡片要的信件照片與說明在公開的願望資料裡
+  // 願望大卡片要的信件照片與說明：讀這筆認領的專用端點，願望被凍結（含停權連動）時也讀得到；
+  // 只有管理員屏蔽了信件，letterPhotoUrls 才是空的
   const wish = useQuery({
-    queryKey: ['wish', wishId],
-    queryFn: () => api.get<WishPublicView>(`/api/wishes/${wishId}`),
+    queryKey: ['claim', id, 'wish'],
+    queryFn: () => api.get<WishPublicView>(`/api/claims/${id}/wish`),
     enabled: Boolean(wishId),
   })
 
