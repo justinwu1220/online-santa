@@ -60,9 +60,9 @@ app:
   terms:
     # 目前《認領者參與須知》的版本。改版時改這裡，並同步前端 DONOR_TERMS.version
     # （兩邊不一致時前端會擋下同意，要求重新整理）。
-    donor-version: 'v6（2026-10-16）'
+    donor-version: 'v8（2026-10-30）'
     # 目前《合作機構參與須知》的版本，同步前端 ORG_TERMS.version（機構註冊時同意，送出申請前檢查）
-    org-version: 'v7（2026-10-17）'
+    org-version: 'v8（2026-10-30）'
     enforce-on-claim: true
     enforce-on-organization-register: true
   storage:

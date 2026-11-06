@@ -34,8 +34,8 @@ import com.onlinesanta.wish.WishRepository;
         "app.terms.enforce-on-organization-register=true"})
 class TermsApiIT extends ApiIntegrationTest {
 
-    private static final String CURRENT = "v6（2026-10-16）";
-    private static final String ORG_CURRENT = "v7（2026-10-17）";
+    private static final String CURRENT = "v8（2026-10-30）";
+    private static final String ORG_CURRENT = "v8（2026-10-30）";
     private static final String DONOR = "terms-donor@example.com";
     private static final String OTHER = "terms-other@example.com";
 
@@ -170,8 +170,8 @@ class TermsApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$[1].currentVersion").value(ORG_CURRENT))
                 .andExpect(jsonPath("$[1].upToDate").value(false));
 
-        // 認領者須知的版本不能拿來同意機構須知
-        mvc.perform(as(withBody(post("/api/me/terms/ORG/accept"), body(CURRENT)), DONOR))
+        // 舊版本不能拿來同意（兩份須知目前同為 v8，所以用舊版本號驗證版本比對）
+        mvc.perform(as(withBody(post("/api/me/terms/ORG/accept"), body("v7（2026-10-17）")), DONOR))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("TERMS_VERSION_MISMATCH"));
 

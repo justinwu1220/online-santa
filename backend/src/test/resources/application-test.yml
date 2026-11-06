@@ -7,8 +7,8 @@ spring:
 
 app:
   terms:
-    donor-version: 'v6（2026-10-16）'
-    org-version: 'v7（2026-10-17）'
+    donor-version: 'v8（2026-10-30）'
+    org-version: 'v8（2026-10-30）'
     # 既有的認領與機構相關測試不處理同意；TermsApiIT 自己打開
     enforce-on-claim: false
     enforce-on-organization-register: false
