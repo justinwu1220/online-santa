@@ -168,6 +168,10 @@
     .hero__org-name small { font-size: 9px; letter-spacing: .04em; }
     .hero__sub { margin-top: 12px; font-size: 13px; letter-spacing: .04em; }
   }
+  /* 更窄（約 360px 以下）：標語 26 字要擠在一行，不留孤字 */
+  @container (max-width: 340px) {
+    .hero__sub { font-size: 12px; letter-spacing: 0; }
+  }
   .twinkle { animation: rd-twinkle 1.8s ease-in-out infinite; }
   .twinkle-slow { animation: rd-twinkle-soft 4.2s ease-in-out infinite; }
 
