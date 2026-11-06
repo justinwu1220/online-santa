@@ -50,11 +50,14 @@ public class WishUnlockService {
     private final AdminAuditService audit;
     private final ApplicationEventPublisher eventPublisher;
     private final ObjectMapper json;
+    private final com.onlinesanta.attachment.AttachmentService attachments;
 
     public WishUnlockService(UnlockRequestRepository requests, WishRepository wishes, WishFreezeService freezes,
                              WishEventService history, SystemMessageService systemMessages,
                              CurrentUserService currentUser, AdminAuditService audit,
-                             ApplicationEventPublisher eventPublisher, ObjectMapper json) {
+                             ApplicationEventPublisher eventPublisher, ObjectMapper json,
+                             com.onlinesanta.attachment.AttachmentService attachments) {
+        this.attachments = attachments;
         this.requests = requests;
         this.wishes = wishes;
         this.freezes = freezes;
@@ -85,6 +88,9 @@ public class WishUnlockService {
             throw new BusinessRuleException("REVISION_NOT_ALLOWED",
                     "這次凍結不是因為內容疑慮，不能修改內容；請直接說明並申請解除");
         }
+        if (hasRevision && revision.letterAttachmentId() != null) {
+            attachments.requireLetterRevision(wishId, revision.letterAttachmentId());
+        }
         if (requests.findFirstByTargetTypeAndTargetIdAndStatus(
                 UnlockTargetType.WISH, wishId, UnlockStatus.PENDING).isPresent()) {
             throw new BusinessRuleException("UNLOCK_ALREADY_REQUESTED", "已經送出申請，請等管理員審核，或先撤回再重新申請");
@@ -103,6 +109,7 @@ public class WishUnlockService {
         Wish wish = ownedWish(wishId);
         UnlockRequest pending = pendingRequest(wishId);
         pending.decide(UnlockStatus.WITHDRAWN, actor.userId(), null);
+        attachments.discardLetterRevisions(wishId);
         history.record(wish, WishEventType.UNLOCK_WITHDRAWN, actor.userId(), null, false);
         return view(pending);
     }
@@ -154,6 +161,10 @@ public class WishUnlockService {
         WishRevision revision = read(pending.getPayload());
         if (revision != null) {
             wish.applyContentFix(revision.childAlias(), revision.ageRange(), revision.interests(), revision.description());
+            // 附了新信件：舊信件刪除、新信件上牆，屏蔽一併清除（新信件由管理員在審核畫面看過）
+            if (revision.letterAttachmentId() != null && attachments.promoteLetterRevision(wishId, revision.letterAttachmentId())) {
+                wish.restoreLetter();
+            }
         }
         Optional<Claim> resumed = freezes.liftAdminCauses(wish, admin.userId());
         pending.decide(UnlockStatus.APPROVED, admin.userId(), blankToNull(note));
@@ -172,6 +183,7 @@ public class WishUnlockService {
         Wish wish = findWish(wishId);
         UnlockRequest pending = pendingRequest(wishId);
         pending.decide(UnlockStatus.REJECTED, admin.userId(), note.strip());
+        attachments.discardLetterRevisions(wishId);
         history.record(wish, WishEventType.UNLOCK_REJECTED, admin.userId(), note.strip(), false);
         audit.record(AdminAuditAction.DECIDE_UNLOCK_REQUEST, wishId, "退回解除凍結申請：" + wish.getTitle());
         systemMessages.unlockDecided(wishId, false, note);

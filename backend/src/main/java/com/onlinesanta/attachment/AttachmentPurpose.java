@@ -44,7 +44,14 @@ public enum AttachmentPurpose {
      * 願望詳細頁與認領頁的「這份願望來自」區塊顯示——私密 bucket，讀取時簽出限時網址；
      * 平台審核機構時一併檢查，核准前不會出現在公開頁（核准前機構的願望本來就不公開）。
      */
-    ORG_PHOTO(StorageBucket.PRIVATE, "org-photos", 1);
+    ORG_PHOTO(StorageBucket.PRIVATE, "org-photos", 1),
+
+    /**
+     * 機構在「申請解除凍結」時附上的新信件照片，掛在願望上，限一張（換新直接取代舊的待審圖片）。
+     * 核准前不會出現在任何畫面（{@code wishLetters} 只讀 {@link #WISH_LETTER}），管理員審核時並排比對；
+     * 核准後升級成 {@link #WISH_LETTER}（舊信件刪除），退回或撤回就刪除。公開 bucket，網址有 uuid。
+     */
+    WISH_LETTER_REVISION(StorageBucket.PUBLIC, "wish-letter-revisions", 1);
 
     private final StorageBucket bucket;
     private final String prefix;

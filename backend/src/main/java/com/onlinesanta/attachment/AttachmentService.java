@@ -217,6 +217,53 @@ public class AttachmentService {
         return letters.size();
     }
 
+    // ---------------------------------------------------------------- 解除申請的新信件
+
+    /** 這個願望目前待審的新信件（已確認上傳）；沒有為空。管理員審核時並排顯示。 */
+    @Transactional(readOnly = true)
+    public java.util.Optional<AttachmentView> wishLetterRevision(UUID wishId, UUID attachmentId) {
+        return attachments.findById(attachmentId)
+                .filter(a -> a.getPurpose() == AttachmentPurpose.WISH_LETTER_REVISION && wishId.equals(a.getOwnerId())
+                        && a.getUploadStatus() == UploadStatus.CONFIRMED)
+                .map(this::toView);
+    }
+
+    /** 申請時驗證：這張新信件確實是這個願望已確認上傳的待審信件。 */
+    @Transactional(readOnly = true)
+    public void requireLetterRevision(UUID wishId, UUID attachmentId) {
+        if (wishLetterRevision(wishId, attachmentId).isEmpty()) {
+            throw new BusinessRuleException("INVALID_LETTER_REVISION", "找不到這張新的信件照片，請重新上傳");
+        }
+    }
+
+    /** 核准：舊信件（儲存檔與資料列）刪除，待審的新信件升級成正式信件。找不到新信件時什麼都不做。 */
+    @Transactional
+    public boolean promoteLetterRevision(UUID wishId, UUID attachmentId) {
+        java.util.Optional<Attachment> revision = attachments.findById(attachmentId)
+                .filter(a -> a.getPurpose() == AttachmentPurpose.WISH_LETTER_REVISION && wishId.equals(a.getOwnerId())
+                        && a.getUploadStatus() == UploadStatus.CONFIRMED);
+        if (revision.isEmpty()) {
+            return false;
+        }
+        for (Attachment old : attachments.findByPurposeAndOwnerIdAndUploadStatusOrderByCreatedAtAsc(
+                AttachmentPurpose.WISH_LETTER, wishId, UploadStatus.CONFIRMED)) {
+            storage.delete(old.getPurpose().bucket(), old.getObjectName());
+            attachments.delete(old);
+        }
+        revision.get().promoteToWishLetter();
+        return true;
+    }
+
+    /** 退回、撤回解除申請：待審的新信件刪除（儲存檔與資料列）。 */
+    @Transactional
+    public void discardLetterRevisions(UUID wishId) {
+        for (Attachment revision : attachments.findByPurposeAndOwnerIdAndUploadStatusOrderByCreatedAtAsc(
+                AttachmentPurpose.WISH_LETTER_REVISION, wishId, UploadStatus.CONFIRMED)) {
+            storage.delete(revision.getPurpose().bucket(), revision.getObjectName());
+            attachments.delete(revision);
+        }
+    }
+
     /**
      * 內部用：清理排程刪除一筆放棄的 PENDING 附件，不做任何使用者授權檢查。
      *
@@ -257,6 +304,11 @@ public class AttachmentService {
             throw new BusinessRuleException("ATTACHMENT_NOT_DELETABLE",
                     "機構照片請直接上傳新照片取代，不支援刪除");
         }
+        // 待審的新信件由解除申請的流程管理（核准升級、退回或撤回時刪除），不開放個別刪除
+        if (attachment.getPurpose() == AttachmentPurpose.WISH_LETTER_REVISION) {
+            throw new BusinessRuleException("ATTACHMENT_NOT_DELETABLE",
+                    "待審的新信件請撤回解除申請，不支援直接刪除");
+        }
         // 發票證明是申報收據的依據，同樣收在管理員手上，捐贈者送出後不能自行刪除
         if (attachment.getPurpose() == AttachmentPurpose.RECEIPT_PROOF && !deletedByAdmin) {
             throw new BusinessRuleException("ATTACHMENT_NOT_DELETABLE",
@@ -296,6 +348,8 @@ public class AttachmentService {
                     "requireDeletablePurpose 應該已經擋掉 RECEIPT_PROOF");
             case ORG_PHOTO -> throw new IllegalStateException(
                     "requireDeletablePurpose 應該已經擋掉 ORG_PHOTO");
+            case WISH_LETTER_REVISION -> throw new IllegalStateException(
+                    "requireDeletablePurpose 應該已經擋掉 WISH_LETTER_REVISION");
         }
     }
 
@@ -466,6 +520,7 @@ public class AttachmentService {
             case ORG_FEEDBACK -> authorizeOrganizationFeedback(targetId, principal);
             case ORG_DOCUMENT, ORG_PHOTO -> authorizeOrgDocument(targetId, principal);
             case WISH_LETTER -> authorizeWishLetter(targetId, principal);
+            case WISH_LETTER_REVISION -> authorizeWishLetterRevision(targetId, principal);
             case RECEIPT_PROOF -> authorizeReceiptProof(targetId, principal);
         }
     }
@@ -497,6 +552,23 @@ public class AttachmentService {
         }
         requireOrganizationNotSuspended(wish);
         requireDraft(wish);
+    }
+
+    /**
+     * 解除凍結申請附上的新信件：機構擁有這個願望、機構沒被停權、願望正被凍結時才能上傳。
+     * 上傳不影響原本的信件（用途不同，不會上牆），要等管理員核准才會取代。
+     */
+    private void authorizeWishLetterRevision(UUID wishId, AppPrincipal principal) {
+        UUID organizationId = currentUser.requireOrganizationId();
+        Wish wish = wishes.findWithOrganizationById(wishId)
+                .orElseThrow(() -> ResourceNotFoundException.of("願望", wishId));
+        if (!wish.getOrganization().getId().equals(organizationId)) {
+            throw ResourceNotFoundException.of("願望", wishId);
+        }
+        requireOrganizationNotSuspended(wish);
+        if (!wish.isFrozen()) {
+            throw new BusinessRuleException("LETTER_REVISION_NOT_ALLOWED", "這個願望目前沒有被凍結，不需要換信件；要修改請先按「修改並重新送審」");
+        }
     }
 
     private void requireDraft(Wish wish) {

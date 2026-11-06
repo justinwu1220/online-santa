@@ -131,7 +131,15 @@ public class AdminWishQueryService {
         var unlock = unlocks.pendingOf(wishId).orElse(null);
         return AdminWishDetailView.from(wish, active, late, attachments.wishLetters(wishId),
                 resubmission ? history.changesSinceLastApproval(wish) : null, history.history(wishId),
-                unlock, unlock == null ? List.of() : unlockChanges(wish, unlock.revision()));
+                unlock, unlock == null ? List.of() : unlockChanges(wish, unlock.revision()), unlockLetter(wishId, unlock));
+    }
+
+    /** 機構申請裡附的新信件；沒有申請或沒附圖為 null。 */
+    private AttachmentView unlockLetter(UUID wishId, com.onlinesanta.unlock.UnlockRequestView unlock) {
+        if (unlock == null || unlock.revision() == null || unlock.revision().letterAttachmentId() == null) {
+            return null;
+        }
+        return attachments.wishLetterRevision(wishId, unlock.revision().letterAttachmentId()).orElse(null);
     }
 
     /** 點擊載入：目前認領的寄件照片（含捐贈者個資）。寫稽核。孩子的手寫信件是公開的，在 {@link #get} 直接帶出。 */

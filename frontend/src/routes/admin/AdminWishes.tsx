@@ -459,7 +459,19 @@ function WishInfo({ wish, onDeleteLetter }: { wish: AdminWishDetail; onDeleteLet
                 <li key={change.field}><strong>{change.field}</strong>：{change.before || '（空）'} → {change.after}</li>
               ))}
             </ul>
-          ) : <p className="auth-note">機構沒有修改內容，只說明並申請解除。</p>}
+          ) : !wish.unlockLetter && <p className="auth-note">機構沒有修改內容，只說明並申請解除。</p>}
+          {wish.unlockLetter && (
+            <div className="letter-compare">
+              <figure>
+                <figcaption>目前的信件{wish.letterMasked ? '（已屏蔽）' : ''}</figcaption>
+                <PreviewImage src={wish.letterPhotos[0]?.url} alt="目前的信件">（已刪除或沒有信件）</PreviewImage>
+              </figure>
+              <figure>
+                <figcaption>機構換上的新信件（核准後取代）</figcaption>
+                <PreviewImage src={wish.unlockLetter.url} alt="新的信件">（無法顯示）</PreviewImage>
+              </figure>
+            </div>
+          )}
         </DCard>
       )}
       {claim && wish.status !== 'PENDING_REVIEW' && claimSteps(wish)}

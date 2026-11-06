@@ -23,7 +23,7 @@ import jakarta.persistence.Table;
 public class Attachment extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "owner_type", nullable = false, updatable = false, length = 30)
+    @Column(name = "owner_type", nullable = false, length = 30)
     private AttachmentPurpose purpose;
 
     /** 依 purpose 而定：WISH_IMAGE 指向願望，其餘指向認領。 */
@@ -77,6 +77,14 @@ public class Attachment extends BaseEntity {
      *
      * @param originalFilename 使用者端的原始檔名，選填（可能是 null）——純粹顯示用
      */
+    /** 解除申請核准後，待審的新信件升級成正式的願望信件（只有這一種用途轉換）。 */
+    public void promoteToWishLetter() {
+        if (purpose != AttachmentPurpose.WISH_LETTER_REVISION) {
+            throw new IllegalStateException("只有待審的信件照片能升級成願望信件：" + purpose);
+        }
+        this.purpose = AttachmentPurpose.WISH_LETTER;
+    }
+
     public static Attachment pending(AttachmentPurpose purpose, UUID ownerId, String objectName,
                                      String contentType, UUID uploadedBy, String originalFilename) {
         return new Attachment(purpose, ownerId, objectName, contentType, uploadedBy, originalFilename);

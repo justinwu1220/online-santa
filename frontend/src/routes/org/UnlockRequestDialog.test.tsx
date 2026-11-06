@@ -35,7 +35,7 @@ describe('UnlockRequestDialog（機構申請解除凍結）', () => {
   it('內容疑慮：只把改過的欄位送出，沒有禮物（標題）欄位', async () => {
     const user = userEvent.setup()
     const onDone = renderDialog(true)
-    const dialog = within(await screen.findByRole('dialog', { hidden: true }))
+    const dialog = within(await screen.findByRole('dialog', { hidden: true, name: '申請解除凍結' }))
 
     expect(dialog.queryByLabelText(/願望標題|禮物/)).toBeNull()
     const alias = dialog.getByLabelText('孩子的暱稱')
@@ -53,7 +53,7 @@ describe('UnlockRequestDialog（機構申請解除凍結）', () => {
   it('沒有修改任何欄位：不帶 revision，只送說明', async () => {
     const user = userEvent.setup()
     renderDialog(true)
-    const dialog = within(await screen.findByRole('dialog', { hidden: true }))
+    const dialog = within(await screen.findByRole('dialog', { hidden: true, name: '申請解除凍結' }))
     await user.click(dialog.getByRole('button', { name: '送出申請', hidden: true }))
     await waitFor(() => expect(api.post).toHaveBeenCalledWith(
       '/api/organizations/me/wishes/w1/unlock-request', { message: undefined, revision: undefined }))
@@ -61,7 +61,7 @@ describe('UnlockRequestDialog（機構申請解除凍結）', () => {
 
   it('不是內容疑慮的凍結：沒有修改欄位，只能說明並申請', async () => {
     renderDialog(false)
-    const dialog = within(await screen.findByRole('dialog', { hidden: true }))
+    const dialog = within(await screen.findByRole('dialog', { hidden: true, name: '申請解除凍結' }))
     expect(dialog.queryByLabelText('孩子的暱稱')).toBeNull()
     expect(dialog.getByText(/不能修改內容/)).toBeInTheDocument()
   })

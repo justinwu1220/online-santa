@@ -1,12 +1,15 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Dialog } from '../../components/ui/Dialog'
+import { ImageCropDialog } from '../../components/ui/ImageCropDialog'
 import { api, ApiError } from '../../lib/api'
+import { uploadImage, validateImage } from '../../lib/upload'
 import type { UnlockRequestView, WishFilterOptions, WishOrgView, WishRevisionBody } from '../../lib/types'
 
 /**
  * 申請解除凍結：說明並（內容疑慮時）附上修改後的內容。禮物（願望標題）不能改——認領者可能已經買好了。
  * 送出後線上內容不變，管理員核准才會套用；審核期間認領者看到的仍是管理員處理過的版本。
+ * 也可以附上新的信件照片（先裁成 4:3）：核准前不上牆，核准後取代原本的信件。
  */
 export function UnlockRequestDialog({ open, wish, canRevise, onClose, onDone }: {
   open: boolean
@@ -21,6 +24,16 @@ export function UnlockRequestDialog({ open, wish, canRevise, onClose, onDone }: 
   const [ageRange, setAgeRange] = useState(wish.ageRange)
   const [description, setDescription] = useState(wish.description ?? '')
   const [error, setError] = useState('')
+  // 新的信件照片：選檔 → 裁切 → 暫存在這裡，送出申請時才上傳（原圖不上傳）
+  const [cropping, setCropping] = useState<File | null>(null)
+  const [letter, setLetter] = useState<File | null>(null)
+  const [letterUrl, setLetterUrl] = useState<string>()
+  useEffect(() => {
+    if (!letter) { setLetterUrl(undefined); return }
+    const url = URL.createObjectURL(letter)
+    setLetterUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [letter])
 
   const options = useQuery({
     queryKey: ['wish-options'],
@@ -34,17 +47,18 @@ export function UnlockRequestDialog({ open, wish, canRevise, onClose, onDone }: 
     setLastOpen(open)
     if (open) {
       setMessage(''); setAlias(wish.childAlias ?? ''); setAgeRange(wish.ageRange)
-      setDescription(wish.description ?? ''); setError('')
+      setDescription(wish.description ?? ''); setError(''); setLetter(null); setCropping(null)
     }
   }
 
   const submit = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const revision: WishRevisionBody = {}
       if (canRevise) {
         if (alias.trim() !== (wish.childAlias ?? '')) revision.childAlias = alias.trim()
         if (ageRange !== wish.ageRange) revision.ageRange = ageRange
         if (description.trim() !== (wish.description ?? '')) revision.description = description.trim()
+        if (letter) revision.letterAttachmentId = (await uploadImage('WISH_LETTER_REVISION', wish.id, letter)).id
       }
       return api.post<UnlockRequestView>(`/api/organizations/me/wishes/${wish.id}/unlock-request`, {
         message: message.trim() || undefined,
@@ -83,6 +97,31 @@ export function UnlockRequestDialog({ open, wish, canRevise, onClose, onDone }: 
             <textarea id="unDesc" className="input" rows={2} maxLength={50} value={description}
               onChange={(event) => setDescription(event.target.value)} />
           </div>
+          <div className="field" style={{ marginTop: 12 }}>
+            <span className="field__label" id="unLetterLabel">新的信件照片（選填）</span>
+            <span className="field__hint">信件照片有個資時請換新的。可以裁切成 4:3；管理員核准後才會取代原本的信件，原圖不會上傳。</span>
+            <div className="upload">
+              <label className="upload__btn">
+                {letter ? '重新選擇照片' : '選擇照片'}
+                <input type="file" accept="image/*" aria-labelledby="unLetterLabel"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    event.target.value = ''
+                    if (!file) return
+                    const problem = validateImage(file)
+                    if (problem) setError(problem)
+                    else { setError(''); setCropping(file) }
+                  }} />
+              </label>
+              {letter && (
+                <span className="chip">
+                  <span>{letter.name}</span>
+                  <button type="button" aria-label="移除這張照片" onClick={() => setLetter(null)}>×</button>
+                </span>
+              )}
+            </div>
+            {letterUrl && <img src={letterUrl} alt="新的信件預覽" style={{ marginTop: 8, maxWidth: 200, borderRadius: 8 }} />}
+          </div>
         </>
       )}
       <div className="field" style={{ marginTop: 12 }}>
@@ -98,6 +137,10 @@ export function UnlockRequestDialog({ open, wish, canRevise, onClose, onDone }: 
           {submit.isPending ? '送出中…' : '送出申請'}
         </button>
       </div>
+      <ImageCropDialog file={cropping} aspect={4 / 3} outputWidth={1280} title="裁切新的信件照片"
+        hint="拖曳照片移動位置，用滑桿或滾輪放大縮小；虛線框內就是願望詳細頁會顯示的範圍。"
+        onCancel={() => setCropping(null)}
+        onConfirm={(cropped) => { setLetter(cropped); setCropping(null) }} />
     </Dialog>
   )
 }

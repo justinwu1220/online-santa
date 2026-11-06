@@ -188,6 +188,8 @@ export interface WishRevisionBody {
   ageRange?: string
   interests?: string
   description?: string
+  /** 新的信件照片（先以 WISH_LETTER_REVISION 上傳）；核准後取代原本的信件 */
+  letterAttachmentId?: string
 }
 
 export type UnlockStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN'
@@ -413,7 +415,7 @@ export interface ClaimEventView {
 
 export type AttachmentPurpose =
   | 'WISH_IMAGE' | 'SHIPPING_PROOF' | 'ORG_FEEDBACK' | 'ORG_DOCUMENT' | 'WISH_LETTER'
-  | 'RECEIPT_PROOF' | 'ORG_PHOTO'
+  | 'RECEIPT_PROOF' | 'ORG_PHOTO' | 'WISH_LETTER_REVISION'
 
 export interface AttachmentView {
   id: string
@@ -789,6 +791,8 @@ export interface AdminWishDetail {
   unlockRequest?: UnlockRequestView | null
   /** 申請裡機構修改的內容與目前線上內容的差異（舊→新） */
   unlockChanges?: { field: string; before: string; after: string }[]
+  /** 機構在解除申請裡附上的新信件（待審）；沒有為 null */
+  unlockLetter?: AttachmentView | null
 }
 
 export interface WishChanges {

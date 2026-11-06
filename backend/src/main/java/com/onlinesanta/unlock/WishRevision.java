@@ -15,9 +15,12 @@ public record WishRevision(
         @Size(max = 500, message = "興趣描述不可超過 500 字")
         String interests,
         @Size(max = 50, message = "願望說明不可超過 50 字")
-        String description) {
+        String description,
+        /** 新的信件照片（先以 WISH_LETTER_REVISION 上傳）；核准後取代原本的信件，沒有為 null */
+        java.util.UUID letterAttachmentId) {
 
     public boolean isEmpty() {
-        return childAlias == null && ageRange == null && interests == null && description == null;
+        return childAlias == null && ageRange == null && interests == null && description == null
+                && letterAttachmentId == null;
     }
 }
