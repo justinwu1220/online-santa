@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { Drawer } from './Drawer'
 
@@ -14,6 +14,18 @@ describe('Drawer（關閉的時機）', () => {
     const cancel = new Event('cancel', { cancelable: true })
     dialogEl().dispatchEvent(cancel)
     expect(cancel.defaultPrevented).toBe(true)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('在抽屜內容裡按下、移到背景才放開不會關；背景上按下並放開才關', () => {
+    const onClose = vi.fn()
+    render(<Drawer open onClose={onClose} labelledBy="t" title="標題"><p>內容</p></Drawer>)
+    fireEvent.mouseDown(screen.getByText('內容'))
+    fireEvent.click(dialogEl())
+    expect(onClose).not.toHaveBeenCalled()
+
+    fireEvent.mouseDown(dialogEl())
+    fireEvent.click(dialogEl())
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 

@@ -19,6 +19,7 @@ export function Dialog({ open, onClose, children, className = 'dialog', dismissi
   labelledBy?: string
 }) {
   const ref = useRef<HTMLDialogElement>(null)
+  const pressedInside = useRef(false)
   // 重試開啟的期間 open 可能已經變回 false：用 ref 讓 openModal 讀到最新值
   const wanted = useRef(open)
   useEffect(() => { wanted.current = open })
@@ -70,9 +71,14 @@ export function Dialog({ open, onClose, children, className = 'dialog', dismissi
         event.preventDefault()
         if (dismissible) onClose()
       }}
+      // 在內容裡按下、移到外面才放開（拖曳裁切、選取文字）時，瀏覽器會把 click 送給共同祖先 <dialog>，
+      // 不能當成「點背景」：要按下與放開都在背景才關
+      onMouseDown={(event) => { pressedInside.current = event.target !== ref.current }}
       onClick={(event) => {
+        const startedInside = pressedInside.current
+        pressedInside.current = false
         // 點到 dialog 本身（背景區域）而不是裡面的內容
-        if (dismissible && event.target === ref.current) onClose()
+        if (dismissible && !startedInside && event.target === ref.current) onClose()
       }}
     >
       {children}

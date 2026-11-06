@@ -36,6 +36,7 @@ export function Drawer({ open, onClose, tone, labelledBy, title, chip, tabs, foo
   dismissible?: boolean
 }) {
   const ref = useRef<HTMLDialogElement>(null)
+  const pressedInside = useRef(false)
   const wanted = useRef(open)
   useEffect(() => { wanted.current = open })
   useScrollLock(open)
@@ -85,8 +86,12 @@ export function Drawer({ open, onClose, tone, labelledBy, title, chip, tabs, foo
         event.preventDefault()
         if (dismissible) onClose()
       }}
+      // 在內容裡按下、移到外面才放開（選取文字）不算點背景，原因見 ui/Dialog.tsx
+      onMouseDown={(event) => { pressedInside.current = event.target !== ref.current }}
       onClick={(event) => {
-        if (dismissible && event.target === ref.current) onClose()   // 點背景關閉
+        const startedInside = pressedInside.current
+        pressedInside.current = false
+        if (dismissible && !startedInside && event.target === ref.current) onClose()   // 點背景關閉
       }}
     >
       <div className="drawer__head">

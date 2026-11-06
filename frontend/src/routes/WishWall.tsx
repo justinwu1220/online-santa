@@ -106,7 +106,7 @@ function Hero() {
           </p>
         </div>
       </div>
-      <p className="hero__sub">溫暖傳遞，讓每個願望都閃閃發光</p>
+      <p className="hero__sub">挑選一個孩子的聖誕願望，準備禮物直接寄到合作機構!</p>
     </section>
   )
 }

@@ -79,6 +79,19 @@ describe('Dialog', () => {
     expect(outer).toHaveAttribute('open')
   })
 
+  it('在內容裡按下、移到背景才放開（拖曳、選取文字）不會關；按下與放開都在背景才關', () => {
+    const onClose = vi.fn()
+    render(<Dialog open onClose={onClose}><p>內容</p></Dialog>)
+
+    fireEvent.mouseDown(screen.getByText('內容'))
+    fireEvent.click(dialogEl())   // 瀏覽器把 click 送給共同祖先 <dialog>
+    expect(onClose).not.toHaveBeenCalled()
+
+    fireEvent.mouseDown(dialogEl())
+    fireEvent.click(dialogEl())
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('點到視窗本身（背景區）才關，點裡面的內容不關', () => {
     const onClose = vi.fn()
     render(<Dialog open onClose={onClose}><p>內容</p></Dialog>)
