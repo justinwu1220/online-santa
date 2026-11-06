@@ -20,6 +20,18 @@ export interface ConsoleNavItem {
 }
 
 /**
+ * 重建內容區的圖層。反覆切換選單時，內容區的 opacity／transform 動畫被取消後，Chrome 偶爾不更新
+ * 它的命中區域：畫面正常，但整塊清單與按鈕沒有 hover、點不到（側欄正常；DOM 與樣式都沒問題）。
+ * 同步切一次 display 即可恢復，中間沒有繪製，畫面不會閃。
+ */
+function refreshHitTest(element: HTMLElement | null) {
+  if (!element) return
+  element.style.display = 'none'
+  void element.offsetHeight
+  element.style.display = ''
+}
+
+/**
  * 後台的應用程式版型（機構後台與管理員後台共用，設計稿 15.2）：
  * 隱藏網站頁首，左側整排選單（寬 260px、滿版高度），右側內容最大寬 1160px；
  * ≤860px 時選單改成頁面上方一排。
@@ -58,14 +70,19 @@ export function ConsoleShell({ appLabel, name, items, terms, banner, children }:
     }
     window.scrollTo(0, 0)
     if (reducedMotion()) return
-    main.current?.animate(
+    const enter = main.current?.animate(
       [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }],
       { duration: 300, easing: 'cubic-bezier(.22,.8,.3,1)', fill: 'backwards' })
+    // 動畫結束（或被下一次換頁取消）後重建圖層，避免命中區域卡住
+    if (enter) enter.onfinish = enter.oncancel = () => refreshHitTest(main.current)
   }, [location.pathname])
 
   // 全站保險：換頁、動畫都播完之後，清掉漏網的「維持透明」殘留動畫
   useEffect(() => {
-    const timer = window.setTimeout(releaseStrandedEffects, 1500)
+    const timer = window.setTimeout(() => {
+      releaseStrandedEffects()
+      refreshHitTest(main.current)
+    }, 1500)
     return () => window.clearTimeout(timer)
   }, [location.key])
 
