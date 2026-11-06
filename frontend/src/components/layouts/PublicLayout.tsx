@@ -90,8 +90,8 @@ function MyClaimsLink() {
   const active = claims.data?.content
     .filter((claim) => claim.status !== 'RELEASED' && claim.status !== 'CANCELLED').length ?? 0
 
-  // 機構成員沒有認領（路由只給認領者），不顯示這個連結
-  if (role === 'ORG_MEMBER') return null
+  // 機構成員與管理員沒有認領（路由只給認領者），不顯示這個連結
+  if (role === 'ORG_MEMBER' || role === 'ADMIN') return null
 
   return (
     <NavLink to="/me/claims" className="nav-link">
@@ -122,9 +122,9 @@ function AuthControls() {
     <div className="account">
       {role === 'ORG_MEMBER' && <Link to="/org" className="console-link">機構後台</Link>}
       {role === 'ADMIN' && <Link to="/admin" className="console-link">管理員後台</Link>}
-      {/* 機構成員的個人資訊在機構後台，公開頁不顯示 */}
-      {role !== 'ORG_MEMBER' && name && <span className="account__name" title={name}>{name}</span>}
-      {role !== 'ORG_MEMBER' && (
+      {/* 個人資訊只給認領者；機構成員與管理員的在各自的後台，公開頁不顯示 */}
+      {role === 'DONOR' && name && <span className="account__name" title={name}>{name}</span>}
+      {role === 'DONOR' && (
         <Link to="/me/profile" className="account__me" title={email} aria-label="個人資料">
           <User className="icon" aria-hidden />
         </Link>
