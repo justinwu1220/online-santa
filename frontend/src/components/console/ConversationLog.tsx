@@ -48,7 +48,7 @@ export function ConversationLog({ messages, counterpart, empty = '還沒有對�
 }
 
 /** 輸入框與「傳送」（Ctrl／⌘＋Enter 也能送出）。 */
-export function ConversationForm({ placeholder, busy, error, onSend, rows = 2, extra, initial = '' }: {
+export function ConversationForm({ placeholder, busy, error, onSend, rows = 2, extra, initial = '', disabled = false, notice }: {
   placeholder: string
   busy?: boolean
   error?: string | null
@@ -57,20 +57,25 @@ export function ConversationForm({ placeholder, busy, error, onSend, rows = 2, e
   /** 傳送鈕左邊的額外按鈕（團隊對話的「緊急」） */
   extra?: React.ReactNode
   initial?: string
+  /** 停用輸入與傳送（例如這筆認領被凍結或停權）；團隊對話不使用 */
+  disabled?: boolean
+  /** 輸入框上方的說明（停用的原因） */
+  notice?: React.ReactNode
 }) {
   const [text, setText] = useState(initial)
 
   async function submit() {
     const value = text.trim()
-    if (!value || busy) return
+    if (!value || busy || disabled) return
     await onSend(value)
     setText('')
   }
 
   return (
     <form className="chat-form" onSubmit={(event) => { event.preventDefault(); void submit() }}>
+      {notice && <div className="notice notice--warn" role="status" style={{ fontSize: 14 }}>{notice}</div>}
       <label className="sr-only" htmlFor="conversation-input">輸入訊息</label>
-      <textarea id="conversation-input" className="input" rows={rows} maxLength={2000} value={text}
+      <textarea id="conversation-input" className="input" rows={rows} maxLength={2000} value={text} disabled={disabled}
         placeholder={placeholder} onChange={(event) => setText(event.target.value)}
         onKeyDown={(event) => {
           if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
@@ -81,7 +86,7 @@ export function ConversationForm({ placeholder, busy, error, onSend, rows = 2, e
       {error && <span className="field__error" role="alert">{error}</span>}
       <div className={`chat-form__row${extra ? ' team-chat__row' : ''}`}>
         {extra}
-        <button type="submit" className="btn btn--sm" disabled={!text.trim() || busy}>
+        <button type="submit" className="btn btn--sm" disabled={disabled || !text.trim() || busy}>
           <Send className="icon" aria-hidden />
           傳送
         </button>

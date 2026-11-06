@@ -95,6 +95,9 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
   const existingLetter = wish?.letterPhotos?.[0]?.url
   const previewUrl = letter?.url ?? existingLetter
   const pending = organization.status !== 'APPROVED'
+  // 機構停權：存檔與送審都會被後端擋下，直接停用並說明
+  const suspended = organization.status === 'SUSPENDED'
+  const blockedTip = suspended ? '機構已停權，無法操作' : undefined
 
   const set = (key: keyof FormState) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
@@ -186,8 +189,9 @@ export function OrgWishFormDrawer({ open, wish, onClose, onSaved }: {
       title={wish ? '編輯願望' : '新增願望'}
       foot={(
         <div className="drawer__foot">
-          <button type="button" className="btn" disabled={busy} onClick={() => void save(false)}>存成草稿</button>
-          <button type="button" className="btn btn--primary" disabled={pending || busy}
+          <button type="button" className="btn" disabled={busy || suspended} title={blockedTip}
+            onClick={() => void save(false)}>存成草稿</button>
+          <button type="button" className="btn btn--primary" disabled={pending || busy} title={blockedTip}
             onClick={() => void save(true)}>提交審核</button>
         </div>
       )}>

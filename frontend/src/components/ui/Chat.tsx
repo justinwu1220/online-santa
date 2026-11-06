@@ -16,10 +16,12 @@ import { ErrorNotice, Spinner } from './Spinner'
  *
  * @param counterpart 對方的稱呼，顯示在對方訊息上方（認領者看到「機構」，機構看到「認領者」）
  */
-export function Chat({ claimId, closed, counterpart }: {
+export function Chat({ claimId, closed, counterpart, restriction }: {
   claimId: string
   closed: boolean
   counterpart: string
+  /** 這筆認領目前被凍結或停權、暫時不能傳訊：直接顯示說明並停用輸入，不等按下傳送才告知 */
+  restriction?: string
 }) {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState('')
@@ -94,12 +96,14 @@ export function Chat({ claimId, closed, counterpart }: {
           className="chat-form"
           onSubmit={(event) => { event.preventDefault(); submit() }}
         >
+          {restriction && <div className="notice notice--warn" role="status" style={{ fontSize: 14 }}>{restriction}</div>}
           <TextArea
             rows={3}
             value={draft}
             maxLength={2000}
             placeholder="輸入訊息…"
             aria-label="訊息內容"
+            disabled={Boolean(restriction)}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
@@ -110,7 +114,7 @@ export function Chat({ claimId, closed, counterpart }: {
           />
           {send.isError && <ErrorNotice error={send.error} />}
           <div className="chat-form__row">
-            <button type="submit" className="btn" disabled={!draft.trim() || send.isPending}>
+            <button type="submit" className="btn" disabled={Boolean(restriction) || !draft.trim() || send.isPending}>
               <Send className="icon" aria-hidden />
               {send.isPending ? '傳送中…' : '傳送'}
             </button>

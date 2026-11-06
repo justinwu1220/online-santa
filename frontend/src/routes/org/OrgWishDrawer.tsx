@@ -145,6 +145,9 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
   })
 
   const pending = organization.status !== 'APPROVED'
+  // 停權中：所有對願望的操作都被後端擋下，按鈕直接停用並說明（機構設定、團隊對話不受影響）
+  const suspended = organization.status === 'SUSPENDED'
+  const blockedTip = suspended ? '機構已停權，無法操作' : undefined
 
   if (!wish || !info || !actions) {
     return (
@@ -182,30 +185,37 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
         foot={active === 'chat' ? null : (
           <div className="drawer__foot">
             {actions.remove && (
-              <button type="button" className="btn btn--danger" onClick={() => setDeleting(true)}>刪除</button>
+              <button type="button" className="btn btn--danger" disabled={suspended} title={blockedTip}
+                onClick={() => setDeleting(true)}>刪除</button>
             )}
             {actions.restore && (
-              <button type="button" className="btn" disabled={restore.isPending}
+              <button type="button" className="btn" disabled={suspended || restore.isPending} title={blockedTip}
                 onClick={() => restore.mutate()}>不修改了，恢復上架</button>
             )}
-            {actions.edit && <button type="button" className="btn" onClick={() => onEdit(wish)}>編輯</button>}
+            {actions.edit && (
+              <button type="button" className="btn" disabled={suspended} title={blockedTip}
+                onClick={() => onEdit(wish)}>編輯</button>
+            )}
             {actions.beginEdit && (
-              <button type="button" className="btn btn--tone" onClick={() => setBeginningEdit(true)}>修改並重新送審</button>
+              <button type="button" className="btn btn--tone" disabled={suspended} title={blockedTip}
+                onClick={() => setBeginningEdit(true)}>修改並重新送審</button>
             )}
             {actions.submit && (
               <button type="button" className="btn btn--primary" disabled={pending || submit.isPending}
-                onClick={() => submit.mutate()}>提交審核</button>
+                title={blockedTip} onClick={() => submit.mutate()}>提交審核</button>
             )}
             {actions.withdraw && (
-              <button type="button" className="btn" disabled={withdraw.isPending}
+              <button type="button" className="btn" disabled={suspended || withdraw.isPending} title={blockedTip}
                 onClick={() => withdraw.mutate()}>撤回改為草稿</button>
             )}
             {actions.recall && (
-              <button type="button" className="btn btn--tone" onClick={() => setRecalling(true)}>收回這個願望</button>
+              <button type="button" className="btn btn--tone" disabled={suspended} title={blockedTip}
+                onClick={() => setRecalling(true)}>收回這個願望</button>
             )}
             {actions.confirm && claim && (
               <ConfirmButtons
                 confirming={confirming}
+                blockedTip={blockedTip}
                 onReport={() => {
                   onClose()
                   navigate('/org/chat', { state: { prefill: `關於「${wish.title}」（${wish.childAlias}）：收到的禮物有問題，` } })
@@ -231,6 +241,7 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
               onUnlockChanged={afterChange}
               attachments={claimAttachments.data ?? []}
               orgPending={pending}
+              blockedTip={blockedTip}
               confirming={confirming}
               onConfirmed={async () => {
                 setConfirming(false)
@@ -245,6 +256,11 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
                 className="" label="與認領者的對話" />
               {conversation.data?.canSend && (
                 <ConversationSender wishId={wish.id} donor={donor} />
+              )}
+              {!conversation.data?.canSend && claim && claim.restriction && claim.restriction !== 'NONE' && (
+                <ConversationForm placeholder={`傳訊息給 ${donor}…`} disabled
+                  notice={claim.restrictionMessage ?? '這筆認領目前被限制，暫時不能傳訊。'}
+                  onSend={() => undefined} />
               )}
             </div>
           )}
@@ -286,8 +302,10 @@ export function OrgWishDrawer({ wishId, onClose, onEdit }: {
   )
 }
 
-function ConfirmButtons({ confirming, onReport, onStart, onCancel }: {
+function ConfirmButtons({ confirming, blockedTip, onReport, onStart, onCancel }: {
   confirming: boolean
+  /** 有值就停用「確認收到」並顯示這段說明（機構停權中） */
+  blockedTip?: string
   onReport: () => void
   onStart: () => void
   onCancel: () => void
@@ -297,14 +315,16 @@ function ConfirmButtons({ confirming, onReport, onStart, onCancel }: {
     return (
       <>
         <button key="cancel" type="button" className="btn" onClick={onCancel}>取消</button>
-        <button key="confirm" type="submit" form="owConfirmForm" className="btn btn--tone-solid">確認收到，完成願望</button>
+        <button key="confirm" type="submit" form="owConfirmForm" className="btn btn--tone-solid"
+          disabled={Boolean(blockedTip)} title={blockedTip}>確認收到，完成願望</button>
       </>
     )
   }
   return (
     <>
       <button type="button" className="btn" onClick={onReport}>回報異常</button>
-      <button key="start" type="button" className="btn btn--tone-solid" onClick={onStart}>確認收到並完成</button>
+      <button key="start" type="button" className="btn btn--tone-solid" disabled={Boolean(blockedTip)}
+        title={blockedTip} onClick={onStart}>確認收到並完成</button>
     </>
   )
 }
@@ -323,7 +343,9 @@ function ConversationSender({ wishId, donor }: { wishId: string; donor: string }
 }
 
 /** 願望與寄送：狀態卡 → 確認收到區塊 → 進度 → 寄送資訊 → 孩子的願望 →（有的話）過往認領紀錄。 */
-function WishInfo({ wish, claim, past, unlock, onUnlockChanged, attachments, orgPending, confirming, onConfirmed, onAttachmentsChanged }: {
+function WishInfo({ wish, claim, past, unlock, onUnlockChanged, attachments, orgPending, confirming, onConfirmed, onAttachmentsChanged, blockedTip }: {
+  /** 機構停權中的說明；有值就停用會被後端擋下的操作 */
+  blockedTip?: string
   wish: WishOrgView
   claim?: ClaimOrgView
   unlock?: UnlockInfo
@@ -343,12 +365,12 @@ function WishInfo({ wish, claim, past, unlock, onUnlockChanged, attachments, org
 
   return (
     <>
-      <FreezeNotice wish={wish} unlock={unlock} onChanged={onUnlockChanged} />
+      <FreezeNotice wish={wish} unlock={unlock} onChanged={onUnlockChanged} blockedTip={blockedTip} />
       <StatusCard wish={wish} donor={donor} orgPending={orgPending} />
 
       {confirming && claim && (
         <ConfirmReceivedBox wish={wish} claim={claim} proofs={proofs}
-          onConfirmed={onConfirmed} onProofsChanged={onAttachmentsChanged} />
+          onConfirmed={onConfirmed} onProofsChanged={onAttachmentsChanged} blockedTip={blockedTip} />
       )}
 
       {summary && <ClaimSteps summary={summary} done={stage === 'DONE'} />}
@@ -425,10 +447,12 @@ interface UnlockInfo {
   canRevise: boolean
 }
 
-function FreezeNotice({ wish, unlock, onChanged }: {
+function FreezeNotice({ wish, unlock, onChanged, blockedTip }: {
   wish: WishOrgView
   unlock?: UnlockInfo
   onChanged: (message: string) => void | Promise<void>
+  /** 機構停權中：申請與撤回都被擋，停用按鈕並說明 */
+  blockedTip?: string
 }) {
   const toast = useToast()
   const [requesting, setRequesting] = useState(false)
@@ -457,7 +481,7 @@ function FreezeNotice({ wish, unlock, onChanged }: {
       {pending && (
         <p style={{ margin: '8px 0 0' }}>
           已送出解除凍結申請，等管理員審核。
-          <button type="button" className="link-btn" disabled={withdraw.isPending}
+          <button type="button" className="link-btn" disabled={Boolean(blockedTip) || withdraw.isPending} title={blockedTip}
             onClick={() => withdraw.mutate()}>撤回申請</button>
         </p>
       )}
@@ -466,7 +490,8 @@ function FreezeNotice({ wish, unlock, onChanged }: {
       )}
       {unlock?.canRequest && (
         <p style={{ margin: '8px 0 0' }}>
-          <button type="button" className="btn btn--tone" onClick={() => setRequesting(true)}>
+          <button type="button" className="btn btn--tone" disabled={Boolean(blockedTip)} title={blockedTip}
+            onClick={() => setRequesting(true)}>
             {unlock.canRevise ? '修改並申請解除凍結' : '申請解除凍結'}
           </button>
         </p>
@@ -573,7 +598,8 @@ function ClaimSteps({ summary, done }: {
  * 另外要有至少一張機構上傳的收件證明照片（經使用者確認保留且必填，設計稿沒有這一項）。
  * 沒完成時整個區塊輕晃並提示。
  */
-function ConfirmReceivedBox({ wish, claim, proofs, onConfirmed, onProofsChanged }: {
+function ConfirmReceivedBox({ wish, claim, proofs, onConfirmed, onProofsChanged, blockedTip }: {
+  blockedTip?: string
   wish: WishOrgView
   claim: ClaimOrgView
   proofs: AttachmentView[]
@@ -659,7 +685,7 @@ function ConfirmReceivedBox({ wish, claim, proofs, onConfirmed, onProofsChanged 
             <label className="upload__btn">
               <ImagePlus className="icon" aria-hidden />
               {uploading ? '上傳中…' : '新增照片'}
-              <input type="file" accept="image/*" disabled={uploading}
+              <input type="file" accept="image/*" disabled={uploading || Boolean(blockedTip)}
                 aria-label="收件證明照片"
                 onChange={(event) => { const f = event.target.files?.[0]; event.target.value = ''; void addProof(f) }} />
             </label>

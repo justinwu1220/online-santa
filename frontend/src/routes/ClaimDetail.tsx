@@ -17,7 +17,7 @@ import { ErrorNotice, Spinner } from '../components/ui/Spinner'
 import { Unavailable } from '../components/ui/Unavailable'
 import { useToast } from '../components/ui/toastContext'
 import {
-  AddressPanel, CancelPanel, DeadlineBar, ProgressSteps, ReceiptProofPanel, ShipSummary, StepPanel,
+  AddressPanel, CancelPanel, DeadlineBar, pauseCopy, ProgressSteps, ReceiptProofPanel, ShipSummary, StepPanel,
 } from './claim/ClaimParts'
 import { ShipForm } from './claim/ShipForm'
 
@@ -196,7 +196,8 @@ export function ClaimDetail() {
             <ReceiptProofPanel claim={data} proofs={feedbackPhotos} />
 
             <StepPanel icon={<MessageCircle className="icon" />} title="有問題就問機構">
-              <Chat claimId={id} closed={data.status === 'RELEASED' || data.status === 'CANCELLED'} counterpart={data.organizationName} />
+              <Chat claimId={id} closed={data.status === 'RELEASED' || data.status === 'CANCELLED'} counterpart={data.organizationName}
+                restriction={data.paused ? pauseCopy(data).body : undefined} />
             </StepPanel>
           </div>
 
