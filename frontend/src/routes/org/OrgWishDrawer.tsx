@@ -537,11 +537,18 @@ function StatusCard({ wish, donor, orgPending }: { wish: WishOrgView; donor: str
       desc = '通過後會自動出現在願望牆；需要再修改請先撤回改為草稿。'
       break
     case 'OPEN':
-      icon = 'spark'
-      title = '在願望牆上，等待認領'
-      desc = wish.frozen
-        ? '管理員暫時凍結了這個願望，目前不會顯示在願望牆。按「修改並重新送審」修正後，重新送審會取代凍結。'
-        : '需要調整內容請按「修改並重新送審」：願望會先從願望牆撤下，核准後才重新上架。'
+      if (wish.frozen) {
+        // 凍結中不在願望牆上，也不能修改並重新送審，只能申請解除凍結
+        icon = 'alert'
+        title = '已凍結，目前不在願望牆上'
+        desc = wish.freezeCause === 'ORG_SUSPENDED'
+          ? '貴機構目前被停權，願望暫時凍結。請到「與團隊對話」與管理員聯繫，或在「機構設定」申請解除停權。'
+          : '管理員凍結了這個願望，凍結期間無法修改並重新送審。請在下方申請解除凍結，管理員核准後才會恢復。'
+      } else {
+        icon = 'spark'
+        title = '在願望牆上，等待認領'
+        desc = '需要調整內容請按「修改並重新送審」：願望會先從願望牆撤下，核准後才重新上架。'
+      }
       break
     case 'DONE':
       icon = 'check'

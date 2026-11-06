@@ -99,7 +99,7 @@ public record WishOrgView(
                 imageUrl,
                 letterPhotos,
                 wish.isTakenDown(),
-                wish.getStatus() == WishStatus.AVAILABLE,
+                wish.getStatus() == WishStatus.AVAILABLE && !wish.isFrozen(),   // 凍結中只能申請解除，不能修改並重新送審
                 false,
                 wish.isFrozen(),
                 wish.getFrozenCause() == null ? null : wish.getFrozenCause().name(),

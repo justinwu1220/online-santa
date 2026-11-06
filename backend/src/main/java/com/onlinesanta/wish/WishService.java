@@ -37,22 +37,19 @@ public class WishService {
     private final AttachmentService attachments;
     private final WishEventService history;
     private final SystemMessageService systemMessages;
-    private final WishFreezeService freezes;
 
     public WishService(WishRepository wishes,
                        OrganizationService organizations,
                        CurrentUserService currentUser,
                        AttachmentService attachments,
                        WishEventService history,
-                       SystemMessageService systemMessages,
-                       WishFreezeService freezes) {
+                       SystemMessageService systemMessages) {
         this.wishes = wishes;
         this.organizations = organizations;
         this.currentUser = currentUser;
         this.attachments = attachments;
         this.history = history;
         this.systemMessages = systemMessages;
-        this.freezes = freezes;
     }
 
     // ---------------------------------------------------------------- 公開瀏覽
@@ -158,7 +155,12 @@ public class WishService {
             throw new BusinessRuleException("ORGANIZATION_SUSPENDED",
                     "機構已停權，無法修改願望，請與平台管理員聯繫");
         }
-        boolean wasFrozen = before.isFrozen();
+        // 凍結中不能修改並重新送審：否則機構能繞過管理員，等於自己解除凍結。
+        // 凍結的願望只能走「申請解除凍結」，由管理員核准後才解除
+        if (before.isFrozen()) {
+            throw new BusinessRuleException("WISH_FROZEN",
+                    "這個願望目前凍結中，不能修改並重新送審；請先在願望抽屜申請解除凍結");
+        }
         if (wishes.markTakenDownForEdit(id) == 0) {
             Wish now = findById(id);
             throw switch (now.getStatus()) {
@@ -172,11 +174,6 @@ public class WishService {
         Wish wish = findById(id);
         UUID actor = currentUser.require().userId();
         history.record(wish, WishEventType.TAKEN_DOWN_FOR_EDIT, actor, null, true);
-        if (wasFrozen) {
-            freezes.liftAll(id, actor);
-            history.record(wish, WishEventType.FREEZE_LIFTED_BY_RESUBMIT, actor, null, false);
-            systemMessages.freezeLiftedByEdit(id);
-        }
         return wish;
     }
 

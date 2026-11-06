@@ -139,19 +139,28 @@ class WishResubmitIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("凍結中的願望修改：下架時自動解除凍結，並留下解除紀錄")
-    void beginEditLiftsTheFreeze() throws Exception {
+    @DisplayName("凍結中的願望不能修改並重新送審（不能繞過管理員）：回 409，凍結維持，沒有下架；解除凍結後才可以")
+    void beginEditIsRefusedWhileFrozen() throws Exception {
         UUID id = publishedWish("色鉛筆");
         mvc.perform(as(withBody(post("/api/admin/wishes/{id}/freeze", id), new WishFreezeRequest("信件照片露出真實姓名")), PLATFORM_ADMIN))
                 .andExpect(status().isOk());
         assertThat(wish(id).isFrozen()).isTrue();
 
+        // 機構抽屜的資料：凍結中不能按「修改並重新送審」
+        mvc.perform(as(get("/api/organizations/me/wishes/{id}", id), ORG_USER))
+                .andExpect(jsonPath("$.wish.canBeginEdit").value(false));
         mvc.perform(as(post("/api/wishes/{id}/begin-edit", id), ORG_USER))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.frozen").value(false));
-        assertThat(wish(id).isFrozen()).isFalse();
-        assertThat(eventTypes(id)).contains(WishEventType.FROZEN, WishEventType.TAKEN_DOWN_FOR_EDIT,
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("WISH_FROZEN"));
+        assertThat(wish(id).isFrozen()).isTrue();
+        assertThat(wish(id).getStatus()).isEqualTo(WishStatus.AVAILABLE);
+        assertThat(eventTypes(id)).doesNotContain(WishEventType.TAKEN_DOWN_FOR_EDIT,
                 WishEventType.FREEZE_LIFTED_BY_RESUBMIT);
+
+        mvc.perform(as(post("/api/admin/wishes/{id}/unfreeze", id), PLATFORM_ADMIN)).andExpect(status().isOk());
+        mvc.perform(as(get("/api/organizations/me/wishes/{id}", id), ORG_USER))
+                .andExpect(jsonPath("$.wish.canBeginEdit").value(true));
+        mvc.perform(as(post("/api/wishes/{id}/begin-edit", id), ORG_USER)).andExpect(status().isOk());
     }
 
     @Test

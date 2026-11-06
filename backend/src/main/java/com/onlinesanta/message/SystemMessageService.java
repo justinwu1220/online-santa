@@ -116,12 +116,6 @@ public class SystemMessageService {
         post(wishId, null, "管理員已解除這個願望的凍結，願望已恢復顯示。");
     }
 
-    /** 凍結中的願望被機構修改並重新送審，凍結因此解除。 */
-    @Transactional
-    public void freezeLiftedByEdit(UUID wishId) {
-        post(wishId, null, "機構修改這個願望並重新送審，原本的凍結已解除；審核通過前不會顯示在願望牆。");
-    }
-
     /**
      * 機構收回認領。系統訊息只有機構看得到（認領者的對話不顯示 SYSTEM），所以這裡是留給機構的紀錄；
      * 認領者在自己的認領頁看得到結束原因，另外會收到 Email（見 ClaimRecalledNotificationListener）。
