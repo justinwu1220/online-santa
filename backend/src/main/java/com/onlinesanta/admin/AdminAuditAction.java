@@ -76,7 +76,10 @@ public enum AdminAuditAction {
     /** 查看停權當下保全的原始資訊快照。 */
     VIEW_SUSPENSION_RECORD,
 
-    /** 管理員遮蔽對話中的訊息（含個資的內容），原文保留給稽核。 */
+    /**
+     * 管理員遮蔽對話中的訊息。<strong>功能已移除</strong>：保留這個值只是為了讓既有的稽核紀錄還能載入與顯示，不會再產生新的。
+     */
+    @Deprecated
     REDACT_MESSAGE,
 
     /** 管理員刪除願望的信件照片（外洩個資處置）。 */

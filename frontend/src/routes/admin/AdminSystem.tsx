@@ -35,6 +35,7 @@ export const ACTION_LABELS: Record<AdminAuditAction, string> = {
   DECIDE_UNLOCK_REQUEST: '處理解除申請',
   NOTIFY_AFFECTED_DONORS: '通知受影響的認領者',
   VIEW_SUSPENSION_RECORD: '檢視停權處置資料',
+  /** 已移除的功能：只為了讓既有的稽核紀錄還能顯示中文名稱 */
   REDACT_MESSAGE: '遮蔽對話訊息',
   DELETE_WISH_LETTER: '刪除願望信件照片',
   RUN_RELEASE_SWEEP: '執行逾期掃描',
@@ -147,7 +148,8 @@ export function AuditPanel() {
           value={action}
           onChange={(event) => { setAction(event.target.value as AdminAuditAction | ''); setPage(0) }}>
           <option value="">全部動作</option>
-          {Object.entries(ACTION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          {Object.entries(ACTION_LABELS).filter(([value]) => value !== 'REDACT_MESSAGE')
+            .map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
       </div>
       <p className="set-sec__desc" style={{ marginTop: 6 }}>

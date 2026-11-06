@@ -77,15 +77,6 @@ public class AdminCatalogController {
         return catalog.messagesOf(id);
     }
 
-    @PostMapping("/claims/{id}/messages/{messageId}/redact")
-    @Operation(summary = "遮蔽對話中的訊息",
-            description = "含個資等內容時使用：原文保留給稽核，雙方看到「此訊息已被管理員遮蔽」；reason 必填")
-    public void redactMessage(@PathVariable UUID id, @PathVariable Long messageId,
-                              @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody
-                              com.onlinesanta.admin.dto.ReviewReasonRequest request) {
-        catalog.redactMessage(id, messageId, request.note());
-    }
-
     @GetMapping("/claims/{id}/attachments")
     @Operation(summary = "認領的附件",
             description = "含寄送證明與可能有孩童影像的回饋照片。**這個操作會寫入稽核紀錄**")

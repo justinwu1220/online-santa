@@ -53,6 +53,7 @@ describe('管理員操作紀錄的動作名稱', () => {
     render(<QueryClientProvider client={new QueryClient()}><AuditPanel /></QueryClientProvider>)
     const select = await screen.findByRole('combobox', { name: '依動作篩選' })
     expect(within(select).getByRole('option', { name: '釋出認領' })).toBeInTheDocument()
-    expect(within(select).getByRole('option', { name: '遮蔽對話訊息' })).toBeInTheDocument()
+    // 遮蔽訊息的功能已移除：不再出現在篩選，但舊的稽核紀錄仍顯示中文名稱（見 ACTION_LABELS）
+    expect(within(select).queryByRole('option', { name: '遮蔽對話訊息' })).toBeNull()
   })
 })

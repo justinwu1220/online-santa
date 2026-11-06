@@ -179,7 +179,6 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
   const detail = useAdminWish(wishId)
   const [tab, setTab] = useState('info')
   const [dialog, setDialog] = useState<'return' | 'edit' | 'rejectUnlock' | 'approveUnlock' | 'unfreeze' | 'deleteLetter' | null>(null)
-  const [redactId, setRedactId] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
 
   // 換一個願望回到第一個分頁；留住最後一筆資料，關閉動畫期間內容不會消失
@@ -288,14 +287,8 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
                         <span className="msg__who">{message.senderRole === 'ORGANIZATION' ? wish.organization.name : claim.donorDisplayName}</span>
                         <span className="msg__text">
                           {message.body}
-                          {message.redacted && <em>（已遮蔽，雙方看不到原文）</em>}
                         </span>
-                        <span className="msg__time">
-                          {formatDateTime(message.sentAt)}
-                          {!message.redacted && (
-                            <button type="button" className="link-btn" onClick={() => setRedactId(message.id)}>遮蔽</button>
-                          )}
-                        </span>
+                        <span className="msg__time">{formatDateTime(message.sentAt)}</span>
                       </div>
                     ))}
                   </div>
@@ -355,16 +348,6 @@ function WishDrawer({ wishId, onClose }: { wishId: string | null; onClose: () =>
               await invalidate()
               toast.show('已刪除信件照片')
               setDialog(null)
-            }} />
-          <ReasonDialog open={redactId !== null} onClose={() => setRedactId(null)}
-            title="遮蔽這則訊息？" body="原文會保留給稽核，機構與認領者之後看到「此訊息已被管理員遮蔽」。"
-            label="遮蔽原因" hint="例如：含個人住址" minLength={4}
-            tooShort="請寫下遮蔽原因（至少 4 個字）" okText="遮蔽"
-            onSubmit={async (reason) => {
-              if (wish.claim) await api.post(`/api/admin/claims/${wish.claim.claimId}/messages/${redactId}/redact`, { note: reason })
-              toast.show('已遮蔽這則訊息')
-              setRedactId(null)
-              setTab('info')
             }} />
         </>
       )}

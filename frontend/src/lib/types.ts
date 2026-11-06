@@ -587,8 +587,6 @@ export interface AdminMessageView {
   senderRole: AdminMessageSenderRole
   body: string
   sentAt: string
-  /** 已被管理員遮蔽：body 是原文（只有管理員看得到），雙方看到的是「已被遮蔽」 */
-  redacted?: boolean
 }
 
 // ---------------------------------------------------------------- 年度回顧

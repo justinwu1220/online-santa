@@ -303,32 +303,4 @@ class WishPrivacyLeakFlowIT extends ApiIntegrationTest {
         em.clear();
         assertThat(wishes.findById(otherWish).orElseThrow().getFrozenCause()).isEqualTo(WishFreezeCause.ADMIN_CONTENT);
     }
-
-    @Test
-    @DisplayName("遮蔽對話訊息：雙方看到已遮蔽，管理員看得到原文與遮蔽旗標，稽核不記內容")
-    void adminRedactsAMessage() throws Exception {
-        UUID claimId = leakedClaimedWish();
-        mvc.perform(as(withBody(post("/api/claims/{id}/messages", claimId), Map.of("body", "我是王小明，住在大安路")), DONOR))
-                .andExpect(status().isOk());
-        em.flush();
-        Long messageId = jdbc.queryForObject(
-                "select id from messages where claim_id = ? and kind = 'USER'", Long.class, claimId);
-
-        mvc.perform(as(withBody(post("/api/admin/claims/{id}/messages/{mid}/redact", claimId, messageId),
-                        Map.of("note", "含個人住址")), ADMIN))
-                .andExpect(status().isOk());
-        em.flush();
-        em.clear();
-
-        mvc.perform(as(get("/api/claims/{id}/messages", claimId), ORG_USER))
-                .andExpect(jsonPath("$[?(@.kind=='USER')].body").value("此訊息已被管理員遮蔽"));
-        mvc.perform(as(get("/api/claims/{id}/messages", claimId), DONOR))
-                .andExpect(jsonPath("$[?(@.kind=='USER')].body").value("此訊息已被管理員遮蔽"));
-        mvc.perform(as(get("/api/admin/claims/{id}/messages", claimId), ADMIN))
-                .andExpect(jsonPath("$[?(@.redacted==true)].body").value("我是王小明，住在大安路"));
-        assertThat(auditLogs.findAll()).anySatisfy(log -> {
-            assertThat(log.getAction()).isEqualTo(AdminAuditAction.REDACT_MESSAGE);
-            assertThat(log.getDetail()).contains("含個人住址").doesNotContain("王小明");
-        });
-    }
 }

@@ -156,25 +156,6 @@ public class AdminCatalogService {
     }
 
     /**
-     * 遮蔽對話中的一則訊息（含個資等）：原文保留給稽核，雙方之後看到「此訊息已被管理員遮蔽」。
-     * 稽核只記訊息編號與原因，不記內容。
-     */
-    @Transactional
-    public void redactMessage(UUID claimId, Long messageId, String reason) {
-        com.onlinesanta.auth.AppPrincipal admin = currentUser.requireAdmin();
-        Claim claim = claims.findWithDetailsById(claimId)
-                .orElseThrow(() -> ResourceNotFoundException.of("認領", claimId));
-        com.onlinesanta.message.Message message = messages.findById(messageId)
-                .filter(m -> claimId.equals(m.getClaimId()))
-                .orElseThrow(() -> ResourceNotFoundException.of("訊息", messageId));
-        message.redact(admin.userId(), reason.strip());
-        audit.record(AdminAuditAction.REDACT_MESSAGE, claimId,
-                "%s / %s，遮蔽訊息 #%d，原因：%s".formatted(
-                        claim.getWish().getOrganization().getName(), claim.getWish().getTitle(),
-                        messageId, reason.strip()));
-    }
-
-    /**
      * 單筆認領的附件——包含寄送證明與可能含孩童影像的回饋照片。
      *
      * <p>這是整個系統中最敏感的存取，稽核紀錄的 detail 會記下實際看到幾個檔案。
