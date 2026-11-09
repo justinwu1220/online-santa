@@ -6,6 +6,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 import com.onlinesanta.claim.Claim;
 import com.onlinesanta.claim.ClaimRepository;
+import com.onlinesanta.claim.ClaimRestriction;
 import com.onlinesanta.event.WishFrozenEvent;
 
 /** 管理員凍結／解除凍結已認領的願望 → 寄信告知認領者：暫停期間不用寄出，解除後期限順延。 */
@@ -30,6 +31,8 @@ public class WishFrozenNotificationListener {
 
     private void notify(Claim claim, boolean frozen) {
         String title = claim.getWish().getTitle();
+        // 「認領頁」要連到那一筆認領，不是網站首頁——首頁是願望牆，收信人看不到自己的認領
+        String claimUrl = properties.publicUrl() + "/me/claims/" + claim.getId();
         String subject = frozen
                 ? "您認領的「%s」暫停處理中".formatted(title)
                 : "您認領的「%s」已恢復處理".formatted(title);
@@ -38,11 +41,11 @@ public class WishFrozenNotificationListener {
                 您好，
 
                 平台正在確認您認領的「%s」的內容，暫停處理期間您不需要寄出禮物，寄送期限也會暫停計算。
-                如有疑問，歡迎在認領頁向機構詢問，或來信 onlinesanta2026@gmail.com。
+                如有疑問，歡迎在認領頁向機構詢問，或來信 %s。
                 認領頁：%s
 
                 線上聖誕老人
-                """.formatted(title, properties.publicUrl())
+                """.formatted(title, ClaimRestriction.CONTACT_EMAIL, claimUrl)
                 : """
                 您好，
 
@@ -57,7 +60,7 @@ public class WishFrozenNotificationListener {
                 """.formatted(title, claim.getWish().getChildAlias(),
                         claim.getWish().getAgeRange() == null ? "—" : claim.getWish().getAgeRange().getLabel(),
                         claim.getWish().getDescription() == null ? "—" : claim.getWish().getDescription(),
-                        properties.publicUrl());
+                        claimUrl);
         notifications.send(claim.getDonor().getEmail(), subject, body);
     }
 }

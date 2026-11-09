@@ -80,18 +80,18 @@ public class SuspensionNotificationListener {
 
                     您認領的「%s」所屬機構已被管理員暫時停權，正在積極處理中。
                     暫停處理期間您不需要寄出禮物，寄送期限也暫停計算。若有問題可聯絡：%s
-                    認領頁：%s
+                    認領頁：%s/me/claims/%s
 
                     線上聖誕老人
-                    """.formatted(title, ClaimRestriction.CONTACT_EMAIL, properties.publicUrl())
+                    """.formatted(title, ClaimRestriction.CONTACT_EMAIL, properties.publicUrl(), claim.getId())
                     : """
                     您好，
 
                     您認領的「%s」所屬機構已恢復，暫停的時間會加回寄送期限，請到認領頁確認新的期限。
-                    認領頁：%s
+                    認領頁：%s/me/claims/%s
 
                     線上聖誕老人
-                    """.formatted(title, properties.publicUrl());
+                    """.formatted(title, properties.publicUrl(), claim.getId());
             notifications.send(claim.getDonor().getEmail(), subject, body);
         });
     }
@@ -109,11 +109,11 @@ public class SuspensionNotificationListener {
                 %s
 
                 若有問題可聯絡：%s
-                認領頁：%s
+                認領頁：%s/me/claims/%s
 
                 線上聖誕老人
                 """.formatted(claim.getWish().getTitle(), claim.getWish().getOrganization().getName(),
-                        event.message(), ClaimRestriction.CONTACT_EMAIL, properties.publicUrl())));
+                        event.message(), ClaimRestriction.CONTACT_EMAIL, properties.publicUrl(), claim.getId())));
     }
 
     /** 認領者被停權或解除停權：寄信告知本人（原因、受限的範圍與聯絡信箱）。 */
