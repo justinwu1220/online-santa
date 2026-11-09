@@ -96,6 +96,10 @@ jobs:
             --max-instances=10
             --timeout=30s
             --cpu-boost
+          # 寄信相關的四個值（MAIL_HOST/MAIL_PORT/MAIL_FROM/APP_PUBLIC_URL）在對應的
+          # repository variable 沒設定時會是空字串，MailConfig 便不建立 JavaMailSender，
+          # 通知維持 no-op。一旦設了 MAIL_HOST，MailConfig 會強制其餘的值不能留預設值
+          # （否則信會從 no-reply@example.org 寄出、連結指向 localhost），啟動時就擋下來。
           env_vars: |
             SPRING_PROFILES_ACTIVE=prod
             FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
@@ -106,8 +110,17 @@ jobs:
             GCS_PRIVATE_BUCKET=${{ vars.GCS_PRIVATE_BUCKET }}
             INTERNAL_JOB_AUDIENCE=${{ vars.INTERNAL_JOB_AUDIENCE }}
             SCHEDULER_SERVICE_ACCOUNT=${{ vars.SCHEDULER_SERVICE_ACCOUNT }}
+            MAIL_HOST=${{ vars.MAIL_HOST }}
+            MAIL_PORT=${{ vars.MAIL_PORT || '587' }}
+            MAIL_FROM=${{ vars.MAIL_FROM }}
+            APP_PUBLIC_URL=${{ vars.APP_PUBLIC_URL }}
           # 資料庫連線資訊與捐贈收據的加密金鑰放 Secret Manager，不進環境變數的明文設定。
           # online-santa-receipt-key 要先建好（見 docs/DEPLOY.md 3.4），沒有它後端啟動就會失敗
+          #
+          # SES 的 SMTP 憑證建好之後，把下面兩行搬進 secrets。先不列是因為
+          # Secret Manager 裡找不到的 secret 會讓部署整個失敗，而不是降級：
+          #   MAIL_USERNAME=online-santa-mail-username:latest
+          #   MAIL_PASSWORD=online-santa-mail-password:latest
           secrets: |
             DB_URL=online-santa-db-url:latest
             DB_USERNAME=online-santa-db-username:latest
