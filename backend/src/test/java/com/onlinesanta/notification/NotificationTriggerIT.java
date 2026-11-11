@@ -462,12 +462,22 @@ class NotificationTriggerIT extends ApiIntegrationTest {
         TestTransaction.flagForCommit();
         TestTransaction.end();
 
-        awaitMailCount(1);
-        assertThat(fakeMailSender.sent()).singleElement()
-                .satisfies(mail -> assertThat(mail.getTo()).containsExactly("org-contact@example.org"));
-
-        // 這次真正 commit 過，資料不會隨測試自動回滾，明確清掉並真正 commit 這次清理
-        commitCleanupOfSetUpData();
+        try {
+            // 認領成立會寄兩封：機構的認領通知與認領者的確認信
+            awaitMailCount(2);
+            assertThat(fakeMailSender.sent()).hasSize(2);
+            assertThat(fakeMailSender.sent()).anySatisfy((SimpleMailMessage mail) ->
+                    assertThat(mail.getTo()).containsExactly("org-contact@example.org"));
+            assertThat(fakeMailSender.sent()).anySatisfy((SimpleMailMessage mail) ->
+                    assertThat(mail.getTo()).containsExactly(DONOR));
+        } finally {
+            // 這次真正 commit 過，資料不會隨測試自動回滾，明確清掉並真正 commit 這次清理。
+            //
+            // 放在 finally：斷言一旦失敗就跳過清理的話，留下的機構會讓之後每個跑 setUp()
+            // 的測試都撞上 uq_organizations_name，連別的測試類別（ClaimReleaseIT）都會
+            // 看到多出來的認領——一個失敗瞬間放大成一整串，真正的原因反而被淹沒。
+            commitCleanupOfSetUpData();
+        }
     }
 
     @Test
