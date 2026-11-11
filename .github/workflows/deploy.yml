@@ -96,6 +96,17 @@ jobs:
             --max-instances=10
             --timeout=30s
             --cpu-boost
+          # 這個 action 的 env_vars 以逗號分隔 KEY=VALUE，所以值裡若有沒跳脫的逗號，
+          # 會被當成分隔符把變數靜默截斷——部署照樣顯示成功，但服務拿到半截的值。
+          # APP_ALLOWED_ORIGINS 就這樣被截斷過一次：前端打 API 全被 CORS 擋，而
+          # Actions 從頭到尾全綠，完全看不出來。
+          #
+          # 所以 APP_ALLOWED_ORIGINS 與 APP_ADMIN_EMAILS 這兩個「逗號分隔」的變數，
+          # 要放多個值時必須在逗號前加反斜線，例如 a\,b 。action 的 README 說
+          # 「或加引號」是錯的——parseKVString 裡根本沒有處理引號的分支。
+          #
+          # 目前兩者都只有單一值，沒有這個問題。
+          #
           # 寄信相關的四個值（MAIL_HOST/MAIL_PORT/MAIL_FROM/APP_PUBLIC_URL）在對應的
           # repository variable 沒設定時會是空字串，MailConfig 便不建立 JavaMailSender，
           # 通知維持 no-op。一旦設了 MAIL_HOST，MailConfig 會強制其餘的值不能留預設值
