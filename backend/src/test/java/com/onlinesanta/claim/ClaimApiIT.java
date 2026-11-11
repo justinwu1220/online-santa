@@ -227,9 +227,11 @@ class ClaimApiIT extends ApiIntegrationTest {
         claimAs(publishedWish("願望 2"), DONOR);
         claimAs(publishedWish("願望 3"), DONOR);
 
-        mvc.perform(as(withBody(post("/api/claims/{id}/ship", first),
-                        ShipRequests.of("郵局", "R123")), DONOR))
-                .andExpect(status().isOk());
+        // 直接推進狀態，不走 ship 端點——那個端點要求先上傳寄送證明照片，而這裡
+        // 要測的只有名額怎麼算，不該被另一條規則的前置條件綁住
+        Claim shipped = claims.findById(first).orElseThrow();
+        shipped.markShipped("郵局", "R123", "禮物", 1, 500, LocalDate.now());
+        claims.save(shipped);
 
         mvc.perform(as(post("/api/wishes/{id}/claim", publishedWish("第四個")), DONOR))
                 .andExpect(status().isConflict())
