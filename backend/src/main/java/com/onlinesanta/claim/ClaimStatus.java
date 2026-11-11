@@ -35,6 +35,25 @@ public enum ClaimStatus {
     private static final Set<ClaimStatus> OCCUPYING =
             EnumSet.of(CLAIMED, SHIPPED, RECEIVED, COMPLETED);
 
+    /**
+     * 佔著<strong>捐贈者名額</strong>的狀態。
+     *
+     * <p>與 {@link #OCCUPYING} 只差一個 COMPLETED，但兩者回答的是不同的問題：
+     *
+     * <ul>
+     *   <li>「這個<strong>願望</strong>被佔著嗎」——必須含 COMPLETED。禮物已經送到，
+     *       願望不該回到願望牆讓別人再領一次，所以資料庫的
+     *       {@code uq_active_claim_per_wish} 也含它。
+     *   <li>「這個<strong>人</strong>手上還有幾筆進行中」——不該含 COMPLETED。他已經
+     *       把禮物送到了，那正是名額該釋放的時刻。
+     * </ul>
+     *
+     * <p>這兩個集合曾經共用，後果是累計完成三筆的捐贈者被<strong>永久鎖死</strong>——
+     * COMPLETED 是終端狀態，計數再也不會下降。而放著不寄被收回（RELEASED）的人反而
+     * 不受影響，等於系統懲罰了最可靠的捐贈者。所以即使只差一個值，也要分成兩個集合。
+     */
+    private static final Set<ClaimStatus> DONOR_QUOTA = EnumSet.of(CLAIMED, SHIPPED, RECEIVED);
+
     public Set<ClaimStatus> allowedNextStates() {
         return switch (this) {
             // 尚未寄出：可以寄出、被機構收回，或由捐贈者自行取消
@@ -55,9 +74,23 @@ public enum ClaimStatus {
         return OCCUPYING.contains(this);
     }
 
-    /** 佔用中的狀態集合，供查詢「進行中的認領」使用。 */
+    /**
+     * 仍佔用著<strong>願望</strong>的狀態集合，供「這個願望還能不能被認領」使用。
+     *
+     * <p>不要拿來算某個人手上有幾筆進行中——那要用 {@link #donorQuotaStates()}。
+     */
     public static Set<ClaimStatus> occupyingStates() {
         return EnumSet.copyOf(OCCUPYING);
+    }
+
+    /**
+     * 佔著捐贈者名額的狀態集合，供「每人同時進行中的認領上限」使用。
+     *
+     * <p>刻意與 {@link #occupyingStates()} 分開，理由見 {@link #DONOR_QUOTA}。
+     * 要改動時請先確認改的是哪一個問題——兩者看起來幾乎一樣，混用過一次了。
+     */
+    public static Set<ClaimStatus> donorQuotaStates() {
+        return EnumSet.copyOf(DONOR_QUOTA);
     }
 
     /**
