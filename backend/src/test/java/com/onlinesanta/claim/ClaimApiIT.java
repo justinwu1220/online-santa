@@ -41,8 +41,10 @@ class ClaimApiIT extends ApiIntegrationTest {
     private static final String OTHER_DONOR = "other-donor@example.com";
 
     @Autowired
+    OrganizationRepository organizations;
 
     @Autowired
+    UserRepository users;
 
     @Autowired
     WishRepository wishes;
