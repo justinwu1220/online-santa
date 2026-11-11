@@ -160,10 +160,12 @@ public class ClaimService {
      * 為了這種邊緣情況去鎖住使用者列，代價遠大於效益。
      */
     private void requireWithinDonorQuota(UUID donorId) {
-        long active = claims.countByDonorIdAndStatusIn(donorId, ClaimStatus.occupyingStates());
+        // donorQuotaStates() 而非 occupyingStates()：已完成的認領仍佔著那個願望，
+        // 但不該再佔著這個人的名額。兩者只差一個 COMPLETED，見 ClaimStatus 的說明。
+        long active = claims.countByDonorIdAndStatusIn(donorId, ClaimStatus.donorQuotaStates());
         if (active >= properties.maxActivePerDonor()) {
             throw new BusinessRuleException("CLAIM_QUOTA_EXCEEDED",
-                    "你目前有 %d 筆進行中的認領，已達上限 %d 筆。完成寄送後即可再認領。"
+                    "你目前有 %d 筆進行中的認領，已達上限 %d 筆。機構確認收到並完成後，名額就會釋出。"
                             .formatted(active, properties.maxActivePerDonor()));
         }
     }

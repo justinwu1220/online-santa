@@ -41,13 +41,14 @@ class ClaimApiIT extends ApiIntegrationTest {
     private static final String OTHER_DONOR = "other-donor@example.com";
 
     @Autowired
-    OrganizationRepository organizations;
 
     @Autowired
-    UserRepository users;
 
     @Autowired
     WishRepository wishes;
+
+    @Autowired
+    ClaimRepository claims;
 
     private Organization organization;
 
@@ -186,6 +187,73 @@ class ClaimApiIT extends ApiIntegrationTest {
         mvc.perform(as(post("/api/wishes/{id}/claim", publishedWish("第四個")), DONOR))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("CLAIM_QUOTA_EXCEEDED"));
+    }
+
+    /**
+     * 把一筆認領直接推進到結束狀態，不走各端點自己的驗證規則（上傳收件證明、日期檢查
+     * 等等，那些由 ClaimCompletionIT 負責）。這裡要測的只有一件事：名額怎麼算。
+     */
+    private void completeDirectly(UUID claimId) {
+        Claim claim = claims.findById(claimId).orElseThrow();
+        claim.markShipped("郵局", "R123", "禮物", 1, 500, LocalDate.now());
+        claim.markReceived(LocalDate.now());
+        claim.markCompleted();
+        claims.save(claim);
+    }
+
+    @Test
+    @DisplayName("機構確認完成後名額要釋出——曾經把 COMPLETED 算成進行中，導致完成三筆的人被永久鎖死")
+    void completedClaimFreesDonorQuota() throws Exception {
+        UUID first = claimAs(publishedWish("願望 1"), DONOR);
+        claimAs(publishedWish("願望 2"), DONOR);
+        claimAs(publishedWish("願望 3"), DONOR);
+
+        completeDirectly(first);
+
+        mvc.perform(as(post("/api/wishes/{id}/claim", publishedWish("第四個")), DONOR))
+                .andExpect(status().isCreated());
+    }
+
+    /**
+     * 名額在「機構確認完成」時釋出，不是在「認領者回報寄出」時——寄出是認領者自己
+     * 回報的，若在那時釋出，等於把解鎖的鑰匙交給被限制的人自己。
+     */
+    @Test
+    @DisplayName("只回報寄出、機構還沒確認時，名額仍然佔著")
+    void shippedButUnconfirmedClaimStillOccupiesQuota() throws Exception {
+        UUID first = claimAs(publishedWish("願望 1"), DONOR);
+        claimAs(publishedWish("願望 2"), DONOR);
+        claimAs(publishedWish("願望 3"), DONOR);
+
+        mvc.perform(as(withBody(post("/api/claims/{id}/ship", first),
+                        ShipRequests.of("郵局", "R123")), DONOR))
+                .andExpect(status().isOk());
+
+        mvc.perform(as(post("/api/wishes/{id}/claim", publishedWish("第四個")), DONOR))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("CLAIM_QUOTA_EXCEEDED"));
+    }
+
+    @Test
+    @DisplayName("認領者取消、以及機構或管理員收回後，名額都要釋出")
+    void cancelledOrReleasedClaimFreesDonorQuota() throws Exception {
+        UUID cancelled = claimAs(publishedWish("會被取消"), DONOR);
+        UUID released = claimAs(publishedWish("會被收回"), DONOR);
+        claimAs(publishedWish("留著佔名額"), DONOR);
+
+        Claim toCancel = claims.findById(cancelled).orElseThrow();
+        toCancel.cancel("改變心意");
+        claims.save(toCancel);
+
+        Claim toRelease = claims.findById(released).orElseThrow();
+        toRelease.release("機構收回");
+        claims.save(toRelease);
+
+        // 三筆只剩一筆佔著名額，所以還能再認領兩筆
+        mvc.perform(as(post("/api/wishes/{id}/claim", publishedWish("第四個")), DONOR))
+                .andExpect(status().isCreated());
+        mvc.perform(as(post("/api/wishes/{id}/claim", publishedWish("第五個")), DONOR))
+                .andExpect(status().isCreated());
     }
 
     @Test
