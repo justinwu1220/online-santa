@@ -25,6 +25,7 @@ import com.onlinesanta.event.ClaimCreatedEvent;
 import com.onlinesanta.event.FeedbackPhotoConfirmedEvent;
 import com.onlinesanta.event.NewMessageEvent;
 import com.onlinesanta.event.OrganizationReviewedEvent;
+import com.onlinesanta.event.WishReviewedEvent;
 import com.onlinesanta.message.dto.SendMessageRequest;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
@@ -43,7 +44,7 @@ import com.onlinesanta.wish.WishCategory;
 import com.onlinesanta.wish.WishRepository;
 
 /**
- * Email 通知的五種觸發時機。
+ * Email 通知的各種觸發時機。
  *
  * <p>分成三類驗證，各自對應不同的可測性考量：
  *
@@ -100,6 +101,9 @@ class NotificationTriggerIT extends ApiIntegrationTest {
 
     @Autowired
     NewMessageNotificationListener newMessageListener;
+
+    @Autowired
+    WishReviewedNotificationListener wishReviewedListener;
 
     private RecordingMailSender fakeMailSender;
     private Organization organization;
@@ -311,18 +315,72 @@ class NotificationTriggerIT extends ApiIntegrationTest {
     // ================================================================ 監聽器組出的信件內容
 
     @Test
-    @DisplayName("認領成立通知寄給機構的 contactEmail，內文含願望標題與連結")
+    @DisplayName("認領成立會寄兩封：機構收到認領通知，認領者收到確認信")
     void claimCreatedNotificationContent() throws Exception {
         UUID wishId = publishedWish("內容檢查的願望");
         UUID claimId = claimAs(wishId, DONOR);
 
         claimCreatedListener.onClaimCreated(new ClaimCreatedEvent(claimId));
-        awaitMailCount(1);
+        awaitMailCount(2);
 
-        assertThat(fakeMailSender.sent()).singleElement().satisfies(mail -> {
+        assertThat(fakeMailSender.sent()).anySatisfy((SimpleMailMessage mail) -> {
             assertThat(mail.getTo()).containsExactly("org-contact@example.org");
             assertThat(mail.getSubject()).contains("內容檢查的願望");
             assertThat(mail.getText()).contains("內容檢查的願望").contains("/org");
+        });
+    }
+
+    /**
+     * 認領者在按下認領之後、期限提醒信之前，原本收不到任何訊息——而他此刻剛承諾了
+     * 要買禮物並在期限前寄出。這封信是他唯一能回頭翻的憑據，所以期限與認領頁連結
+     * 都必須在內文裡。
+     */
+    @Test
+    @DisplayName("認領者的確認信含機構名稱、寄送期限與認領頁連結")
+    void claimCreatedNotifiesDonor() throws Exception {
+        UUID claimId = claimAs(publishedWish("確認信檢查"), DONOR);
+
+        claimCreatedListener.onClaimCreated(new ClaimCreatedEvent(claimId));
+        awaitMailCount(2);
+
+        assertThat(fakeMailSender.sent()).anySatisfy((SimpleMailMessage mail) -> {
+            assertThat(mail.getTo()).containsExactly(DONOR);
+            assertThat(mail.getSubject()).contains("您已認領").contains("確認信檢查");
+            assertThat(mail.getText())
+                    .contains(ORG_NAME)
+                    .contains("寄送期限")
+                    .contains("/me/claims/" + claimId);
+        });
+    }
+
+    @Test
+    @DisplayName("願望核准後通知機構，內文含願望標題與後台連結")
+    void wishApprovedNotificationContent() throws Exception {
+        UUID wishId = publishedWish("審核通過的願望");
+
+        wishReviewedListener.onWishReviewed(new WishReviewedEvent(wishId, true, null));
+        awaitMailCount(1);
+
+        assertThat(fakeMailSender.sent()).singleElement().satisfies((SimpleMailMessage mail) -> {
+            assertThat(mail.getTo()).containsExactly("org-contact@example.org");
+            assertThat(mail.getSubject()).contains("審核通過的願望").contains("已通過審核");
+            assertThat(mail.getText()).contains("審核通過的願望").contains("/org");
+        });
+    }
+
+    @Test
+    @DisplayName("願望退回時通知機構並附上原因")
+    void wishRejectedNotificationContent() throws Exception {
+        UUID wishId = publishedWish("被退回的願望");
+
+        wishReviewedListener.onWishReviewed(
+                new WishReviewedEvent(wishId, false, "描述含可識別的個人資訊"));
+        awaitMailCount(1);
+
+        assertThat(fakeMailSender.sent()).singleElement().satisfies((SimpleMailMessage mail) -> {
+            assertThat(mail.getTo()).containsExactly("org-contact@example.org");
+            assertThat(mail.getSubject()).contains("需要修改");
+            assertThat(mail.getText()).contains("描述含可識別的個人資訊");
         });
     }
 
