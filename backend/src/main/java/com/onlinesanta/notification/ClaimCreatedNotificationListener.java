@@ -9,7 +9,12 @@ import com.onlinesanta.claim.ClaimRepository;
 import com.onlinesanta.event.ClaimCreatedEvent;
 import com.onlinesanta.organization.Organization;
 
-/** 認領成立 → 通知機構的 contactEmail。 */
+/**
+ * 認領成立 → 兩邊都通知：機構的 contactEmail，以及認領者本人。
+ *
+ * <p>兩封信走同一個事件、同一次 {@code findWithDetailsById}，不拆成兩個監聽器——那會讓
+ * 同一筆認領被 join fetch 查兩次，而兩封信的觸發條件完全相同。
+ */
 @Component
 public class ClaimCreatedNotificationListener {
 
@@ -32,10 +37,13 @@ public class ClaimCreatedNotificationListener {
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onClaimCreated(ClaimCreatedEvent event) {
-        claims.findWithDetailsById(event.claimId()).ifPresent(this::notify);
+        claims.findWithDetailsById(event.claimId()).ifPresent(claim -> {
+            notifyOrganization(claim);
+            notifyDonor(claim);
+        });
     }
 
-    private void notify(Claim claim) {
+    private void notifyOrganization(Claim claim) {
         Organization organization = claim.getWish().getOrganization();
         String subject = "「%s」有人認領了！".formatted(claim.getWish().getTitle());
         String body = """
@@ -58,5 +66,36 @@ public class ClaimCreatedNotificationListener {
                                 ? "（無）" : claim.getDonorMessage(),
                         properties.publicUrl());
         notifications.send(organization.getContactEmail(), subject, body);
+    }
+
+    /**
+     * 認領者的確認信。
+     *
+     * <p>按下認領的當下，使用者就承諾了要在期限前買好並寄出——但在這之前他不會再收到
+     * 任何訊息，下一次是期限快到的提醒信。把期限與後續步驟寫進信裡，他才有一封可以
+     * 回頭翻的東西，而不必記得自己是在哪個網站上認領了什麼。
+     */
+    private void notifyDonor(Claim claim) {
+        String title = claim.getWish().getTitle();
+        String subject = "您已認領「%s」".formatted(title);
+        String body = """
+                您好，
+
+                感謝您認領「%s」，這份心意會送到孩子手上。
+
+                機構：%s
+                寄送期限：%s
+
+                接下來請在期限前把禮物寄出，然後回到認領頁回報寄送資訊。
+                機構收到後會上傳收件證明，屆時我們會再通知您。
+
+                認領頁：%s/me/claims/%s
+
+                線上聖誕老人
+                """.formatted(title,
+                        claim.getWish().getOrganization().getName(),
+                        NotificationFormat.dateTime(claim.getShipDeadlineAt()),
+                        properties.publicUrl(), claim.getId());
+        notifications.send(claim.getDonor().getEmail(), subject, body);
     }
 }
