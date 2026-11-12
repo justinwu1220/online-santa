@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -15,12 +14,14 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.onlinesanta.admin.dto.ProfileChangeTargetView;
 import com.onlinesanta.admin.dto.ProfileChangeView;
 import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.changelog.ProfileChangeLog;
 import com.onlinesanta.changelog.ProfileChangeLogRepository;
 import com.onlinesanta.changelog.ProfileChangeLogService;
 import com.onlinesanta.changelog.ProfileChangeSpecifications;
+import com.onlinesanta.changelog.ProfileChangeTargetSummary;
 import com.onlinesanta.changelog.ProfileChangeTargetType;
 import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.organization.Organization;
@@ -60,6 +61,23 @@ public class AdminProfileChangeQueryService {
     }
 
     /**
+     * 有異動紀錄的對象清單（沒有紀錄的不會出現）。
+     *
+     * <p>不寫稽核：這份清單只有對象名稱、次數與時間，沒有任何欄位值——與同樣會列出
+     * 信箱與真實姓名、也不寫稽核的管理員認領者清單一致。看實際改了什麼要開抽屜，
+     * 那一步才寫。這也避免了切換分頁、換頁就灌爆稽核紀錄。
+     */
+    @Transactional(readOnly = true)
+    public Page<ProfileChangeTargetView> targets(ProfileChangeTargetType targetType, int page, int size) {
+        currentUser.requireAdmin();
+
+        Page<ProfileChangeTargetSummary> found = logs.findTargets(targetType, pageRequest(page, size, null));
+        Map<UUID, String> labels = labels(targetType,
+                found.getContent().stream().map(ProfileChangeTargetSummary::targetId).collect(Collectors.toSet()));
+        return found.map(summary -> ProfileChangeTargetView.from(summary, labels.get(summary.targetId())));
+    }
+
+    /**
      * @param targetType null 代表不分對象別
      * @param targetId   null 代表不限定單一對象
      * @param from       起日（含），台灣時區
@@ -75,19 +93,27 @@ public class AdminProfileChangeQueryService {
         Instant fromAt = from == null ? null : from.atStartOfDay(TaiwanYear.ZONE).toInstant();
         Instant toAt = to == null ? null : to.plusDays(1).atStartOfDay(TaiwanYear.ZONE).toInstant();
 
-        // 排序固定在伺服器端，不吃 client 的 ?sort=：讓外部改動一份證據檢視的排序並不合理，
-        // 而且 created_at 是交易時間，少了 id 當第二鍵，分頁會跳筆
-        PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
-                Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
-
         Page<ProfileChangeLog> found = logs.findAll(
-                ProfileChangeSpecifications.forAdminList(targetType, targetId, fromAt, toAt), pageable);
+                ProfileChangeSpecifications.forAdminList(targetType, targetId, fromAt, toAt),
+                pageRequest(page, size, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))));
 
         recordAudit(targetType, targetId, from, to, found.getTotalElements());
 
         Map<UUID, String> labels = labelsFor(found.getContent());
         return found.map(log -> ProfileChangeView.from(
                 log, labels.get(log.getTargetId()), changeLog.read(log)));
+    }
+
+    /**
+     * 排序固定在伺服器端，不吃 client 的 {@code ?sort=}：讓外部改動一份證據檢視的排序並
+     * 不合理，而且 created_at 是交易時間，少了第二鍵分頁會跳筆。
+     *
+     * @param sort null 代表排序寫在查詢裡（對象清單那支）
+     */
+    private static PageRequest pageRequest(int page, int size, Sort sort) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        return sort == null ? PageRequest.of(safePage, safeSize) : PageRequest.of(safePage, safeSize, sort);
     }
 
     /**
@@ -100,17 +126,21 @@ public class AdminProfileChangeQueryService {
                         Collectors.mapping(ProfileChangeLog::getTargetId, Collectors.toSet())));
 
         Map<UUID, String> labels = new java.util.HashMap<>();
-        Set<UUID> userIds = byType.getOrDefault(ProfileChangeTargetType.USER, Set.of());
-        if (!userIds.isEmpty()) {
-            labels.putAll(users.findByIdIn(List.copyOf(userIds)).stream()
-                    .collect(Collectors.toMap(User::getId, User::getEmail, (first, second) -> first)));
-        }
-        Set<UUID> organizationIds = byType.getOrDefault(ProfileChangeTargetType.ORGANIZATION, Set.of());
-        if (!organizationIds.isEmpty()) {
-            labels.putAll(organizations.findAllById(organizationIds).stream()
-                    .collect(Collectors.toMap(Organization::getId, Organization::getName, (first, second) -> first)));
-        }
+        byType.forEach((type, ids) -> labels.putAll(labels(type, ids)));
         return labels;
+    }
+
+    /** 單一對象別的名稱批次查詢。 */
+    private Map<UUID, String> labels(ProfileChangeTargetType targetType, Set<UUID> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        if (targetType == ProfileChangeTargetType.USER) {
+            return users.findByIdIn(List.copyOf(ids)).stream()
+                    .collect(Collectors.toMap(User::getId, User::getEmail, (first, second) -> first));
+        }
+        return organizations.findAllById(ids).stream()
+                .collect(Collectors.toMap(Organization::getId, Organization::getName, (first, second) -> first));
     }
 
     /**
