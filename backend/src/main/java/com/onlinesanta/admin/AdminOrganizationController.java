@@ -47,11 +47,12 @@ public class AdminOrganizationController {
     }
 
     @GetMapping
-    @Operation(summary = "機構清單", description = "可用 status 篩選，例如只看 PENDING")
+    @Operation(summary = "機構清單",
+            description = "可用 status 篩選，例如只看 PENDING。unlockRequested 標示停權中的機構有待審的解除停權申請")
     public PageResponse<OrganizationReviewView> list(
             @RequestParam(required = false) OrganizationStatus status,
             @PageableDefault(size = 20) Pageable pageable) {
-        return PageResponse.of(review.list(status, pageable), OrganizationReviewView::from);
+        return PageResponse.of(review.list(status, pageable));
     }
 
     @PostMapping("/{id}/approve")

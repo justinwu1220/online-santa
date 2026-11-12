@@ -1,10 +1,13 @@
 package com.onlinesanta.suspension;
 
+import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.context.ApplicationEventPublisher;
@@ -171,6 +174,18 @@ public class OrganizationSuspensionService {
         teamChat.reply(organizationId, new SendMessageRequest(
                 "平台管理員退回了貴機構的解除停權申請，機構仍然停權中。原因：%s。處理後可以再次申請。".formatted(note.strip())));
         return view(pending);
+    }
+
+    /**
+     * 這些機構之中有待審解除停權申請的 id（管理員清單標示「申請解除」用）。
+     *
+     * <p>刻意只撈 id、不走 {@link #detailOf}：那支每次查看都寫一筆 VIEW_SUSPENSION_RECORD 稽核，
+     * 清單每次載入都寫稽核會把紀錄洗掉，這也正是抽屜裡要用點擊載入的原因。
+     */
+    @Transactional(readOnly = true)
+    public Set<UUID> organizationIdsWithPending(Collection<UUID> organizationIds) {
+        return organizationIds.isEmpty() ? Set.of()
+                : new HashSet<>(unlocks.findPendingTargetIds(UnlockTargetType.ORGANIZATION, organizationIds));
     }
 
     /** 管理員抽屜：停權當下保全的原始資訊、停權期間的資料修改、機構的解除申請。每次查看寫稽核。 */

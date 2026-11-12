@@ -219,6 +219,50 @@ class OrganizationSuspensionFlowIT extends ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("機構清單標示待審的解除停權申請，管理員不必開抽屜，而且不寫稽核")
+    void listMarksOrganizationsWithPendingUnlockRequest() throws Exception {
+        suspend();
+        // 還沒申請
+        mvc.perform(as(get("/api/admin/organizations").param("status", "SUSPENDED"), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(organization.getId().toString()))
+                .andExpect(jsonPath("$.content[0].unlockRequested").value(false));
+
+        // 機構送出申請 → 清單直接看得到
+        long auditBefore = auditLogs.count();
+        mvc.perform(as(withBody(post("/api/organizations/me/unlock-request"), Map.of("message", "資料已補齊")), ORG_USER))
+                .andExpect(status().isOk());
+        mvc.perform(as(get("/api/admin/organizations").param("status", "SUSPENDED"), ADMIN))
+                .andExpect(jsonPath("$.content[0].unlockRequested").value(true));
+        // 標籤是每次載入清單都會算的，絕不能像抽屜的處置資料那樣寫稽核
+        assertThat(auditLogs.count()).isEqualTo(auditBefore);
+        assertThat(auditLogs.findAll().stream()
+                .noneMatch(log -> log.getAction() == AdminAuditAction.VIEW_SUSPENSION_RECORD)).isTrue();
+
+        // 退回申請 → 標籤消失；機構再送一次 → 標籤回來
+        mvc.perform(as(withBody(post("/api/admin/organizations/{id}/unlock-request/reject", organization.getId()),
+                        Map.of("note", "還缺立案證書")), ADMIN))
+                .andExpect(status().isOk());
+        mvc.perform(as(get("/api/admin/organizations").param("status", "SUSPENDED"), ADMIN))
+                .andExpect(jsonPath("$.content[0].unlockRequested").value(false));
+        mvc.perform(as(withBody(post("/api/organizations/me/unlock-request"), Map.of("message", "已補")), ORG_USER))
+                .andExpect(status().isOk());
+        mvc.perform(as(get("/api/admin/organizations").param("status", "SUSPENDED"), ADMIN))
+                .andExpect(jsonPath("$.content[0].unlockRequested").value(true));
+
+        // 復權：申請一併結掉，機構回到已核准，標籤不該留在身上
+        em.flush();
+        em.clear();
+        mvc.perform(as(post("/api/admin/organizations/{id}/reactivate", organization.getId()), ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"))
+                .andExpect(jsonPath("$.unlockRequested").value(false));
+        mvc.perform(as(get("/api/admin/organizations").param("status", "APPROVED"), ADMIN))
+                .andExpect(jsonPath("$.content[0].id").value(organization.getId().toString()))
+                .andExpect(jsonPath("$.content[0].unlockRequested").value(false));
+    }
+
+    @Test
     @DisplayName("管理員看得到處置資料；退回申請維持停權；復權只解除機構停權的凍結，其他原因的凍結保留，期限順延")
     void adminReviewsAndReactivatesWithoutLiftingOtherFreezes() throws Exception {
         // 已認領的願望本來就因內容疑慮被凍結
