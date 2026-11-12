@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.onlinesanta.admin.dto.ProfileChangeTargetView;
 import com.onlinesanta.admin.dto.ProfileChangeView;
 import com.onlinesanta.changelog.ProfileChangeTargetType;
 import com.onlinesanta.common.PageResponse;
@@ -39,6 +40,17 @@ public class AdminProfileChangeController {
 
     public AdminProfileChangeController(AdminProfileChangeQueryService changes) {
         this.changes = changes;
+    }
+
+    @GetMapping("/profile-changes/targets")
+    @Operation(summary = "有異動紀錄的對象清單",
+            description = "依對象別列出改過資料的認領者或機構（沒有紀錄的不會出現），最近改過的在前。"
+                    + "只有名稱、次數與時間，沒有欄位值，所以不寫稽核；看實際改了什麼要查單一對象的紀錄")
+    public PageResponse<ProfileChangeTargetView> targets(
+            @RequestParam ProfileChangeTargetType targetType,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "30") int size) {
+        return PageResponse.of(changes.targets(targetType, page, size));
     }
 
     @GetMapping("/profile-changes")

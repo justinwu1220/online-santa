@@ -183,6 +183,19 @@ export type ProfileChangeTargetType = 'USER' | 'ORGANIZATION'
 /** 本人自己改／管理員代改／系統自動改／從舊表轉入的 */
 export type ProfileChangeSource = 'SELF_SERVICE' | 'ADMIN' | 'SYSTEM' | 'LEGACY'
 
+/**
+ * 「有異動紀錄的對象」清單的一列。沒有紀錄的對象不會出現。
+ * 只到次數與時間，不含欄位值——實際改了什麼要開抽屜。
+ */
+export interface ProfileChangeTargetView {
+  targetType: ProfileChangeTargetType
+  targetId: string
+  /** 認領者的信箱或機構名稱；對象已刪除時為 undefined，顯示 id */
+  label?: string
+  changeCount: number
+  lastChangedAt: string
+}
+
 /** 管理員看到的一筆個資異動紀錄。 */
 export interface ProfileChangeView {
   id: number

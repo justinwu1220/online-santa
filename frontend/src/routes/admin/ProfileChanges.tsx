@@ -1,8 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
 import { LazyBox } from '../../components/console/LazyBox'
-import { Pager } from '../../components/ui/Pager'
-import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { api, withQuery } from '../../lib/api'
 import { ORGANIZATION_FIELD_LABELS, USER_FIELD_LABELS, fieldLabel } from '../../lib/fieldLabels'
 import { formatDateTime } from '../../lib/format'
@@ -108,30 +104,6 @@ export function ProfileChangeRows({ rows, showTarget }: {
         </tbody>
       </table>
     </div>
-  )
-}
-
-/** 獨立頁用：自己查詢並分頁。 */
-export function ProfileChangeTable({ targetType, showTarget }: {
-  targetType?: ProfileChangeTargetType
-  showTarget?: boolean
-}) {
-  const [page, setPage] = useState(0)
-  const rows = useQuery({
-    queryKey: ['profile-changes', targetType ?? '', page],
-    queryFn: () => api.get<PageResponse<ProfileChangeView>>(
-      withQuery('/api/admin/profile-changes', { targetType, page, size: 30 })),
-  })
-
-  if (rows.isLoading) return <Spinner label="載入異動紀錄" />
-  if (rows.isError) return <ErrorNotice error={rows.error} onRetry={() => void rows.refetch()} />
-  if (!rows.data) return null
-
-  return (
-    <>
-      <ProfileChangeRows rows={rows.data.content} showTarget={showTarget} />
-      <Pager page={rows.data} onChange={setPage} />
-    </>
   )
 }
 
