@@ -156,9 +156,9 @@ public class AdminWishQueryService {
     }
 
     /** 機構申請裡修改的內容與目前線上內容的差異。 */
-    private static List<com.onlinesanta.wish.dto.WishChanges.FieldChange> unlockChanges(
+    private static List<com.onlinesanta.common.dto.FieldChange> unlockChanges(
             Wish wish, com.onlinesanta.unlock.WishRevision revision) {
-        List<com.onlinesanta.wish.dto.WishChanges.FieldChange> changes = new java.util.ArrayList<>();
+        List<com.onlinesanta.common.dto.FieldChange> changes = new java.util.ArrayList<>();
         if (revision == null) {
             return changes;
         }
@@ -170,10 +170,10 @@ public class AdminWishQueryService {
         return changes;
     }
 
-    private static void addChange(List<com.onlinesanta.wish.dto.WishChanges.FieldChange> changes,
+    private static void addChange(List<com.onlinesanta.common.dto.FieldChange> changes,
                                   String field, String before, String after) {
         if (after != null && !after.strip().equals(before == null ? "" : before.strip())) {
-            changes.add(new com.onlinesanta.wish.dto.WishChanges.FieldChange(field, before == null ? "" : before, after));
+            changes.add(new com.onlinesanta.common.dto.FieldChange(field, before == null ? "" : before, after));
         }
     }
 

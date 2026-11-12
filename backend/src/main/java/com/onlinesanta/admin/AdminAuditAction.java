@@ -92,7 +92,21 @@ public enum AdminAuditAction {
     RUN_ATTACHMENT_CLEANUP,
 
     /** 手動觸發寄送期限提醒排程。 */
-    RUN_DEADLINE_REMINDERS;
+    RUN_DEADLINE_REMINDERS,
+
+    /**
+     * 查看某位認領者的個資異動紀錄。
+     *
+     * <p>這類查閱會看到他人的新舊真實姓名與電話，比已經會留痕的 VIEW_CLAIM_DETAIL 更
+     * 敏感，所以查閱本身也要留痕——否則這套機制防得了機構，卻防不了內部人。
+     */
+    VIEW_USER_PROFILE_CHANGES,
+
+    /** 查看某間機構的個資異動紀錄（含地址、統編的新舊值）。 */
+    VIEW_ORGANIZATION_PROFILE_CHANGES,
+
+    /** 跨對象瀏覽個資異動紀錄（沒有指定對象）。 */
+    VIEW_PROFILE_CHANGE_LOG;
 
     public AdminAuditTargetType targetType() {
         return switch (this) {
@@ -101,13 +115,15 @@ public enum AdminAuditAction {
                     -> AdminAuditTargetType.CLAIM;
             case APPROVE_ORGANIZATION, REJECT_ORGANIZATION,
                  SUSPEND_ORGANIZATION, REACTIVATE_ORGANIZATION, VIEW_ORGANIZATION_DOCUMENTS, VIEW_ORGANIZATION_PHOTO,
-                 DELETE_ORGANIZATION_DOCUMENT, NOTIFY_AFFECTED_DONORS
+                 DELETE_ORGANIZATION_DOCUMENT, NOTIFY_AFFECTED_DONORS, VIEW_ORGANIZATION_PROFILE_CHANGES
                     -> AdminAuditTargetType.ORGANIZATION;
             case APPROVE_WISH, REJECT_WISH, FREEZE_WISH, UNFREEZE_WISH, VIEW_WISH_ATTACHMENTS, EDIT_WISH_CONTENT,
                  DECIDE_UNLOCK_REQUEST, DELETE_WISH_LETTER -> AdminAuditTargetType.WISH;
-            case SUSPEND_USER, REACTIVATE_USER, VIEW_SUSPENSION_RECORD -> AdminAuditTargetType.USER;
+            case SUSPEND_USER, REACTIVATE_USER, VIEW_SUSPENSION_RECORD, VIEW_USER_PROFILE_CHANGES
+                    -> AdminAuditTargetType.USER;
             case RELEASE_CLAIM_BY_ADMIN, REDACT_MESSAGE -> AdminAuditTargetType.CLAIM;
-            case RUN_RELEASE_SWEEP, RUN_ATTACHMENT_CLEANUP, RUN_DEADLINE_REMINDERS -> AdminAuditTargetType.SYSTEM;
+            case RUN_RELEASE_SWEEP, RUN_ATTACHMENT_CLEANUP, RUN_DEADLINE_REMINDERS,
+                 VIEW_PROFILE_CHANGE_LOG -> AdminAuditTargetType.SYSTEM;
         };
     }
 }

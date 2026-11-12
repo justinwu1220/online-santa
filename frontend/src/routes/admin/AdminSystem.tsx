@@ -41,6 +41,9 @@ export const ACTION_LABELS: Record<AdminAuditAction, string> = {
   RUN_RELEASE_SWEEP: '執行逾期掃描',
   RUN_ATTACHMENT_CLEANUP: '執行附件清理',
   RUN_DEADLINE_REMINDERS: '執行期限提醒',
+  VIEW_USER_PROFILE_CHANGES: '檢視認領者個資異動紀錄',
+  VIEW_ORGANIZATION_PROFILE_CHANGES: '檢視機構個資異動紀錄',
+  VIEW_PROFILE_CHANGE_LOG: '瀏覽個資異動紀錄',
 }
 
 /** 存取個資或改變隱私敏感內容的動作要標出來，這樣掃過一眼就知道哪幾筆值得細看。 */
@@ -49,6 +52,7 @@ const SENSITIVE: AdminAuditAction[] = [
   'VIEW_ORGANIZATION_DOCUMENTS', 'VIEW_ORGANIZATION_PHOTO', 'VIEW_WISH_ATTACHMENTS',
   'DELETE_ATTACHMENT', 'DELETE_ORGANIZATION_DOCUMENT',
   'VIEW_SUSPENSION_RECORD', 'REDACT_MESSAGE', 'EDIT_WISH_CONTENT', 'DELETE_WISH_LETTER',
+  'VIEW_USER_PROFILE_CHANGES', 'VIEW_ORGANIZATION_PROFILE_CHANGES', 'VIEW_PROFILE_CHANGE_LOG',
 ]
 
 const SCHEDULER_NOTE = '正式環境由 Cloud Scheduler 每日自動執行，走的是獨立的驗證鏈（Google OIDC token），與這裡的手動觸發是同一段邏輯。'

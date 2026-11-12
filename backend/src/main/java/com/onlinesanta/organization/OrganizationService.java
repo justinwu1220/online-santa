@@ -8,6 +8,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.onlinesanta.auth.AppPrincipal;
 import com.onlinesanta.auth.CurrentUserService;
+import com.onlinesanta.changelog.ProfileChangeActor;
+import com.onlinesanta.changelog.ProfileChangeLogService;
+import com.onlinesanta.changelog.ProfileChangeTargetType;
+import com.onlinesanta.changelog.ProfileSnapshots;
 import com.onlinesanta.common.PhoneFormat;
 import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
@@ -26,18 +30,15 @@ public class OrganizationService {
     private final CurrentUserService currentUser;
     private final TermsService terms;
     private final TeamChatService teamChat;
-    private final OrganizationRevisionRepository revisions;
-    private final com.fasterxml.jackson.databind.ObjectMapper json;
+    private final ProfileChangeLogService changeLog;
 
     public OrganizationService(OrganizationRepository organizations,
                                UserRepository users,
                                CurrentUserService currentUser,
                                TermsService terms,
                                TeamChatService teamChat,
-                               OrganizationRevisionRepository revisions,
-                               com.fasterxml.jackson.databind.ObjectMapper json) {
-        this.revisions = revisions;
-        this.json = json;
+                               ProfileChangeLogService changeLog) {
+        this.changeLog = changeLog;
         this.organizations = organizations;
         this.users = users;
         this.currentUser = currentUser;
@@ -105,7 +106,7 @@ public class OrganizationService {
             throw new BusinessRuleException("ORGANIZATION_NAME_TAKEN", "這個機構名稱已被註冊");
         }
 
-        java.util.Map<String, String> before = profileOf(organization);
+        java.util.Map<String, String> before = ProfileSnapshots.of(organization);
         organization.updateProfile(
                 request.name(),
                 request.contactPerson(),
@@ -119,47 +120,13 @@ public class OrganizationService {
         organization.updateLegalInfo(request.responsiblePerson(), request.withholdingTaxId());
         organization.updateReleasePolicy(request.releasePolicy(), request.releaseAfterDays());
 
-        // 停權期間的修改留紀錄（欄位舊→新），不覆蓋停權當下的原始快照，管理員審核解除申請時比對
-        if (organization.getStatus() == OrganizationStatus.SUSPENDED) {
-            recordRevision(organization, before);
-        }
+        // 一律留紀錄。原本只在停權期間記，代表一間已核准的機構改名稱、地址、聯絡信箱
+        // 或統編完全不留痕跡——而那正是上線後最可能發生爭議的情況。
+        // 停權抽屜要的「停權之後改了什麼」改用時間篩選，不是靠寫入時的條件。
+        changeLog.record(ProfileChangeTargetType.ORGANIZATION, organization.getId(),
+                before, ProfileSnapshots.of(organization),
+                ProfileChangeActor.selfService(currentUser.require()));
         return organization;
-    }
-
-    private static java.util.Map<String, String> profileOf(Organization organization) {
-        java.util.Map<String, String> profile = new java.util.LinkedHashMap<>();
-        profile.put("name", organization.getName());
-        profile.put("contactPerson", organization.getContactPerson());
-        profile.put("responsiblePerson", organization.getResponsiblePerson());
-        profile.put("withholdingTaxId", organization.getWithholdingTaxId());
-        profile.put("contactEmail", organization.getContactEmail());
-        profile.put("contactPhone", organization.getContactPhone());
-        profile.put("mobilePhone", organization.getMobilePhone());
-        profile.put("address", organization.getAddress());
-        profile.put("preferredDeliveryTime", organization.getPreferredDeliveryTime());
-        profile.put("description", organization.getDescription());
-        profile.put("website", organization.getWebsite());
-        return profile;
-    }
-
-    private void recordRevision(Organization organization, java.util.Map<String, String> before) {
-        java.util.Map<String, String> after = profileOf(organization);
-        java.util.Map<String, Object> changes = new java.util.LinkedHashMap<>();
-        after.forEach((field, value) -> {
-            String old = before.get(field);
-            if (!java.util.Objects.equals(old == null ? "" : old, value == null ? "" : value)) {
-                changes.put(field, java.util.Map.of("before", old == null ? "" : old, "after", value == null ? "" : value));
-            }
-        });
-        if (changes.isEmpty()) {
-            return;
-        }
-        try {
-            revisions.save(new OrganizationRevision(organization.getId(),
-                    json.writeValueAsString(changes), currentUser.require().userId()));
-        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-            throw new IllegalStateException("無法序列化機構資料修改紀錄", e);
-        }
     }
 
     /** 驗證過的電話一律存加了 dash 的格式；空白原樣保留（聯絡電話可清空）。 */

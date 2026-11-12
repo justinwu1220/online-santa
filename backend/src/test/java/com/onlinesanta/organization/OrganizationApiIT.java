@@ -16,6 +16,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.attachment.UploadStatus;
 import com.onlinesanta.attachment.dto.UploadUrlRequest;
+import com.onlinesanta.changelog.ProfileChangeLogRepository;
+import com.onlinesanta.changelog.ProfileChangeLogService;
+import com.onlinesanta.changelog.ProfileChangeSource;
+import com.onlinesanta.changelog.ProfileChangeTargetType;
+import com.onlinesanta.common.dto.FieldChange;
 import com.onlinesanta.organization.dto.OrganizationRegistrationRequest;
 import com.onlinesanta.organization.dto.OrganizationUpdateRequest;
 import com.onlinesanta.support.ApiIntegrationTest;
@@ -31,6 +36,12 @@ class OrganizationApiIT extends ApiIntegrationTest {
 
     @Autowired
     OrganizationRepository organizations;
+
+    @Autowired
+    ProfileChangeLogRepository changeLogs;
+
+    @Autowired
+    ProfileChangeLogService changeLog;
 
     private OrganizationRegistrationRequest registration(String name) {
         return new OrganizationRegistrationRequest(
@@ -475,5 +486,53 @@ class OrganizationApiIT extends ApiIntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("ATTACHMENT_NOT_DELETABLE"));
         assertThat(first).isNotEqualTo(current);
+    }
+
+    /**
+     * 以前只有停權中的機構改資料才留紀錄，一間正常的機構改名稱、地址、聯絡信箱或統編
+     * 完全不留痕跡——而那正是上線後最可能發生爭議的情況。
+     */
+    @Test
+    void recordsProfileChangesEvenWhenTheOrganizationIsNotSuspended() throws Exception {
+        mvc.perform(as(withBody(post("/api/organizations"), registration("留痕之家")), ORG_USER))
+                .andExpect(status().isCreated());
+        UUID orgId = organizations.findAll().getFirst().getId();
+        assertThat(organizations.findById(orgId).orElseThrow().getStatus())
+                .as("這間機構沒有被停權").isNotEqualTo(OrganizationStatus.SUSPENDED);
+
+        var update = new OrganizationUpdateRequest("留痕之家", "新的承辦人", "contact@example.org",
+                "02-1234-5678", "0912-345-678", "高雄市某路 2 號", "平日上午9:00-下午5:00",
+                "服務失依兒童的機構", ReleasePolicy.MANUAL, null);
+        mvc.perform(as(withBody(patch("/api/organizations/me"), update), ORG_USER))
+                .andExpect(status().isOk());
+
+        var recorded = changeLogs.findByTargetTypeAndTargetIdOrderByCreatedAtDescIdDesc(
+                ProfileChangeTargetType.ORGANIZATION, orgId);
+        assertThat(recorded).hasSize(1);
+        assertThat(recorded.getFirst().getSource()).isEqualTo(ProfileChangeSource.SELF_SERVICE);
+        assertThat(changeLog.read(recorded.getFirst()))
+                .extracting(FieldChange::field)
+                .containsExactlyInAnyOrder("contactPerson", "address");
+    }
+
+    /** releasePolicy／releaseAfterDays 以前連停權期間都不記，但它們會改變認領是否被自動收回。 */
+    @Test
+    void recordsReleasePolicyChanges() throws Exception {
+        mvc.perform(as(withBody(post("/api/organizations"), registration("收回政策之家")), ORG_USER))
+                .andExpect(status().isCreated());
+        UUID orgId = organizations.findAll().getFirst().getId();
+
+        var toAuto = new OrganizationUpdateRequest("收回政策之家", "王承辦", "contact@example.org",
+                "02-1234-5678", "0912-345-678", "台北市中正區某路 1 號", "平日上午9:00-下午5:00",
+                "服務失依兒童的機構", ReleasePolicy.AUTO, 3);
+        mvc.perform(as(withBody(patch("/api/organizations/me"), toAuto), ORG_USER))
+                .andExpect(status().isOk());
+
+        var recorded = changeLogs.findByTargetTypeAndTargetIdOrderByCreatedAtDescIdDesc(
+                ProfileChangeTargetType.ORGANIZATION, orgId);
+        assertThat(recorded).hasSize(1);
+        assertThat(changeLog.read(recorded.getFirst()))
+                .extracting(FieldChange::field)
+                .contains("releasePolicy", "releaseAfterDays");
     }
 }

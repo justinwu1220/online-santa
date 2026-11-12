@@ -4,14 +4,10 @@ import { LazyBox } from '../../components/console/LazyBox'
 import { ReasonDialog } from '../../components/console/ReasonDialog'
 import { useToast } from '../../components/ui/toastContext'
 import { api } from '../../lib/api'
+import { ORGANIZATION_FIELD_LABELS, fieldLabel } from '../../lib/fieldLabels'
 import { formatDateTime } from '../../lib/format'
 import type { SuspensionDetail } from '../../lib/types'
 import { useInvalidateAdmin } from './adminQueries'
-
-const FIELD_LABELS: Record<string, string> = {
-  name: '機構名稱', contactPerson: '承辦人', responsiblePerson: '負責人', withholdingTaxId: '扣繳單位統一編號', contactEmail: '聯絡信箱', contactPhone: '聯絡電話',
-  mobilePhone: '行動電話', address: '地址', preferredDeliveryTime: '方便收件時間', description: '簡介', website: '官網',
-}
 
 /**
  * 停權機構的處置資料（點擊載入，寫稽核）：停權原因、當下保全的原始資訊、停權期間機構修改了什麼、
@@ -45,7 +41,9 @@ export function SuspensionPanel({ orgId, orgName }: { orgId: string; orgName: st
                   {Object.entries(detail.snapshot)
                     .filter(([key]) => key !== 'documents')
                     .map(([key, value]) => (
-                      <li key={key}><strong>{FIELD_LABELS[key] ?? key}</strong>：{String(value ?? '') || '—'}</li>
+                      <li key={key}>
+                        <strong>{fieldLabel(key, ORGANIZATION_FIELD_LABELS)}</strong>：{String(value ?? '') || '—'}
+                      </li>
                     ))}
                   <li><strong>證明文件</strong>：{(detail.snapshot.documents ?? []).map((doc) => doc.fileName ?? '檔案').join('、') || '無'}</li>
                 </ul>
@@ -58,13 +56,16 @@ export function SuspensionPanel({ orgId, orgName }: { orgId: string; orgName: st
                 : detail.revisions.map((revision, index) => (
                   <div key={index} style={{ marginBottom: 8 }}>
                     <p className="auth-note">{formatDateTime(revision.at)}</p>
-                    <ul className="changes">
-                      {Object.entries(revision.changes).map(([field, change]) => (
-                        <li key={field}>
-                          <strong>{FIELD_LABELS[field] ?? field}</strong>：{change.before || '（空）'} → {change.after || '（空）'}
-                        </li>
+                    <div className="wh-changes">
+                      {revision.changes.map((change) => (
+                        <div key={change.field} className="wh-change">
+                          <strong>{fieldLabel(change.field, ORGANIZATION_FIELD_LABELS)}</strong>
+                          <span className="wh-change__old">{change.before || '（空）'}</span>
+                          <span className="wh-change__arrow" aria-hidden>→</span>
+                          <span className="wh-change__new">{change.after || '（空）'}</span>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 ))}
             </DCard>

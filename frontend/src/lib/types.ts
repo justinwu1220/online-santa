@@ -171,12 +171,21 @@ export interface AdminUserDetail {
   snapshot?: Record<string, unknown> | null
 }
 
+/** 一個欄位的變更（舊 → 新）。願望的「修改後重審」與個資異動紀錄共用。 */
+export interface FieldChange {
+  /** 願望那邊是中文標籤（後端產生）；個資異動紀錄那邊是機器欄位名，標籤查 lib/fieldLabels */
+  field: string
+  before: string
+  after: string
+}
+
 /** 管理員看停權機構的處置資料（停權當下保全的原始資訊、停權期間的修改、解除申請）。 */
 export interface SuspensionDetail {
   reason?: string | null
   suspendedAt?: string | null
   snapshot?: Record<string, unknown> & { documents?: { id: string; fileName?: string }[] } | null
-  revisions: { changes: Record<string, { before: string; after: string }>; at: string }[]
+  /** 停權之後機構改了什麼。資料源自 profile_change_logs，所以 changes 是陣列不是物件 */
+  revisions: { changes: FieldChange[]; at: string }[]
   unlockRequest?: UnlockRequestView | null
   openWishes: number
   affectedClaims: number
@@ -687,6 +696,7 @@ export type AdminAuditAction =
   | 'SUSPEND_USER' | 'REACTIVATE_USER' | 'EDIT_WISH_CONTENT' | 'RELEASE_CLAIM_BY_ADMIN'
   | 'DECIDE_UNLOCK_REQUEST' | 'NOTIFY_AFFECTED_DONORS' | 'VIEW_SUSPENSION_RECORD' | 'REDACT_MESSAGE' | 'DELETE_WISH_LETTER'
   | 'RUN_RELEASE_SWEEP' | 'RUN_ATTACHMENT_CLEANUP' | 'RUN_DEADLINE_REMINDERS'
+  | 'VIEW_USER_PROFILE_CHANGES' | 'VIEW_ORGANIZATION_PROFILE_CHANGES' | 'VIEW_PROFILE_CHANGE_LOG'
 
 export interface AuditLogView {
   id: number
