@@ -64,13 +64,17 @@
 .rd .preview-zoom:hover .thumb__zoom, .rd .preview-zoom:focus-visible .thumb__zoom { opacity: 1; }
 .rd .thumb__fail { padding: 0 8px; text-align: center; }
 
-/* 本機預覽框（信件 4:3、機構照片 3:2）裡的圖：整張可點擊 */
+/* 本機預覽框（信件 4:3、機構照片 3:2）裡的圖：整張可點擊。
+   絕對定位——每個 .preview-zoom 都必須放在有尺寸且 position: relative 的框裡
+   （.photo-preview / .letter-preview / .dletter），否則會逃到最近的定位祖先去。 */
 .rd .preview-zoom { position: absolute; inset: 0; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
 .rd .preview-zoom img { position: absolute; inset: 0; width: 100%; height: 100%; }
 .rd .photo-preview .preview-zoom img { object-fit: cover; }
 .rd .letter-preview .preview-zoom img { object-fit: contain; background: #fbf8f1; }
 .rd .dletter .preview-zoom img { object-fit: contain; background: #fbf8f1; }
 .rd .dletter { position: relative; }
+/* 解除凍結申請的信件比對：兩格並排，圓角跟著設計稿的 12px（.dletter 本身是 16px） */
+.rd .letter-compare .dletter { border-radius: 12px; }
 
 .rd .lightbox { background: #0b1220; color: #e2e8f0; }
 .rd .lightbox .letter-dialog__body img { background: #0b1220; }
