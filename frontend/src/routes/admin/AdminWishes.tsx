@@ -59,7 +59,7 @@ export function AdminWishes() {
   const [search, setSearch] = useState('')
   const [q, setQ] = useState('')
   const [year, setYear] = useState<number | undefined>()
-  // 機構篩選放在網址（?org=），機構審核抽屜的「查看這間機構的願望」與重新整理都能帶著
+  // 機構篩選放在網址（?org=），機構管理抽屜的「查看這間機構的願望」與重新整理都能帶著
   const organizationId = params.get('org') ?? undefined
   const organizations = useAdminOrganizations()
   const counts = useAdminWishCounts(organizationId)

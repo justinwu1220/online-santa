@@ -39,8 +39,9 @@ const ICON_SYSTEM = (
 )
 
 /**
- * 管理員後台的外框（設計稿 16）：左側選單「總覽、機構審核、願望、團隊對話、系統與稽核」，
- * 機構審核與願望後方顯示待審核數；另外多兩項設計稿沒有的：「團隊對話」（機構在機構後台傳來的訊息要有地方回覆）
+ * 管理員後台的外框（設計稿 16）：左側選單「總覽、機構管理、願望、團隊對話、系統與稽核」，
+ * 機構管理與願望後方顯示待審核數（機構那顆只數待審申請，停權處置不計）；另外多兩項設計稿沒有的：
+ * 「團隊對話」（機構在機構後台傳來的訊息要有地方回覆）
  * 與「年度營運」（既有功能，與機構後台的年度回顧同樣放在選單裡）。
  */
 export function AdminLayout() {
@@ -50,7 +51,7 @@ export function AdminLayout() {
 
   const items: ConsoleNavItem[] = [
     { to: '/admin', label: '總覽', icon: ICON_OVERVIEW, end: true },
-    { to: '/admin/orgs', label: '機構審核', icon: ICON_ORGS, badge: stats.data?.pendingOrganizations,
+    { to: '/admin/orgs', label: '機構管理', icon: ICON_ORGS, badge: stats.data?.pendingOrganizations,
       badgeLabel: (n) => `${n} 間待審核` },
     { to: '/admin/wishes', label: '願望', icon: ICON_WISHES, badge: wishes.data?.review,
       badgeLabel: (n) => `${n} 個待審核` },

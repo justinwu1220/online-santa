@@ -64,8 +64,9 @@ function whenLabel(org: OrganizationReviewView) {
 }
 
 /**
- * 機構審核（設計稿 16.2）：篩選（預設待審核）、列表、抽屜（機構資料／照片與文件）、
- * 核准、退回（必填原因）、停權、解除停權。照片與文件是點擊載入，載入時後端各寫一筆稽核。
+ * 機構管理（設計稿 16.2 的「機構審核」，加上停權之後不只是審核了）：篩選（預設待審核）、列表、
+ * 抽屜（機構資料／照片與文件）、核准、退回（必填原因）、停權、解除停權。
+ * 照片與文件是點擊載入，載入時後端各寫一筆稽核。
  */
 export function AdminOrganizations() {
   const [params, setParams] = useSearchParams()
@@ -75,7 +76,7 @@ export function AdminOrganizations() {
   const [openId, setOpenId] = useState<string | null>(null)
 
   useEffect(() => {
-    document.title = pageTitle('機構審核｜管理員後台')
+    document.title = pageTitle('機構管理｜管理員後台')
     return () => { document.title = pageTitle() }
   }, [])
 
@@ -106,7 +107,7 @@ export function AdminOrganizations() {
 
   return (
     <section className="org-tab" aria-labelledby="adOrgTitle">
-      <div className="org-head"><h1 id="adOrgTitle">機構審核</h1></div>
+      <div className="org-head"><h1 id="adOrgTitle">機構管理</h1></div>
 
       <div className="org-filters" role="tablist" aria-label="依審核狀態篩選">
         {FILTERS.map((item) => (

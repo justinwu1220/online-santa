@@ -6,7 +6,7 @@ import type {
 } from '../../lib/types'
 
 /**
- * 管理員後台的資料來源。機構審核與願望動作成功後一律 {@link useInvalidateAdmin}，
+ * 管理員後台的資料來源。機構管理與願望動作成功後一律 {@link useInvalidateAdmin}，
  * 清單、抽屜、篩選數量、總覽統計與選單上的待審核數就一起更新。
  */
 export function usePlatformStats() {
