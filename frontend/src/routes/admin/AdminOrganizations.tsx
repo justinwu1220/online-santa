@@ -7,6 +7,7 @@ import { Drawer } from '../../components/console/Drawer'
 import { DCard, DStatus, DrawerTabs, Kv } from '../../components/console/DrawerParts'
 import { LazyBox } from '../../components/console/LazyBox'
 import { ReasonDialog } from '../../components/console/ReasonDialog'
+import { ProfileChangeBox } from './ProfileChanges'
 import { SuspensionPanel } from './SuspensionPanel'
 import { useToast } from '../../components/ui/toastContext'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
@@ -262,6 +263,8 @@ function OrgDrawer({ org, onClose }: { org: OrganizationReviewView | null; onClo
           {tab === 'info' && current.status === 'SUSPENDED' && (
             <SuspensionPanel orgId={current.id} orgName={current.name} />
           )}
+          {/* 不限停權中的機構：一間正常機構改了什麼，正是爭議時要查的 */}
+          {tab === 'info' && <ProfileChangeBox targetType="ORGANIZATION" targetId={current.id} />}
           {tab === 'docs' && (
             <>
               <LazyBox key={`photo-${current.id}`} title="機構照片" desc="照片可能拍到孩子或機構環境。" button="載入照片"
