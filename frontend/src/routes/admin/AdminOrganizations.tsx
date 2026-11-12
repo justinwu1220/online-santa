@@ -43,6 +43,18 @@ function isResubmission(org: OrganizationReviewView) {
   return org.status === 'PENDING' && Boolean(org.reviewNote)
 }
 
+/**
+ * 停權中、而且有待審的解除停權申請——清單上標一顆「申請解除」，管理員不必把每一間都點開
+ * （抽屜裡的處置資料是點擊載入，而且每次載入都寫一筆稽核）。
+ *
+ * 後端的 `unlockRequested` 只回答「有沒有待審的解除申請」，狀態判斷留在這裡：目前沒有任何
+ * 路徑能讓非停權機構留著待審申請，但 `OrganizationReviewService` 裡那兩個沒人呼叫的
+ * suspend／reactivate 不會結掉申請，萬一被接上就會在已核准的機構上掛這顆標籤。
+ */
+function hasUnlockRequest(org: OrganizationReviewView) {
+  return org.status === 'SUSPENDED' && Boolean(org.unlockRequested)
+}
+
 /** 清單右側的日期說明：申請於／核准於／退回於／停權於。 */
 function whenLabel(org: OrganizationReviewView) {
   if (org.status === 'PENDING') return isResubmission(org) ? '修改後重新送審' : `申請於 ${formatDate(org.createdAt)}`
@@ -121,6 +133,7 @@ export function AdminOrganizations() {
               <span className="org-row__who">{whenLabel(org)}</span>
               <span className="org-row__badges">
                 {isResubmission(org) && <span className="badge badge--resubmit">重新送審</span>}
+                {hasUnlockRequest(org) && <span className="badge badge--resubmit">申請解除</span>}
               </span>
               <ChevronRight className="icon org-row__go" aria-hidden />
             </button>

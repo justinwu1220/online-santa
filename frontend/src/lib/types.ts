@@ -331,6 +331,8 @@ export interface OrganizationView {
 
 export interface OrganizationReviewView extends Omit<OrganizationView, 'canPublishWishes' | 'releasePolicy' | 'releaseAfterDays'> {
   reviewedBy?: string
+  /** 停權中的機構送出了解除停權申請，等管理員審核（清單才有，決策端點的回應一律 false） */
+  unlockRequested?: boolean
 }
 
 // ---------------------------------------------------------------- 認領

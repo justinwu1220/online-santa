@@ -1,6 +1,7 @@
 package com.onlinesanta.admin;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.context.ApplicationEventPublisher;
@@ -9,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.onlinesanta.admin.dto.OrganizationReviewView;
 import com.onlinesanta.admin.dto.ReviewDecisionRequest;
 import com.onlinesanta.admin.dto.ReviewReasonRequest;
 import com.onlinesanta.attachment.AttachmentService;
@@ -21,6 +23,7 @@ import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.organization.OrganizationService;
 import com.onlinesanta.organization.OrganizationStatus;
+import com.onlinesanta.suspension.OrganizationSuspensionService;
 
 /**
  * 平台管理員的機構審核。
@@ -36,26 +39,39 @@ public class OrganizationReviewService {
     private final AdminAuditService audit;
     private final ApplicationEventPublisher eventPublisher;
     private final AttachmentService attachments;
+    private final OrganizationSuspensionService suspensions;
 
     public OrganizationReviewService(OrganizationRepository organizations,
                                      OrganizationService organizationService,
                                      CurrentUserService currentUser,
                                      AdminAuditService audit,
                                      ApplicationEventPublisher eventPublisher,
-                                     AttachmentService attachments) {
+                                     AttachmentService attachments,
+                                     OrganizationSuspensionService suspensions) {
         this.organizations = organizations;
         this.organizationService = organizationService;
         this.currentUser = currentUser;
         this.audit = audit;
         this.eventPublisher = eventPublisher;
         this.attachments = attachments;
+        this.suspensions = suspensions;
     }
 
+    /**
+     * 機構清單。待審的解除停權申請一次批次撈（不逐列查），讓清單直接標示「申請解除」，
+     * 管理員不必把每一間都點開才知道有沒有待辦。
+     *
+     * <p>沒有 requireAdmin()：靠控制器的 @PreAuthorize 與 SecurityConfig 保護。這條路徑
+     * 既不需要管理員的 userId 也不寫稽核，維持原樣。
+     */
     @Transactional(readOnly = true)
-    public Page<Organization> list(OrganizationStatus status, Pageable pageable) {
-        return status == null
+    public Page<OrganizationReviewView> list(OrganizationStatus status, Pageable pageable) {
+        Page<Organization> page = status == null
                 ? organizations.findAll(pageable)
                 : organizations.findByStatusOrderByCreatedAtAsc(status, pageable);
+        Set<UUID> unlockIds = suspensions.organizationIdsWithPending(
+                page.getContent().stream().map(Organization::getId).toList());
+        return page.map(org -> OrganizationReviewView.from(org, unlockIds.contains(org.getId())));
     }
 
     @Transactional
