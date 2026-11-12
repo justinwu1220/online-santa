@@ -5,8 +5,10 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-public interface ProfileChangeLogRepository extends JpaRepository<ProfileChangeLog, Long> {
+public interface ProfileChangeLogRepository
+        extends JpaRepository<ProfileChangeLog, Long>, JpaSpecificationExecutor<ProfileChangeLog> {
 
     /**
      * 某個對象的異動紀錄，新的在前。

@@ -179,6 +179,26 @@ export interface FieldChange {
   after: string
 }
 
+export type ProfileChangeTargetType = 'USER' | 'ORGANIZATION'
+/** 本人自己改／管理員代改／系統自動改／從舊表轉入的 */
+export type ProfileChangeSource = 'SELF_SERVICE' | 'ADMIN' | 'SYSTEM' | 'LEGACY'
+
+/** 管理員看到的一筆個資異動紀錄。 */
+export interface ProfileChangeView {
+  id: number
+  targetType: ProfileChangeTargetType
+  targetId: string
+  /** 認領者的信箱或機構名稱；對象已刪除時為 undefined，顯示 id */
+  targetLabel?: string
+  changes: FieldChange[]
+  actorUserId?: string
+  /** 操作者在「異動當下」的信箱，不是現在查出來的 */
+  actorEmail?: string
+  actorRole?: 'DONOR' | 'ORG_MEMBER' | 'ADMIN'
+  source: ProfileChangeSource
+  occurredAt: string
+}
+
 /** 管理員看停權機構的處置資料（停權當下保全的原始資訊、停權期間的修改、解除申請）。 */
 export interface SuspensionDetail {
   reason?: string | null
