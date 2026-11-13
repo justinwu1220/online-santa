@@ -1,0 +1,17 @@
+# https://onlinesanta.org/robots.txt
+
+User-agent: *
+Allow: /
+
+# 後台與個人頁面都要登入才看得到東西，但這是 SPA——對爬蟲一律回 200 的 index.html，
+# 不擋的話會白白消耗抓取預算去抓一堆一模一樣的空殼
+Disallow: /admin/
+Disallow: /org/
+Disallow: /me/
+Disallow: /login
+
+# 願望詳情頁（/wishes/）刻意不列在這裡。
+# 它要的是「不進索引」而不是「不要抓」，那靠的是 X-Robots-Tag: noindex（見 firebase.json），
+# 而爬蟲必須抓得到那一頁才讀得到那個標頭——寫成 Disallow 會讓兩者互相抵消。
+
+Sitemap: https://onlinesanta.org/sitemap.xml
