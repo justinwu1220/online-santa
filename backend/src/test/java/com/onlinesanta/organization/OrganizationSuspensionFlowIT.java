@@ -185,10 +185,13 @@ class OrganizationSuspensionFlowIT extends ApiIntegrationTest {
         mvc.perform(as(withBody(patch("/api/organizations/me"), updateRequest("新的承辦人")), ORG_USER))
                 .andExpect(status().isOk());
 
-        // 修改被記成修訂（欄位舊→新），不覆蓋停權當下的快照
+        // 修改被記成異動紀錄（欄位舊→新），不覆蓋停權當下的快照。
+        // 資料改寫到 profile_change_logs（機構的修改現在一律記錄，不再只有停權期間），
+        // 所以取最近一筆——這個機構在這個測試裡可能不只改過一次
         em.flush();
         assertThat(jdbc.queryForObject(
-                "select changes from organization_revisions where organization_id = ?", String.class, organization.getId()))
+                "select changes from profile_change_logs where target_type = 'ORGANIZATION' and target_id = ? "
+                        + "order by id desc limit 1", String.class, organization.getId()))
                 .contains("contactPerson").contains("王承辦").contains("新的承辦人");
         assertThat(jdbc.queryForObject(
                 "select snapshot from suspension_records where target_id = ?", String.class, organization.getId()))
