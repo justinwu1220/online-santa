@@ -156,14 +156,14 @@ jobs:
             MAIL_SUBJECT_PREFIX=${{ env.MAIL_SUBJECT_PREFIX }}
             APP_PUBLIC_URL=${{ env.APP_PUBLIC_URL }}
           # 資料庫、收據加密金鑰、登入 token 簽章密鑰放 Secret Manager。這三組在兩個環境各自獨立
-          # （名稱帶 SECRET_SUFFIX）：測試站簽的 token 絕不能在正式站有效，測試站的資料庫也不能是
+          # （名稱是 online-santa<SECRET_SUFFIX>-xxx：正式站後綴為空，測試站為 -staging）：測試站簽的 token 絕不能在正式站有效，測試站的資料庫也不能是
           # 正式庫。寄信帳密（Resend）是兩個環境共用的，不帶後綴。
           secrets: |
-            DB_URL=online-santa-db-url${{ env.SECRET_SUFFIX }}:latest
-            DB_USERNAME=online-santa-db-username${{ env.SECRET_SUFFIX }}:latest
-            DB_PASSWORD=online-santa-db-password${{ env.SECRET_SUFFIX }}:latest
-            RECEIPT_ENCRYPTION_KEY=online-santa-receipt-key${{ env.SECRET_SUFFIX }}:latest
-            APP_AUTH_JWT_SECRET=online-santa-auth-jwt-secret${{ env.SECRET_SUFFIX }}:latest
+            DB_URL=online-santa${{ env.SECRET_SUFFIX }}-db-url:latest
+            DB_USERNAME=online-santa${{ env.SECRET_SUFFIX }}-db-username:latest
+            DB_PASSWORD=online-santa${{ env.SECRET_SUFFIX }}-db-password:latest
+            RECEIPT_ENCRYPTION_KEY=online-santa${{ env.SECRET_SUFFIX }}-receipt-key:latest
+            APP_AUTH_JWT_SECRET=online-santa${{ env.SECRET_SUFFIX }}-auth-jwt-secret:latest
             MAIL_USERNAME=online-santa-mail-username:latest
             MAIL_PASSWORD=online-santa-mail-password:latest
 
