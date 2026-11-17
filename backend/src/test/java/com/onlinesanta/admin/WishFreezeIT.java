@@ -65,10 +65,10 @@ class WishFreezeIT extends ApiIntegrationTest {
         organization = Organization.register("凍結測試機構", "王承辦", "contact@example.org", null, null, null);
         organization.approve(null, "測試資料");
         organizations.save(organization);
-        User member = User.newDonor(TestJwtSupport.uidFor(ORG_USER), ORG_USER, ORG_USER);
+        User member = User.newDonor(ORG_USER, ORG_USER);
         member.joinOrganization(organization.getId());
         users.save(member);
-        users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "熱心民眾"));
+        users.save(User.newDonor(DONOR, "熱心民眾"));
     }
 
     private UUID publishedWish(String title) {

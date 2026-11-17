@@ -26,8 +26,8 @@ app:
       - image/webp
     local-storage-dir: ./target/test-storage
   auth:
-    # 測試用的 Firebase 專案 ID，須與 TestJwtSupport 簽出的 token 一致
-    firebase-project-id: online-santa-test
+    # 須與 TestJwtSupport 簽 token 用的密鑰一致
+    jwt-secret: test-only-secret-for-integration-tests-0123456789abcdef
     admin-emails: platform-admin@example.com
     allowed-origins: http://localhost:5173
 

@@ -3,6 +3,7 @@ package com.onlinesanta.support;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,8 @@ import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.attachment.AttachmentRepository;
 import com.onlinesanta.attachment.dto.UploadUrlRequest;
 import com.onlinesanta.storage.ObjectStorage;
+import com.onlinesanta.user.User;
+import com.onlinesanta.user.UserRepository;
 
 /**
  * HTTP 層整合測試的基底。
@@ -41,6 +44,9 @@ public abstract class ApiIntegrationTest extends PostgresIntegrationTest {
 
     @Autowired
     protected AttachmentRepository attachmentRepository;
+
+    @Autowired
+    private UserRepository authUsers;
 
     /**
      * 直接寫入一份已確認的機構證明文件。給沒有機構成員、無法走上傳流程的測試機構用
@@ -91,17 +97,33 @@ public abstract class ApiIntegrationTest extends PostgresIntegrationTest {
     /**
      * 以指定的 email 作為操作者發送請求。
      *
-     * <p>帶的是真正簽章過的 ID token，會完整走過解碼、驗證與身分轉換的流程。
+     * <p>帶的是真正簽章過的 access token，會完整走過解碼、驗證與身分轉換的流程。
+     * 這個信箱還沒有帳號就先建一個，並確保信箱是「已驗證」——大部分測試要測的不是信箱驗證。
      */
     protected MockHttpServletRequestBuilder as(MockHttpServletRequestBuilder builder, String email) {
-        return builder.header("Authorization", "Bearer " + TestJwtSupport.tokenFor(email));
+        return builder.header("Authorization", "Bearer " + tokenFor(email, true));
     }
 
-    /** 以「信箱尚未驗證」的身分發送請求——對應密碼註冊但還沒點驗證信的使用者。 */
+    /** 以「信箱尚未驗證」的身分發送請求——對應註冊後還沒輸入驗證碼的使用者。 */
     protected MockHttpServletRequestBuilder asUnverified(
             MockHttpServletRequestBuilder builder, String email) {
-        return builder.header("Authorization",
-                "Bearer " + TestJwtSupport.unverifiedTokenFor(email));
+        return builder.header("Authorization", "Bearer " + tokenFor(email, false));
+    }
+
+    /**
+     * 取得（必要時建立）這個信箱的帳號，把信箱驗證狀態設成指定值，簽出它的 access token。
+     * 驗證狀態一律以資料庫為準，所以要在請求之前就寫好。
+     */
+    protected String tokenFor(String email, boolean emailVerified) {
+        User user = authUsers.findByEmailIgnoreCase(email)
+                .orElseGet(() -> authUsers.save(User.newDonor(email, email)));
+        if (emailVerified) {
+            user.markEmailVerified(Instant.now());
+        } else {
+            user.markEmailUnverified();
+        }
+        authUsers.saveAndFlush(user);
+        return TestJwtSupport.tokenFor(user.getId());
     }
 
     protected MockHttpServletRequestBuilder withBody(MockHttpServletRequestBuilder builder,

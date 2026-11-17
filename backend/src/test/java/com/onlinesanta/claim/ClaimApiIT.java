@@ -58,8 +58,8 @@ class ClaimApiIT extends ApiIntegrationTest {
     void setUp() {
         organization = approvedOrganization("送禮之家", ORG_USER);
         approvedOrganization("別家機構", OTHER_ORG_USER);
-        users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "熱心民眾"));
-        users.save(User.newDonor(TestJwtSupport.uidFor(OTHER_DONOR), OTHER_DONOR, "另一位民眾"));
+        users.save(User.newDonor(DONOR, "熱心民眾"));
+        users.save(User.newDonor(OTHER_DONOR, "另一位民眾"));
     }
 
     private Organization approvedOrganization(String name, String memberEmail) {
@@ -70,7 +70,7 @@ class ClaimApiIT extends ApiIntegrationTest {
         org.approve(null, "測試資料");
         organizations.save(org);
 
-        User member = User.newDonor(TestJwtSupport.uidFor(memberEmail), memberEmail, memberEmail);
+        User member = User.newDonor(memberEmail, memberEmail);
         member.joinOrganization(org.getId());
         users.save(member);
         return org;

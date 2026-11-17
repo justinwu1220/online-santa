@@ -34,7 +34,7 @@ public class MeController {
 
     @GetMapping
     @Operation(summary = "取得自己的身分與角色",
-            description = "首次呼叫會依 Firebase ID token 就地建立本地帳號")
+            description = "需帶 access token；回傳角色、信箱是否驗證與停權狀態")
     public CurrentUserView me() {
         AppPrincipal principal = currentUser.require();
         String reason = principal.suspended()

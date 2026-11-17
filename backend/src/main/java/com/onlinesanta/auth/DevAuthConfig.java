@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Profile;
 public class DevAuthConfig {
 
     @Bean
-    DevPrincipalFilter devPrincipalFilter(UserProvisioningService provisioning) {
-        return new DevPrincipalFilter(provisioning);
+    DevPrincipalFilter devPrincipalFilter(UserAuthenticationService authentication) {
+        return new DevPrincipalFilter(authentication);
     }
 }

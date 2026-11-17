@@ -55,8 +55,8 @@ class TermsApiIT extends ApiIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        donorId = users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "熱心民眾")).getId();
-        users.save(User.newDonor(TestJwtSupport.uidFor(OTHER), OTHER, "另一位"));
+        donorId = users.save(User.newDonor(DONOR, "熱心民眾")).getId();
+        users.save(User.newDonor(OTHER, "另一位"));
     }
 
     private Map<String, String> body(String version) {

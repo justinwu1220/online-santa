@@ -68,7 +68,7 @@ class ClaimCompletionIT extends ApiIntegrationTest {
     void setUp() {
         organization = organization("確認收到之家", ORG_USER, ReleasePolicy.MANUAL, null);
         autoOrganization = organization("寬限天數之家", AUTO_ORG_USER, ReleasePolicy.AUTO, 3);
-        users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "熱心民眾"));
+        users.save(User.newDonor(DONOR, "熱心民眾"));
     }
 
     private Organization organization(String name, String memberEmail, ReleasePolicy policy, Integer days) {
@@ -76,7 +76,7 @@ class ClaimCompletionIT extends ApiIntegrationTest {
         org.approve(null, "測試資料");
         org.updateReleasePolicy(policy, days);
         organizations.save(org);
-        User member = User.newDonor(TestJwtSupport.uidFor(memberEmail), memberEmail, memberEmail);
+        User member = User.newDonor(memberEmail, memberEmail);
         member.joinOrganization(org.getId());
         users.save(member);
         return org;

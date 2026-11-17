@@ -16,15 +16,14 @@ class MeProfileApiIT extends ApiIntegrationTest {
     private static final String USER = "donor@example.com";
 
     @Test
-    void getsOwnProfileWithJitFallbackDisplayName() throws Exception {
-        // 觸發 JIT provisioning，此時還沒有人填過 displayName
+    void getsOwnProfile() throws Exception {
+        // 測試輔助方法為這個信箱建立帳號（displayName 預設是信箱），此時還沒有人填過其他資料
         mvc.perform(as(get("/api/me"), USER)).andExpect(status().isOk());
 
         mvc.perform(as(get("/api/me/profile"), USER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value(USER))
-                // JIT 建立時沒有 displayName 會 fallback 成 email——這裡照實顯示，
-                // 不是這個端點自己做的事
+                // 這個端點照實顯示資料庫裡的值，不自己加工
                 .andExpect(jsonPath("$.displayName").value(USER))
                 .andExpect(jsonPath("$.emailVerified").value(true))
                 .andExpect(jsonPath("$.name").doesNotExist())

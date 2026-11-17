@@ -4,7 +4,6 @@ import java.util.Arrays;
 
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 import jakarta.annotation.PostConstruct;
 
@@ -39,12 +38,13 @@ public class AuthConfigurationGuard {
                             + " 目前啟用的 profile：" + Arrays.toString(environment.getActiveProfiles()));
         }
 
-        // 沒有專案 ID 就推導不出 issuer 與 audience，所有 ID token 都會驗證失敗。
-        // dev-auth 環境可以只靠標頭運作，因此不強制。
-        if (!devAuth && !StringUtils.hasText(properties.firebaseProjectId())) {
+        // 沒有（或太短的）密鑰，access token 要嘛簽不出來、要嘛可以被猜出來偽造。
+        // dev-auth 環境可以只靠標頭運作，AccessTokenService 會自己產生一把暫時的，因此不強制。
+        if (!devAuth && !properties.hasUsableSecret()) {
             throw new IllegalStateException(
-                    "未設定 app.auth.firebase-project-id（環境變數 FIREBASE_PROJECT_ID），"
-                            + "將無法驗證任何 Firebase ID token");
+                    "未設定 app.auth.jwt-secret（環境變數 APP_AUTH_JWT_SECRET），或長度不足 %d 個字元，"
+                            .formatted(AuthProperties.MIN_SECRET_LENGTH)
+                            + "無法安全地簽發登入用的 token");
         }
     }
 }

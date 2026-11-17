@@ -67,11 +67,11 @@ class UserSuspensionIT extends ApiIntegrationTest {
         organization = Organization.register("認領者違規測試機構", "王承辦", "contact@example.org", null, null, null);
         organization.approve(null, "測試資料");
         organizations.save(organization);
-        User member = User.newDonor(TestJwtSupport.uidFor(ORG_USER), ORG_USER, ORG_USER);
+        User member = User.newDonor(ORG_USER, ORG_USER);
         member.joinOrganization(organization.getId());
         users.save(member);
-        donorId = users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "違規的民眾")).getId();
-        users.save(User.newDonor(TestJwtSupport.uidFor(BYSTANDER), BYSTANDER, "路過的民眾"));
+        donorId = users.save(User.newDonor(DONOR, "違規的民眾")).getId();
+        users.save(User.newDonor(BYSTANDER, "路過的民眾"));
 
         unshippedWish = publishedWish("還沒寄的");
         shippedWish = publishedWish("已經寄的");

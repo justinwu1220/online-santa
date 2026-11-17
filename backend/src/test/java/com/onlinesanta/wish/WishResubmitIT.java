@@ -60,10 +60,10 @@ class WishResubmitIT extends ApiIntegrationTest {
         organization = Organization.register("重審測試機構", "王承辦", "contact@example.org", null, "0912-345-678", "台中市測試路 1 號");
         organization.approve(null, "測試資料");
         organizations.save(organization);
-        User member = User.newDonor(TestJwtSupport.uidFor(ORG_USER), ORG_USER, ORG_USER);
+        User member = User.newDonor(ORG_USER, ORG_USER);
         member.joinOrganization(organization.getId());
         users.save(member);
-        users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "熱心民眾"));
+        users.save(User.newDonor(DONOR, "熱心民眾"));
     }
 
     private WishRequest request(String title, String nick) {

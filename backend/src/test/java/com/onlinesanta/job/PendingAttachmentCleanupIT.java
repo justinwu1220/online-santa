@@ -79,7 +79,7 @@ class PendingAttachmentCleanupIT extends ApiIntegrationTest {
         organization.approve(null, "測試資料");
         organizations.save(organization);
 
-        User member = User.newDonor(TestJwtSupport.uidFor(ORG_USER), ORG_USER, ORG_USER);
+        User member = User.newDonor(ORG_USER, ORG_USER);
         member.joinOrganization(organization.getId());
         users.save(member);
     }

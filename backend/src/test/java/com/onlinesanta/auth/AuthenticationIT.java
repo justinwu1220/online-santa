@@ -8,17 +8,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Map;
+import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.onlinesanta.support.ApiIntegrationTest;
 import com.onlinesanta.support.TestJwtSupport;
+import com.onlinesanta.user.User;
 import com.onlinesanta.user.UserRepository;
 import com.onlinesanta.user.UserRole;
 
-@DisplayName("Firebase ID token 驗證")
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
+@DisplayName("access token 驗證")
 class AuthenticationIT extends ApiIntegrationTest {
 
     private static final String DONOR = "newcomer@example.com";
@@ -26,6 +33,18 @@ class AuthenticationIT extends ApiIntegrationTest {
 
     @Autowired
     UserRepository users;
+
+    @Autowired
+    JdbcTemplate jdbc;
+
+    @PersistenceContext
+    EntityManager em;
+
+    private User newUser(String email) {
+        User user = User.newDonor(email, email);
+        user.markEmailVerified(Instant.now());
+        return users.save(user);
+    }
 
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder
             withToken(String token) {
@@ -55,31 +74,40 @@ class AuthenticationIT extends ApiIntegrationTest {
     @Test
     @DisplayName("別人簽的 token 會被拒絕")
     void rejectsTokenSignedByAnotherKey() throws Exception {
-        mvc.perform(withToken(TestJwtSupport.tokenSignedByStranger(DONOR)))
+        mvc.perform(withToken(TestJwtSupport.tokenSignedByStranger(newUser(DONOR).getId())))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     @DisplayName("過期的 token 會被拒絕")
     void rejectsExpiredToken() throws Exception {
-        String expired = TestJwtSupport.tokenFor(DONOR, DONOR,
-                TestJwtSupport.ISSUER, TestJwtSupport.PROJECT_ID,
-                Instant.now().minus(1, ChronoUnit.HOURS));
+        String expired = TestJwtSupport.tokenFor(newUser(DONOR).getId(),
+                TestJwtSupport.ISSUER, Instant.now().minus(1, ChronoUnit.HOURS));
 
         mvc.perform(withToken(expired)).andExpect(status().isUnauthorized());
     }
 
     @Test
-    @DisplayName("其他 Firebase 專案簽的 token 會被拒絕")
-    void rejectsTokenFromAnotherFirebaseProject() throws Exception {
-        // Firebase 全域共用同一組簽章金鑰，因此 audience 檢查是必要的：
-        // 少了它，任何人開一個自己的 Firebase 專案就能簽出我們會接受的 token
-        String foreign = TestJwtSupport.tokenFor(DONOR, DONOR,
-                "https://securetoken.google.com/someone-elses-project",
-                "someone-elses-project",
-                Instant.now().plus(1, ChronoUnit.HOURS));
+    @DisplayName("別的簽發者的 token 會被拒絕")
+    void rejectsTokenFromAnotherIssuer() throws Exception {
+        String foreign = TestJwtSupport.tokenFor(newUser(DONOR).getId(),
+                "someone-else", Instant.now().plus(1, ChronoUnit.HOURS));
 
         mvc.perform(withToken(foreign)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("sub 不是使用者 id 的 token 會被拒絕")
+    void rejectsTokenWhoseSubjectIsNotAUserId() throws Exception {
+        mvc.perform(withToken(TestJwtSupport.tokenWithSubject("not-a-uuid")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("token 有效但帳號已不存在會被拒絕")
+    void rejectsTokenOfAMissingUser() throws Exception {
+        mvc.perform(withToken(TestJwtSupport.tokenFor(UUID.randomUUID())))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -89,30 +117,46 @@ class AuthenticationIT extends ApiIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    // ------------------------------------------------------------ 帳號建立
+    @Test
+    @DisplayName("過期的 token 帶在公開的登入端點上，不會擋住登入")
+    void expiredTokenDoesNotBlockPublicAuthEndpoints() throws Exception {
+        // 前端的 access token 過期後去換發：Spring 預設會在進到 controller 之前就回 401，
+        // 結果再也登不回去。公開的帳號端點必須無視 Authorization 標頭
+        String expired = TestJwtSupport.tokenFor(newUser(DONOR).getId(),
+                TestJwtSupport.ISSUER, Instant.now().minus(1, ChronoUnit.HOURS));
+
+        mvc.perform(withBody(post("/api/auth/login").header("Authorization", "Bearer " + expired),
+                        Map.of("email", "nobody@example.com", "password", "whatever12")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.errorCode").value("INVALID_CREDENTIALS"));
+    }
+
+    // ------------------------------------------------------------ 身分來自資料庫
 
     @Test
-    @DisplayName("首次登入就地建立本地帳號")
-    void provisionsLocalAccountOnFirstLogin() throws Exception {
-        assertThat(users.findByEmailIgnoreCase(DONOR)).isEmpty();
+    @DisplayName("每個請求都記錄最近登入時間")
+    void recordsLastLogin() throws Exception {
+        newUser(DONOR);
 
         mvc.perform(as(get("/api/me"), DONOR)).andExpect(status().isOk());
 
-        var created = users.findByEmailIgnoreCase(DONOR).orElseThrow();
-        assertThat(created.getRole()).isEqualTo(UserRole.DONOR);
-        assertThat(created.getFirebaseUid()).isEqualTo(TestJwtSupport.uidFor(DONOR));
-        assertThat(created.getLastLoginAt()).isNotNull();
+        var user = users.findByEmailIgnoreCase(DONOR).orElseThrow();
+        assertThat(user.getRole()).isEqualTo(UserRole.DONOR);
+        assertThat(user.getLastLoginAt()).isNotNull();
     }
 
     @Test
-    @DisplayName("再次登入沿用同一個帳號")
-    void reusesTheSameAccountOnSubsequentLogins() throws Exception {
-        mvc.perform(as(get("/api/me"), DONOR)).andExpect(status().isOk());
-        var first = users.findByEmailIgnoreCase(DONOR).orElseThrow().getId();
+    @DisplayName("停用的帳號即使 token 還有效也不能用")
+    void disabledAccountIsRejectedEvenWithAValidToken() throws Exception {
+        String token = TestJwtSupport.tokenFor(newUser(DONOR).getId());
+        em.flush();
+        jdbc.update("UPDATE users SET disabled = true WHERE lower(email) = lower(?)", DONOR);
+        // 清掉一級快取：不然請求讀到的還是上面那個 disabled = false 的實體
+        em.clear();
 
-        mvc.perform(as(get("/api/me"), DONOR)).andExpect(status().isOk());
-        assertThat(users.findByEmailIgnoreCase(DONOR).orElseThrow().getId()).isEqualTo(first);
-        assertThat(users.count()).isOne();
+        mvc.perform(withToken(token))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("ACCOUNT_DISABLED"));
     }
 
     @Test
@@ -146,6 +190,14 @@ class AuthenticationIT extends ApiIntegrationTest {
         mvc.perform(post("/api/organizations")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/claims/me")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/organizations/me")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("驗證碼與重寄需要登入")
+    void verificationEndpointsRequireAuthentication() throws Exception {
+        mvc.perform(withBody(post("/api/auth/verify-email"), Map.of("code", "123456")))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/auth/verification/resend")).andExpect(status().isUnauthorized());
     }
 
     @Test

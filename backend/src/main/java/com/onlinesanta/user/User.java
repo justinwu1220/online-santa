@@ -12,17 +12,14 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 
 /**
- * 由 Firebase Authentication 對應而來的本地帳號。
+ * 本系統自己管理的帳號（密碼、信箱驗證、登入鎖定都在這裡）。
  *
- * <p>授權判斷一律以本表為準，而非 Firebase custom claims：claims 要等 ID token 刷新
- * （約一小時）才生效，會讓「Admin 剛核准的機構」在那段期間無法操作。
+ * <p>授權判斷一律以本表為準，而不是寫在 token 裡的 claims：token 在有效期內不會更新，
+ * 會讓「Admin 剛核准的機構」在那段期間無法操作。
  */
 @Entity
 @Table(name = "users")
 public class User extends BaseEntity {
-
-    @Column(name = "firebase_uid", nullable = false, length = 128)
-    private String firebaseUid;
 
     @Column(nullable = false, length = 255)
     private String email;
@@ -71,35 +68,100 @@ public class User extends BaseEntity {
     @Column(name = "onboarded_at")
     private Instant onboardedAt;
 
+    /** 密碼雜湊（BCrypt）。null 代表還沒設定密碼（例如開發模式建立的帳號）。 */
+    @Column(name = "password_hash", length = 100)
+    private String passwordHash;
+
+    /**
+     * 信箱通過驗證的時間；null 表示還沒驗證。
+     *
+     * <p>未驗證的帳號只有一般民眾的權限（見 {@code AppPrincipal#effectiveRole}）。
+     */
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
+
+    @Column(name = "failed_login_count", nullable = false)
+    private int failedLoginCount;
+
+    /** 連續輸錯密碼被暫時鎖定到這個時間為止；沒被鎖定為 null。 */
+    @Column(name = "locked_until")
+    private Instant lockedUntil;
+
+    @Column(name = "password_changed_at")
+    private Instant passwordChangedAt;
+
     protected User() {
         // JPA
     }
 
-    private User(String firebaseUid, String email, String displayName, UserRole role) {
-        this.firebaseUid = firebaseUid;
+    private User(String email, String displayName, UserRole role) {
         this.email = email;
         this.displayName = displayName;
         this.role = role;
         this.disabled = false;
     }
 
-    /** 首次登入時建立帳號，一律先給最低權限的 DONOR。 */
-    public static User newDonor(String firebaseUid, String email, String displayName) {
-        return new User(firebaseUid, email, displayName, UserRole.DONOR);
+    /** 註冊時建立帳號，一律先給最低權限的 DONOR；信箱要驗證過才算數。 */
+    public static User newDonor(String email, String displayName) {
+        return new User(email, displayName, UserRole.DONOR);
     }
 
-    public static User newAdmin(String firebaseUid, String email, String displayName) {
-        return new User(firebaseUid, email, displayName, UserRole.ADMIN);
+    public static User newAdmin(String email, String displayName) {
+        return new User(email, displayName, UserRole.ADMIN);
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerifiedAt != null;
+    }
+
+    /** 驗證成功。重複呼叫不改變第一次的時間。 */
+    public void markEmailVerified(Instant at) {
+        if (emailVerifiedAt == null) {
+            this.emailVerifiedAt = at;
+        }
+    }
+
+    /** 只給開發模式與測試把帳號切回「未驗證」。 */
+    public void markEmailUnverified() {
+        this.emailVerifiedAt = null;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void changePassword(String passwordHash, Instant at) {
+        this.passwordHash = passwordHash;
+        this.passwordChangedAt = at;
+        clearLoginFailures();
+    }
+
+    public boolean isLocked(Instant now) {
+        return lockedUntil != null && lockedUntil.isAfter(now);
+    }
+
+    public Instant getLockedUntil() {
+        return lockedUntil;
     }
 
     /**
-     * 改綁 Firebase uid。
+     * 記一次登入失敗。連續失敗達到上限就鎖定一段時間，並把計數歸零（鎖定期滿後重新開始算）。
      *
-     * <p>用於 Firebase 端帳號被刪除後、以同一信箱重新註冊的情況：本地的認領紀錄
-     * 應該延續給同一個人，而不是產生一個孤立的新帳號。
+     * @return 這次失敗是否觸發了鎖定
      */
-    public void linkFirebaseUid(String firebaseUid) {
-        this.firebaseUid = firebaseUid;
+    public boolean recordFailedLogin(Instant now, int maxFailures, java.time.Duration lockDuration) {
+        this.failedLoginCount++;
+        if (failedLoginCount >= maxFailures) {
+            this.lockedUntil = now.plus(lockDuration);
+            this.failedLoginCount = 0;
+            return true;
+        }
+        return false;
+    }
+
+    public void clearLoginFailures() {
+        this.failedLoginCount = 0;
+        this.lockedUntil = null;
     }
 
     /** 設定檔白名單內的 email 於登入時取得管理員權限。 */
@@ -134,23 +196,6 @@ public class User extends BaseEntity {
         this.displayName = displayName;
         this.name = name == null || name.isBlank() ? null : name.trim();
         this.phone = phone;
-    }
-
-    /**
-     * 舊版 JIT provisioning 曾在 token 沒帶名字時直接把 email 塞進 displayName。
-     * 下次登入時 token 若帶了 name claim，就用它取代那個舊 fallback——但只在目前的
-     * displayName 明顯就是那個 fallback（null 或等於 email 本身）時才動，使用者自己
-     * 在個人檔案改過的名稱（不等於 email 的）一律不覆蓋。
-     */
-    public void repairLegacyDisplayName(String nameFromToken) {
-        boolean isLegacyFallback = displayName == null || displayName.equalsIgnoreCase(email);
-        if (isLegacyFallback && nameFromToken != null && !nameFromToken.isBlank()) {
-            this.displayName = nameFromToken;
-        }
-    }
-
-    public String getFirebaseUid() {
-        return firebaseUid;
     }
 
     public String getEmail() {

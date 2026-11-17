@@ -65,8 +65,8 @@ class ClaimReleaseIT extends ApiIntegrationTest {
     void setUp() {
         autoOrganization = organizationWith("自動釋回之家", AUTO_ORG, ReleasePolicy.AUTO, 7);
         manualOrganization = organizationWith("手動釋回之家", MANUAL_ORG, ReleasePolicy.MANUAL, null);
-        users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "熱心民眾"));
-        users.save(User.newDonor(TestJwtSupport.uidFor(OTHER_DONOR), OTHER_DONOR, "另一位民眾"));
+        users.save(User.newDonor(DONOR, "熱心民眾"));
+        users.save(User.newDonor(OTHER_DONOR, "另一位民眾"));
     }
 
     private Organization organizationWith(String name, String memberEmail,
@@ -76,7 +76,7 @@ class ClaimReleaseIT extends ApiIntegrationTest {
         org.updateReleasePolicy(policy, days);
         organizations.save(org);
 
-        User member = User.newDonor(TestJwtSupport.uidFor(memberEmail), memberEmail, memberEmail);
+        User member = User.newDonor(memberEmail, memberEmail);
         member.joinOrganization(org.getId());
         users.save(member);
         return org;

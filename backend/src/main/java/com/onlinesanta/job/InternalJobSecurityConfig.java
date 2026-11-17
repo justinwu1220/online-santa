@@ -25,7 +25,7 @@ import com.onlinesanta.auth.ApiAuthenticationEntryPoint;
  *
  * <p>這條鏈與一般使用者的驗證完全分開，因為 token 的來源根本不同：呼叫者是
  * Cloud Scheduler，帶的是 Google 簽發的 OIDC token（issuer 為
- * {@code https://accounts.google.com}），而不是 Firebase 的 ID token。用同一條鏈處理
+ * {@code https://accounts.google.com}），而不是一般使用者的 access token。用同一條鏈處理
  * 兩種 issuer 會讓兩邊的驗證規則互相牽制。
  *
  * <p>{@code @Order(1)} 讓它先於一般的安全鏈比對，只接管 {@code /internal/**}。

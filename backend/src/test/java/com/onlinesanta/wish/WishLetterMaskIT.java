@@ -55,10 +55,10 @@ class WishLetterMaskIT extends ApiIntegrationTest {
         Organization organization = Organization.register("信件測試機構", "王承辦", "contact@example.org", null, null, null);
         organization.approve(null, "測試資料");
         organizations.save(organization);
-        User member = User.newDonor(TestJwtSupport.uidFor(ORG_USER), ORG_USER, ORG_USER);
+        User member = User.newDonor(ORG_USER, ORG_USER);
         member.joinOrganization(organization.getId());
         users.save(member);
-        users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "熱心民眾"));
+        users.save(User.newDonor(DONOR, "熱心民眾"));
 
         Wish wish = Wish.draft(organization, "小星", AgeRange.AGE_7_9, "畫畫", "色鉛筆組", "想要畫畫",
                 WishCategory.ART, PriceRange.UNDER_500);

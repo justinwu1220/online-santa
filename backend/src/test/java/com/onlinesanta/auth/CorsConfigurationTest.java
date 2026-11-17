@@ -28,7 +28,7 @@ class CorsConfigurationTest {
         MockEnvironment environment = new MockEnvironment();
         environment.setActiveProfiles(activeProfiles);
         AuthProperties properties = new AuthProperties(
-                "demo-project", List.of(), List.of(ORIGIN));
+                "x".repeat(32), null, null, false, List.of(), List.of(ORIGIN));
         return new SecurityConfig(properties, environment).corsConfigurationSource();
     }
 

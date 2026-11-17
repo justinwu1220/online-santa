@@ -12,23 +12,19 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.core.OAuth2TokenValidator;
-import org.springframework.security.oauth2.jwt.JwtClaimNames;
-import org.springframework.security.oauth2.jwt.JwtClaimValidator;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtValidators;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
-import org.springframework.security.oauth2.jwt.Jwt;
-
 /**
- * API 的存取規則與 Firebase ID token 的驗證設定。
+ * API 的存取規則與 access token（本系統自己簽發的 JWT）的驗證設定。
  *
  * <p>願望牆是刻意公開的：民眾要能先看見孩子們的願望，才會考慮註冊。
  * 其餘端點一律需要身分。
@@ -36,6 +32,11 @@ import org.springframework.security.oauth2.jwt.Jwt;
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
+
+    /** 不需要登入身分的帳號端點（驗證碼與重寄除外）。 */
+    static final String[] PUBLIC_AUTH_PATHS = {
+            "/api/auth/register", "/api/auth/login", "/api/auth/refresh",
+            "/api/auth/logout", "/api/auth/password/**"};
 
     private final AuthProperties properties;
     private final Environment environment;
@@ -47,13 +48,14 @@ public class SecurityConfig {
 
     /**
      * 一般 API 的安全鏈。{@code @Order(2)} 排在 {@code /internal/**} 那條之後——
-     * 排程端點走的是 Google OIDC，與這裡的 Firebase 驗證是兩套完全不同的規則。
+     * 排程端點走的是 Google OIDC，與這裡的登入驗證是兩套完全不同的規則。
      */
     @Bean
     @Order(2)
     SecurityFilterChain securityFilterChain(HttpSecurity http,
                                             JwtDecoder decoder,
-                                            FirebaseAuthenticationConverter converter,
+                                            LocalJwtAuthenticationConverter converter,
+                                            BearerTokenResolver bearerTokenResolver,
                                             ApiAuthenticationEntryPoint entryPoint,
                                             ApiAccessDeniedHandler accessDeniedHandler,
                                             Optional<DevPrincipalFilter> devPrincipalFilter)
@@ -73,6 +75,9 @@ public class SecurityConfig {
                         // 公開瀏覽：未登入也看得到願望牆
                         .requestMatchers(HttpMethod.GET, "/api/wishes", "/api/wishes/options",
                                 "/api/wishes/*").permitAll()
+                        // 註冊、登入、換發與重設密碼：還沒有（或已失效）access token 才會用到。
+                        // 信箱驗證碼與重寄需要登入身分，不在這份名單裡
+                        .requestMatchers(HttpMethod.POST, PUBLIC_AUTH_PATHS).permitAll()
                         // 維運與 API 文件
                         .requestMatchers("/actuator/health", "/actuator/health/**",
                                 "/actuator/info").permitAll()
@@ -84,6 +89,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
+                        .bearerTokenResolver(bearerTokenResolver)
                         .jwt(jwt -> jwt.decoder(decoder)
                                 .jwtAuthenticationConverter(converter))
                         .authenticationEntryPoint(entryPoint)
@@ -94,27 +100,38 @@ public class SecurityConfig {
                 .build();
     }
 
-    /**
-     * Firebase ID token 的解碼與驗證。
-     *
-     * <p>公鑰由 Google 的 JWKS 端點取得並由 Spring 快取，因此驗證 token 不需要每個
-     * 請求都連外。除了簽章與有效期，還必須檢查 audience：Firebase 全域共用同一組
-     * 簽章金鑰，少了這一步，別的 Firebase 專案簽出的 token 也會被我們接受。
-     */
+    /** access token 的解碼與驗證：簽章、有效期、issuer。 */
     @Bean
-    JwtDecoder firebaseJwtDecoder() {
-        NimbusJwtDecoder decoder = NimbusJwtDecoder
-                .withJwkSetUri(properties.jwkSetUri())
-                .build();
-        decoder.setJwtValidator(firebaseTokenValidator(properties));
-        return decoder;
+    JwtDecoder jwtDecoder(AccessTokenService accessTokens) {
+        return accessTokens.decoder();
     }
 
-    public static OAuth2TokenValidator<Jwt> firebaseTokenValidator(AuthProperties properties) {
-        return new DelegatingOAuth2TokenValidator<>(
-                JwtValidators.createDefaultWithIssuer(properties.issuer()),
-                new JwtClaimValidator<List<String>>(JwtClaimNames.AUD,
-                        aud -> aud != null && aud.contains(properties.firebaseProjectId())));
+    /**
+     * 公開的帳號端點不看 Authorization 標頭。
+     *
+     * <p>Spring 會對<strong>任何</strong>帶了 Bearer 標頭的請求驗證 token，連 permitAll 的端點也一樣——
+     * access token 過期之後，前端帶著舊 token 去呼叫換發或登入，會在還沒進到 controller 之前就被
+     * 401 擋下，變成再也登不回去。
+     */
+    @Bean
+    BearerTokenResolver bearerTokenResolver() {
+        DefaultBearerTokenResolver delegate = new DefaultBearerTokenResolver();
+        return request -> isPublicAuthPath(request.getRequestURI()) ? null : delegate.resolve(request);
+    }
+
+    private static boolean isPublicAuthPath(String uri) {
+        for (String path : PUBLIC_AUTH_PATHS) {
+            if (path.endsWith("/**") ? uri.startsWith(path.substring(0, path.length() - 2)) : uri.equals(path)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 密碼雜湊：預設 BCrypt，雜湊字串帶演算法前綴，日後要升級演算法時舊密碼仍能驗證。 */
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
     }
 
     /**
@@ -142,6 +159,9 @@ public class SecurityConfig {
         config.setAllowedOrigins(properties.allowedOrigins());
         config.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        // 本機開發前端（localhost:5173）與 API（localhost:8080）不同來源，換發登入狀態的 cookie
+        // 要靠這個才送得出去。來源是明確列舉的白名單，不是萬用字元
+        config.setAllowCredentials(true);
         config.setMaxAge(3600L);
         return config;
     }

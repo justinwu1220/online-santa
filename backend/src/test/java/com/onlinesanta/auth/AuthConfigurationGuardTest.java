@@ -12,8 +12,10 @@ import org.springframework.mock.env.MockEnvironment;
 @DisplayName("身分驗證設定的啟動檢查")
 class AuthConfigurationGuardTest {
 
-    private AuthProperties propertiesWithProjectId(String projectId) {
-        return new AuthProperties(projectId, List.of(), List.of("http://localhost:5173"));
+    private static final String GOOD_SECRET = "a-production-secret-with-at-least-32-chars";
+
+    private AuthProperties propertiesWithSecret(String secret) {
+        return new AuthProperties(secret, null, null, false, List.of(), List.of("http://localhost:5173"));
     }
 
     private AuthConfigurationGuard guardFor(AuthProperties properties, String... profiles) {
@@ -25,7 +27,7 @@ class AuthConfigurationGuardTest {
     @Test
     @DisplayName("prod 與 dev-auth 同時啟用時拒絕啟動")
     void refusesToStartWhenDevAuthIsEnabledInProduction() {
-        var guard = guardFor(propertiesWithProjectId("real-project"), "prod", "dev-auth");
+        var guard = guardFor(propertiesWithSecret(GOOD_SECRET), "prod", "dev-auth");
 
         assertThatThrownBy(guard::verify)
                 .isInstanceOf(IllegalStateException.class)
@@ -33,19 +35,29 @@ class AuthConfigurationGuardTest {
     }
 
     @Test
-    @DisplayName("正式環境缺少 Firebase 專案 ID 時拒絕啟動")
-    void refusesToStartWithoutFirebaseProjectId() {
-        var guard = guardFor(propertiesWithProjectId("  "), "prod");
+    @DisplayName("正式環境缺少 JWT 密鑰時拒絕啟動")
+    void refusesToStartWithoutJwtSecret() {
+        var guard = guardFor(propertiesWithSecret("  "), "prod");
 
         assertThatThrownBy(guard::verify)
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("firebase-project-id");
+                .hasMessageContaining("jwt-secret");
+    }
+
+    @Test
+    @DisplayName("正式環境的 JWT 密鑰太短時拒絕啟動")
+    void refusesToStartWithTooShortJwtSecret() {
+        var guard = guardFor(propertiesWithSecret("short"), "prod");
+
+        assertThatThrownBy(guard::verify)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("jwt-secret");
     }
 
     @Test
     @DisplayName("開發環境可以只靠 dev-auth 運作")
-    void allowsDevAuthWithoutFirebaseProjectId() {
-        var guard = guardFor(propertiesWithProjectId(null), "local", "dev-auth");
+    void allowsDevAuthWithoutJwtSecret() {
+        var guard = guardFor(propertiesWithSecret(null), "local", "dev-auth");
 
         assertThatCode(guard::verify).doesNotThrowAnyException();
     }
@@ -57,7 +69,7 @@ class AuthConfigurationGuardTest {
         // 此時 getActiveProfiles() 是空的——檢查必須看得到預設 profile
         MockEnvironment environment = new MockEnvironment();
         environment.setDefaultProfiles("local", "dev-auth");
-        var guard = new AuthConfigurationGuard(environment, propertiesWithProjectId(null));
+        var guard = new AuthConfigurationGuard(environment, propertiesWithSecret(null));
 
         assertThatCode(guard::verify).doesNotThrowAnyException();
     }
@@ -65,7 +77,7 @@ class AuthConfigurationGuardTest {
     @Test
     @DisplayName("設定正確的正式環境可以啟動")
     void acceptsAProperlyConfiguredProductionEnvironment() {
-        var guard = guardFor(propertiesWithProjectId("online-santa-prod"), "prod");
+        var guard = guardFor(propertiesWithSecret(GOOD_SECRET), "prod");
 
         assertThatCode(guard::verify).doesNotThrowAnyException();
     }

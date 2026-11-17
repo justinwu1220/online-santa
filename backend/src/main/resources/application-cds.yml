@@ -24,7 +24,7 @@ spring:
 app:
   auth:
     # AuthConfigurationGuard 要求正式環境必須設定，training run 給個假的即可
-    firebase-project-id: cds-training
+    jwt-secret: cds-training-only-secret-not-for-real-use-0123456789
 
 logging:
   level:

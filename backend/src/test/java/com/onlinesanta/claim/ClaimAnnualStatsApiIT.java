@@ -62,7 +62,7 @@ class ClaimAnnualStatsApiIT extends ApiIntegrationTest {
     @BeforeEach
     void setUp() {
         organization = approvedOrganization("送禮之家", ORG_USER);
-        users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "熱心民眾"));
+        users.save(User.newDonor(DONOR, "熱心民眾"));
     }
 
     private Organization approvedOrganization(String name, String memberEmail) {
@@ -71,7 +71,7 @@ class ClaimAnnualStatsApiIT extends ApiIntegrationTest {
         org.approve(null, "測試資料");
         organizations.save(org);
 
-        User member = User.newDonor(TestJwtSupport.uidFor(memberEmail), memberEmail, memberEmail);
+        User member = User.newDonor(memberEmail, memberEmail);
         member.joinOrganization(org.getId());
         users.save(member);
         return org;
@@ -287,7 +287,7 @@ class ClaimAnnualStatsApiIT extends ApiIntegrationTest {
     @DisplayName("年度小結不含其他捐贈者的資料")
     void annualSummaryIsScopedToTheRequestingDonor() throws Exception {
         String otherDonor = "other-donor@example.com";
-        users.save(User.newDonor(TestJwtSupport.uidFor(otherDonor), otherDonor, "另一位民眾"));
+        users.save(User.newDonor(otherDonor, "另一位民眾"));
         claimAs(publishedWish("別人的認領"), otherDonor);
 
         int thisYear = TaiwanYear.currentYear();

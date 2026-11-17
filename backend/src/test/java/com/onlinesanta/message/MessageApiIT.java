@@ -52,8 +52,8 @@ class MessageApiIT extends ApiIntegrationTest {
     void setUp() throws Exception {
         organization = approvedOrganization("送禮之家", ORG_USER);
         approvedOrganization("別家機構", OTHER_ORG_USER);
-        users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "熱心民眾"));
-        users.save(User.newDonor(TestJwtSupport.uidFor(OTHER_DONOR), OTHER_DONOR, "另一位民眾"));
+        users.save(User.newDonor(DONOR, "熱心民眾"));
+        users.save(User.newDonor(OTHER_DONOR, "另一位民眾"));
         claimId = claim(publishedWish("對話用的願望"), DONOR);
     }
 
@@ -62,7 +62,7 @@ class MessageApiIT extends ApiIntegrationTest {
         org.approve(null, "測試資料");
         organizations.save(org);
 
-        User member = User.newDonor(TestJwtSupport.uidFor(memberEmail), memberEmail, memberEmail);
+        User member = User.newDonor(memberEmail, memberEmail);
         member.joinOrganization(org.getId());
         users.save(member);
         return org;

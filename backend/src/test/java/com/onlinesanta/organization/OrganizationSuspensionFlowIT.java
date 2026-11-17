@@ -70,11 +70,11 @@ class OrganizationSuspensionFlowIT extends ApiIntegrationTest {
         organization.updateLegalInfo("王負責", "12345678");
         organization.approve(null, "測試資料");
         organizations.save(organization);
-        User member = User.newDonor(TestJwtSupport.uidFor(ORG_USER), ORG_USER, ORG_USER);
+        User member = User.newDonor(ORG_USER, ORG_USER);
         member.joinOrganization(organization.getId());
         users.save(member);
-        users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "熱心民眾"));
-        users.save(User.newDonor(TestJwtSupport.uidFor(DONOR_SHIPPED), DONOR_SHIPPED, "已寄出的民眾"));
+        users.save(User.newDonor(DONOR, "熱心民眾"));
+        users.save(User.newDonor(DONOR_SHIPPED, "已寄出的民眾"));
 
         availableWish = publishedWish("可認領的");
         claimedWish = publishedWish("已認領的");

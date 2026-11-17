@@ -56,7 +56,7 @@ class OrganizationSuspensionIT extends ApiIntegrationTest {
     @BeforeEach
     void setUp() {
         organization = approvedOrganization("待測機構", ORG_USER);
-        users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "熱心民眾"));
+        users.save(User.newDonor(DONOR, "熱心民眾"));
     }
 
     private Organization approvedOrganization(String name, String memberEmail) {
@@ -64,7 +64,7 @@ class OrganizationSuspensionIT extends ApiIntegrationTest {
         org.approve(null, "測試資料");
         organizations.save(org);
 
-        User member = User.newDonor(TestJwtSupport.uidFor(memberEmail), memberEmail, memberEmail);
+        User member = User.newDonor(memberEmail, memberEmail);
         member.joinOrganization(org.getId());
         users.save(member);
         return org;

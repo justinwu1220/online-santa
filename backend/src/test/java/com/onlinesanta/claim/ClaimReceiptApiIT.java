@@ -64,12 +64,12 @@ class ClaimReceiptApiIT extends ApiIntegrationTest {
         org.approve(null, "測試資料");
         organization = organizations.save(org);
 
-        User member = User.newDonor(TestJwtSupport.uidFor(ORG_USER), ORG_USER, ORG_USER);
+        User member = User.newDonor(ORG_USER, ORG_USER);
         member.joinOrganization(organization.getId());
         users.save(member);
 
-        users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "熱心民眾"));
-        users.save(User.newDonor(TestJwtSupport.uidFor(OTHER_DONOR), OTHER_DONOR, "另一位民眾"));
+        users.save(User.newDonor(DONOR, "熱心民眾"));
+        users.save(User.newDonor(OTHER_DONOR, "另一位民眾"));
     }
 
     private UUID claimedWish(String title) throws Exception {

@@ -66,7 +66,7 @@ class SystemMessageIT extends ApiIntegrationTest {
         autoOrganization = organization("自動收回之家", ORG_USER, ReleasePolicy.AUTO, 3);
         organization("別家機構", OTHER_ORG_USER, ReleasePolicy.MANUAL, null);
         manualOrganization = organization("自己決定之家", MANUAL_ORG_USER, ReleasePolicy.MANUAL, null);
-        users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "熱心民眾"));
+        users.save(User.newDonor(DONOR, "熱心民眾"));
     }
 
     private Organization organization(String name, String memberEmail, ReleasePolicy policy, Integer days) {
@@ -74,7 +74,7 @@ class SystemMessageIT extends ApiIntegrationTest {
         org.approve(null, "測試資料");
         org.updateReleasePolicy(policy, days);
         organizations.save(org);
-        User member = User.newDonor(TestJwtSupport.uidFor(memberEmail), memberEmail, memberEmail);
+        User member = User.newDonor(memberEmail, memberEmail);
         member.joinOrganization(org.getId());
         users.save(member);
         return org;

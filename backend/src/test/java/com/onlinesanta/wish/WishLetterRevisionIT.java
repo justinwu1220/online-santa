@@ -54,16 +54,16 @@ class WishLetterRevisionIT extends ApiIntegrationTest {
         organization = Organization.register("換信件機構", "王承辦", "contact@example.org", null, null, null);
         organization.approve(null, "測試資料");
         organizations.save(organization);
-        User member = User.newDonor(TestJwtSupport.uidFor(ORG_USER), ORG_USER, ORG_USER);
+        User member = User.newDonor(ORG_USER, ORG_USER);
         member.joinOrganization(organization.getId());
         users.save(member);
         Organization other = Organization.register("另一間機構", "李承辦", "other@example.org", null, null, null);
         other.approve(null, "測試資料");
         organizations.save(other);
-        User otherMember = User.newDonor(TestJwtSupport.uidFor(OTHER_ORG_USER), OTHER_ORG_USER, OTHER_ORG_USER);
+        User otherMember = User.newDonor(OTHER_ORG_USER, OTHER_ORG_USER);
         otherMember.joinOrganization(other.getId());
         users.save(otherMember);
-        users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "熱心民眾"));
+        users.save(User.newDonor(DONOR, "熱心民眾"));
 
         Wish wish = Wish.draft(organization, "小星", AgeRange.AGE_7_9, "畫畫", "色鉛筆組", "想要畫畫",
                 WishCategory.ART, PriceRange.UNDER_500);

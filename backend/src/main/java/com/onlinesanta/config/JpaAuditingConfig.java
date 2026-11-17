@@ -10,7 +10,7 @@ import org.springframework.data.domain.AuditorAware;
 /**
  * 提供 JPA Auditing 的「目前操作者」。
  *
- * <p>M3 導入 Firebase Auth 後會改為從 SecurityContext 取出 {@code AppPrincipal} 的 user id；
+ * <p>之後可以改為從 SecurityContext 取出 {@code AppPrincipal} 的 user id；
  * 在那之前一律回傳 empty，稽核欄位維持 null。
  */
 @Configuration

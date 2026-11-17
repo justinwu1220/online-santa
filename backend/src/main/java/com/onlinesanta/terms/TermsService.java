@@ -67,6 +67,20 @@ public class TermsService {
         return status(userId, type);
     }
 
+    /**
+     * 註冊當下順手記錄同意（此時還沒有登入，不能用 {@link #acceptMine}）。
+     *
+     * <p>版本不是目前版本時<strong>靜默略過</strong>而不是丟例外：不能因為須知剛好升版就讓註冊整個失敗，
+     * 登入後的守門（TermsGate）看到「還沒同意」會再請使用者同意一次，不會漏。
+     */
+    @Transactional
+    public void recordConsentOnRegister(UUID userId, TermsType type, String version) {
+        if (type == null || !properties.currentVersion(type).equals(version)) {
+            return;
+        }
+        consents.saveAndFlush(new TermsConsent(userId, type, version));
+    }
+
     /** 機構送出申請前呼叫：沒有同意目前版本的《合作機構參與須知》就擋下。 */
     @Transactional(readOnly = true)
     public void requireUpToDateForOrganizationRegister(UUID userId) {

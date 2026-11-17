@@ -4,19 +4,14 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 
-import com.onlinesanta.auth.AuthProperties;
-import com.onlinesanta.auth.SecurityConfig;
 import com.onlinesanta.storage.ObjectStorage;
 
 /**
- * 測試環境的 JWT 解碼器：改用本地金鑰，不連 Google 的 JWKS 端點。
+ * 測試環境用的替身：記憶體儲存空間與記錄式的寄信器。
  *
- * <p>驗證規則（issuer、audience、有效期）刻意沿用正式設定的同一份
- * {@link SecurityConfig#firebaseTokenValidator}，才不會出現「測試過了但正式環境
- * 的驗證其實有漏洞」的情況。
+ * <p>登入 token 的解碼器不需要替身——它直接用 {@code application-test.yml} 的密鑰，
+ * 走的就是正式環境的同一份驗證規則，不會出現「測試過了但正式環境的驗證其實有漏洞」。
  */
 @TestConfiguration
 public class TestSecurityConfig {
@@ -44,15 +39,5 @@ public class TestSecurityConfig {
     @Primary
     JavaMailSender testJavaMailSender() {
         return new RecordingMailSender();
-    }
-
-    @Bean
-    @Primary
-    JwtDecoder testJwtDecoder(AuthProperties properties) {
-        NimbusJwtDecoder decoder = NimbusJwtDecoder
-                .withPublicKey(TestJwtSupport.publicKey())
-                .build();
-        decoder.setJwtValidator(SecurityConfig.firebaseTokenValidator(properties));
-        return decoder;
     }
 }

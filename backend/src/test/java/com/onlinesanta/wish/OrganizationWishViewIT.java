@@ -64,7 +64,7 @@ class OrganizationWishViewIT extends ApiIntegrationTest {
         Organization org = Organization.register(name, "王承辦", "contact@example.org", null, null, null);
         org.approve(null, "測試資料");
         organizations.save(org);
-        User member = User.newDonor(TestJwtSupport.uidFor(memberEmail), memberEmail, memberEmail);
+        User member = User.newDonor(memberEmail, memberEmail);
         member.joinOrganization(org.getId());
         users.save(member);
         return org;
@@ -88,7 +88,7 @@ class OrganizationWishViewIT extends ApiIntegrationTest {
 
     private UUID claim(UUID wishId) throws Exception {
         String donor = "view-donor-" + (nextDonor++) + "@example.com";
-        users.save(User.newDonor(TestJwtSupport.uidFor(donor), donor, "熱心民眾"));
+        users.save(User.newDonor(donor, "熱心民眾"));
         String body = mvc.perform(as(post("/api/wishes/{id}/claim", wishId), donor))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         UUID claimId = UUID.fromString(json.readTree(body).get("id").asText());

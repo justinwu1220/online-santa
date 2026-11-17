@@ -12,8 +12,6 @@ import org.springframework.data.repository.query.Param;
 
 public interface UserRepository extends JpaRepository<User, UUID> {
 
-    Optional<User> findByFirebaseUid(String firebaseUid);
-
     Optional<User> findByEmailIgnoreCase(String email);
 
     /** 依角色分組計數，供監控中心的統計使用。 */
@@ -35,7 +33,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     /**
      * 該年度以指定角色註冊的新使用者數，供年度營運頁的「新捐贈者」使用。
      *
-     * <p>JIT provisioning（見 {@code UserProvisioningService}）一律先建立 DONOR 帳號，
+     * <p>註冊（見 {@code LocalAuthService}）一律先建立 DONOR 帳號，
      * 因此以 {@code role = DONOR} 篩選即涵蓋當年新註冊的一般民眾；日後升級為機構成員
      * 或管理員的帳號不會被重複計入——那兩者分別由「新加入機構」與白名單管理員自行追蹤。
      */

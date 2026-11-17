@@ -1,38 +1,54 @@
 package com.onlinesanta.auth;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.StringUtils;
 
 /**
  * 身分驗證相關設定（{@code app.auth.*}）。
  *
- * @param firebaseProjectId Firebase 專案 ID。ID token 的 issuer 與 audience 都由它推導
- * @param adminEmails       平台管理員白名單。名單內的 email 首次登入即取得 ADMIN 角色
- * @param allowedOrigins    允許跨來源請求的前端網域
+ * @param jwtSecret       簽發 access token 與雜湊驗證碼用的密鑰（至少 32 個字元）。
+ *                        正式環境必填（{@link AuthConfigurationGuard} 會檢查）；dev-auth 沒設定時
+ *                        {@link AccessTokenService} 每次啟動隨機產生一把，重啟後舊 token 即失效，
+ *                        本機開發不受影響
+ * @param accessTokenTtl  access token 有效時間，預設 15 分鐘
+ * @param refreshTokenTtl refresh token（登入狀態）有效時間，預設 30 天
+ * @param cookieSecure    refresh cookie 是否加 Secure。正式環境（https）必須為 true；
+ *                        本機 http 開發設 false
+ * @param adminEmails     平台管理員白名單。名單內的 email 信箱驗證後即取得 ADMIN 角色
+ * @param allowedOrigins  允許跨來源請求的前端網域
  */
 @ConfigurationProperties(prefix = "app.auth")
 public record AuthProperties(
-        String firebaseProjectId,
+        String jwtSecret,
+        Duration accessTokenTtl,
+        Duration refreshTokenTtl,
+        boolean cookieSecure,
         List<String> adminEmails,
         List<String> allowedOrigins) {
 
-    /** Firebase ID token 的簽發者。 */
-    public String issuer() {
-        return "https://securetoken.google.com/" + firebaseProjectId;
+    /** HS256 至少要 256 位元的密鑰。 */
+    public static final int MIN_SECRET_LENGTH = 32;
+
+    public AuthProperties {
+        if (accessTokenTtl == null) {
+            accessTokenTtl = Duration.ofMinutes(15);
+        }
+        if (refreshTokenTtl == null) {
+            refreshTokenTtl = Duration.ofDays(30);
+        }
     }
 
-    /**
-     * Firebase 用來簽 ID token 的公鑰。
-     *
-     * <p>由 Spring Security 快取並依 HTTP 快取標頭自動更新，因此驗證 token 不需要
-     * 每次請求都連到 Google。
-     */
-    public String jwkSetUri() {
-        return "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
+    /** 密鑰是否合格（有設定且長度足夠）。 */
+    public boolean hasUsableSecret() {
+        return StringUtils.hasText(jwtSecret)
+                && jwtSecret.getBytes(StandardCharsets.UTF_8).length >= MIN_SECRET_LENGTH;
     }
 
     /** 比對一律忽略大小寫——email 的網域部分本來就不分大小寫。 */

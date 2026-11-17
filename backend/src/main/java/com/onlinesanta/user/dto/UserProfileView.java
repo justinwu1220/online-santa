@@ -5,8 +5,8 @@ import com.onlinesanta.user.User;
 /**
  * 個人檔案設定頁使用的自身資料。
  *
- * <p>displayName 是 JIT provisioning 時可能以 email 帶入的舊資料
- * （見 {@link com.onlinesanta.auth.UserProvisioningService}），照實顯示即可，
+ * <p>displayName 註冊時若沒填，會用信箱 {@code @} 前面那段暫代（見
+ * {@link com.onlinesanta.auth.LocalAuthService}），照實顯示即可，
  * 使用者自己會在這一頁改成想用的名稱。
  */
 public record UserProfileView(

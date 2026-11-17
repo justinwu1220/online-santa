@@ -32,7 +32,6 @@ public final class ProfileSnapshots {
         snapshot.put("displayName", user.getDisplayName());
         snapshot.put("name", user.getName());
         snapshot.put("phone", user.getPhone());
-        snapshot.put("firebaseUid", maskUid(user.getFirebaseUid()));
         snapshot.put("role", Objects.toString(user.getRole(), null));
         snapshot.put("organizationId", Objects.toString(user.getOrganizationId(), null));
         return snapshot;
@@ -64,18 +63,5 @@ public final class ProfileSnapshots {
         snapshot.put("releasePolicy", Objects.toString(organization.getReleasePolicy(), null));
         snapshot.put("releaseAfterDays", Objects.toString(organization.getReleaseAfterDays(), null));
         return snapshot;
-    }
-
-    /**
-     * Firebase uid 只留前 8 碼。
-     *
-     * <p>它是憑證性質的識別碼：記下「換過」這件事對舉證有用，完整的值沒有加分，只是
-     * 把它多複製一份到另一張表。
-     */
-    private static String maskUid(String uid) {
-        if (uid == null || uid.length() <= 8) {
-            return uid;
-        }
-        return uid.substring(0, 8) + "…";
     }
 }

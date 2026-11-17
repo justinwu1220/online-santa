@@ -66,7 +66,7 @@ class AdminAnnualStatsApiIT extends ApiIntegrationTest {
     void setUp() {
         organizationA = approvedOrganization("甲機構", ORG_A);
         organizationB = approvedOrganization("乙機構", ORG_B);
-        users.save(User.newDonor(TestJwtSupport.uidFor(DONOR), DONOR, "熱心民眾"));
+        users.save(User.newDonor(DONOR, "熱心民眾"));
     }
 
     private Organization approvedOrganization(String name, String memberEmail) {
@@ -75,7 +75,7 @@ class AdminAnnualStatsApiIT extends ApiIntegrationTest {
         org.approve(null, "測試資料");
         organizations.save(org);
 
-        User member = User.newDonor(TestJwtSupport.uidFor(memberEmail), memberEmail, memberEmail);
+        User member = User.newDonor(memberEmail, memberEmail);
         member.joinOrganization(org.getId());
         users.save(member);
         return org;
@@ -184,7 +184,7 @@ class AdminAnnualStatsApiIT extends ApiIntegrationTest {
     @Test
     @DisplayName("活躍捐贈者以認領年度為準，同一人多筆只算一次")
     void activeDonorsCountDistinctDonorsWithinTheYear() throws Exception {
-        users.save(User.newDonor(TestJwtSupport.uidFor(OTHER_DONOR), OTHER_DONOR, "另一位民眾"));
+        users.save(User.newDonor(OTHER_DONOR, "另一位民眾"));
 
         claimAs(publishedWish(organizationA, "願望一"), DONOR);
         claimAs(publishedWish(organizationA, "願望二"), DONOR); // 同一人再認領一筆

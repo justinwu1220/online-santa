@@ -17,7 +17,6 @@ import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.organization.dto.OrganizationRegistrationRequest;
 import com.onlinesanta.support.ApiIntegrationTest;
-import com.onlinesanta.support.TestJwtSupport;
 import com.onlinesanta.user.User;
 import com.onlinesanta.user.UserRepository;
 import com.onlinesanta.user.UserRole;
@@ -30,10 +29,10 @@ import com.onlinesanta.wish.WishRepository;
 /**
  * 信箱驗證的邊界。
  *
- * <p>只開放 Google 登入時，「email 一定驗證過」是成立的前提——Google 保證。
- * 開放 email/密碼註冊之後就不成立了：Firebase 不會檢查註冊者是否真的擁有那個信箱。
+ * <p>註冊不會檢查註冊者是否真的擁有那個信箱，要輸入寄到信箱的驗證碼才算數。
+ * 驗證狀態存在資料庫（{@code users.email_verified_at}），每個請求都回資料庫查。
  *
- * <p>這些測試守住兩個因此而生的攻擊面（管理員權限提升、帳號接管），以及
+ * <p>這些測試守住因此而生的攻擊面（管理員權限提升、帳號接管），以及
  * 「會產生實質後果的操作需要真實信箱」這條規則。
  */
 @DisplayName("信箱驗證")
@@ -61,7 +60,8 @@ class EmailVerificationIT extends ApiIntegrationTest {
         organization.approve(null, "測試資料");
         organizations.save(organization);
 
-        User member = User.newDonor(TestJwtSupport.uidFor(ORG_USER), ORG_USER, ORG_USER);
+        User member = User.newDonor(ORG_USER, ORG_USER);
+        member.markEmailVerified(java.time.Instant.now());
         member.joinOrganization(organization.getId());
         users.save(member);
 
@@ -126,7 +126,7 @@ class EmailVerificationIT extends ApiIntegrationTest {
     @Test
     @DisplayName("用白名單信箱註冊但未驗證，不會取得 ADMIN")
     void unverifiedWhitelistedEmailDoesNotBecomeAdmin() throws Exception {
-        // Firebase 的密碼註冊不檢查你是否擁有那個信箱。少了這道防線，
+        // 註冊不檢查你是否擁有那個信箱。少了這道防線，
         // 任何人用管理員的信箱註冊就能拿到全站孩童資料與捐贈者個資
         mvc.perform(asUnverified(get("/api/me"), ADMIN_EMAIL))
                 .andExpect(status().isOk())
@@ -146,7 +146,7 @@ class EmailVerificationIT extends ApiIntegrationTest {
         mvc.perform(asUnverified(get("/api/me"), ADMIN_EMAIL))
                 .andExpect(jsonPath("$.role").value("DONOR"));
 
-        // 使用者點了驗證信，下一個 token 就帶 email_verified = true
+        // 使用者輸入了驗證碼，資料庫的驗證狀態變了，下一個請求就生效
         mvc.perform(as(get("/api/me"), ADMIN_EMAIL))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.role").value("ADMIN"));
@@ -163,7 +163,7 @@ class EmailVerificationIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.role").value("ADMIN"));
 
         // 角色提升是單向的，資料庫裡仍是 ADMIN——但信箱有可能變回未驗證
-        // （使用者在 Firebase 更換了信箱），那時舊有的權限不該還能使用
+        // （例如驗證狀態被重設），那時舊有的權限不該還能使用
         mvc.perform(asUnverified(get("/api/admin/stats"), ADMIN_EMAIL))
                 .andExpect(status().isForbidden());
 
@@ -188,42 +188,31 @@ class EmailVerificationIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.errorCode").value("NOT_ORG_MEMBER"));
     }
 
-    // ------------------------------------------------------------ 漏洞 B
+    // ------------------------------------------------------------ 帳號不能被接管
 
     @Test
     @DisplayName("拿別人的信箱註冊，不能接管既有帳號")
-    void unverifiedForeignUidCannotTakeOverAnExistingAccount() throws Exception {
+    void registeringWithAnExistingEmailIsRejected() throws Exception {
         UUID originalId = users.findByEmailIgnoreCase(ORG_USER).orElseThrow().getId();
 
-        // 攻擊者用機構成員的信箱在 Firebase 註冊密碼帳號，uid 不同且未驗證
-        mvc.perform(get("/api/me")
-                        .header("Authorization",
-                                "Bearer " + TestJwtSupport.unverifiedTokenWithForeignUid(ORG_USER)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.errorCode").value("EMAIL_NOT_VERIFIED"));
+        // 攻擊者用機構成員的信箱註冊。信箱已經有帳號，一律回 409，
+        // 不會建立新帳號，更不會碰到既有帳號
+        mvc.perform(withBody(post("/api/auth/register"), java.util.Map.of(
+                        "email", ORG_USER, "password", "attacker-password-1")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("EMAIL_TAKEN"));
 
-        var untouched = users.findByEmailIgnoreCase(ORG_USER).orElseThrow();
-        assertThat(untouched.getId()).isEqualTo(originalId);
-        assertThat(untouched.getFirebaseUid())
-                .as("既有帳號不該被改綁到攻擊者的 uid")
-                .isEqualTo(TestJwtSupport.uidFor(ORG_USER));
+        assertThat(users.findByEmailIgnoreCase(ORG_USER).orElseThrow().getId()).isEqualTo(originalId);
+        assertThat(users.count()).isEqualTo(1);
     }
 
     @Test
-    @DisplayName("Firebase 帳號重建的正當情境仍然可以接管")
-    void verifiedForeignUidStillAdoptsTheExistingAccount() throws Exception {
-        UUID originalId = users.findByEmailIgnoreCase(ORG_USER).orElseThrow().getId();
-
-        // 這正是 adopt 當初要處理的情境：Firebase 端刪除後以同信箱重建，
-        // 本地的認領紀錄應該延續給同一個人。已驗證就放行
-        mvc.perform(get("/api/me")
-                        .header("Authorization",
-                                "Bearer " + TestJwtSupport.tokenFor(ORG_USER)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.role").value("ORG_MEMBER"));
-
-        assertThat(users.findByEmailIgnoreCase(ORG_USER).orElseThrow().getId())
-                .isEqualTo(originalId);
+    @DisplayName("大小寫不同的同一個信箱也算已註冊")
+    void emailUniquenessIgnoresCase() throws Exception {
+        mvc.perform(withBody(post("/api/auth/register"), java.util.Map.of(
+                        "email", ORG_USER.toUpperCase(), "password", "attacker-password-1")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("EMAIL_TAKEN"));
     }
 
     // ------------------------------------------------------------ 驗證後放行

@@ -14,7 +14,7 @@ import com.onlinesanta.common.exception.UnauthenticatedException;
  * 取得目前操作者的唯一入口。
  *
  * <p>業務程式碼只依賴這個介面，不直接碰 Spring Security 的型別——身分驗證的實作
- * 從開發用的標頭換成 Firebase ID token 時，呼叫端一行都不必改。
+ * 從開發用的標頭換成真正的 access token 時，呼叫端一行都不必改。
  */
 @Service
 public class CurrentUserService {
@@ -37,15 +37,15 @@ public class CurrentUserService {
      * <p>用在會產生實質後果、或會與他人建立關係的操作：認領（機構要靠這個信箱聯繫
      * 捐贈者）、申請機構（會取得上架孩童資料的權限）。單純瀏覽不需要。
      *
-     * <p>Google 登入的使用者永遠通過；只有密碼註冊且尚未點驗證信的人會被擋下。
+     * <p>只有註冊後還沒輸入驗證碼的人會被擋下。
      */
     public AppPrincipal requireVerifiedEmail() {
         AppPrincipal principal = require();
         if (!principal.emailVerified()) {
             throw new ForbiddenException("EMAIL_NOT_VERIFIED",
-                    "請先完成信箱驗證。我們寄了一封驗證信到 %s，"
+                    "請先完成信箱驗證。我們寄了一封驗證碼到 %s，"
                             .formatted(principal.email())
-                            + "點擊信中的連結之後就能繼續（記得檢查垃圾郵件匣）");
+                            + "輸入 6 位數驗證碼之後就能繼續（記得檢查垃圾郵件匣）");
         }
         return principal;
     }

@@ -17,8 +17,8 @@ import jakarta.servlet.http.HttpServletResponse;
 /**
  * 開發用的身分模擬——依 {@code X-Dev-User-Email} 標頭認人，完全沒有驗證。
  *
- * <p>存在的理由是本機用 curl 測 API 時，取得真實 Firebase ID token 得先走完整個
- * 瀏覽器登入流程，過於麻煩。
+ * <p>存在的理由是本機用 curl 測 API 時，取得真實的 access token 得先走完註冊與
+ * 信箱驗證，過於麻煩。
  *
  * <p><strong>安全性：</strong>只在 {@code dev-auth} profile 啟用，而該 profile 僅由
  * application.yml 的 profiles.group 在 local 時帶出；正式環境跑 prod，兩者不會同時成立。
@@ -40,10 +40,10 @@ public class DevPrincipalFilter extends OncePerRequestFilter {
     /** 預設視為已驗證；傳 false 可以在本機測試未驗證信箱被擋下的路徑。 */
     public static final String VERIFIED_HEADER = "X-Dev-Email-Verified";
 
-    private final UserProvisioningService provisioning;
+    private final UserAuthenticationService authentication;
 
-    public DevPrincipalFilter(UserProvisioningService provisioning) {
-        this.provisioning = provisioning;
+    public DevPrincipalFilter(UserAuthenticationService authentication) {
+        this.authentication = authentication;
         log.warn("=".repeat(78));
         log.warn("dev-auth profile 已啟用：任何請求都能以 {} 標頭偽裝身分。", EMAIL_HEADER);
         log.warn("這只應出現在本機開發環境。");
@@ -58,8 +58,8 @@ public class DevPrincipalFilter extends OncePerRequestFilter {
 
         if (StringUtils.hasText(email) && !StringUtils.hasText(request.getHeader("Authorization"))) {
             boolean verified = !"false".equalsIgnoreCase(request.getHeader(VERIFIED_HEADER));
-            AppPrincipal principal = provisioning.resolve(
-                    "dev-" + email.trim(), email.trim(), verified, request.getHeader(NAME_HEADER));
+            AppPrincipal principal = authentication.resolveForDev(
+                    email.trim(), verified, request.getHeader(NAME_HEADER));
             SecurityContextHolder.getContext()
                     .setAuthentication(new AppAuthentication(null, principal));
         }

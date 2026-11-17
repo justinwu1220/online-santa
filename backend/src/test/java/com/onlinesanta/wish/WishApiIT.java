@@ -59,7 +59,7 @@ class WishApiIT extends ApiIntegrationTest {
         organization.approve(null, "測試資料");
         organizations.save(organization);
 
-        User member = User.newDonor(TestJwtSupport.uidFor(memberEmail), memberEmail, memberEmail);
+        User member = User.newDonor(memberEmail, memberEmail);
         member.joinOrganization(organization.getId());
         users.save(member);
         return organization.getId();
@@ -240,7 +240,7 @@ class WishApiIT extends ApiIntegrationTest {
         String pendingUser = "pending@example.org";
         Organization pending = organizations.save(
                 Organization.register("待審核之家", "王承辦", pendingUser, null, null, null));
-        User member = User.newDonor(TestJwtSupport.uidFor(pendingUser), pendingUser, "待審核");
+        User member = User.newDonor(pendingUser, "待審核");
         member.joinOrganization(pending.getId());
         users.save(member);
 
@@ -262,7 +262,7 @@ class WishApiIT extends ApiIntegrationTest {
         String pendingUser = "wall-check@example.org";
         Organization pending = organizations.save(
                 Organization.register("牆上不該有的機構", "王承辦", pendingUser, null, null, null));
-        User member = User.newDonor(TestJwtSupport.uidFor(pendingUser), pendingUser, "待審核");
+        User member = User.newDonor(pendingUser, "待審核");
         member.joinOrganization(pending.getId());
         users.save(member);
 

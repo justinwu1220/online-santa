@@ -67,6 +67,7 @@ class ClaimConcurrencyIT extends PostgresIntegrationTest {
 
     private UUID wishId;
     private List<String> donorEmails;
+    private java.util.Map<String, UUID> donorIds;
 
     @BeforeEach
     void setUp() {
@@ -86,8 +87,13 @@ class ClaimConcurrencyIT extends PostgresIntegrationTest {
         donorEmails = java.util.stream.IntStream.range(0, CONTENDERS)
                 .mapToObj(i -> "donor%02d@example.com".formatted(i))
                 .toList();
-        donorEmails.forEach(email ->
-                users.save(User.newDonor(TestJwtSupport.uidFor(email), email, email)));
+        // 信箱要是已驗證——認領需要驗證過的信箱
+        donorIds = new java.util.HashMap<>();
+        donorEmails.forEach(email -> {
+            User donor = User.newDonor(email, email);
+            donor.markEmailVerified(java.time.Instant.now());
+            donorIds.put(email, users.save(donor).getId());
+        });
     }
 
     @AfterEach
@@ -118,7 +124,7 @@ class ClaimConcurrencyIT extends PostgresIntegrationTest {
                     .map(email -> pool.submit((Callable<Integer>) () -> {
                         startGate.await();
                         return mvc.perform(post("/api/wishes/{id}/claim", wishId)
-                                        .header("Authorization", "Bearer " + TestJwtSupport.tokenFor(email)))
+                                        .header("Authorization", "Bearer " + TestJwtSupport.tokenFor(donorIds.get(email))))
                                 .andReturn().getResponse().getStatus();
                     }))
                     .toList();
@@ -153,7 +159,7 @@ class ClaimConcurrencyIT extends PostgresIntegrationTest {
                     .map(email -> pool.submit((Callable<Integer>) () -> {
                         startGate.await();
                         return mvc.perform(post("/api/wishes/{id}/claim", wishId)
-                                        .header("Authorization", "Bearer " + TestJwtSupport.tokenFor(email)))
+                                        .header("Authorization", "Bearer " + TestJwtSupport.tokenFor(donorIds.get(email))))
                                 .andReturn().getResponse().getStatus();
                     }))
                     .toList();
@@ -189,7 +195,7 @@ class ClaimConcurrencyIT extends PostgresIntegrationTest {
     @DisplayName("資料庫層的部分唯一索引擋得住繞過服務層的寫入")
     void partialUniqueIndexRejectsASecondActiveClaimWrittenDirectly() throws Exception {
         mvc.perform(post("/api/wishes/{id}/claim", wishId)
-                        .header("Authorization", "Bearer " + TestJwtSupport.tokenFor(donorEmails.get(0))))
+                        .header("Authorization", "Bearer " + TestJwtSupport.tokenFor(donorIds.get(donorEmails.get(0)))))
                 .andReturn();
 
         UUID otherDonor = users.findByEmailIgnoreCase(donorEmails.get(1)).orElseThrow().getId();
