@@ -68,9 +68,15 @@ jobs:
             exit 1
           fi
 
-          # 寄信額度是兩個環境共用的，每個環境都必須有上限，而且要真的大於 0
-          if ! [ "$MAIL_DAILY_LIMIT" -gt 0 ] 2>/dev/null; then
-            echo "::error::MAIL_DAILY_LIMIT 必須是大於 0 的整數（目前是「$MAIL_DAILY_LIMIT」）。每日寄信上限是共用寄信額度的保護。"
+          # MAIL_DAILY_LIMIT 必須明確填寫整數（0 代表不限），不能留空：留空分不出是「決定不限」還是「忘了設」。
+          # 測試站與正式站共用同一個寄信額度，測試站出錯會燒光正式站的額度，所以測試站一定要有上限（大於 0）；
+          # 正式站是否設上限由使用的寄信方案決定（付費方案單日不限量時可以填 0）
+          if ! [ "$MAIL_DAILY_LIMIT" -ge 0 ] 2>/dev/null; then
+            echo "::error::MAIL_DAILY_LIMIT 必須是整數，0 代表不限（目前是「$MAIL_DAILY_LIMIT」）。"
+            exit 1
+          fi
+          if [ "$ENVIRONMENT" = "staging" ] && ! [ "$MAIL_DAILY_LIMIT" -gt 0 ]; then
+            echo "::error::測試站的 MAIL_DAILY_LIMIT 必須大於 0：測試站出錯會燒光與正式站共用的寄信額度。"
             exit 1
           fi
 
