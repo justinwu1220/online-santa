@@ -1,4 +1,14 @@
 spring:
+  # 本機專用的設定檔（backend/.env.local，已被 .gitignore 擋住，不會進 repo）。
+  # 每行 KEY=VALUE，例如要連 Neon 的測試站資料庫：
+  #   DB_URL=jdbc:postgresql://ep-xxx.../online_santa_staging?sslmode=require
+  #   DB_USERNAME=...
+  #   DB_PASSWORD=...
+  # 檔案不存在就略過，維持下面的預設值（本機 PostgreSQL）。
+  # 工作目錄必須是 backend/（IntelliJ 的預設值就是；在專案根目錄用 mvn 啟動也是）。
+  # 環境變數與 IntelliJ 設定的值優先於這個檔案。
+  config:
+    import: optional:file:./.env.local[.properties]
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/online_santa}
     username: ${DB_USERNAME:santa}
