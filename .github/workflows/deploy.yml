@@ -1,20 +1,28 @@
 name: Deploy
 
+# push 到 main：測試 → 建一次映像檔 → 部署到測試站 → 等人核准 → 用同一個映像檔部署正式站。
+#
+# 測試站驗證過的就是上正式站的東西：映像檔只建一次，兩個環境部署的是同一個 commit SHA 的映像檔。
+# 正式站在核准之前完全不會被動到（GitHub 的 production Environment 設了「必須核准」）。
+# 部署步驟寫在 _deploy.yml，兩個環境共用。
+
 on:
   push:
     branches: [main]
   # 允許手動重新部署（例如只是想換一個環境變數）
   workflow_dispatch:
 
-# 同一時間只跑一個部署，避免兩次 push 互相覆蓋
+# 同一時間只跑一個部署，避免兩次 push 互相覆蓋。
+# 正在等核准的 run 被新的 push 取代時，GitHub 會取消舊的、保留新的。
 concurrency:
-  group: deploy-production
+  group: deploy
   cancel-in-progress: false
 
 env:
-  SERVICE_NAME: online-santa-api
   REGION: asia-east1
   REPOSITORY: online-santa
+  # 映像檔名稱沿用「正式服務名稱」，兩個環境共用同一個映像檔倉庫
+  IMAGE_NAME: online-santa-api
 
 jobs:
   # 測試不通過就不部署。CI workflow 也會跑，但那是路徑過濾的，
@@ -44,21 +52,20 @@ jobs:
         run: npm ci && npm run lint && npm test && npm run build
         working-directory: frontend
 
-  backend:
+  # 映像檔只在這裡建一次
+  build-image:
     needs: verify
     runs-on: ubuntu-24.04
-    # Workload Identity Federation 需要 OIDC token，不使用長期有效的 JSON 金鑰
     permissions:
       contents: read
       id-token: write
     outputs:
-      url: ${{ steps.deploy.outputs.url }}
+      image: ${{ steps.meta.outputs.image }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - id: auth
-        name: 取得 GCP 憑證（Workload Identity Federation）
+      - name: 取得 GCP 憑證（Workload Identity Federation）
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
@@ -69,9 +76,13 @@ jobs:
       - name: 設定 Artifact Registry 認證
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
+      - id: meta
+        name: 決定映像檔名稱
+        run: echo "image=${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}" >> "$GITHUB_OUTPUT"
+
       - name: 建置並推送映像檔
         env:
-          IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}
+          IMAGE: ${{ steps.meta.outputs.image }}
         run: |
           # 用 commit SHA 當標籤，任何一次部署都能對應回確切的原始碼；
           # latest 只是方便人工查看，部署時一律用 SHA
@@ -79,118 +90,20 @@ jobs:
           docker push "$IMAGE:${{ github.sha }}"
           docker push "$IMAGE:latest"
 
-      - id: deploy
-        name: 部署到 Cloud Run
-        uses: google-github-actions/deploy-cloudrun@v2
-        with:
-          service: ${{ env.SERVICE_NAME }}
-          region: ${{ env.REGION }}
-          image: ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          flags: >-
-            --allow-unauthenticated
-            --service-account=online-santa-run@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com
-            --cpu=1
-            --memory=1Gi
-            --concurrency=80
-            --min-instances=0
-            --max-instances=10
-            --timeout=30s
-            --cpu-boost
-          # 這個 action 的 env_vars 以逗號分隔 KEY=VALUE，所以值裡若有沒跳脫的逗號，
-          # 會被當成分隔符把變數靜默截斷——部署照樣顯示成功，但服務拿到半截的值。
-          # APP_ALLOWED_ORIGINS 就這樣被截斷過一次：前端打 API 全被 CORS 擋，而
-          # Actions 從頭到尾全綠，完全看不出來。
-          #
-          # 所以 APP_ALLOWED_ORIGINS 與 APP_ADMIN_EMAILS 這兩個「逗號分隔」的變數，
-          # 要放多個值時必須在逗號前加反斜線，例如 a\,b 。action 的 README 說
-          # 「或加引號」是錯的——parseKVString 裡根本沒有處理引號的分支。
-          #
-          # 目前兩者都只有單一值，沒有這個問題。
-          #
-          # 寄信相關的四個值（MAIL_HOST/MAIL_PORT/MAIL_FROM/APP_PUBLIC_URL）在對應的
-          # repository variable 沒設定時會是空字串，MailConfig 便不建立 JavaMailSender，
-          # 通知維持 no-op。一旦設了 MAIL_HOST，MailConfig 會強制其餘的值不能留預設值
-          # （否則信會從 no-reply@example.org 寄出、連結指向 localhost），啟動時就擋下來。
-          env_vars: |
-            SPRING_PROFILES_ACTIVE=prod
-            APP_AUTH_COOKIE_SECURE=true
-            APP_ADMIN_EMAILS=${{ vars.APP_ADMIN_EMAILS }}
-            APP_ALLOWED_ORIGINS=${{ vars.APP_ALLOWED_ORIGINS }}
-            GCS_PUBLIC_BUCKET=${{ vars.GCS_PUBLIC_BUCKET }}
-            WISH_IMAGE_ENABLED=${{ vars.WISH_IMAGE_ENABLED || 'false' }}
-            GCS_PRIVATE_BUCKET=${{ vars.GCS_PRIVATE_BUCKET }}
-            INTERNAL_JOB_AUDIENCE=${{ vars.INTERNAL_JOB_AUDIENCE }}
-            SCHEDULER_SERVICE_ACCOUNT=${{ vars.SCHEDULER_SERVICE_ACCOUNT }}
-            MAIL_HOST=${{ vars.MAIL_HOST }}
-            MAIL_PORT=${{ vars.MAIL_PORT || '587' }}
-            MAIL_FROM=${{ vars.MAIL_FROM }}
-            APP_PUBLIC_URL=${{ vars.APP_PUBLIC_URL }}
-          # 資料庫連線資訊、捐贈收據的加密金鑰與登入 token 的簽章密鑰放 Secret Manager，
-          # 不進環境變數的明文設定。online-santa-receipt-key 與 online-santa-auth-jwt-secret
-          # 要先建好（見 docs/DEPLOY.md 3.4），沒有它們後端啟動就會失敗
-          secrets: |
-            DB_URL=online-santa-db-url:latest
-            DB_USERNAME=online-santa-db-username:latest
-            DB_PASSWORD=online-santa-db-password:latest
-            RECEIPT_ENCRYPTION_KEY=online-santa-receipt-key:latest
-            APP_AUTH_JWT_SECRET=online-santa-auth-jwt-secret:latest
-            MAIL_USERNAME=online-santa-mail-username:latest
-            MAIL_PASSWORD=online-santa-mail-password:latest
+  staging:
+    needs: build-image
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: staging
+      image: ${{ needs.build-image.outputs.image }}:${{ github.sha }}
+    secrets: inherit
 
-      - name: 確認服務起得來
-        run: |
-          # Flyway 會在啟動時跑 migration，這一步同時驗證了資料庫連得上
-          for attempt in $(seq 1 10); do
-            if curl -fsS "${{ steps.deploy.outputs.url }}/actuator/health" | grep -q '"status":"UP"'; then
-              echo "健康檢查通過"
-              exit 0
-            fi
-            echo "第 $attempt 次尚未就緒，等待中…"
-            sleep 6
-          done
-          echo "健康檢查失敗"
-          exit 1
-
-  frontend:
-    needs: [verify, backend]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: 建置
-        working-directory: frontend
-        env:
-          # 刻意留空：API 與前端同網域，由 firebase.json 的 rewrite 把 /api/** 轉給 Cloud Run。
-          # 登入狀態放在 HttpOnly cookie 裡，前端若直接打 run.app 的網址就變成第三方 cookie，
-          # Safari 與新版 Chrome 會擋掉，使用者每次重新整理都得重新登入
-          VITE_API_BASE_URL: ''
-          # 正式環境一定要是真正的帳號登入，這個旗標只給本機開發用
-          VITE_DEV_AUTH: 'false'
-          # 與後端的 WISH_IMAGE_ENABLED 一起開關。沒設就是關閉——願望牆改用分類圖示
-          VITE_WISH_IMAGE_ENABLED: ${{ vars.WISH_IMAGE_ENABLED }}
-        run: |
-          npm ci
-          npm run build
-
-      - name: 取得 GCP 憑證
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
-          # firebase-tools 靠這個檔案認證，不需要長期有效的 CI token
-          create_credentials_file: true
-          export_environment_variables: true
-
-      # FIREBASE_PROJECT_ID 現在只剩 Hosting 用（登入已不依賴 Firebase）
-      - name: 部署到 Firebase Hosting
-        run: npx --yes firebase-tools@13 deploy --only hosting --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive
+  # 部署到正式站之前，GitHub 會停下來等 production Environment 設定的核准者按「Approve」
+  production:
+    # needs 只包含直接依賴：要讀 build-image 的輸出，必須明確列出來
+    needs: [build-image, staging]
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: production
+      image: ${{ needs.build-image.outputs.image }}:${{ github.sha }}
+    secrets: inherit

@@ -1,0 +1,244 @@
+name: Deploy (reusable)
+
+# 把「已經建好的映像檔」部署到一個環境（測試站或正式站）：後端 → 前端 → 部署後檢查。
+# 由 deploy.yml 呼叫，兩個環境走完全相同的步驟，差別只在 GitHub Environment 裡的變數。
+#
+# 後端、前端、檢查合在同一個 job，不拆開：job 一旦引用有「必須核准」的 Environment，
+# 每個 job 都要各自核准一次。拆成三個 job 的話，上正式站要按三次核准。
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub Environment 名稱（staging 或 production）
+        type: string
+        required: true
+      image:
+        description: 要部署的完整映像檔位址（含 commit SHA 標籤）
+        type: string
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    # 環境專屬的變數（服務名稱、bucket、網址……）都放在 Environment 裡，job 以這個名稱取用
+    environment: ${{ inputs.environment }}
+    # Workload Identity Federation 需要 OIDC token，不使用長期有效的 JSON 金鑰
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      REGION: asia-east1
+      ENVIRONMENT: ${{ inputs.environment }}
+      # 環境專屬（放在 Environment 層級，不放 repository 層級）
+      CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+      CLOUD_RUN_MAX_INSTANCES: ${{ vars.CLOUD_RUN_MAX_INSTANCES }}
+      HOSTING_SITE: ${{ vars.HOSTING_SITE }}
+      SECRET_SUFFIX: ${{ vars.SECRET_SUFFIX }}
+      GCS_PRIVATE_BUCKET: ${{ vars.GCS_PRIVATE_BUCKET }}
+      APP_ALLOWED_ORIGINS: ${{ vars.APP_ALLOWED_ORIGINS }}
+      APP_PUBLIC_URL: ${{ vars.APP_PUBLIC_URL }}
+      INTERNAL_JOB_AUDIENCE: ${{ vars.INTERNAL_JOB_AUDIENCE }}
+      SCHEDULER_SERVICE_ACCOUNT: ${{ vars.SCHEDULER_SERVICE_ACCOUNT }}
+      MAIL_DAILY_LIMIT: ${{ vars.MAIL_DAILY_LIMIT }}
+      MAIL_SUBJECT_PREFIX: ${{ vars.MAIL_SUBJECT_PREFIX }}
+      # 兩個環境共用（Repository 層級）
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      MAIL_HOST: ${{ vars.MAIL_HOST }}
+      MAIL_FROM: ${{ vars.MAIL_FROM }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 環境專屬的變數漏設，不能默默退回別的值：測試站漏設 GCS_PRIVATE_BUCKET 卻讀到 repository
+      # 層級的正式值，測試站就會把測試資料寫進正式的 bucket。所以這些變數只放在 Environment
+      # 層級，漏設就是空值，在這裡擋下來。
+      - name: 檢查設定（缺漏或指錯環境就停止，不碰任何雲端資源）
+        run: |
+          missing=()
+          for name in CLOUD_RUN_SERVICE CLOUD_RUN_MAX_INSTANCES HOSTING_SITE GCS_PRIVATE_BUCKET \
+                      APP_ALLOWED_ORIGINS APP_PUBLIC_URL INTERNAL_JOB_AUDIENCE SCHEDULER_SERVICE_ACCOUNT \
+                      MAIL_DAILY_LIMIT GCP_PROJECT_ID FIREBASE_PROJECT_ID MAIL_HOST MAIL_FROM; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Environment「$ENVIRONMENT」缺少變數：${missing[*]}"
+            exit 1
+          fi
+
+          # 寄信額度是兩個環境共用的，每個環境都必須有上限，而且要真的大於 0
+          if ! [ "$MAIL_DAILY_LIMIT" -gt 0 ] 2>/dev/null; then
+            echo "::error::MAIL_DAILY_LIMIT 必須是大於 0 的整數（目前是「$MAIL_DAILY_LIMIT」）。每日寄信上限是共用寄信額度的保護。"
+            exit 1
+          fi
+
+          if [ "$ENVIRONMENT" = "staging" ]; then
+            # 測試站的每一個資源名稱都必須看得出是測試站，防止誤指向正式資源
+            for name in CLOUD_RUN_SERVICE HOSTING_SITE GCS_PRIVATE_BUCKET APP_PUBLIC_URL SECRET_SUFFIX; do
+              case "${!name}" in
+                *staging*) ;;
+                *) echo "::error::staging 的 $name（${!name:-空值}）看起來不是測試站的資源"; exit 1 ;;
+              esac
+            done
+            [ -n "$MAIL_SUBJECT_PREFIX" ] || { echo "::error::測試站必須設 MAIL_SUBJECT_PREFIX（例如 [測試站]），收件人才分辨得出信是哪裡寄的"; exit 1; }
+          else
+            # 正式站反過來：不能出現任何 staging 的痕跡
+            [ -z "$SECRET_SUFFIX" ] || { echo "::error::production 的 SECRET_SUFFIX 必須是空的（目前是「$SECRET_SUFFIX」）"; exit 1; }
+            for name in CLOUD_RUN_SERVICE HOSTING_SITE GCS_PRIVATE_BUCKET APP_PUBLIC_URL; do
+              case "${!name}" in
+                *staging*) echo "::error::production 的 $name（${!name}）含有 staging"; exit 1 ;;
+              esac
+            done
+          fi
+          echo "設定檢查通過（$ENVIRONMENT → $CLOUD_RUN_SERVICE / $HOSTING_SITE）"
+
+      - id: auth
+        name: 取得 GCP 憑證（Workload Identity Federation）
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # ------------------------------------------------------------------ 後端
+      - id: deploy
+        name: 部署到 Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.CLOUD_RUN_SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ inputs.image }}
+          flags: >-
+            --allow-unauthenticated
+            --service-account=online-santa-run@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+            --cpu=1
+            --memory=1Gi
+            --concurrency=80
+            --min-instances=0
+            --max-instances=${{ env.CLOUD_RUN_MAX_INSTANCES }}
+            --timeout=30s
+            --cpu-boost
+          # 這個 action 的 env_vars 以逗號分隔 KEY=VALUE，所以值裡若有沒跳脫的逗號，
+          # 會被當成分隔符把變數靜默截斷——部署照樣顯示成功，但服務拿到半截的值。
+          # APP_ALLOWED_ORIGINS 就這樣被截斷過一次：前端打 API 全被 CORS 擋，而
+          # Actions 從頭到尾全綠，完全看不出來。
+          #
+          # 所以 APP_ALLOWED_ORIGINS 與 APP_ADMIN_EMAILS 這兩個「逗號分隔」的變數，
+          # 要放多個值時必須在逗號前加反斜線，例如 a\,b 。action 的 README 說
+          # 「或加引號」是錯的——parseKVString 裡根本沒有處理引號的分支。
+          #
+          # 寄信相關的值在 MAIL_HOST 沒設定時 MailConfig 不建立 JavaMailSender、通知維持 no-op；
+          # 但帳號驗證碼也靠它寄出，所以上面的設定檢查要求 MAIL_HOST 必須有值。
+          # MAIL_DAILY_LIMIT 是共用寄信額度的保護，MAIL_SUBJECT_PREFIX 讓收件人分辨環境。
+          env_vars: |
+            SPRING_PROFILES_ACTIVE=prod
+            APP_AUTH_COOKIE_SECURE=true
+            APP_ADMIN_EMAILS=${{ vars.APP_ADMIN_EMAILS }}
+            APP_ALLOWED_ORIGINS=${{ env.APP_ALLOWED_ORIGINS }}
+            GCS_PUBLIC_BUCKET=${{ vars.GCS_PUBLIC_BUCKET }}
+            WISH_IMAGE_ENABLED=${{ vars.WISH_IMAGE_ENABLED || 'false' }}
+            GCS_PRIVATE_BUCKET=${{ env.GCS_PRIVATE_BUCKET }}
+            INTERNAL_JOB_AUDIENCE=${{ env.INTERNAL_JOB_AUDIENCE }}
+            SCHEDULER_SERVICE_ACCOUNT=${{ env.SCHEDULER_SERVICE_ACCOUNT }}
+            MAIL_HOST=${{ env.MAIL_HOST }}
+            MAIL_PORT=${{ vars.MAIL_PORT || '587' }}
+            MAIL_FROM=${{ env.MAIL_FROM }}
+            MAIL_DAILY_LIMIT=${{ env.MAIL_DAILY_LIMIT }}
+            MAIL_SUBJECT_PREFIX=${{ env.MAIL_SUBJECT_PREFIX }}
+            APP_PUBLIC_URL=${{ env.APP_PUBLIC_URL }}
+          # 資料庫、收據加密金鑰、登入 token 簽章密鑰放 Secret Manager。這三組在兩個環境各自獨立
+          # （名稱帶 SECRET_SUFFIX）：測試站簽的 token 絕不能在正式站有效，測試站的資料庫也不能是
+          # 正式庫。寄信帳密（Resend）是兩個環境共用的，不帶後綴。
+          secrets: |
+            DB_URL=online-santa-db-url${{ env.SECRET_SUFFIX }}:latest
+            DB_USERNAME=online-santa-db-username${{ env.SECRET_SUFFIX }}:latest
+            DB_PASSWORD=online-santa-db-password${{ env.SECRET_SUFFIX }}:latest
+            RECEIPT_ENCRYPTION_KEY=online-santa-receipt-key${{ env.SECRET_SUFFIX }}:latest
+            APP_AUTH_JWT_SECRET=online-santa-auth-jwt-secret${{ env.SECRET_SUFFIX }}:latest
+            MAIL_USERNAME=online-santa-mail-username:latest
+            MAIL_PASSWORD=online-santa-mail-password:latest
+
+      - name: 確認後端起得來
+        run: |
+          # Flyway 會在啟動時跑 migration，這一步同時驗證了資料庫連得上
+          for attempt in $(seq 1 10); do
+            if curl -fsS "${{ steps.deploy.outputs.url }}/actuator/health" | grep -q '"status":"UP"'; then
+              echo "健康檢查通過"
+              exit 0
+            fi
+            echo "第 $attempt 次尚未就緒，等待中…"
+            sleep 6
+          done
+          echo "::error::後端健康檢查失敗"
+          exit 1
+
+      # ------------------------------------------------------------------ 前端
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 建置前端
+        working-directory: frontend
+        env:
+          # 刻意留空：API 與前端同網域，由 firebase.json 的 rewrite 把 /api/** 轉給 Cloud Run。
+          # 登入狀態放在 HttpOnly cookie 裡，前端若直接打 run.app 的網址就變成第三方 cookie，
+          # Safari 與新版 Chrome 會擋掉，使用者每次重新整理都得重新登入
+          VITE_API_BASE_URL: ''
+          # 正式環境與測試站一定要是真正的帳號登入，這個旗標只給本機開發用
+          VITE_DEV_AUTH: 'false'
+          # 與後端的 WISH_IMAGE_ENABLED 一起開關。沒設就是關閉——願望牆改用分類圖示
+          VITE_WISH_IMAGE_ENABLED: ${{ vars.WISH_IMAGE_ENABLED }}
+        run: |
+          npm ci
+          npm run build
+
+      # firebase.json 是 header 與 SPA rewrite 的唯一來源，兩個環境不各維護一份：
+      # 這裡只把「部署到哪個 site」與「/api/** 轉給哪個 Cloud Run 服務」覆寫成這個環境的值
+      - name: 產生這個環境的 Hosting 設定
+        run: |
+          jq --arg site "$HOSTING_SITE" --arg service "$CLOUD_RUN_SERVICE" '
+            .hosting.site = $site
+            | .hosting.rewrites |= map(if has("run") then .run.serviceId = $service else . end)
+          ' firebase.json > firebase.deploy.json
+          echo "將部署到 site「$HOSTING_SITE」，/api/** 轉給 Cloud Run 服務「$CLOUD_RUN_SERVICE」"
+          jq -c '.hosting | {site, rewrites}' firebase.deploy.json
+
+      - name: 部署到 Firebase Hosting
+        # firebase-tools 靠 auth 步驟匯出的憑證檔認證，不需要長期有效的 CI token
+        run: npx --yes firebase-tools@13 deploy --only hosting --config firebase.deploy.json --project "$FIREBASE_PROJECT_ID" --non-interactive
+
+      # ------------------------------------------------------------------ 部署後檢查
+      # 這些檢查都不會寄信（不註冊、不忘記密碼），免得每次部署都花掉寄信額度
+      - name: 部署後檢查（經由網站的網址）
+        run: |
+          site="https://${HOSTING_SITE}.web.app"
+          echo "檢查 $site"
+
+          # Hosting 部署完成到全球生效有短暫延遲，首頁拿到 200 才往下
+          ok=""
+          for attempt in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$site/")
+            if [ "$code" = "200" ]; then ok=1; break; fi
+            echo "第 $attempt 次首頁回 $code，等待中…"
+            sleep 6
+          done
+          [ -n "$ok" ] || { echo "::error::首頁沒有回 200"; exit 1; }
+
+          # 公開的 API 經 Hosting 轉到 Cloud Run：回應必須是 JSON。Hosting 的轉發沒設好時，
+          # 這個網址會被 SPA 的 rewrite 吃掉，回的是 index.html（HTML、狀態也是 200）
+          curl -fsS "$site/api/wishes?size=1" | jq -e . > /dev/null \
+            || { echo "::error::/api/wishes 回的不是 JSON，Hosting 沒有把 /api/** 轉給 Cloud Run"; exit 1; }
+
+          # 沒帶登入 cookie 的換發必須回 401（我們後端的 JSON）。這驗證了 POST 也有轉到後端，
+          # 而且登入狀態那一組端點是通的
+          status=$(curl -s -o /tmp/refresh.json -w '%{http_code}' -X POST "$site/api/auth/refresh")
+          [ "$status" = "401" ] || { echo "::error::/api/auth/refresh 預期 401，實際 $status"; cat /tmp/refresh.json; exit 1; }
+          jq -e '.errorCode == "UNAUTHENTICATED"' /tmp/refresh.json > /dev/null \
+            || { echo "::error::/api/auth/refresh 的 401 不是後端的回應"; cat /tmp/refresh.json; exit 1; }
+
+          echo "部署後檢查全部通過：$site"
