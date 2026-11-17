@@ -8,7 +8,7 @@ import { PublicLayout } from './PublicLayout'
 const state = { role: 'DONOR' }
 
 vi.mock('../../lib/authContext', () => ({
-  usingFirebase: true,
+  usingLocalAuth: true,
   useAuth: () => ({ email: 'me@example.com', loading: false, signOut: vi.fn() }),
 }))
 vi.mock('../../lib/useCurrentUser', () => ({

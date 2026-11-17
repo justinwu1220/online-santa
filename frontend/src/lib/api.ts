@@ -1,10 +1,13 @@
-import { currentAuthHeaders } from './authContext'
+import { currentAuthHeaders, recoverFromUnauthorized } from './authContext'
 
 /**
  * 後端 API 的 fetch 包裝。
  *
- * 每次請求向 AuthProvider 取得驗證標頭——Firebase 模式是 ID token，
+ * 每次請求向 AuthProvider 取得驗證標頭——帳號模式是 access token，
  * 開發模式是 X-Dev-User-Email，呼叫端不需要知道差別。
+ *
+ * access token 只有 15 分鐘。請求送出時它剛好過期（或在別的分頁已被換掉）會收到 401，
+ * 這時請 AuthProvider 用 cookie 換發一次並重試——使用者不該因為閒置一陣子就被丟回登入頁。
  */
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
@@ -43,16 +46,23 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
+  const authHeaders = await currentAuthHeaders()
   const response = await fetch(`${BASE_URL}${path}`, {
     ...init,
     headers: {
       Accept: 'application/json',
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(await currentAuthHeaders()),
+      ...authHeaders,
       ...init.headers,
     },
   })
+
+  // 只有「帶了 token 卻被拒絕」才值得換發重試；沒登入的訪客收到 401 換發也沒用
+  if (response.status === 401 && !retried && 'Authorization' in authHeaders
+    && await recoverFromUnauthorized()) {
+    return request<T>(path, init, true)
+  }
 
   if (!response.ok) {
     // 後端統一以 RFC 7807 ProblemDetail 回覆錯誤

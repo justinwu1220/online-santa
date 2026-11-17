@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { TreePine, User } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { useAuth, usingFirebase } from '../../lib/authContext'
+import { useAuth, usingLocalAuth } from '../../lib/authContext'
 import { PLATFORM_NAME } from '../../lib/brand'
 import type { ClaimDonorView, PageResponse } from '../../lib/types'
 import { useMyProfile } from '../../lib/useMyProfile'
@@ -34,9 +34,9 @@ export function PublicLayout() {
         <OnboardHost>
         <TransitionProvider>
           <SiteHeader />
-          {!usingFirebase && (
+          {!usingLocalAuth && (
             <div className="bar bar--dev">
-              開發模式：未設定 Firebase，身分僅由 <code>X-Dev-User-Email</code> 標頭指定，沒有任何驗證。
+              開發模式（<code>VITE_DEV_AUTH=true</code>）：身分僅由 <code>X-Dev-User-Email</code> 標頭指定，沒有任何驗證。
             </div>
           )}
           <VerifyBar />

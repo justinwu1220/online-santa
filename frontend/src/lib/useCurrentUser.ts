@@ -6,8 +6,8 @@ import type { CurrentUser, UserRole } from './types'
 /**
  * 目前登入者的角色與所屬機構。
  *
- * 首次呼叫會讓後端就地建立本地帳號（JIT provisioning）。角色一律以這個端點為準，
- * 而非 Firebase 的 custom claims——後者要等 token 重簽才會更新。
+ * 角色一律以這個端點為準，而不是寫在 token 裡——token 在有效期內不會更新，
+ * 管理員剛核准機構時會讓該機構成員卡住。
  */
 export function useCurrentUser() {
   const { email } = useAuth()

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { describeAuthError, useAuth } from './authContext'
 
-/** 重新寄送驗證信的冷卻秒數（SPEC 12.2：按下後 60 秒內不能重按）。 */
+/** 重新寄送驗證碼的冷卻秒數（SPEC 12.2：按下後 60 秒內不能重按）。 */
 const COOLDOWN_SECONDS = 60
 
 /**
- * 「重新寄送驗證信」：寄出後顯示倒數、冷卻期間不能重按。
- * 驗證提示列（VerifyBar）與註冊後的「驗證信寄出了」畫面共用。
+ * 「重新寄送驗證碼」：寄出後顯示倒數、冷卻期間不能重按（後端也限流：兩封間隔 60 秒、一天 5 封）。
+ * 驗證提示列（VerifyBar）、註冊後的「驗證碼寄出了」畫面與個人檔案共用。
  */
 export function useResendVerification() {
   const auth = useAuth()
@@ -37,7 +37,7 @@ export function useResendVerification() {
       const until = Date.now() + COOLDOWN_SECONDS * 1000
       setNow(Date.now())
       setCooldownUntil(until)
-      setMessage('驗證信已重新寄出')
+      setMessage('驗證碼已重新寄出')
     } catch (caught) {
       setError(describeAuthError(caught))
     } finally {

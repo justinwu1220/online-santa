@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError, api } from '../lib/api'
-import { describeAuthError, useAuth, usingFirebase } from '../lib/authContext'
+import { describeAuthError, useAuth, usingLocalAuth } from '../lib/authContext'
 import { pageTitle } from '../lib/brand'
 import { formatDateTime } from '../lib/format'
 import { reducedMotion } from '../lib/motion'
@@ -10,6 +10,7 @@ import { useDonorTerms } from '../lib/terms'
 import { useCurrentUser } from '../lib/useCurrentUser'
 import { useMyProfile } from '../lib/useMyProfile'
 import { useResendVerification } from '../lib/useResendVerification'
+import { VerifyCodeInput } from '../components/auth/VerifyCodeInput'
 import type { CurrentUser, UserProfile, UserRole } from '../lib/types'
 import { KIND_NAME, KindNameButton } from '../components/auth/KindNameButton'
 import { useOnboard } from '../components/onboard/onboardContext'
@@ -100,10 +101,12 @@ function AccountSection({ profile, user }: { profile: UserProfile; user?: Curren
 
       {!profile.emailVerified && (
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <p className="auth-note" style={{ margin: 0 }}>輸入寄到信箱的 6 位數驗證碼，驗證碼 15 分鐘內有效。</p>
+          <VerifyCodeInput />
           <div>
             <button type="button" className="btn" disabled={resend.busy || resend.remaining > 0}
               onClick={() => void resend.resend()}>
-              {resend.remaining > 0 ? `重新寄送驗證信（${resend.remaining}）` : '重新寄送驗證信'}
+              {resend.remaining > 0 ? `重新寄送驗證碼（${resend.remaining}）` : '重新寄送驗證碼'}
             </button>
           </div>
           {resend.message && <p className="auth-msg auth-msg--ok" style={{ margin: 0 }}>
@@ -280,7 +283,7 @@ function SecuritySection({ email }: { email: string }) {
   return (
     <section className="panel">
       <div className="panel__head"><h2 className="panel__title">帳號安全</h2></div>
-      {usingFirebase ? (
+      {usingLocalAuth ? (
         <>
           <button type="button" className="btn" disabled={busy} onClick={() => void send()}>
             {busy ? '寄送中…' : '寄送密碼重設信'}

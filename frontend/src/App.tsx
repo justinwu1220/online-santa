@@ -21,6 +21,7 @@ import { OrgLayout } from './routes/org/OrgLayout'
 import { OrgSettings } from './routes/org/OrgSettings'
 import { OrgTeamChat } from './routes/org/OrgTeamChat'
 import { OrgWishes } from './routes/org/OrgWishes'
+import { ResetPassword } from './routes/ResetPassword'
 import { WishDetail } from './routes/WishDetail'
 import { WishWall } from './routes/WishWall'
 
@@ -53,6 +54,8 @@ export default function App() {
     <Routes>
       {/* 登入頁在 layout 之外：全螢幕版面，而且不該有導覽列 */}
       <Route path="login" element={<LoginPage />} />
+      {/* 重設密碼信裡的連結：同樣是全螢幕版面，使用者這時還沒登入 */}
+      <Route path="reset-password" element={<ResetPassword />} />
 
       {/* ---------------------------------------------------------- 主網站 */}
       <Route element={<PublicLayout />}>

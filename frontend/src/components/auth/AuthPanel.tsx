@@ -1,7 +1,7 @@
 import { ArrowLeft, ChevronRight, Eye, EyeOff, Gift, House } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
-import { describeAuthError, useAuth, usingFirebase } from '../../lib/authContext'
+import { describeAuthError, useAuth, usingLocalAuth } from '../../lib/authContext'
 import { reducedMotion } from '../../lib/motion'
 import { termsFlow } from '../../lib/terms'
 import { KIND_NAME, KindNameButton } from './KindNameButton'
@@ -34,7 +34,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
    */
   onJoinIntent?: (role: JoinRole | null) => void
   /**
-   * 認領者註冊成功後要停在「驗證信寄出了」畫面，頁面不能因為已登入就導走。
+   * 認領者註冊成功後要停在「驗證碼寄出了」畫面，頁面不能因為已登入就導走。
    * 同樣必須在建立帳號<strong>之前</strong>通知（帳號一建好登入狀態就變了）；註冊失敗再通知 false。
    * 驗證完成後通知 false，頁面才會導向原本要去的地方。
    */
@@ -44,7 +44,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
   const queryClient = useQueryClient()
   // 認領者按「註冊」後先跳出須知；同意後才真正建立帳號（SPEC 13.1）
   const [termsOpen, setTermsOpen] = useState(false)
-  // 註冊成功後的「驗證信寄出了」畫面
+  // 註冊成功後的「驗證碼寄出了」畫面
   const [sent, setSent] = useState(false)
   const [mode, setMode] = useState<Mode>(initialTab)
   const [role, setRole] = useState<JoinRole | null>(initialRole)
@@ -109,7 +109,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
       if (successNotice) setNotice(successNotice)
     } catch (caught) {
       if (mode === 'register' && role === 'org'
-        && (caught as { code?: string })?.code === 'auth/email-already-in-use') {
+        && (caught as { errorCode?: string })?.errorCode === 'EMAIL_TAKEN') {
         // 就地切成登入，不要把人趕去別的地方重打一次信箱。
         // 身分意圖保留著，登入後仍然會接著走機構申請的下一步
         switchMode('signIn', '這個信箱已經有帳號了。輸入密碼登入之後就能繼續下一步。')
@@ -142,7 +142,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
 
   // ------------------------------------------------------------ 忘記密碼
 
-  if (usingFirebase && mode === 'reset') {
+  if (usingLocalAuth && mode === 'reset') {
     return (
       <div ref={body} className="auth-body">
         <div className="screen-head">
@@ -181,7 +181,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
     )
   }
 
-  // ------------------------------------------------------------ 驗證信已寄出
+  // ------------------------------------------------------------ 驗證碼已寄出
 
   if (sent) {
     return (
@@ -197,14 +197,14 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
     event.preventDefault()
 
     // 一次檢查所有欄位，每個有問題的欄位都標紅框與錯誤文字，再捲到第一個
-    const needsPassword = usingFirebase || registering
+    const needsPassword = usingLocalAuth || registering
     const emailMsg = emailProblem()
     const nameMsg = registering && role === 'donor' && !name.trim()
       ? '請輸入真實姓名，不想具名請按「使用善心人士名義」' : null
     const displayMsg = registering && role === 'donor' && !displayName.trim() ? '請輸入顯示名稱' : null
     const passwordMsg = !needsPassword ? null
       : !password ? '請填寫密碼'
-        : registering && password.length < 6 ? '密碼至少要 6 個字元' : null
+        : registering && password.length < 8 ? '密碼至少要 8 個字元' : null
     const confirmMsg = !registering ? null
       : !confirmPassword ? '請填寫確認密碼'
         : password !== confirmPassword ? '兩次輸入的密碼不一樣' : null
@@ -218,7 +218,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
       return
     }
 
-    if (!usingFirebase && !registering) {
+    if (!usingLocalAuth && !registering) {
       // 開發模式登入：身分只由 email 指定，沒有密碼
       onJoinIntent?.(null)
       void run(() => auth.signIn(email))
@@ -264,7 +264,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
         termsFlow.registering = false
         void queryClient.invalidateQueries({ queryKey: ['terms'] })
       }
-      // 帳號建好了：同一張卡片滑到「驗證信寄出了」
+      // 帳號建好了：同一張卡片滑到「驗證碼寄出了」
       await swap(1, () => setSent(true))
     })
   }
@@ -329,9 +329,9 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
 
       {showForm && (
         <form className="auth-form" ref={formRef} noValidate onSubmit={submit}>
-          {!usingFirebase && (
+          {!usingLocalAuth && (
             <p className="auth-msg">
-              開發模式：未設定 Firebase，輸入任何 email 即可登入，沒有任何驗證。註冊時密碼只用來檢查畫面、不會驗證，姓名則會儲存。
+              開發模式（VITE_DEV_AUTH=true）：輸入任何 email 即可登入，沒有任何驗證。註冊時密碼只用來檢查畫面、不會驗證，姓名則會儲存。
             </p>
           )}
 
@@ -368,8 +368,8 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
               onChange={(event) => { setEmail(event.target.value); setEmailError(null) }} />
           </FormField>
 
-          {(usingFirebase || registering) && (
-            <FormField label="密碼" required hint={registering ? '至少 6 個字元' : undefined}
+          {(usingLocalAuth || registering) && (
+            <FormField label="密碼" required hint={registering ? '至少 8 個字元' : undefined}
               error={passwordError}>
               <span className="pw-wrap">
                 <Input
@@ -406,7 +406,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
             </FormField>
           )}
 
-          {!usingFirebase && (
+          {!usingLocalAuth && (
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--fg-4)' }}>
               <input
                 type="checkbox"
@@ -429,8 +429,8 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
           {registering && role !== null && (
             <p className="auth-note" style={{ textAlign: 'center' }}>
               {role === 'org'
-                ? '註冊後我們會寄一封驗證信。完成驗證後才能送出機構申請——機構需要靠這個信箱聯繫你。'
-                : '註冊後我們會寄一封驗證信。點信中的連結之後，才能認領願望。'}
+                ? '註冊後我們會寄一組 6 位數驗證碼到信箱。完成驗證後才能送出機構申請——機構需要靠這個信箱聯繫你。'
+                : '註冊後我們會寄一組 6 位數驗證碼到信箱。輸入驗證碼之後，才能認領願望。'}
             </p>
           )}
 
@@ -440,7 +440,7 @@ export function AuthPanel({ initialTab = 'signIn', initialRole = null, onJoinInt
             </button>
           )}
 
-          {usingFirebase && !registering && (
+          {usingLocalAuth && !registering && (
             <button type="button" className="auth-link auth-link--left" onClick={() => switchMode('reset')}>
               忘記密碼？
             </button>

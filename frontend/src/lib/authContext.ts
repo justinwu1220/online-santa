@@ -7,40 +7,41 @@ import { createContext, useContext } from 'react'
  * 熱更新會退化成整頁重載。
  */
 
-export const FIREBASE_CONFIG = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-}
+/**
+ * 開發模式：不用密碼，輸入任何 email 就能切換身分（後端要同時啟用 `dev-auth` profile，
+ * 靠 `X-Dev-User-Email` 標頭認人）。只有明確設定 `VITE_DEV_AUTH=true` 才會啟用，
+ * 沒設定就是真正的帳號登入——正式環境不可能不小心落入開發模式。
+ */
+export const devAuth = import.meta.env.VITE_DEV_AUTH === 'true'
 
-/** 設定齊全時走真正的 Firebase 登入，否則退回開發模式。 */
-export const usingFirebase = Boolean(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId)
+/** 走真正的帳號流程（密碼、信箱驗證碼、忘記密碼）。 */
+export const usingLocalAuth = !devAuth
 
 export interface AuthState {
   /** 目前登入者的 email，未登入為 null */
   email: string | null
   /**
-   * 信箱是否已驗證。
-   *
-   * Google 登入永遠是 true；密碼註冊在使用者點驗證信之前是 false。
+   * 信箱是否已驗證。註冊之後要輸入寄到信箱的 6 位數驗證碼才會變成 true。
    * 後端會擋下未驗證帳號的認領與機構申請。
    */
   emailVerified: boolean
   loading: boolean
 
-  /** Google 登入（或開發模式下以 email 指定身分） */
+  /** 只在開發模式有意義：以 email 指定身分 */
   signIn: (email?: string) => Promise<void>
   signInWithPassword: (email: string, password: string) => Promise<void>
-  /** 註冊並自動寄出驗證信 */
+  /** 註冊、直接登入，並自動寄出 6 位數的信箱驗證碼 */
   registerWithPassword: (
     email: string, password: string, displayName?: string, name?: string,
     /** 使用者在註冊前同意的須知（種類與版本）；有帶就在建好帳號後一併寫入同意紀錄 */
     consent?: { type: 'DONOR' | 'ORG'; version: string },
   ) => Promise<void>
+  /** 寄出重設密碼的信（不論信箱有沒有註冊過都會成功，不透露帳號是否存在） */
   sendPasswordReset: (email: string) => Promise<void>
+  /** 重新寄出信箱驗證碼 */
   resendVerification: () => Promise<void>
-  /** 使用者在另一個分頁點完驗證信後，重新讀取狀態 */
-  refreshVerification: () => Promise<void>
+  /** 輸入信箱驗證碼。錯誤時丟出 ApiError（CODE_INVALID／CODE_EXPIRED／CODE_LOCKED） */
+  verifyEmail: (code: string) => Promise<void>
   signOut: () => Promise<void>
 
   /** 每次請求呼叫，回傳要附加的驗證標頭 */
@@ -49,8 +50,7 @@ export interface AuthState {
   /**
    * 只在開發模式有意義：模擬「信箱尚未驗證」的狀態。
    *
-   * 沒有這個開關的話，本機無法檢查驗證橫幅與被擋下的操作——那正是這次改動的重點，
-   * 不該只能在有 Firebase 專案時才測得到。
+   * 沒有這個開關的話，本機無法快速檢查驗證橫幅與被擋下的操作。
    */
   devUnverified?: boolean
   setDevUnverified?: (next: boolean) => void
@@ -83,38 +83,51 @@ export async function currentAuthHeaders(): Promise<Record<string, string>> {
 }
 
 /**
- * Firebase 錯誤碼對中文訊息。
+ * API 回 401（access token 剛好過期）時，api 模組用這個請 AuthProvider 換發一次再重試。
+ * 回傳 true 代表換發成功、可以重試；false 代表登入狀態已經失效。
+ */
+let unauthorizedHandler: (() => Promise<boolean>) | null = null
+
+export function registerUnauthorizedHandler(handler: () => Promise<boolean>) {
+  unauthorizedHandler = handler
+}
+
+export async function recoverFromUnauthorized(): Promise<boolean> {
+  return unauthorizedHandler ? unauthorizedHandler() : false
+}
+
+/**
+ * 後端帳號端點的錯誤碼對中文訊息。
  *
- * 訊息刻意<strong>不精確</strong>：新的 Firebase 專案預設開啟 email enumeration
- * protection，帳號不存在與密碼錯誤會統一回 `invalid-credential`。那是刻意的設計
- * ——避免有人拿註冊表單去探測哪些信箱在這個平台上有帳號。我們照著它的語氣走。
+ * 沒列在這裡的錯誤碼直接用後端回的 `detail`——驗證碼剩餘次數、鎖定時間這類訊息是
+ * 後端組好的中文，前端不重寫。登入失敗一律是「信箱或密碼不正確」，不區分帳號不存在與
+ * 密碼錯誤，避免有人拿登入表單去探測哪些信箱在這個平台上有帳號。
  */
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
-  'auth/invalid-credential': '信箱或密碼不正確',
-  'auth/invalid-login-credentials': '信箱或密碼不正確',
-  'auth/wrong-password': '信箱或密碼不正確',
-  'auth/user-not-found': '信箱或密碼不正確',
-  'auth/email-already-in-use': '這個信箱已經註冊過了，請直接登入',
-  'auth/weak-password': '密碼至少要 6 個字元，建議混合英文與數字',
-  'auth/invalid-email': '信箱格式不正確',
-  'auth/missing-password': '請輸入密碼',
-  'auth/too-many-requests': '嘗試次數過多，請稍等幾分鐘再試',
-  'auth/network-request-failed': '網路連線有問題，請檢查後再試',
-  'auth/popup-closed-by-user': '登入視窗被關閉了，請再試一次',
-  'auth/popup-blocked': '瀏覽器擋掉了登入視窗，請允許彈出視窗後再試',
-  'auth/user-disabled': '這個帳號已被停用',
-  // 同一個信箱先用密碼註冊、後來又用 Google 登入時可能出現
-  'auth/account-exists-with-different-credential':
-    '這個信箱已經用另一種方式註冊過了，請改用原本的方式登入',
+  INVALID_CREDENTIALS: '信箱或密碼不正確',
+  EMAIL_TAKEN: '這個信箱已經註冊過了，請直接登入',
+  ORIGIN_NOT_ALLOWED: '請從官方網站登入',
+}
+
+interface ProblemLike {
+  status?: number
+  detail?: string
+  errorCode?: string
+  fieldErrors?: Record<string, string>
 }
 
 export function describeAuthError(error: unknown): string {
-  const code = (error as { code?: string } | undefined)?.code
-  if (code && AUTH_ERROR_MESSAGES[code]) {
-    return AUTH_ERROR_MESSAGES[code]
+  const problem = error as ProblemLike | undefined
+  if (problem?.errorCode && AUTH_ERROR_MESSAGES[problem.errorCode]) {
+    return AUTH_ERROR_MESSAGES[problem.errorCode]
   }
-  if (error instanceof Error && error.message) {
-    return error.message
+  // 欄位驗證不過（例如密碼太短）：顯示第一個欄位的訊息
+  const firstFieldError = problem?.fieldErrors && Object.values(problem.fieldErrors)[0]
+  if (firstFieldError) return firstFieldError
+  if (error instanceof TypeError) {
+    return '網路連線有問題，請檢查後再試'
   }
+  if (problem?.detail) return problem.detail
+  if (error instanceof Error && error.message) return error.message
   return '登入時發生問題，請稍後再試'
 }

@@ -8,8 +8,8 @@ import { registerAuthHeaderProvider, useAuth } from './authContext'
  * fetch wrapper 不是 React 元件，拿不到 context，因此需要這個橋接。
  * 順帶在身分變動時清掉查詢快取——換人登入後不該還看得到上一個人的資料。
  *
- * <strong>只在「身分真的變了」才清</strong>：Firebase 模式下 `email` 從 `null`
- * 變成實際使用者是非同步的（SDK 動態載入 + `onAuthStateChanged` 回調），通常發生在
+ * <strong>只在「身分真的變了」才清</strong>：帳號模式下 `email` 從 `null`
+ * 變成實際使用者是非同步的（要先用 cookie 向後端換發 access token），通常發生在
  * 頁面掛載後幾百毫秒。如果這時候公開頁（例如願望牆）的請求還在飛行中，
  * `queryClient.clear()` 會把它靜默取消並整個從快取移除——該 query 的
  * `useQuery` 還訂閱著一個已經不存在的物件，狀態永遠停在 `isLoading = true`，

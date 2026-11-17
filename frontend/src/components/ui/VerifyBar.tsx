@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { describeAuthError, useAuth, usingFirebase } from '../../lib/authContext'
+import { useAuth, usingLocalAuth } from '../../lib/authContext'
 import { EASE_OUT, pop, reducedMotion, wait } from '../../lib/motion'
 import { useResendVerification } from '../../lib/useResendVerification'
+import { VerifyCodeInput } from '../auth/VerifyCodeInput'
 
 /** 認領按鈕被「尚未驗證信箱」擋下時，請提示列輕晃一下（設計稿 2723 行）。 */
 export const SHAKE_VERIFY_BAR = 'online-santa:shake-verify-bar'
@@ -9,8 +10,8 @@ export const SHAKE_VERIFY_BAR = 'online-santa:shake-verify-bar'
 /**
  * 信箱驗證提示列：頁首正下方、全站顯示（SPEC 12.2，取代舊版頂端的黃色橫幅）。
  *
- * 使用者通常在另一個分頁點驗證信，這一頁不會自動知道，所以要有「我已經驗證好了」主動重新
- * 取得 token；沒有這個按鈕的話，驗證完回來還是被擋，只能登出再登入。
+ * 信裡有一組 6 位數驗證碼，按「輸入驗證碼」展開輸入框，填滿就自動送出；驗證成功後
+ * 不必重新登入，下一個請求就生效。
  * 「重新寄送」按下後 60 秒內顯示倒數、不能重按。
  *
  * 動畫（設計稿）：登入後才出現時高度由 0 展開（0.38s）；驗證完成變綠色「信箱驗證完成…」、
@@ -19,9 +20,7 @@ export const SHAKE_VERIFY_BAR = 'online-santa:shake-verify-bar'
 export function VerifyBar() {
   const auth = useAuth()
   const resendState = useResendVerification()
-  const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [entering, setEntering] = useState(false)
   const [gone, setGone] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -85,23 +84,9 @@ export function VerifyBar() {
 
   if (!signedIn || (!needs && !done) || (verified && phase !== 'done')) return null
 
-  async function refresh() {
-    setBusy(true)
-    setMessage(null)
-    setError(null)
-    try {
-      await auth.refreshVerification()
-      setMessage('狀態已更新')
-    } catch (caught) {
-      setError(describeAuthError(caught))
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const remaining = resendState.remaining
-  const shownError = error ?? resendState.error
-  const shownMessage = message ?? resendState.message
+  const shownError = resendState.error
+  const shownMessage = resendState.message
 
   if (verified) {
     return (
@@ -114,19 +99,20 @@ export function VerifyBar() {
 
   return (
     <div ref={ref} className={`bar bar--verify${shownError ? ' is-error' : ''}`} role="status" style={{ overflow: 'hidden' }}>
-      請先完成信箱驗證，才能認領願望或申請成為合作機構。我們寄了一封信到 <strong>{auth.email}</strong>
-      {usingFirebase && '，記得檢查垃圾郵件匣。'}
+      請先完成信箱驗證，才能認領願望或申請成為合作機構。我們寄了一組 6 位數驗證碼到 <strong>{auth.email}</strong>
+      {usingLocalAuth && '，記得檢查垃圾郵件匣。'}
       <span className="bar__actions">
-        <button type="button" className="btn btn--sm" disabled={busy}
-          onClick={() => void refresh()}>
-          我已經驗證好了
+        <button type="button" className="btn btn--sm" aria-expanded={entering}
+          onClick={() => setEntering((open) => !open)}>
+          {entering ? '收起' : '輸入驗證碼'}
         </button>
         <button type="button" className="btn btn--sm btn--ghost"
-          disabled={busy || resendState.busy || remaining > 0}
+          disabled={resendState.busy || remaining > 0}
           onClick={() => void resendState.resend()}>
           {remaining > 0 ? `重新寄送（${remaining} 秒）` : '重新寄送'}
         </button>
       </span>
+      {entering && <VerifyCodeInput autoFocus />}
       {(shownMessage || shownError) && (
         <div style={{ marginTop: 4, fontSize: 12 }}>{shownError ?? shownMessage}</div>
       )}

@@ -120,7 +120,7 @@ export function OrgApply() {
 /**
  * 機構資料表單（設計稿 12.2、13.4）。
  *
- * <p>密碼註冊的人會在這一頁等驗證信，而在同一個分頁點驗證信連結會離開頁面——所以內容
+ * <p>剛註冊的人會在這一頁輸入信箱驗證碼，期間可能重新整理或離開頁面——所以內容
  * 存進 sessionStorage，回來時還原。檔案無法存進 sessionStorage，離開這頁會遺失已選的檔案，
  * 已知限制。
  */
@@ -520,8 +520,8 @@ function ApplyForm({ email }: { email: string }) {
                 </Callout>
               ) : (
                 <Callout tone="warn" className="apply__verify" icon={<Mail className="icon" aria-hidden />}>
-                  <strong>送出前要先完成信箱驗證。</strong>驗證信寄到 <strong>{email}</strong>，點完連結後回到這一頁，
-                  按上方的「我已經驗證好了」就能送出。你填的資料會留著，離開這一頁也不會消失。
+                  <strong>送出前要先完成信箱驗證。</strong>6 位數驗證碼寄到 <strong>{email}</strong>，
+                  按上方提示列的「輸入驗證碼」輸入後就能送出。你填的資料會留著，離開這一頁也不會消失。
                 </Callout>
               )}
             </div>

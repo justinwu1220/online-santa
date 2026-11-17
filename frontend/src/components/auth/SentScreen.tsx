@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAuth } from '../../lib/authContext'
-import { burst, center, EASE_OUT, reducedMotion, rise, wait } from '../../lib/motion'
+import { burst, center, EASE_OUT, reducedMotion, rise } from '../../lib/motion'
 import { useResendVerification } from '../../lib/useResendVerification'
+import { VerifyCodeInput } from './VerifyCodeInput'
 
 /**
  * 註冊成功後的「驗證信寄出了」畫面（依 prototype.html 的 sent 畫面與 playSent 動畫）。
  *
  * 信紙落進信封 → 封口闔上 → 信封輕輕浮起、撒星星 → 文字與按鈕依序浮上。
- * 「我已經驗證好了」會向 Firebase 重新取得驗證狀態；還沒驗證就提示，驗證了才呼叫 `onVerified`。
+ * 信裡有一組 6 位數驗證碼，在這裡輸入；驗證成功才呼叫 `onVerified`。
  */
 export function SentScreen({ onVerified }: { onVerified: () => void }) {
   const auth = useAuth()
@@ -16,12 +17,6 @@ export function SentScreen({ onVerified }: { onVerified: () => void }) {
   const envelope = useRef<SVGSVGElement>(null)
   const letter = useRef<SVGGElement>(null)
   const flap = useRef<SVGGElement>(null)
-  const [checking, setChecking] = useState(false)
-  const [notYet, setNotYet] = useState(false)
-
-  // 「按下去之後」讀到的要是最新的驗證狀態，所以用 ref 跟著 render 更新
-  const verified = useRef(auth.emailVerified)
-  useEffect(() => { verified.current = auth.emailVerified }, [auth.emailVerified])
 
   // 進場動畫（playSent）。動畫都疊在預設可見的內容上，沒播也不會留下透明的東西
   useEffect(() => {
@@ -45,19 +40,6 @@ export function SentScreen({ onVerified }: { onVerified: () => void }) {
     return () => window.clearTimeout(timer)
   }, [])
 
-  async function checkVerified() {
-    setChecking(true)
-    setNotYet(false)
-    try {
-      await auth.refreshVerification()
-      await wait(80) // 等 React 把新的驗證狀態 render 出來
-      if (verified.current) onVerified()
-      else setNotYet(true)
-    } finally {
-      setChecking(false)
-    }
-  }
-
   return (
     <div ref={root} className="sent">
       <svg ref={envelope} className="sent__env" width="150" height="150" viewBox="0 -34 120 124" aria-hidden="true">
@@ -75,26 +57,23 @@ export function SentScreen({ onVerified }: { onVerified: () => void }) {
           <path d="M60 51.5v9M55.5 56h9" stroke="#fff7ed" strokeWidth="1.6" strokeLinecap="round" />
         </g>
       </svg>
-      <h2 id="sentTitle">驗證信寄出了</h2>
+      <h2 id="sentTitle">驗證碼寄出了</h2>
       <p>
         我們寄了一封信到 <strong className="sent__email">{auth.email}</strong>，<br />
-        點信中的連結完成驗證，就能開始認領願望。
+        請輸入信中的 6 位數驗證碼，就能開始認領願望。
       </p>
-      <p className="auth-note auth-note--center">沒收到的話，記得看看垃圾郵件匣。</p>
-      {(notYet || resend.message || resend.error) && (
-        <p className={`auth-msg${notYet || resend.error ? ' auth-msg--danger' : ' auth-msg--ok'}`}
+      <p className="auth-note auth-note--center">驗證碼 15 分鐘內有效。沒收到的話，記得看看垃圾郵件匣。</p>
+      <VerifyCodeInput onVerified={onVerified} autoFocus />
+      {(resend.message || resend.error) && (
+        <p className={`auth-msg${resend.error ? ' auth-msg--danger' : ' auth-msg--ok'}`}
           role="status" style={{ marginTop: 14 }}>
-          {notYet ? '還沒收到驗證結果，請先點信中的連結，再回來按一次。' : (resend.error ?? resend.message)}
+          {resend.error ?? resend.message}
         </p>
       )}
       <div className="sent__actions">
-        <button type="button" className="btn btn--primary" disabled={checking}
-          onClick={() => void checkVerified()}>
-          {checking ? '確認中…' : '我已經驗證好了'}
-        </button>
         <button type="button" className="btn" disabled={resend.busy || resend.remaining > 0}
           onClick={() => void resend.resend()}>
-          {resend.remaining > 0 ? `重新寄送（${resend.remaining}）` : '重新寄送'}
+          {resend.remaining > 0 ? `重新寄送驗證碼（${resend.remaining}）` : '重新寄送驗證碼'}
         </button>
       </div>
     </div>

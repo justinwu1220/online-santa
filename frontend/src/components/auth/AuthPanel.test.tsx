@@ -13,10 +13,10 @@ const auth = {
   sendPasswordReset: vi.fn().mockResolvedValue(undefined),
 }
 
-// 用 Firebase 模式（顯示密碼欄位）測試；authContext 其餘匯出維持原樣
+// 用帳號模式（顯示密碼欄位）測試；authContext 其餘匯出維持原樣
 vi.mock('../../lib/authContext', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/authContext')>()),
-  usingFirebase: true,
+  usingLocalAuth: true,
   useAuth: () => auth,
 }))
 
@@ -89,7 +89,7 @@ describe('AuthPanel 必填欄位（紅框＋錯誤文字＋捲動聚焦）', () 
     expect(auth.registerWithPassword).not.toHaveBeenCalled()
   })
 
-  it('註冊：密碼不足 6 字元、兩次密碼不一致各有對應提示', () => {
+  it('註冊：密碼不足 8 字元、兩次密碼不一致各有對應提示', () => {
     renderPanel({ initialTab: 'register', initialRole: 'donor' })
     fireEvent.change(field('真實姓名').querySelector('input')!, { target: { value: '王大明' } })
     fireEvent.change(field('顯示名稱').querySelector('input')!, { target: { value: '大明' } })
@@ -97,9 +97,9 @@ describe('AuthPanel 必填欄位（紅框＋錯誤文字＋捲動聚焦）', () 
     fireEvent.change(field('密碼').querySelector('input')!, { target: { value: '123' } })
     fireEvent.change(field('確認密碼').querySelector('input')!, { target: { value: '124' } })
     fireEvent.click(submitButton())
-    expect(errorOf('密碼')).toBe('密碼至少要 6 個字元')
+    expect(errorOf('密碼')).toBe('密碼至少要 8 個字元')
 
-    fireEvent.change(field('密碼').querySelector('input')!, { target: { value: '123456' } })
+    fireEvent.change(field('密碼').querySelector('input')!, { target: { value: '12345678' } })
     fireEvent.click(submitButton())
     expect(errorOf('確認密碼')).toBe('兩次輸入的密碼不一樣')
   })

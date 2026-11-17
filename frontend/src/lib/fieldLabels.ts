@@ -27,7 +27,6 @@ export const USER_FIELD_LABELS: Record<string, string> = {
   displayName: '顯示名稱',
   name: '真實姓名',
   phone: '聯絡電話',
-  firebaseUid: '登入識別碼',
   role: '角色',
   organizationId: '所屬機構',
 }
