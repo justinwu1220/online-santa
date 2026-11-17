@@ -43,6 +43,8 @@ jobs:
       SCHEDULER_SERVICE_ACCOUNT: ${{ vars.SCHEDULER_SERVICE_ACCOUNT }}
       MAIL_DAILY_LIMIT: ${{ vars.MAIL_DAILY_LIMIT }}
       MAIL_SUBJECT_PREFIX: ${{ vars.MAIL_SUBJECT_PREFIX }}
+      # 網站頂端的醒目橫幅與分頁標題的前綴（例如「測試站」）。正式站必須是空的
+      ENV_LABEL: ${{ vars.ENV_LABEL }}
       # 兩個環境共用（Repository 層級）
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
@@ -89,9 +91,12 @@ jobs:
               esac
             done
             [ -n "$MAIL_SUBJECT_PREFIX" ] || { echo "::error::測試站必須設 MAIL_SUBJECT_PREFIX（例如 [測試站]），收件人才分辨得出信是哪裡寄的"; exit 1; }
+            [ -n "$ENV_LABEL" ] || { echo "::error::測試站必須設 ENV_LABEL（例如 測試站），網站頂端才會有醒目的提示橫幅，避免有人把它當成正式站"; exit 1; }
           else
             # 正式站反過來：不能出現任何 staging 的痕跡
             [ -z "$SECRET_SUFFIX" ] || { echo "::error::production 的 SECRET_SUFFIX 必須是空的（目前是「$SECRET_SUFFIX」）"; exit 1; }
+            # 正式站不能出現「測試站」橫幅：會嚇到真正的使用者，也代表環境變數放錯地方了
+            [ -z "$ENV_LABEL" ] || { echo "::error::production 的 ENV_LABEL 必須是空的（目前是「$ENV_LABEL」），否則正式站會顯示環境提示橫幅"; exit 1; }
             for name in CLOUD_RUN_SERVICE HOSTING_SITE GCS_PRIVATE_BUCKET APP_PUBLIC_URL; do
               case "${!name}" in
                 *staging*) echo "::error::production 的 $name（${!name}）含有 staging"; exit 1 ;;
@@ -199,6 +204,8 @@ jobs:
           VITE_DEV_AUTH: 'false'
           # 與後端的 WISH_IMAGE_ENABLED 一起開關。沒設就是關閉——願望牆改用分類圖示
           VITE_WISH_IMAGE_ENABLED: ${{ vars.WISH_IMAGE_ENABLED }}
+          # 非正式環境才有：網站頂端的醒目橫幅與每一頁分頁標題的前綴
+          VITE_ENV_LABEL: ${{ env.ENV_LABEL }}
         run: |
           npm ci
           npm run build

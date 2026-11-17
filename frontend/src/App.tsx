@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { EnvironmentBanner } from './components/EnvironmentBanner'
 import { PublicLayout } from './components/layouts/PublicLayout'
 import { Spinner } from './components/ui/Spinner'
 import { RequireRole } from './components/RequireRole'
@@ -51,7 +52,10 @@ function LegacyLoginRedirect({ to = '/login' }: { to?: string }) {
  */
 export default function App() {
   return (
-    <Routes>
+    <>
+      {/* 非正式環境（測試站）才會顯示；放在所有路由之外，登入頁、後台、重設密碼頁都看得到 */}
+      <EnvironmentBanner />
+      <Routes>
       {/* 登入頁在 layout 之外：全螢幕版面，而且不該有導覽列 */}
       <Route path="login" element={<LoginPage />} />
       {/* 重設密碼信裡的連結：同樣是全螢幕版面，使用者這時還沒登入 */}
@@ -116,6 +120,7 @@ export default function App() {
       <Route element={<PublicLayout />}>
         <Route path="*" element={<NotFound />} />
       </Route>
-    </Routes>
+      </Routes>
+    </>
   )
 }
