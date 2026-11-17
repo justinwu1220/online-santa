@@ -98,6 +98,20 @@ describe('AuthProvider（帳號模式）', () => {
     expect(screen.getByTestId('email')).toHaveTextContent('(none)')
   })
 
+  it('登入被 CORS 檢查擋下（純文字 403）：錯誤帶著原文，不會變成空白訊息', async () => {
+    respond(401)
+    mount()
+    await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'))
+
+    // Spring 的 CORS 檢查回的是純文字，不是 JSON；HTTP/2 的 statusText 又是空字串
+    fetchMock.mockResolvedValueOnce({
+      ok: false, status: 403, statusText: '', json: async () => { throw new Error('not json') },
+      text: async () => 'Invalid CORS request',
+    })
+    await expect(act(() => latest.signInWithPassword('me@example.com', 'whatever-1')))
+      .rejects.toMatchObject({ status: 403, detail: 'Invalid CORS request' })
+  })
+
   it('註冊：一次帶齊名稱、真實姓名與須知同意，直接登入但信箱未驗證', async () => {
     respond(401)
     mount()

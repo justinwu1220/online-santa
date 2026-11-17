@@ -53,9 +53,17 @@ async function authFetch<T>(path: string, body?: unknown): Promise<T> {
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   if (!response.ok) {
-    // 後端統一以 RFC 7807 ProblemDetail 回覆錯誤，帶 errorCode
-    const problem = await response.json().catch(() => undefined) as { detail?: string } | undefined
-    throw new ApiError(response.status, problem?.detail ?? response.statusText, problem)
+    // 後端統一以 RFC 7807 ProblemDetail 回覆錯誤，帶 errorCode。
+    // 但在進到我們的程式之前就被擋下的請求（例如 Spring 的 CORS 檢查）回的是純文字，不是 JSON；
+    // HTTP/2 的 statusText 又是空字串，只讀 JSON 的話這類錯誤會變成一則空白訊息
+    const text = await response.text()
+    let problem: { detail?: string } | undefined
+    try {
+      problem = text ? JSON.parse(text) : undefined
+    } catch {
+      problem = undefined
+    }
+    throw new ApiError(response.status, problem?.detail ?? (text || response.statusText), problem)
   }
   const text = await response.text()
   return (text ? JSON.parse(text) : undefined) as T

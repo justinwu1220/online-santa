@@ -106,7 +106,7 @@ export async function recoverFromUnauthorized(): Promise<boolean> {
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   INVALID_CREDENTIALS: '信箱或密碼不正確',
   EMAIL_TAKEN: '這個信箱已經註冊過了，請直接登入',
-  ORIGIN_NOT_ALLOWED: '請從官方網站登入',
+  ORIGIN_NOT_ALLOWED: '這個網址無法登入，請改用官方網站的網址進站後再登入',
 }
 
 interface ProblemLike {
@@ -118,6 +118,12 @@ interface ProblemLike {
 
 export function describeAuthError(error: unknown): string {
   const problem = error as ProblemLike | undefined
+  // 請求的來源網址不在後端的允許清單：我們自己的檢查回 ORIGIN_NOT_ALLOWED；更前面的 CORS 檢查則回
+  // 純文字「Invalid CORS request」（403）。使用者看到英文原文只會以為是帳密錯，這裡統一成看得懂的說明
+  if (problem?.errorCode === 'ORIGIN_NOT_ALLOWED'
+    || (problem?.status === 403 && /invalid cors request/i.test(problem.detail ?? ''))) {
+    return AUTH_ERROR_MESSAGES.ORIGIN_NOT_ALLOWED
+  }
   if (problem?.errorCode && AUTH_ERROR_MESSAGES[problem.errorCode]) {
     return AUTH_ERROR_MESSAGES[problem.errorCode]
   }

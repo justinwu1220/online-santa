@@ -13,7 +13,9 @@ on:
   workflow_dispatch:
 
 # 同一時間只跑一個部署，避免兩次 push 互相覆蓋。
-# 正在等核准的 run 被新的 push 取代時，GitHub 會取消舊的、保留新的。
+# 注意：停在「等待核准」的 run 仍算執行中，會一直佔著這個位子；之後的 push 只會排隊（排隊中的 run
+# 同一時間只保留最新一個，更舊的會被取消），要等它被核准、拒絕或取消才會開始。要換版本請先取消
+# 等待中的 run（gh run cancel <id>）。
 concurrency:
   group: deploy
   cancel-in-progress: false

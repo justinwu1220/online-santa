@@ -82,6 +82,16 @@ jobs:
             exit 1
           fi
 
+          # 使用者實際走的網址（APP_PUBLIC_URL，信裡的連結也指向它）必須在允許的來源清單裡。登入與換發會檢查
+          # 請求的 Origin，不在 APP_ALLOWED_ORIGINS 裡就一律 403：漏了的話，使用者照著信裡的連結進站卻登不進去。
+          # 清單的分隔符是 \, （逗號前加反斜線，見下方 env_vars 的說明），用子字串比對即可。
+          # 反過來，Firebase Hosting 的預設網址（*.web.app、*.firebaseapp.com）是刻意不放行的：
+          # 只有官方網址能登入，登入狀態的 cookie 也就不會分散在好幾個網域
+          case "$APP_ALLOWED_ORIGINS" in
+            *"$APP_PUBLIC_URL"*) ;;
+            *) echo "::error::APP_ALLOWED_ORIGINS 沒有包含 APP_PUBLIC_URL（$APP_PUBLIC_URL）。使用者從這個網址進站會因為來源不在允許清單而登入失敗（403）。"; exit 1 ;;
+          esac
+
           if [ "$ENVIRONMENT" = "staging" ]; then
             # 測試站的每一個資源名稱都必須看得出是測試站，防止誤指向正式資源
             for name in CLOUD_RUN_SERVICE HOSTING_SITE GCS_PRIVATE_BUCKET APP_PUBLIC_URL SECRET_SUFFIX; do
@@ -253,5 +263,19 @@ jobs:
           [ "$status" = "401" ] || { echo "::error::/api/auth/refresh 預期 401，實際 $status"; cat /tmp/refresh.json; exit 1; }
           jq -e '.errorCode == "UNAUTHENTICATED"' /tmp/refresh.json > /dev/null \
             || { echo "::error::/api/auth/refresh 的 401 不是後端的回應"; cat /tmp/refresh.json; exit 1; }
+
+          # 使用者實際走的官方網址必須能登入：帶上該網址的 Origin 送一次登入（不存在的帳號，不會寄信、
+          # 不改任何資料）。預期 401 INVALID_CREDENTIALS；回 403 代表它不在 APP_ALLOWED_ORIGINS 裡。
+          # 上面不帶 Origin 的檢查看不出這種問題，因為沒有 Origin 的請求不會被來源檢查擋下。
+          # 這一步走的是官方網址（正式站是自訂網域），不是 Hosting 的預設網址
+          status=$(curl -s -o /tmp/login.json -w '%{http_code}' -X POST \
+            -H 'Content-Type: application/json' -H "Origin: $APP_PUBLIC_URL" \
+            -d '{"email":"smoke-check@invalid.example","password":"not-a-real-password"}' \
+            "$APP_PUBLIC_URL/api/auth/login")
+          if [ "$status" != "401" ] || ! jq -e '.errorCode == "INVALID_CREDENTIALS"' /tmp/login.json > /dev/null 2>&1; then
+            echo "::error::從官方網址 $APP_PUBLIC_URL 登入預期 401 INVALID_CREDENTIALS，實際 $status：$(head -c 200 /tmp/login.json)"
+            exit 1
+          fi
+          echo "  官方網址 $APP_PUBLIC_URL 登入請求正常（401 INVALID_CREDENTIALS）"
 
           echo "部署後檢查全部通過：$site"
