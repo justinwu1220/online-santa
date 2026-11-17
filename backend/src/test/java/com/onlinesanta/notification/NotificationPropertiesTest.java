@@ -47,6 +47,26 @@ class NotificationPropertiesTest {
     }
 
     @Test
+    @DisplayName("沒指定每日上限與主旨前綴時：不限、不加前綴")
+    void defaultsToNoLimitAndNoPrefix() {
+        NotificationProperties legacy = new NotificationProperties(null, 587, null, null, null, null);
+        assertThat(legacy.dailyLimit()).isZero();
+        assertThat(legacy.subjectPrefix()).isEmpty();
+
+        NotificationProperties unset = new NotificationProperties(null, 587, null, null, null, null, 0, null);
+        assertThat(unset.subjectPrefix()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("負的每日上限視為不限，主旨前綴去掉前後空白")
+    void normalisesLimitAndPrefix() {
+        NotificationProperties properties =
+                new NotificationProperties(null, 587, null, null, null, null, -5, "  [測試站]  ");
+        assertThat(properties.dailyLimit()).isZero();
+        assertThat(properties.subjectPrefix()).isEqualTo("[測試站]");
+    }
+
+    @Test
     @DisplayName("isConfigured 只看 host")
     void isConfiguredLooksAtHostOnly() {
         assertThat(new NotificationProperties(null, 587, null, null, null, null).isConfigured()).isFalse();

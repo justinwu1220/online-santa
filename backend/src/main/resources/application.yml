@@ -114,3 +114,9 @@ app:
     from-address: ${MAIL_FROM:no-reply@example.org}
     # 信件內文的連結要指向前端，不是這支 API 自己的網址
     public-url: ${APP_PUBLIC_URL:http://localhost:5173}
+    # 每日（UTC）最多寄幾封，0 = 不限。多個環境共用同一個寄信帳號時，一個環境出錯（迴圈、機器人
+    # 批次註冊）就能燒光額度、讓所有環境的驗證碼寄不出去，所以每個環境都應該設一個在額度之下的值。
+    # 超過上限就不再寄，並記下 MAIL_DAILY_LIMIT_REACHED 供告警
+    daily-limit: ${MAIL_DAILY_LIMIT:0}
+    # 加在每封信主旨前面。測試站設成「[測試站]」，收件人一眼就能分辨
+    subject-prefix: ${MAIL_SUBJECT_PREFIX:}

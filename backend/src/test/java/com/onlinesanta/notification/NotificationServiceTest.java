@@ -4,13 +4,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.mail.MailException;
@@ -18,6 +25,7 @@ import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 
@@ -173,6 +181,180 @@ class NotificationServiceTest {
                 message.contains("已恢復")
                         && message.contains(String.valueOf(NotificationService.FAILURE_ALERT_THRESHOLD))
                         && message.contains("永久遺失"));
+    }
+
+    // ------------------------------------------------------------ 每日上限與主旨前綴
+
+    @Test
+    @DisplayName("設了主旨前綴，每封信的主旨前面都會加上")
+    void subjectPrefixIsPrepended() {
+        JavaMailSender sender = mock(JavaMailSender.class);
+        NotificationService service = new NotificationService(providerOf(sender), withLimit(0, "[測試站]"));
+
+        service.send("someone@example.com", "信箱驗證碼 123456", "內文");
+
+        ArgumentCaptor<SimpleMailMessage> sent = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(sender).send(sent.capture());
+        assertThat(sent.getValue().getSubject()).isEqualTo("[測試站] 信箱驗證碼 123456");
+    }
+
+    @Test
+    @DisplayName("沒設前綴就維持原本的主旨")
+    void subjectIsUntouchedWithoutAPrefix() {
+        JavaMailSender sender = mock(JavaMailSender.class);
+        NotificationService service = new NotificationService(providerOf(sender), CONFIGURED);
+
+        service.send("someone@example.com", "原本的主旨", "內文");
+
+        ArgumentCaptor<SimpleMailMessage> sent = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(sender).send(sent.capture());
+        assertThat(sent.getValue().getSubject()).isEqualTo("原本的主旨");
+    }
+
+    @Test
+    @DisplayName("沒設每日上限（0）：想寄多少就寄多少")
+    void zeroMeansNoDailyLimit() {
+        JavaMailSender sender = mock(JavaMailSender.class);
+        NotificationService service = new NotificationService(providerOf(sender), withLimit(0, ""));
+
+        for (int i = 0; i < 50; i++) {
+            service.send("someone@example.com", "主旨", "內文");
+        }
+
+        verify(sender, times(50)).send(any(SimpleMailMessage.class));
+        assertThat(loggedMessages()).noneMatch(message -> message.contains(NotificationService.LIMIT_REACHED_MARKER));
+    }
+
+    @Test
+    @DisplayName("超過每日上限的信不再寄，並記下一次帶告警標記的 ERROR")
+    void mailBeyondTheDailyLimitIsNotSent() {
+        JavaMailSender sender = mock(JavaMailSender.class);
+        NotificationService service = new NotificationService(providerOf(sender), withLimit(3, ""));
+
+        for (int i = 0; i < 8; i++) {
+            service.send("someone@example.com", "主旨", "內文");
+        }
+
+        verify(sender, times(3)).send(any(SimpleMailMessage.class));
+        List<ILoggingEvent> reached = appender.list.stream()
+                .filter(event -> event.getFormattedMessage().contains(NotificationService.LIMIT_REACHED_MARKER))
+                .toList();
+        // 第一次被擋下是 ERROR（告警掛這條）；之後沒到每 10 封一次，不洗版
+        assertThat(reached).hasSize(1);
+        assertThat(reached.get(0).getLevel()).isEqualTo(Level.ERROR);
+        assertThat(reached.get(0).getFormattedMessage()).contains("3");
+    }
+
+    @Test
+    @DisplayName("一直被擋下時，每 10 封才再記一次 WARN，不洗版")
+    void skippedMailIsLoggedSparingly() {
+        JavaMailSender sender = mock(JavaMailSender.class);
+        NotificationService service = new NotificationService(providerOf(sender), withLimit(1, ""));
+
+        for (int i = 0; i < 1 + 25; i++) {
+            service.send("someone@example.com", "主旨", "內文");
+        }
+
+        // 1 封寄出；擋下 25 封 → 第 1 封記 ERROR，第 10、20 封各記一次 WARN
+        long logged = appender.list.stream()
+                .filter(event -> event.getFormattedMessage().contains(NotificationService.LIMIT_REACHED_MARKER))
+                .count();
+        assertThat(logged).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("用掉上限的 80% 時記一次提醒，還沒停寄")
+    void warnsOnceWhenNearingTheLimit() {
+        JavaMailSender sender = mock(JavaMailSender.class);
+        NotificationService service = new NotificationService(providerOf(sender), withLimit(10, ""));
+
+        for (int i = 0; i < 9; i++) {
+            service.send("someone@example.com", "主旨", "內文");
+        }
+
+        verify(sender, times(9)).send(any(SimpleMailMessage.class));
+        assertThat(appender.list.stream()
+                .filter(event -> event.getFormattedMessage().contains(NotificationService.LIMIT_NEARING_MARKER))
+                .count()).isEqualTo(1);
+        assertThat(loggedMessages()).noneMatch(message -> message.contains(NotificationService.LIMIT_REACHED_MARKER));
+    }
+
+    @Test
+    @DisplayName("隔天（UTC）重新計算，額度恢復")
+    void theLimitResetsOnTheNextUtcDay() {
+        JavaMailSender sender = mock(JavaMailSender.class);
+        MutableClock clock = new MutableClock(Instant.parse("2026-11-17T23:59:00Z"));
+        NotificationService service = new NotificationService(providerOf(sender), withLimit(2, ""), clock);
+
+        service.send("someone@example.com", "主旨", "內文");
+        service.send("someone@example.com", "主旨", "內文");
+        service.send("someone@example.com", "被擋下", "內文");
+        verify(sender, times(2)).send(any(SimpleMailMessage.class));
+
+        clock.advanceSeconds(120); // 跨過 UTC 午夜
+        service.send("someone@example.com", "新的一天", "內文");
+        service.send("someone@example.com", "新的一天", "內文");
+        service.send("someone@example.com", "又被擋下", "內文");
+
+        verify(sender, times(4)).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    @DisplayName("寄失敗的信也佔名額：一直失敗一直重試正是最需要擋下的情況")
+    void failedMailStillCountsTowardsTheLimit() {
+        JavaMailSender sender = alwaysFailing();
+        NotificationService service = new NotificationService(providerOf(sender), withLimit(3, ""));
+
+        for (int i = 0; i < 6; i++) {
+            service.send("someone@example.com", "主旨", "內文");
+        }
+
+        verify(sender, times(3)).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    @DisplayName("沒設定寄信服務（no-op）不會佔名額")
+    void noOpModeDoesNotUseTheQuota() {
+        NotificationService service = new NotificationService(ABSENT, withLimit(1, ""));
+
+        for (int i = 0; i < 5; i++) {
+            service.send("someone@example.com", "主旨", "內文");
+        }
+
+        assertThat(loggedMessages()).noneMatch(message -> message.contains(NotificationService.LIMIT_REACHED_MARKER));
+    }
+
+    private static NotificationProperties withLimit(int dailyLimit, String subjectPrefix) {
+        return new NotificationProperties("smtp.example.org", 587, "user", "secret",
+                "from@example.org", "https://example.org", dailyLimit, subjectPrefix);
+    }
+
+    /** 可以手動往後撥的時鐘（UTC）。 */
+    private static final class MutableClock extends Clock {
+        private Instant now;
+
+        MutableClock(Instant start) {
+            this.now = start;
+        }
+
+        void advanceSeconds(long seconds) {
+            now = now.plusSeconds(seconds);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return now;
+        }
     }
 
     private NotificationService serviceWith(JavaMailSender sender) {

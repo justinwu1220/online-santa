@@ -1,10 +1,13 @@
 package com.onlinesanta.notification;
 
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -31,6 +34,12 @@ import org.springframework.stereotype.Service;
  * 這裡不重試，Resend 的額度拒絕也不排隊不重試，所以那些通知是永久遺失的。
  * 因此連續失敗達到 {@link #FAILURE_ALERT_THRESHOLD} 次就額外記一行帶
  * {@link #ALERT_MARKER} 的 log，讓監控有一個穩定的字串可以掛告警。
+ *
+ * <p><strong>每日上限</strong>（{@code app.notification.daily-limit}）是反方向的保護：上面講的是
+ * 「額度用完了，要有人知道」，這裡是「別讓額度被燒光」。註冊與忘記密碼都會寄信，被機器人批次註冊、
+ * 或某個環境出錯陷入迴圈，都能一天內用掉整個月的額度；多個環境共用同一個寄信帳號時，一個環境出事
+ * 就會讓所有環境的驗證碼寄不出去。超過上限的信<strong>直接不寄</strong>（同樣不會重寄），
+ * 並記下 {@link #LIMIT_REACHED_MARKER} 讓監控告警。
  */
 @Service
 public class NotificationService {
@@ -55,6 +64,17 @@ public class NotificationService {
     static final String ALERT_MARKER = "MAIL_FAILING_REPEATEDLY";
 
     /**
+     * 今天已寄到每日上限，之後的信不再寄。<strong>同樣是 Cloud Logging 告警掛的 token，不可隨文案改。</strong>
+     */
+    static final String LIMIT_REACHED_MARKER = "MAIL_DAILY_LIMIT_REACHED";
+
+    /** 用掉上限的 80%——還沒停寄，但該去看看是不是有東西在狂寄信。 */
+    static final String LIMIT_NEARING_MARKER = "MAIL_DAILY_LIMIT_NEARING";
+
+    /** 超過上限之後，每被擋下這麼多封才再記一次 WARN，避免迴圈出錯時 log 被洗版。 */
+    private static final int SKIPPED_LOG_INTERVAL = 10;
+
+    /**
      * 連續寄信失敗的次數；成功一次就歸零。
      *
      * <p>執行緒池上限 5 條，所以必須是 atomic。但這只是**告警用的啟發式信號，不是
@@ -67,11 +87,32 @@ public class NotificationService {
 
     private final ObjectProvider<JavaMailSender> mailSender;
     private final NotificationProperties properties;
+    private final Clock clock;
 
+    /**
+     * 每日額度的計數。用 UTC 日期歸零，對齊寄信供應商以 UTC 計算的每日額度。
+     *
+     * <p>計數只針對「這個行程」：Cloud Run 多個實例各算各的，總量可能略超過上限。
+     * 這是軟性的保護，要的是擋住失控的迴圈，不是精確計量。上面「寄信不加鎖」的理由在這裡不適用——
+     * 這把鎖只包住幾個整數的比較與遞增，不包住真正的寄送。
+     */
+    private final Object dailyLock = new Object();
+    private LocalDate dailyDay;
+    private int sentToday;
+    private int skippedToday;
+
+    @Autowired
     public NotificationService(ObjectProvider<JavaMailSender> mailSender,
                                NotificationProperties properties) {
+        this(mailSender, properties, Clock.systemUTC());
+    }
+
+    /** 測試用：可以指定時鐘，模擬跨日。 */
+    NotificationService(ObjectProvider<JavaMailSender> mailSender,
+                        NotificationProperties properties, Clock clock) {
         this.mailSender = mailSender;
         this.properties = properties;
+        this.clock = clock;
     }
 
     @Async("notificationExecutor")
@@ -87,17 +128,69 @@ public class NotificationService {
             return;
         }
 
+        // 主旨前綴（例如測試站的「[測試站]」）：收件人一眼就能分辨這封信不是正式站寄的
+        String fullSubject = properties.subjectPrefix().isEmpty()
+                ? subject : properties.subjectPrefix() + " " + subject;
+
+        if (!reserveDailySlot()) {
+            return;
+        }
+
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(properties.fromAddress());
             message.setTo(to);
-            message.setSubject(subject);
+            message.setSubject(fullSubject);
             message.setText(body);
             sender.send(message);
-            log.info("通知信已寄出。收件人＝{}，主旨＝{}", to, subject);
+            log.info("通知信已寄出。收件人＝{}，主旨＝{}", to, fullSubject);
             recordSuccess();
         } catch (MailException e) {
-            recordFailure(to, subject, e);
+            recordFailure(to, fullSubject, e);
+        }
+    }
+
+    /**
+     * 搶一個今天的寄信名額。沒設上限（0）一律放行。
+     *
+     * <p>先算名額再寄：寄失敗的信也會佔掉名額。偏保守是刻意的——失敗的那一封也許已經被供應商
+     * 計入額度，而且「一直失敗一直重試」正是最需要被擋下來的情況。
+     *
+     * @return 這封信是否可以寄
+     */
+    private boolean reserveDailySlot() {
+        int limit = properties.dailyLimit();
+        if (limit <= 0) {
+            return true;
+        }
+        synchronized (dailyLock) {
+            LocalDate today = LocalDate.now(clock);
+            if (!today.equals(dailyDay)) {
+                dailyDay = today;
+                sentToday = 0;
+                skippedToday = 0;
+            }
+
+            if (sentToday >= limit) {
+                skippedToday++;
+                // 第一次擋下用 ERROR（告警掛這條），之後降成每隔幾封一次的 WARN
+                if (skippedToday == 1) {
+                    log.error("{}：今天（UTC {}）已寄出 {} 封，達到每日上限 {}。之後的通知信與驗證碼不再寄出，"
+                                    + "而且不會重寄。請檢查是不是有東西在大量寄信（機器人批次註冊、迴圈）。",
+                            LIMIT_REACHED_MARKER, today, sentToday, limit);
+                } else if (skippedToday % SKIPPED_LOG_INTERVAL == 0) {
+                    log.warn("{}：今天已經擋下 {} 封超過上限的信。", LIMIT_REACHED_MARKER, skippedToday);
+                }
+                return false;
+            }
+
+            sentToday++;
+            // 剛好跨過 80% 的那一封才記，只會出現一次
+            if (limit >= 5 && sentToday == (int) Math.ceil(limit * 0.8)) {
+                log.warn("{}：今天（UTC {}）已寄出 {} 封，用掉每日上限 {} 的 80%。",
+                        LIMIT_NEARING_MARKER, today, sentToday, limit);
+            }
+            return true;
         }
     }
 
