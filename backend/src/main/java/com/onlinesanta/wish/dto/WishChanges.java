@@ -3,6 +3,8 @@ package com.onlinesanta.wish.dto;
 import java.time.Instant;
 import java.util.List;
 
+import com.onlinesanta.common.dto.FieldChange;
+
 /**
  * 重新送審的願望與「上次核准的版本」相比改了什麼。
  *
@@ -18,7 +20,4 @@ public record WishChanges(
         int lettersBefore,
         int lettersAfter,
         boolean lettersChanged) {
-
-    public record FieldChange(String field, String before, String after) {
-    }
 }

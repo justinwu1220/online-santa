@@ -15,8 +15,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.onlinesanta.attachment.AttachmentService;
 import com.onlinesanta.attachment.dto.AttachmentView;
+import com.onlinesanta.common.FieldDiff;
+import com.onlinesanta.common.dto.FieldChange;
 import com.onlinesanta.wish.dto.WishChanges;
-import com.onlinesanta.wish.dto.WishChanges.FieldChange;
 import com.onlinesanta.wish.dto.WishHistoryItem;
 
 /**
@@ -123,14 +124,9 @@ public class WishEventService {
                 !Objects.equals(before.letterIds(), now.letterIds()));
     }
 
+    /** 比對規則收斂在 {@link FieldDiff}（這裡原本的語意就是它採用的那一套）。 */
     private static void add(List<FieldChange> fields, String field, String before, String after) {
-        if (!Objects.equals(blankToNull(before), blankToNull(after))) {
-            fields.add(new FieldChange(field, before == null ? "" : before, after == null ? "" : after));
-        }
-    }
-
-    private static String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.strip();
+        FieldDiff.add(fields, field, before, after);
     }
 
     private static String ageLabel(String name) {

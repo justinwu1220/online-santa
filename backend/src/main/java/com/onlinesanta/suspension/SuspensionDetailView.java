@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.onlinesanta.common.dto.FieldChange;
 import com.onlinesanta.unlock.UnlockRequestView;
 
 /**
@@ -21,7 +22,14 @@ public record SuspensionDetailView(
         long openWishes,
         long affectedClaims) {
 
-    /** @param changes 欄位 → {before, after} */
-    public record Revision(JsonNode changes, Instant at) {
+    /**
+     * 停權之後機構改了什麼。
+     *
+     * <p>資料來源已改為 profile_change_logs（原本是 organization_revisions），所以
+     * {@code changes} 從「欄位 → {before, after}」的物件改成陣列。
+     *
+     * @param changes 有變動的欄位（機器欄位名，中文標籤在前端）
+     */
+    public record Revision(List<FieldChange> changes, Instant at) {
     }
 }

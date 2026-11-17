@@ -171,12 +171,54 @@ export interface AdminUserDetail {
   snapshot?: Record<string, unknown> | null
 }
 
+/** 一個欄位的變更（舊 → 新）。願望的「修改後重審」與個資異動紀錄共用。 */
+export interface FieldChange {
+  /** 願望那邊是中文標籤（後端產生）；個資異動紀錄那邊是機器欄位名，標籤查 lib/fieldLabels */
+  field: string
+  before: string
+  after: string
+}
+
+export type ProfileChangeTargetType = 'USER' | 'ORGANIZATION'
+/** 本人自己改／管理員代改／系統自動改／從舊表轉入的 */
+export type ProfileChangeSource = 'SELF_SERVICE' | 'ADMIN' | 'SYSTEM' | 'LEGACY'
+
+/**
+ * 「有異動紀錄的對象」清單的一列。沒有紀錄的對象不會出現。
+ * 只到次數與時間，不含欄位值——實際改了什麼要開抽屜。
+ */
+export interface ProfileChangeTargetView {
+  targetType: ProfileChangeTargetType
+  targetId: string
+  /** 認領者的信箱或機構名稱；對象已刪除時為 undefined，顯示 id */
+  label?: string
+  changeCount: number
+  lastChangedAt: string
+}
+
+/** 管理員看到的一筆個資異動紀錄。 */
+export interface ProfileChangeView {
+  id: number
+  targetType: ProfileChangeTargetType
+  targetId: string
+  /** 認領者的信箱或機構名稱；對象已刪除時為 undefined，顯示 id */
+  targetLabel?: string
+  changes: FieldChange[]
+  actorUserId?: string
+  /** 操作者在「異動當下」的信箱，不是現在查出來的 */
+  actorEmail?: string
+  actorRole?: 'DONOR' | 'ORG_MEMBER' | 'ADMIN'
+  source: ProfileChangeSource
+  occurredAt: string
+}
+
 /** 管理員看停權機構的處置資料（停權當下保全的原始資訊、停權期間的修改、解除申請）。 */
 export interface SuspensionDetail {
   reason?: string | null
   suspendedAt?: string | null
   snapshot?: Record<string, unknown> & { documents?: { id: string; fileName?: string }[] } | null
-  revisions: { changes: Record<string, { before: string; after: string }>; at: string }[]
+  /** 停權之後機構改了什麼。資料源自 profile_change_logs，所以 changes 是陣列不是物件 */
+  revisions: { changes: FieldChange[]; at: string }[]
   unlockRequest?: UnlockRequestView | null
   openWishes: number
   affectedClaims: number
@@ -331,6 +373,8 @@ export interface OrganizationView {
 
 export interface OrganizationReviewView extends Omit<OrganizationView, 'canPublishWishes' | 'releasePolicy' | 'releaseAfterDays'> {
   reviewedBy?: string
+  /** 停權中的機構送出了解除停權申請，等管理員審核（清單才有，決策端點的回應一律 false） */
+  unlockRequested?: boolean
 }
 
 // ---------------------------------------------------------------- 認領
@@ -685,6 +729,7 @@ export type AdminAuditAction =
   | 'SUSPEND_USER' | 'REACTIVATE_USER' | 'EDIT_WISH_CONTENT' | 'RELEASE_CLAIM_BY_ADMIN'
   | 'DECIDE_UNLOCK_REQUEST' | 'NOTIFY_AFFECTED_DONORS' | 'VIEW_SUSPENSION_RECORD' | 'REDACT_MESSAGE' | 'DELETE_WISH_LETTER'
   | 'RUN_RELEASE_SWEEP' | 'RUN_ATTACHMENT_CLEANUP' | 'RUN_DEADLINE_REMINDERS'
+  | 'VIEW_USER_PROFILE_CHANGES' | 'VIEW_ORGANIZATION_PROFILE_CHANGES' | 'VIEW_PROFILE_CHANGE_LOG'
 
 export interface AuditLogView {
   id: number

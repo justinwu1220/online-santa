@@ -102,7 +102,13 @@ export function ImageGallery({ images, className = 'att-grid' }: { images: Viewe
   )
 }
 
-/** 單張預覽（例如剛選好、尚未上傳的本機圖）：縮圖框內顯示圖片，點擊放大。沒有圖片時只顯示佔位內容。 */
+/**
+ * 單張預覽（例如剛選好、尚未上傳的本機圖）：縮圖框內顯示圖片，點擊放大。沒有圖片時只顯示佔位內容。
+ *
+ * **一定要放在有尺寸且 `position: relative` 的框裡**（`.dletter`、`.letter-preview`、`.photo-preview`）。
+ * 它輸出的 `.preview-zoom` 是 `position: absolute; inset: 0`，少了那個框就會往上找最近的定位祖先
+ * （例如抽屜的 `<dialog>`），變成一張蓋住整個抽屜的大圖。
+ */
 export function PreviewImage({ src, alt, children }: { src?: string | null; alt: string; children?: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   if (!src) return <>{children}</>

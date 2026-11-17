@@ -4,6 +4,7 @@ import { ConfirmDialog } from '../../components/console/ConfirmDialog'
 import { Drawer } from '../../components/console/Drawer'
 import { DCard, DStatus, Kv } from '../../components/console/DrawerParts'
 import { LazyBox } from '../../components/console/LazyBox'
+import { ProfileChangeBox } from './ProfileChanges'
 import { ReasonDialog } from '../../components/console/ReasonDialog'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { useToast } from '../../components/ui/toastContext'
@@ -162,6 +163,7 @@ function UserDrawer({ userId, summary, onClose }: {
               </>
             )}
           </LazyBox>
+          <ProfileChangeBox targetType="USER" targetId={user.id} />
         </div>
       </Drawer>
 

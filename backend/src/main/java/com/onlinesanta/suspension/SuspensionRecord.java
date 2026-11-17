@@ -14,7 +14,7 @@ import jakarta.persistence.Table;
 
 /**
  * 停權當下保全的原始資訊（V37）。快照是證據：只增不改，解除停權只填 liftedAt。
- * 機構在停權期間修改資料，修改寫在 organization_revisions，不會動到這裡的快照。
+ * 機構修改資料時寫在 profile_change_logs，不會動到這裡的快照。
  */
 @Entity
 @Table(name = "suspension_records")

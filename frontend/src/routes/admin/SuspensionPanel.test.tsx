@@ -10,7 +10,13 @@ const detail: SuspensionDetail = {
   reason: '疑似冒名，先停權調查',
   suspendedAt: '2026-10-22T02:00:00Z',
   snapshot: { name: '停權測試機構', contactPerson: '王承辦', documents: [{ id: 'd1', fileName: '立案證書.pdf' }] },
-  revisions: [{ changes: { contactPerson: { before: '王承辦', after: '新的承辦人' }, withholdingTaxId: { before: '', after: '12345678' } }, at: '2026-10-22T03:00:00Z' }],
+  revisions: [{
+    changes: [
+      { field: 'contactPerson', before: '王承辦', after: '新的承辦人' },
+      { field: 'withholdingTaxId', before: '', after: '12345678' },
+    ],
+    at: '2026-10-22T03:00:00Z',
+  }],
   unlockRequest: { id: 1, status: 'PENDING', message: '資料已補齊', createdAt: '2026-10-22T04:00:00Z' },
   openWishes: 3,
   affectedClaims: 2,
@@ -34,8 +40,13 @@ describe('SuspensionPanel（停權機構的處置資料）', () => {
     expect(await screen.findByText('疑似冒名，先停權調查')).toBeInTheDocument()
     expect(screen.getByText(/影響 3 個公開中的願望、2 筆進行中的認領/)).toBeInTheDocument()
     expect(screen.getByText(/立案證書\.pdf/)).toBeInTheDocument()
-    expect(screen.getByText(/王承辦 → 新的承辦人/)).toBeInTheDocument()
-    // 新增的兩個欄位有中文標籤，不是欄位代號
+    // 停權期間的修改：舊值與新值分屬兩個元素（.wh-change 的刪除線／粗體樣式），所以分開斷言。
+    // 要限定在這張卡片裡——「承辦人」在上面那張「停權當下的原始資訊」也會出現
+    const revisions = within(screen.getByText(/停權期間的修改/).closest('.dcard') as HTMLElement)
+    const changed = revisions.getByText('承辦人').closest('.wh-change') as HTMLElement
+    expect(within(changed).getByText('王承辦')).toBeInTheDocument()
+    expect(within(changed).getByText('新的承辦人')).toBeInTheDocument()
+    // 欄位顯示中文標籤，不是欄位代號
     expect(screen.getByText(/扣繳單位統一編號/)).toBeInTheDocument()
     expect(screen.getByText('資料已補齊')).toBeInTheDocument()
   })

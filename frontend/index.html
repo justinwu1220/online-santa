@@ -6,7 +6,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark" />
     <style>html{background:#020617}</style>
+
+    <!--
+      搜尋引擎與社群分享用的標籤。
+
+      這是 SPA，整站共用這一份 index.html，所以下面的 canonical 與 og 對每一條路徑都一樣。
+      對首頁是正確的；其餘公開路徑不是 noindex（/wishes/，見 firebase.json）就是在
+      robots.txt 裡 Disallow，所以可以接受。要讓每頁有自己的 meta 得上預渲染或 SSR。
+
+      各頁的 document.title 由 src/lib/brand.ts 的 pageTitle() 在 useEffect 裡設定——
+      Googlebot 執行 JS 所以讀得到，但不執行 JS 的社群爬蟲只會看到下面這組靜態的值。
+      文案與 brand.ts 的 PLATFORM_NAME 重複，是因為靜態 HTML 沒辦法 import；改名時兩邊要一起改。
+
+      沒有 og:image：專案裡沒有接近 1200×630 的素材。因此 twitter:card 用 summary，
+      不是 summary_large_image（後者沒有圖會顯示成空白卡片）。
+    -->
     <title>線上聖誕老人</title>
+    <meta name="description" content="線上聖誕老人媒合社福機構的孩子與想幫忙的你。瀏覽孩子的聖誕願望，認領一份，親手把禮物寄到他手上。" />
+    <link rel="canonical" href="https://onlinesanta.org/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="線上聖誕老人" />
+    <meta property="og:locale" content="zh_TW" />
+    <meta property="og:url" content="https://onlinesanta.org/" />
+    <meta property="og:title" content="線上聖誕老人" />
+    <meta property="og:description" content="媒合社福機構的孩子與想幫忙的你。瀏覽孩子的聖誕願望，認領一份，親手把禮物寄到他手上。" />
+    <meta name="twitter:card" content="summary" />
   </head>
   <body>
     <div id="root"></div>

@@ -7,6 +7,7 @@ import { Drawer } from '../../components/console/Drawer'
 import { DCard, DStatus, DrawerTabs, Kv } from '../../components/console/DrawerParts'
 import { LazyBox } from '../../components/console/LazyBox'
 import { ReasonDialog } from '../../components/console/ReasonDialog'
+import { ProfileChangeBox } from './ProfileChanges'
 import { SuspensionPanel } from './SuspensionPanel'
 import { useToast } from '../../components/ui/toastContext'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
@@ -43,6 +44,18 @@ function isResubmission(org: OrganizationReviewView) {
   return org.status === 'PENDING' && Boolean(org.reviewNote)
 }
 
+/**
+ * 停權中、而且有待審的解除停權申請——清單上標一顆「申請解除」，管理員不必把每一間都點開
+ * （抽屜裡的處置資料是點擊載入，而且每次載入都寫一筆稽核）。
+ *
+ * 後端的 `unlockRequested` 只回答「有沒有待審的解除申請」，狀態判斷留在這裡：目前沒有任何
+ * 路徑能讓非停權機構留著待審申請，但 `OrganizationReviewService` 裡那兩個沒人呼叫的
+ * suspend／reactivate 不會結掉申請，萬一被接上就會在已核准的機構上掛這顆標籤。
+ */
+function hasUnlockRequest(org: OrganizationReviewView) {
+  return org.status === 'SUSPENDED' && Boolean(org.unlockRequested)
+}
+
 /** 清單右側的日期說明：申請於／核准於／退回於／停權於。 */
 function whenLabel(org: OrganizationReviewView) {
   if (org.status === 'PENDING') return isResubmission(org) ? '修改後重新送審' : `申請於 ${formatDate(org.createdAt)}`
@@ -52,8 +65,9 @@ function whenLabel(org: OrganizationReviewView) {
 }
 
 /**
- * 機構審核（設計稿 16.2）：篩選（預設待審核）、列表、抽屜（機構資料／照片與文件）、
- * 核准、退回（必填原因）、停權、解除停權。照片與文件是點擊載入，載入時後端各寫一筆稽核。
+ * 機構管理（設計稿 16.2 的「機構審核」，加上停權之後不只是審核了）：篩選（預設待審核）、列表、
+ * 抽屜（機構資料／照片與文件）、核准、退回（必填原因）、停權、解除停權。
+ * 照片與文件是點擊載入，載入時後端各寫一筆稽核。
  */
 export function AdminOrganizations() {
   const [params, setParams] = useSearchParams()
@@ -63,7 +77,7 @@ export function AdminOrganizations() {
   const [openId, setOpenId] = useState<string | null>(null)
 
   useEffect(() => {
-    document.title = pageTitle('機構審核｜管理員後台')
+    document.title = pageTitle('機構管理｜管理員後台')
     return () => { document.title = pageTitle() }
   }, [])
 
@@ -94,7 +108,7 @@ export function AdminOrganizations() {
 
   return (
     <section className="org-tab" aria-labelledby="adOrgTitle">
-      <div className="org-head"><h1 id="adOrgTitle">機構審核</h1></div>
+      <div className="org-head"><h1 id="adOrgTitle">機構管理</h1></div>
 
       <div className="org-filters" role="tablist" aria-label="依審核狀態篩選">
         {FILTERS.map((item) => (
@@ -121,6 +135,7 @@ export function AdminOrganizations() {
               <span className="org-row__who">{whenLabel(org)}</span>
               <span className="org-row__badges">
                 {isResubmission(org) && <span className="badge badge--resubmit">重新送審</span>}
+                {hasUnlockRequest(org) && <span className="badge badge--resubmit">申請解除</span>}
               </span>
               <ChevronRight className="icon org-row__go" aria-hidden />
             </button>
@@ -248,6 +263,8 @@ function OrgDrawer({ org, onClose }: { org: OrganizationReviewView | null; onClo
           {tab === 'info' && current.status === 'SUSPENDED' && (
             <SuspensionPanel orgId={current.id} orgName={current.name} />
           )}
+          {/* 不限停權中的機構：一間正常機構改了什麼，正是爭議時要查的 */}
+          {tab === 'info' && <ProfileChangeBox targetType="ORGANIZATION" targetId={current.id} />}
           {tab === 'docs' && (
             <>
               <LazyBox key={`photo-${current.id}`} title="機構照片" desc="照片可能拍到孩子或機構環境。" button="載入照片"

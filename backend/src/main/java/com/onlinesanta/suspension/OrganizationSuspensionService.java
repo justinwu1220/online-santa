@@ -1,10 +1,13 @@
 package com.onlinesanta.suspension;
 
+import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.context.ApplicationEventPublisher;
@@ -22,6 +25,8 @@ import com.onlinesanta.attachment.AttachmentService;
 import com.onlinesanta.attachment.dto.AttachmentView;
 import com.onlinesanta.auth.AppPrincipal;
 import com.onlinesanta.auth.CurrentUserService;
+import com.onlinesanta.changelog.ProfileChangeLogService;
+import com.onlinesanta.changelog.ProfileChangeTargetType;
 import com.onlinesanta.claim.Claim;
 import com.onlinesanta.claim.ClaimRepository;
 import com.onlinesanta.claim.ClaimStatus;
@@ -31,7 +36,6 @@ import com.onlinesanta.event.OrganizationSuspensionEvent;
 import com.onlinesanta.message.AdminTeamChatService;
 import com.onlinesanta.message.dto.SendMessageRequest;
 import com.onlinesanta.organization.Organization;
-import com.onlinesanta.organization.OrganizationRevisionRepository;
 import com.onlinesanta.organization.OrganizationService;
 import com.onlinesanta.organization.OrganizationStatus;
 import com.onlinesanta.unlock.UnlockRequest;
@@ -64,34 +68,34 @@ public class OrganizationSuspensionService {
     private final ClaimRepository claims;
     private final AttachmentService attachments;
     private final SuspensionRecordRepository records;
-    private final OrganizationRevisionRepository revisions;
     private final UnlockRequestRepository unlocks;
     private final AdminTeamChatService teamChat;
     private final AdminAuditService audit;
     private final CurrentUserService currentUser;
     private final ApplicationEventPublisher eventPublisher;
     private final ObjectMapper json;
+    private final ProfileChangeLogService changeLog;
 
     public OrganizationSuspensionService(OrganizationService organizationService, WishRepository wishes,
                                          WishFreezeService freezes, ClaimRepository claims,
                                          AttachmentService attachments, SuspensionRecordRepository records,
-                                         OrganizationRevisionRepository revisions, UnlockRequestRepository unlocks,
+                                         UnlockRequestRepository unlocks,
                                          AdminTeamChatService teamChat, AdminAuditService audit,
                                          CurrentUserService currentUser, ApplicationEventPublisher eventPublisher,
-                                         ObjectMapper json) {
+                                         ObjectMapper json, ProfileChangeLogService changeLog) {
         this.organizationService = organizationService;
         this.wishes = wishes;
         this.freezes = freezes;
         this.claims = claims;
         this.attachments = attachments;
         this.records = records;
-        this.revisions = revisions;
         this.unlocks = unlocks;
         this.teamChat = teamChat;
         this.audit = audit;
         this.currentUser = currentUser;
         this.eventPublisher = eventPublisher;
         this.json = json;
+        this.changeLog = changeLog;
     }
 
     // ---------------------------------------------------------------- 管理員
@@ -173,6 +177,18 @@ public class OrganizationSuspensionService {
         return view(pending);
     }
 
+    /**
+     * 這些機構之中有待審解除停權申請的 id（管理員清單標示「申請解除」用）。
+     *
+     * <p>刻意只撈 id、不走 {@link #detailOf}：那支每次查看都寫一筆 VIEW_SUSPENSION_RECORD 稽核，
+     * 清單每次載入都寫稽核會把紀錄洗掉，這也正是抽屜裡要用點擊載入的原因。
+     */
+    @Transactional(readOnly = true)
+    public Set<UUID> organizationIdsWithPending(Collection<UUID> organizationIds) {
+        return organizationIds.isEmpty() ? Set.of()
+                : new HashSet<>(unlocks.findPendingTargetIds(UnlockTargetType.ORGANIZATION, organizationIds));
+    }
+
     /** 管理員抽屜：停權當下保全的原始資訊、停權期間的資料修改、機構的解除申請。每次查看寫稽核。 */
     @Transactional
     public SuspensionDetailView detailOf(UUID organizationId) {
@@ -182,11 +198,15 @@ public class OrganizationSuspensionService {
                 SuspensionTargetType.ORGANIZATION, organizationId);
         audit.record(AdminAuditAction.VIEW_SUSPENSION_RECORD, organizationId, organization.getName());
 
-        List<SuspensionDetailView.Revision> revisionViews = revisions
-                .findByOrganizationIdOrderByCreatedAtAscIdAsc(organizationId).stream()
-                .filter(revision -> record.isEmpty() || !revision.getCreatedAt().isBefore(record.get().getCreatedAt()))
-                .map(revision -> new SuspensionDetailView.Revision(read(revision.getChanges()), revision.getCreatedAt()))
-                .toList();
+        // 「停權之後改了什麼」：機構的資料異動現在一律記在 profile_change_logs，
+        // 這裡改用時間篩選取出停權當下之後的那些。沒有進行中的停權紀錄就沒有起算點，
+        // 這張卡片本來也不會顯示，給空清單即可（原本的寫法會回傳歷來全部）。
+        List<SuspensionDetailView.Revision> revisionViews = record
+                .map(open -> changeLog
+                        .since(ProfileChangeTargetType.ORGANIZATION, organizationId, open.getCreatedAt()).stream()
+                        .map(log -> new SuspensionDetailView.Revision(changeLog.read(log), log.getCreatedAt()))
+                        .toList())
+                .orElseGet(List::of);
         long openWishes = wishes.findByOrganizationIdAndStatusIn(organizationId,
                 EnumSet.of(WishStatus.AVAILABLE, WishStatus.CLAIMED)).size();
         long affectedClaims = claims.findByOrganizationIdAndStatusIn(organizationId, activeStatuses()).size();

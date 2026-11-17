@@ -84,7 +84,9 @@ class AdminReviewIT extends ApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].name").value("待審核之家"))
-                .andExpect(jsonPath("$.content[0].contactEmail").value("contact@example.org"));
+                .andExpect(jsonPath("$.content[0].contactEmail").value("contact@example.org"))
+                // 沒有停權就沒有解除申請，清單不該標「申請解除」
+                .andExpect(jsonPath("$.content[0].unlockRequested").value(false));
     }
 
     @Test

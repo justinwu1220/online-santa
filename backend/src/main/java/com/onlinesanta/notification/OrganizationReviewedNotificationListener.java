@@ -52,7 +52,7 @@ public class OrganizationReviewedNotificationListener {
                         您的機構申請這次沒有通過，請參考以下意見補件後重新送審。
                         %s
                         登入機構後台補件：
-                        %s/org
+                        %s/org/settings
 
                         線上聖誕老人
                         """.formatted(organization.getName(), reasonLine, properties.publicUrl());

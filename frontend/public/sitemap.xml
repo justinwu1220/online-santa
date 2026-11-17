@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  只有首頁一筆。公開而且要進索引的頁面實際上就只有願望牆：
+  願望詳情頁是 noindex（見 firebase.json 的 X-Robots-Tag），其餘路徑都要登入。
+
+  沒有 <lastmod>：寫了就得跟著維護，給一個永遠不會更新的日期比不寫更糟。
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://onlinesanta.org/</loc>
+    <changefreq>daily</changefreq>
+  </url>
+</urlset>

@@ -1,12 +1,17 @@
 package com.onlinesanta.auth;
 
 import java.time.Instant;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.onlinesanta.changelog.ProfileChangeActor;
+import com.onlinesanta.changelog.ProfileChangeLogService;
+import com.onlinesanta.changelog.ProfileChangeTargetType;
+import com.onlinesanta.changelog.ProfileSnapshots;
 import com.onlinesanta.user.User;
 import com.onlinesanta.user.UserRepository;
 import com.onlinesanta.user.UserRole;
@@ -27,12 +32,25 @@ public class UserProvisioningService {
 
     private final UserRepository users;
     private final AuthProperties properties;
+    private final ProfileChangeLogService changeLog;
 
-    public UserProvisioningService(UserRepository users, AuthProperties properties) {
+    public UserProvisioningService(UserRepository users, AuthProperties properties,
+                                   ProfileChangeLogService changeLog) {
         this.users = users;
         this.properties = properties;
+        this.changeLog = changeLog;
     }
 
+    /**
+     * <p>這裡有三處會在使用者沒有按下任何按鈕的情況下改動帳號資料：改綁 uid、修補顯示
+     * 名稱、白名單提升為管理員。全部包進異動紀錄，{@code source=SYSTEM}。
+     *
+     * <p>這支每個 request 都會跑，但 recorder 沒有變動就不寫，所以代價只是每個 request
+     * 多比對一份六個欄位的快照；實際上每個帳號最多各留一筆。
+     *
+     * <p>紀錄的 actor 必須由這裡明確傳入，不能讓 recorder 去讀 CurrentUserService——
+     * 此刻 principal 還在建構中，SecurityContext 是空的。
+     */
     @Transactional
     public AppPrincipal resolve(String firebaseUid, String email,
                                 boolean emailVerified, String displayName) {
@@ -44,8 +62,12 @@ public class UserProvisioningService {
                     HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "此帳號已被停用");
         }
 
+        Map<String, String> before = ProfileSnapshots.of(user);
         user.repairLegacyDisplayName(displayName);
         promoteToAdminIfWhitelisted(user, emailVerified);
+        changeLog.record(ProfileChangeTargetType.USER, user.getId(),
+                before, ProfileSnapshots.of(user), ProfileChangeActor.system(user));
+
         user.recordLogin(Instant.now());
         return AppPrincipal.from(user, emailVerified);
     }
@@ -69,7 +91,14 @@ public class UserProvisioningService {
                                 "這個信箱已經有帳號。請先點擊驗證信中的連結，"
                                         + "確認你擁有這個信箱之後再登入");
                     }
+                    // 改綁 uid 是「同一個本地帳號換了一組 Firebase 身分」——也就是這段
+                    // javadoc 警告的那條接管路徑。單獨記一筆，因為它發生在下面那個
+                    // 快照之前，而且萬一這條路被濫用，這就是唯一的證據。
+                    Map<String, String> beforeLink = ProfileSnapshots.of(existing);
                     existing.linkFirebaseUid(firebaseUid);
+                    changeLog.record(ProfileChangeTargetType.USER, existing.getId(),
+                            beforeLink, ProfileSnapshots.of(existing),
+                            ProfileChangeActor.system(existing));
                     return existing;
                 })
                 .orElseGet(() -> users.save(User.newDonor(

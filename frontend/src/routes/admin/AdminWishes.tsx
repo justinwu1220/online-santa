@@ -59,7 +59,7 @@ export function AdminWishes() {
   const [search, setSearch] = useState('')
   const [q, setQ] = useState('')
   const [year, setYear] = useState<number | undefined>()
-  // 機構篩選放在網址（?org=），機構審核抽屜的「查看這間機構的願望」與重新整理都能帶著
+  // 機構篩選放在網址（?org=），機構管理抽屜的「查看這間機構的願望」與重新整理都能帶著
   const organizationId = params.get('org') ?? undefined
   const organizations = useAdminOrganizations()
   const counts = useAdminWishCounts(organizationId)
@@ -417,6 +417,38 @@ function claimSteps(wish: AdminWishDetail) {
   return <DSteps steps={steps} complete={done} />
 }
 
+/**
+ * 解除凍結申請裡的信件比對：目前的信件與機構換上的新信件並排。
+ *
+ * 兩張都必須包在 `.dletter` 裡。`.preview-zoom` 是 `position: absolute; inset: 0`，
+ * 少了這個有尺寸的相對定位框，圖片會往上找到最近的定位祖先——抽屜那個 `<dialog>`——
+ * 然後長成一張蓋住整個抽屜、擋掉願望資訊的大圖。
+ */
+export function UnlockLetterCompare({ currentUrl, nextUrl, masked }: {
+  /** 目前上線的信件照片；已刪除或沒有信件時為 undefined */
+  currentUrl?: string
+  /** 機構在申請裡附的新信件 */
+  nextUrl: string
+  masked: boolean
+}) {
+  return (
+    <div className="letter-compare">
+      <figure>
+        <figcaption>目前的信件{masked ? '（已屏蔽）' : ''}</figcaption>
+        <div className="dletter">
+          <PreviewImage src={currentUrl} alt="目前的信件">（已刪除或沒有信件）</PreviewImage>
+        </div>
+      </figure>
+      <figure>
+        <figcaption>機構換上的新信件（核准後取代）</figcaption>
+        <div className="dletter">
+          <PreviewImage src={nextUrl} alt="新的信件">（無法顯示）</PreviewImage>
+        </div>
+      </figure>
+    </div>
+  )
+}
+
 function WishInfo({ wish, onDeleteLetter }: { wish: AdminWishDetail; onDeleteLetter: () => void }) {
   const claim = wish.claim
   const org = (
@@ -444,16 +476,8 @@ function WishInfo({ wish, onDeleteLetter }: { wish: AdminWishDetail; onDeleteLet
             </ul>
           ) : !wish.unlockLetter && <p className="auth-note">機構沒有修改內容，只說明並申請解除。</p>}
           {wish.unlockLetter && (
-            <div className="letter-compare">
-              <figure>
-                <figcaption>目前的信件{wish.letterMasked ? '（已屏蔽）' : ''}</figcaption>
-                <PreviewImage src={wish.letterPhotos[0]?.url} alt="目前的信件">（已刪除或沒有信件）</PreviewImage>
-              </figure>
-              <figure>
-                <figcaption>機構換上的新信件（核准後取代）</figcaption>
-                <PreviewImage src={wish.unlockLetter.url} alt="新的信件">（無法顯示）</PreviewImage>
-              </figure>
-            </div>
+            <UnlockLetterCompare currentUrl={wish.letterPhotos[0]?.url} nextUrl={wish.unlockLetter.url}
+              masked={Boolean(wish.letterMasked)} />
           )}
         </DCard>
       )}

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { PublicLayout } from './components/layouts/PublicLayout'
 import { Spinner } from './components/ui/Spinner'
 import { RequireRole } from './components/RequireRole'
+import { AdminDataChanges } from './routes/admin/AdminDataChanges'
 import { AdminLayout } from './routes/admin/AdminLayout'
 import { AdminOrganizations } from './routes/admin/AdminOrganizations'
 import { AdminOverview } from './routes/admin/AdminOverview'
@@ -105,6 +106,7 @@ export default function App() {
           <Suspense fallback={<Spinner label="載入年度營運" />}>
             <AdminAnnualReview />
           </Suspense>} />
+        <Route path="data-changes" element={<AdminDataChanges />} />
         <Route path="system" element={<AdminSystem />} />
       </Route>
 

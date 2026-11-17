@@ -16,7 +16,7 @@ import { ConsoleShell } from './ConsoleShell'
 
 const items = [
   { to: '/admin', label: '總覽', icon: <path d="M0 0" />, end: true },
-  { to: '/admin/orgs', label: '機構審核', icon: <path d="M0 0" /> },
+  { to: '/admin/orgs', label: '機構管理', icon: <path d="M0 0" /> },
   { to: '/admin/wishes', label: '願望', icon: <path d="M0 0" /> },
 ]
 
@@ -67,7 +67,7 @@ describe('ConsoleShell 左側選單切換', () => {
   it('連點不同選單：只有最後一次生效，不會多換頁、也不留殘留動畫', async () => {
     renderShell()
     click('願望')
-    click('機構審核')
+    click('機構管理')
     click('總覽') // 最後點回目前所在的頁
     await act(async () => { await vi.advanceTimersByTimeAsync(500) })
     expect(where()).toBe('/admin')
@@ -76,7 +76,7 @@ describe('ConsoleShell 左側選單切換', () => {
 
   it('連點兩個不同的頁：停在最後點的那一頁', async () => {
     renderShell()
-    click('機構審核')
+    click('機構管理')
     click('願望')
     await act(async () => { await vi.advanceTimersByTimeAsync(500) })
     expect(where()).toBe('/admin/wishes')
