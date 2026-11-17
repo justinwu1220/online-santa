@@ -92,6 +92,11 @@ jobs:
 
   staging:
     needs: build-image
+    # 被呼叫的 _deploy.yml 要用 Workload Identity（id-token: write）。呼叫端必須授予相同或更大的權限，
+    # 否則 GitHub 會在啟動階段就拒絕整個 workflow（startup_failure），連一個 job 都不會跑
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/_deploy.yml
     with:
       environment: staging
@@ -102,6 +107,11 @@ jobs:
   production:
     # needs 只包含直接依賴：要讀 build-image 的輸出，必須明確列出來
     needs: [build-image, staging]
+    # 被呼叫的 _deploy.yml 要用 Workload Identity（id-token: write）。呼叫端必須授予相同或更大的權限，
+    # 否則 GitHub 會在啟動階段就拒絕整個 workflow（startup_failure），連一個 job 都不會跑
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/_deploy.yml
     with:
       environment: production
