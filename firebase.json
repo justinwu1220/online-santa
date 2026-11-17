@@ -3,6 +3,7 @@
     "public": "frontend/dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
+      { "source": "/api/**", "run": { "serviceId": "online-santa-api", "region": "asia-east1" } },
       { "source": "!/assets/**", "destination": "/index.html" }
     ],
     "headers": [

@@ -12,10 +12,10 @@
 Cloud Run (Spring Boot API)   ── scale-to-zero，離峰 $0
      ├── Neon (PostgreSQL)     ── 願望、認領、追蹤狀態
      ├── Cloud Storage         ── 照片（前端 Signed URL 直傳）
-     └── Firebase Auth         ── 買家 / 賣家 / 管理員認證
+     └── 帳號驗證（本機）       ── 密碼、信箱驗證碼、重設密碼，由 API 自己處理（驗證碼信走 SMTP）
 ```
 
-前端 (React + Vite) 部署於 Firebase Hosting。
+前端 (React + Vite) 部署於 Firebase Hosting，`/api/**` 由 Hosting 轉給 Cloud Run（同網域，登入 cookie 才不會被當成第三方 cookie）。
 
 ## 技術棧
 
@@ -71,37 +71,56 @@ API 文件：<http://localhost:8080/swagger-ui.html>
 
 React 19 + TypeScript + Vite + Tailwind v4，涵蓋願望牆、認領流程、機構後台與審核後台。
 
-身分驗證有兩種模式，依 Firebase 設定是否齊全**自動選擇**，與後端的 `dev-auth` 對稱：
+身分驗證有兩種模式，由 `VITE_DEV_AUTH` 決定，與後端的 `dev-auth` 對稱：
 
 | 模式 | 啟用條件 | 請求標頭 |
 |---|---|---|
-| Firebase | 設定了 `VITE_FIREBASE_API_KEY` 與 `VITE_FIREBASE_PROJECT_ID` | `Authorization: Bearer <ID token>` |
-| 開發 | 未設定 Firebase | `X-Dev-User-Email` |
+| 帳號（預設） | 沒設 `VITE_DEV_AUTH`，或不是 `true` | `Authorization: Bearer <access token>` |
+| 開發 | `VITE_DEV_AUTH=true` | `X-Dev-User-Email` |
 
 登入方式為 email/密碼。三種角色（認領者、機構、管理員）統一從 `/login` 登入，註冊時選擇認領者或機構身分；登入後回到願望牆，機構與管理員從右上角按鈕進入後台。
 
+### 登入狀態
+
+帳號與密碼由後端自己管理（`com.onlinesanta.auth`），不依賴任何外部身分服務：
+
+- **access token**：後端簽發、15 分鐘有效的 HS256 JWT，前端只放在記憶體，請求帶 `Authorization: Bearer`。
+  token 只放使用者 id；角色、信箱是否驗證一律每次請求回資料庫查，所以管理員核准機構、使用者剛完成驗證，
+  下一個請求就生效。
+- **refresh token**：隨機值，只放在 HttpOnly cookie（`__session`，前端的 JavaScript 讀不到），資料庫存雜湊。
+  每次換發都輪替；已撤銷的又被使用，代表 cookie 被複製，整串撤銷。登出、重設密碼、停用帳號都會撤銷。
+- 頁面載入時用 cookie 換一張 access token 還原登入；API 回 401（剛好過期）時自動換發並重試一次。
+- 連續輸錯密碼 5 次鎖定 15 分鐘；登入失敗一律是「信箱或密碼不正確」，不透露帳號是否存在。
+
 ### 信箱驗證
 
-密碼註冊的信箱在使用者點驗證信之前是未驗證的——Firebase 不會檢查註冊者是否真的
-擁有那個信箱。系統因此有兩條規則：
+註冊後會寄一組 **6 位數驗證碼**到信箱（15 分鐘有效），在註冊後的畫面、頁首的提示列或個人檔案輸入。
+註冊不會檢查註冊者是否真的擁有那個信箱，系統因此有兩條規則：
 
 - **未驗證可以登入、可以瀏覽**，但不能認領、不能申請機構
-- **未驗證的 token 只有一般民眾的權限**（`AppPrincipal.effectiveRole()`）
+- **未驗證的帳號只有一般民眾的權限**（`AppPrincipal.effectiveRole()`）
 
 第二條是必要的：角色提升需要驗證過的信箱，但提升是單向的，資料庫的角色不會因為
-信箱狀態改變而降級。信箱有可能從已驗證變回未驗證（使用者更換了信箱），那時舊有的
-管理員或機構權限不該還能使用。授權一律看 `effectiveRole()`，不看資料庫的 `role`
-——有兩套認定就遲早會有一套漏掉。
+信箱狀態改變而降級。授權一律看 `effectiveRole()`，不看資料庫的 `role`
+——有兩套認定就遲早會有一套漏掉。管理員白名單同樣要求信箱已驗證，否則任何人用白名單上的信箱
+註冊就能取得管理員權限。
 
-開發模式讓整個專案不需要任何雲端資源就能跑起來——`npm run dev` 後到 `/login`，輸入
+6 位數只有一百萬種組合，所以：驗證碼錯 5 次就作廢（要重寄）、資料庫存的是 HMAC 而不是明文或單純的雜湊、
+重寄兩封之間至少 60 秒、一天最多 5 封。重設密碼用的是 32 bytes 隨機值的連結（60 分鐘有效、只能用一次），
+成功後視為信箱已驗證，並撤銷所有裝置的登入。
+
+開發模式讓整個專案不需要寄信就能跑起來——前端設 `VITE_DEV_AUTH=true`，`npm run dev` 後到 `/login`，輸入
 任意 email 即可登入或切換身分。開發模式的註冊會顯示所有欄位（含密碼），但密碼不驗證，
-只用來檢查畫面；姓名與顯示名稱會儲存。Firebase SDK 以動態 import 載入，沒設定時不會進入打包結果。
+只用來檢查畫面；姓名與顯示名稱會儲存。
+
+不設 `VITE_DEV_AUTH` 就走完整的帳號流程。本機沒設定 SMTP（`MAIL_HOST` 空白）時，**驗證碼與重設密碼連結
+會印在後端的 log**（找 `[dev-mail]`），照著輸入即可。
 
 ## 本地開發的身分模擬
 
-正式環境以 Firebase ID token 認證。本機開發啟用 `dev-auth` profile（由
+正式環境以 access token 認證。本機開發啟用 `dev-auth` profile（由
 `spring.profiles.group` 在 `local` 時自動帶出），可用 `X-Dev-User-Email` 標頭
-指定身分，免去每次 curl 都要先跑完瀏覽器登入流程：
+指定身分，免去每次 curl 都要先註冊、輸入驗證碼取得 token：
 
 ```bash
 curl http://localhost:8080/api/me -H "X-Dev-User-Email: org@example.org"
@@ -217,7 +236,9 @@ Cloud Run 是 scale-to-zero 的，映像檔用 AppCDS 把啟動路徑上的類�
 
 | 環境變數 | 說明 |
 |---|---|
-| `FIREBASE_PROJECT_ID` | Firebase 專案 ID，用於推導 ID token 的 issuer 與 audience |
+| `APP_AUTH_JWT_SECRET` | 登入 token 的簽章密鑰，至少 32 個字元，沒設定後端不會啟動（`openssl rand -base64 48`） |
+| `APP_AUTH_COOKIE_SECURE` | 登入狀態 cookie 是否加 `Secure`；https 的正式環境必須是 `true` |
+| `MAIL_HOST` 等 | SMTP 設定。**正式環境必填**：信箱驗證碼與重設密碼都靠它寄出 |
 | `APP_ADMIN_EMAILS` | 管理員白名單，逗號分隔 |
 | `APP_ALLOWED_ORIGINS` | 允許跨來源請求的前端網域 |
 | `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | Neon PostgreSQL 連線資訊 |

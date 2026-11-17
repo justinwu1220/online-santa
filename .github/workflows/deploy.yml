@@ -113,7 +113,7 @@ jobs:
           # （否則信會從 no-reply@example.org 寄出、連結指向 localhost），啟動時就擋下來。
           env_vars: |
             SPRING_PROFILES_ACTIVE=prod
-            FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+            APP_AUTH_COOKIE_SECURE=true
             APP_ADMIN_EMAILS=${{ vars.APP_ADMIN_EMAILS }}
             APP_ALLOWED_ORIGINS=${{ vars.APP_ALLOWED_ORIGINS }}
             GCS_PUBLIC_BUCKET=${{ vars.GCS_PUBLIC_BUCKET }}
@@ -125,13 +125,15 @@ jobs:
             MAIL_PORT=${{ vars.MAIL_PORT || '587' }}
             MAIL_FROM=${{ vars.MAIL_FROM }}
             APP_PUBLIC_URL=${{ vars.APP_PUBLIC_URL }}
-          # 資料庫連線資訊與捐贈收據的加密金鑰放 Secret Manager，不進環境變數的明文設定。
-          # online-santa-receipt-key 要先建好（見 docs/DEPLOY.md 3.4），沒有它後端啟動就會失敗
+          # 資料庫連線資訊、捐贈收據的加密金鑰與登入 token 的簽章密鑰放 Secret Manager，
+          # 不進環境變數的明文設定。online-santa-receipt-key 與 online-santa-auth-jwt-secret
+          # 要先建好（見 docs/DEPLOY.md 3.4），沒有它們後端啟動就會失敗
           secrets: |
             DB_URL=online-santa-db-url:latest
             DB_USERNAME=online-santa-db-username:latest
             DB_PASSWORD=online-santa-db-password:latest
             RECEIPT_ENCRYPTION_KEY=online-santa-receipt-key:latest
+            APP_AUTH_JWT_SECRET=online-santa-auth-jwt-secret:latest
             MAIL_USERNAME=online-santa-mail-username:latest
             MAIL_PASSWORD=online-santa-mail-password:latest
 
@@ -168,13 +170,12 @@ jobs:
       - name: 建置
         working-directory: frontend
         env:
-          # Firebase 的 Web 設定本來就會出現在瀏覽器裡，不是秘密；
-          # 真正的保護是 Firebase 的安全規則與後端的 token 驗證
-          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
-          # 前端與 API 不同網域，必須指定完整位址
-          VITE_API_BASE_URL: ${{ needs.backend.outputs.url }}
+          # 刻意留空：API 與前端同網域，由 firebase.json 的 rewrite 把 /api/** 轉給 Cloud Run。
+          # 登入狀態放在 HttpOnly cookie 裡，前端若直接打 run.app 的網址就變成第三方 cookie，
+          # Safari 與新版 Chrome 會擋掉，使用者每次重新整理都得重新登入
+          VITE_API_BASE_URL: ''
+          # 正式環境一定要是真正的帳號登入，這個旗標只給本機開發用
+          VITE_DEV_AUTH: 'false'
           # 與後端的 WISH_IMAGE_ENABLED 一起開關。沒設就是關閉——願望牆改用分類圖示
           VITE_WISH_IMAGE_ENABLED: ${{ vars.WISH_IMAGE_ENABLED }}
         run: |
@@ -190,5 +191,6 @@ jobs:
           create_credentials_file: true
           export_environment_variables: true
 
+      # FIREBASE_PROJECT_ID 現在只剩 Hosting 用（登入已不依賴 Firebase）
       - name: 部署到 Firebase Hosting
         run: npx --yes firebase-tools@13 deploy --only hosting --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive
