@@ -299,6 +299,24 @@ class DonationReceiptIT extends ApiIntegrationTest {
         assertThat(r.getPdfError()).contains("實際收件機構");
     }
 
+    @Test
+    @DisplayName("證號解不開（金鑰不符或資料毀損）：標失敗並說明原因，不丟未預期錯誤")
+    void undecryptableIdNumberIsRecordedAsFailed() throws Exception {
+        campaign("衛部救字第1150000號");
+        UUID claimId = shippedClaim("證號解不開", true);
+        complete(claimId);
+        UUID receiptId = validReceiptOf(claimId).getId();
+        entityManager().flush();
+        jdbc().update("UPDATE donation_receipts SET donor_id_encrypted = ? WHERE id = ?",
+                java.util.Base64.getEncoder().encodeToString(new byte[40]), receiptId);
+        entityManager().clear();
+
+        DonationReceipt r = receiptService.generatePdf(receiptId);
+
+        assertThat(r.getPdfStatus()).isEqualTo(PdfStatus.FAILED);
+        assertThat(r.getPdfError()).contains("捐贈者證號").contains("無法解密");
+    }
+
     // ------------------------------------------------------------ 作廢重開
 
     @Test

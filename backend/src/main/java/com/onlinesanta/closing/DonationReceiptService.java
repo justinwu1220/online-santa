@@ -289,7 +289,14 @@ public class DonationReceiptService {
     }
 
     private ReceiptData renderData(DonationReceipt r) {
-        String idNumber = r.getDonorIdEncrypted() == null ? null : crypto.decrypt(r.getDonorIdEncrypted());
+        String idNumber;
+        try {
+            idNumber = r.getDonorIdEncrypted() == null ? null : crypto.decrypt(r.getDonorIdEncrypted());
+        } catch (IllegalStateException e) {
+            // 證號是用建立當時的金鑰加密的；金鑰換過或資料毀損就解不開。標成失敗並說明原因，
+            // 不要讓管理員看到「未預期錯誤」
+            throw new ReceiptLayoutException("捐贈者證號", "無法解密（加密金鑰與建立當時不同，或資料毀損），請請捐贈者重新填寫收據資料後作廢重開");
+        }
         return new ReceiptData(r.getReceiptNo(), r.getIssuedOn(), r.getDonorName(), idNumber, r.getDonatedOn(),
                 r.getActivityNameUsed(), r.getPermitNoUsed(), r.getCollectionStartUsed(), r.getCollectionEndUsed(),
                 properties.purpose(), r.getGiftDescription(), r.getGiftQuantity(), r.getGiftUnit(),
