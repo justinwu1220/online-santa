@@ -199,9 +199,8 @@ export function OrgSettings() {
         <section className="panel set-sec" aria-labelledby="setInfoTitle">
           <h2 className="set-sec__title" id="setInfoTitle">機構資料</h2>
           <div className="form-grid">
-            <FormField label="登入帳號" span={6}
-              hint="你登入用的信箱，無法在這裡修改。下方的「聯絡人信箱」是機構收系統通知信的信箱，兩者是分開的">
-              <Input type="email" value={loginEmail ?? ''} readOnly aria-readonly="true" />
+            <FormField label="登入帳號" span={6}>
+              <Input type="email" value={loginEmail ?? ''} readOnly disabled aria-readonly="true" />
             </FormField>
             <FormField label="機構名稱" required span={6} error={err('name')}>
               <Input maxLength={120} value={form.name} onChange={update('name')} />
