@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, withQuery } from '../../lib/api'
 import type {
-  BatchResult, CampaignRequest, CampaignView, PageResponse, PdfKind, PdfStatus, ReceiptDownload,
+  BatchResult, CampaignRequest, CampaignView, ExportView, PageResponse, PdfKind, PdfStatus, ReceiptDownload,
   ReceiptStatus, ReceiptView,
 } from '../../lib/types'
 
@@ -75,6 +75,44 @@ export function useGenerateReceiptPdfs() {
       api.post<BatchResult>(`/api/admin/campaigns/${campaignId}/generate-receipt-pdfs`),
     onSuccess: refresh,
   })
+}
+
+/** 觸發瀏覽器下載。網址的 Content-Disposition 是 attachment，所以不會離開目前頁面。 */
+function triggerDownload(url: string) {
+  const link = document.createElement('a')
+  link.href = url
+  link.rel = 'noopener'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
+/** 直接下載收據 PDF（存檔）。網址是短效的，每次取得都會寫稽核。 */
+export async function downloadReceipt(id: string, kind: PdfKind) {
+  const result = await api.get<ReceiptDownload>(
+    withQuery(`/api/admin/receipts/${id}/download-url`, { kind, mode: 'DOWNLOAD' }))
+  triggerDownload(result.url)
+}
+
+/**
+ * 全部下載：建立匯出、反覆推進（每次後端在約 15 秒內做一段）直到完成，再下載壓縮檔。
+ * 進度透過 onProgress 回報；失敗時丟出錯誤。回傳最後的匯出狀態（含略過張數）。
+ */
+export async function downloadAllReceipts(
+  campaignId: string, onProgress: (view: ExportView) => void,
+): Promise<ExportView> {
+  let view = await api.post<ExportView>(`/api/admin/campaigns/${campaignId}/receipt-exports`)
+  onProgress(view)
+  while (view.status === 'PREPARING') {
+    view = await api.post<ExportView>(`/api/admin/closing-exports/${view.id}/advance`)
+    onProgress(view)
+  }
+  if (view.status !== 'READY') {
+    throw new Error(view.error ?? '匯出失敗，請稍後再試')
+  }
+  const download = await api.get<ReceiptDownload>(`/api/admin/closing-exports/${view.id}/download-url`)
+  triggerDownload(download.url)
+  return view
 }
 
 /**

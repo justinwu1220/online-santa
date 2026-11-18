@@ -942,3 +942,19 @@ export interface BatchResult {
   done: number
   pending: number
 }
+
+export type ExportStatus = 'PREPARING' | 'READY' | 'FAILED' | 'EXPIRED'
+
+export interface ExportView {
+  id: string
+  campaignId: string
+  kind: 'RECEIPTS'
+  status: ExportStatus
+  total: number
+  prepared: number
+  skipped: number
+  sizeBytes?: number
+  error?: string
+  expiresAt?: string
+  createdAt: string
+}

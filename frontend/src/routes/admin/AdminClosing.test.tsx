@@ -85,17 +85,18 @@ describe('結案文件頁', () => {
     expect(within(row2).getByText('待補許可文號')).toBeTruthy()
     const row3 = screen.getByText('OS2026-000003').closest('tr')!
     expect(within(row3).getByText('已作廢')).toBeTruthy()
-    expect(within(row3).getByRole('button', { name: '白聯' }).hasAttribute('disabled')).toBe(true)
+    expect(within(row3).getByRole('button', { name: '預覽白聯' }).hasAttribute('disabled')).toBe(true)
+    expect(within(row3).getByRole('button', { name: '下載黃紅聯' }).hasAttribute('disabled')).toBe(true)
     expect(within(row3).getByRole('button', { name: '作廢重開' }).hasAttribute('disabled')).toBe(true)
   })
 
-  it('按白聯：在新分頁開啟（先同步開空白分頁，再導向短效網址），不離開收據頁', async () => {
+  it('按預覽：在新分頁開啟（先同步開空白分頁，再導向短效網址），不離開收據頁', async () => {
     const tab = { location: { href: '' }, close: vi.fn(), opener: {} }
     const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
     renderPage()
     const row = (await screen.findByText('OS2026-000001')).closest('tr')!
 
-    await userEvent.click(within(row).getByRole('button', { name: '白聯' }))
+    await userEvent.click(within(row).getByRole('button', { name: '預覽白聯' }))
 
     await waitFor(() => expect(get).toHaveBeenCalledWith('/api/admin/receipts/r1/download-url?kind=WHITE'))
     expect(open).toHaveBeenCalledWith('', '_blank')
@@ -103,6 +104,62 @@ describe('結案文件頁', () => {
     expect(tab.opener).toBeNull()
     expect(tab.close).not.toHaveBeenCalled()
     open.mockRestore()
+  })
+
+  it('按下載：向後端要「直接存檔」的網址（mode=DOWNLOAD），不開新分頁', async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const open = vi.spyOn(window, 'open')
+    renderPage()
+    const row = (await screen.findByText('OS2026-000001')).closest('tr')!
+
+    await userEvent.click(within(row).getByRole('button', { name: '下載黃紅聯' }))
+
+    await waitFor(() => expect(get).toHaveBeenCalledWith(
+      '/api/admin/receipts/r1/download-url?kind=YELLOW_RED&mode=DOWNLOAD'))
+    await waitFor(() => expect(click).toHaveBeenCalled())
+    expect(open).not.toHaveBeenCalled()
+    click.mockRestore()
+    open.mockRestore()
+  })
+
+  it('全部下載：建立匯出、反覆推進到完成、再下載壓縮檔，並說明略過的張數', async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const base = {
+      id: 'e1', campaignId: 'c1', kind: 'RECEIPTS' as const, total: 3, prepared: 0, skipped: 0,
+      createdAt: '2026-12-30T00:00:00Z',
+    }
+    post.mockImplementation(async (path: string) => {
+      if (path.endsWith('/receipt-exports')) return { ...base, status: 'PREPARING' }
+      if (post.mock.calls.filter(([p]) => String(p).includes('/advance')).length < 2) {
+        return { ...base, status: 'PREPARING', prepared: 1 }
+      }
+      return { ...base, status: 'READY', prepared: 3, skipped: 1 }
+    })
+    get.mockImplementation(async (path: string) => {
+      if (path.startsWith('/api/admin/campaigns')) return [campaign]
+      if (path.includes('/closing-exports/e1/download-url')) return { url: 'https://storage.test/all.zip', expiresAt: '2026-12-30T01:00:00Z' }
+      return page([receipt({})])
+    })
+    renderPage()
+    await screen.findByText('OS2026-000001')
+
+    await userEvent.click(screen.getByRole('button', { name: '全部下載' }))
+
+    expect(await screen.findByText(/已下載壓縮檔（2 張收據）；另有 1 張因 PDF 無法產生/)).toBeTruthy()
+    expect(post).toHaveBeenCalledWith('/api/admin/campaigns/c1/receipt-exports', undefined)
+    expect(post.mock.calls.filter(([p]) => String(p).includes('/closing-exports/e1/advance')).length).toBe(2)
+    expect(click).toHaveBeenCalled()
+    click.mockRestore()
+  })
+
+  it('全部下載失敗：顯示原因', async () => {
+    post.mockRejectedValue(new Error('這個檔期還沒有有效的收據，沒有可匯出的內容'))
+    renderPage()
+    await screen.findByText('OS2026-000001')
+
+    await userEvent.click(screen.getByRole('button', { name: '全部下載' }))
+
+    expect(await screen.findByText(/還沒有有效的收據/)).toBeTruthy()
   })
 
   it('取不到網址（例如缺許可文號）：關掉空白分頁並在頁面顯示原因', async () => {
@@ -116,7 +173,7 @@ describe('結案文件頁', () => {
     renderPage()
     const row = (await screen.findByText('OS2026-000001')).closest('tr')!
 
-    await userEvent.click(within(row).getByRole('button', { name: '白聯' }))
+    await userEvent.click(within(row).getByRole('button', { name: '預覽白聯' }))
 
     expect(await screen.findByText(/檔期尚未填寫勸募許可文號/)).toBeTruthy()
     expect(tab.close).toHaveBeenCalled()
