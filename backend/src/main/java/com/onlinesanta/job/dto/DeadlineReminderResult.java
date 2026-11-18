@@ -9,10 +9,14 @@ import java.time.Instant;
  * @param found   落在提醒窗口內、還沒寄過提醒的認領數
  * @param sent    成功寄出提醒的筆數
  * @param failed  失敗、被略過的筆數——逐筆處理，單筆失敗不擋整批
+ * @param overdueFound  寄送期限已過、還沒寄過「逾期」信的認領數（通知 4.4）
+ * @param overdueSent   成功寄出逾期信的筆數
+ * @param overdueFailed 逾期信失敗的筆數
  */
-public record DeadlineReminderResult(Instant sweptAt, int found, int sent, int failed) {
+public record DeadlineReminderResult(Instant sweptAt, int found, int sent, int failed,
+                                     int overdueFound, int overdueSent, int overdueFailed) {
 
     public boolean hasWork() {
-        return found > 0;
+        return found > 0 || overdueFound > 0;
     }
 }

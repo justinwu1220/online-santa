@@ -78,6 +78,21 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
             """)
     List<Claim> findNeedingDeadlineReminder(@Param("from") Instant from, @Param("to") Instant to);
 
+    /**
+     * 寄送期限已過、還沒寄過「逾期」信的認領（通知 4.4）。載入願望、機構與認領者，
+     * 供在沒有交易的情況下組信；逐筆處理時會在各自的交易裡再重查一次條件。
+     */
+    @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
+    @Query("""
+            select c from Claim c
+            where c.status = com.onlinesanta.claim.ClaimStatus.CLAIMED
+              and c.shipDeadlineAt is not null
+              and c.shipDeadlineAt < :now
+              and c.deadlinePausedAt is null
+              and c.overdueNoticeSentAt is null
+            """)
+    List<Claim> findNeedingOverdueNotice(@Param("now") Instant now);
+
     /** 這位認領者進行中的認領（停權連動凍結與管理員處置用）。 */
     @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
     @Query("""

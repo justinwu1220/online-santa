@@ -120,6 +120,13 @@ public class Claim extends BaseEntity {
     @Column(name = "deadline_reminder_sent_at")
     private Instant deadlineReminderSentAt;
 
+    /**
+     * 寄給認領者的「期限已過」信已寄出的時間（通知 4.4）。null 代表還沒寄過。
+     * 與 {@link #overdueNotifiedAt}（寄給機構的站內通知）無關。
+     */
+    @Column(name = "overdue_notice_sent_at")
+    private Instant overdueNoticeSentAt;
+
     /** 「我自己決定」政策的機構已經收到逾期的系統通知（只通知一次）。 */
     @Column(name = "overdue_notified_at")
     private Instant overdueNotifiedAt;
@@ -201,6 +208,14 @@ public class Claim extends BaseEntity {
         this.deadlineReminderSentAt = Instant.now();
     }
 
+    public void markOverdueNoticeSent() {
+        this.overdueNoticeSentAt = Instant.now();
+    }
+
+    public Instant getOverdueNoticeSentAt() {
+        return overdueNoticeSentAt;
+    }
+
     /**
      * 所有狀態變更的唯一入口，非法轉換一律拒絕。
      *
@@ -247,6 +262,8 @@ public class Claim extends BaseEntity {
         this.deadlinePausedAt = null;
         // 期限往後延了，先前「快到期了」的提醒已經不準：清掉標記，讓新的期限臨近時再提醒一次
         this.deadlineReminderSentAt = null;
+        // 同理：期限順延後，先前「已逾期」的信不再準確，新期限再過時要能再通知一次
+        this.overdueNoticeSentAt = null;
     }
 
     public Instant getDeadlinePausedAt() {

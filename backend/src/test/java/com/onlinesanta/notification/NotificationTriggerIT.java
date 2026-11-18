@@ -24,6 +24,7 @@ import com.onlinesanta.attachment.dto.UploadUrlRequest;
 import com.onlinesanta.support.ShipRequests;
 import com.onlinesanta.admin.dto.WishFreezeRequest;
 import com.onlinesanta.admin.dto.WishContentEditRequest;
+import com.onlinesanta.event.ClaimAutoReleasedEvent;
 import com.onlinesanta.event.ClaimCreatedEvent;
 import com.onlinesanta.event.OrganizationSubmittedEvent;
 import com.onlinesanta.event.OrganizationUnlockRejectedEvent;
@@ -520,6 +521,19 @@ class NotificationTriggerIT extends ApiIntegrationTest {
         organizationNoticeListener.onUnlockDecided(new WishUnlockDecidedEvent(wishId, false, "請說明修改了什麼"));
         expectMail(2, to, "申請解除的願望", "請說明修改了什麼");
     }
+
+    @Test
+    @DisplayName("自動收回後通知原認領者（4.2）：信上是認領者與願望，並連到願望牆")
+    void autoReleasedNotifiesTheDonor() throws Exception {
+        UUID claimId = claimAs(publishedWish("逾期被收回"), DONOR);
+
+        autoReleasedListener.onClaimAutoReleased(new ClaimAutoReleasedEvent(claimId));
+
+        expectMail(1, DONOR, "逾期被收回", "http://localhost:5173");
+    }
+
+    @Autowired
+    ClaimAutoReleasedNotificationListener autoReleasedListener;
 
     @Test
     @DisplayName("解除停權申請被退回；首次申請與重新送審的收件確認")

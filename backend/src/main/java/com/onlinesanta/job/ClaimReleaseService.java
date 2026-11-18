@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,15 +46,18 @@ public class ClaimReleaseService {
     private final ClaimEventRepository events;
     private final WishRepository wishes;
     private final SystemMessageService systemMessages;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ClaimReleaseService(ClaimRepository claims,
                                ClaimEventRepository events,
                                WishRepository wishes,
-                               SystemMessageService systemMessages) {
+                               SystemMessageService systemMessages,
+                               ApplicationEventPublisher eventPublisher) {
         this.claims = claims;
         this.events = events;
         this.wishes = wishes;
         this.systemMessages = systemMessages;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -83,6 +87,8 @@ public class ClaimReleaseService {
                 events.save(ClaimEvent.bySystem(
                         claim.getId(), ClaimEventType.RELEASED_AUTO, AUTO_RELEASE_REASON));
                 systemMessages.autoReleased(claim);
+                // 整批同一個交易：提交後才寄信；任何一筆失敗整批回滾，就不會有人收到「已收回」的信
+                eventPublisher.publishEvent(new com.onlinesanta.event.ClaimAutoReleasedEvent(claim.getId()));
                 releasedWishIds.add(claim.getWish().getId());
             } else {
                 // 手動政策：只留在後台的逾期清單裡，等機構自己決定；系統通知只發一次

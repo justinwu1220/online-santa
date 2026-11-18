@@ -2,6 +2,7 @@ package com.onlinesanta.job;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -16,6 +17,7 @@ import com.onlinesanta.claim.Claim;
 import com.onlinesanta.claim.ClaimRepository;
 import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.job.dto.DeadlineReminderResult;
+import com.onlinesanta.organization.ReleasePolicy;
 import com.onlinesanta.notification.MailFields;
 import com.onlinesanta.notification.MailTemplateId;
 import com.onlinesanta.notification.NotificationFormat;
@@ -75,14 +77,75 @@ public class DeadlineReminderService {
             }
         }
 
-        DeadlineReminderResult result = new DeadlineReminderResult(now, candidates.size(), sent, failed);
+        // 期限已過的認領：另寄一封「逾期」信（4.4），與上面的「快到期」提醒各有各的記號
+        List<Claim> overdue = claims.findNeedingOverdueNotice(now);
+        int overdueSent = 0;
+        int overdueFailed = 0;
+        for (Claim claim : overdue) {
+            try {
+                if (self.markOverdueAndNotify(claim.getId())) {
+                    overdueSent++;
+                }
+            } catch (Exception e) {
+                overdueFailed++;
+                log.warn("逾期提醒失敗，略過繼續下一筆：claimId={}", claim.getId(), e);
+            }
+        }
+
+        DeadlineReminderResult result = new DeadlineReminderResult(
+                now, candidates.size(), sent, failed, overdue.size(), overdueSent, overdueFailed);
         if (result.hasWork()) {
-            log.info("寄送期限提醒：掃到 {} 筆，成功寄出 {} 筆，失敗 {} 筆",
-                    result.found(), result.sent(), result.failed());
+            log.info("寄送期限提醒：快到期掃到 {} 筆，成功寄出 {} 筆，失敗 {} 筆；已逾期掃到 {} 筆，寄出 {} 筆，失敗 {} 筆",
+                    result.found(), result.sent(), result.failed(),
+                    result.overdueFound(), result.overdueSent(), result.overdueFailed());
         } else {
-            log.debug("寄送期限提醒：沒有落在提醒窗口內的認領");
+            log.debug("寄送期限提醒：沒有落在提醒窗口內或已逾期的認領");
         }
         return result;
+    }
+
+    /**
+     * 寄「期限已過」信並標記（通知 4.4）。每筆獨立交易，寄信與標記在同一個交易裡，理由同 {@link #markAndNotify}。
+     *
+     * <p>在交易內<strong>重查全部條件</strong>：排程查出清單到處理這一筆之間，認領可能已經寄出、被收回、
+     * 被凍結（期限暫停）。自動收回政策的認領，若已到收回門檻就略過——它很快會被收回，走 4.2 那封，
+     * 不能在收回前一刻再寄「請盡快處理」。
+     *
+     * @return 這一筆是否真的寄出
+     */
+    @Transactional
+    boolean markOverdueAndNotify(UUID claimId) {
+        Claim claim = claims.findWithDetailsById(claimId).orElseThrow();
+        Instant now = Instant.now();
+        if (claim.getStatus() != ClaimStatus.CLAIMED || claim.getOverdueNoticeSentAt() != null
+                || claim.getDeadlinePausedAt() != null
+                || claim.getShipDeadlineAt() == null || !claim.getShipDeadlineAt().isBefore(now)) {
+            return false;
+        }
+
+        var fields = MailFields.of(
+                "recipientName", MailFields.recipientName(claim.getDonor()),
+                "wishTitle", claim.getWish().getTitle(),
+                "shipDeadline", NotificationFormat.dateTime(claim.getShipDeadlineAt()),
+                "claimUrl", MailFields.claimUrl(properties, claim));
+
+        MailTemplateId template;
+        if (claim.getReleasePolicySnapshot() == ReleasePolicy.AUTO) {
+            Instant graceEndsAt = claim.getShipDeadlineAt().plus(claim.getReleaseGraceDays(), ChronoUnit.DAYS);
+            if (!graceEndsAt.isAfter(now)) {
+                return false;    // 已到自動收回門檻：交給收回排程與 4.2
+            }
+            fields.put("graceEndsAt", NotificationFormat.dateTime(graceEndsAt));
+            fields.put("graceRemaining", NotificationFormat.remaining(Duration.between(now, graceEndsAt)));
+            template = MailTemplateId.CLAIM_OVERDUE_AUTO;
+        } else {
+            template = MailTemplateId.CLAIM_OVERDUE_MANUAL;
+        }
+
+        claim.markOverdueNoticeSent();
+        // 同步寄出，理由同 markAndNotify
+        notifications.sendTemplateNow(claim.getDonor().getEmail(), template, fields);
+        return true;
     }
 
     /**

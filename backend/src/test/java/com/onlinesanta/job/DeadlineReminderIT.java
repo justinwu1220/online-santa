@@ -26,6 +26,7 @@ import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.support.ShipRequests;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
+import com.onlinesanta.organization.ReleasePolicy;
 import com.onlinesanta.support.ApiIntegrationTest;
 import com.onlinesanta.support.RecordingMailSender;
 import com.onlinesanta.support.TestJwtSupport;
@@ -172,14 +173,71 @@ class DeadlineReminderIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("已經逾期的認領不會被提醒——那是逾期釋回排程的職責")
-    void alreadyOverdueClaimsAreNotReminded() throws Exception {
+    @DisplayName("已經逾期的認領不會收到「快到期」提醒，改收「已過期限」信（4.4，人工處理版），且只寄一次")
+    void alreadyOverdueClaimsGetTheOverdueNoticeOnce() throws Exception {
         UUID claimId = claimAs(publishedWish("已經逾期"), DONOR);
         setShipDeadline(claimId, Instant.now().minus(1, ChronoUnit.DAYS));
 
         mvc.perform(as(post("/api/admin/jobs/send-deadline-reminders"), ADMIN))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.found").value(0));
+                .andExpect(jsonPath("$.found").value(0))
+                .andExpect(jsonPath("$.overdueFound").value(1))
+                .andExpect(jsonPath("$.overdueSent").value(1));
+
+        // 排程在請求內同步寄出，回應回來信就已經在了
+        assertThat(fakeMailSender.sent()).singleElement().satisfies(mail -> {
+            assertThat(mail.getTo()).containsExactly(DONOR);
+            assertThat(mail.getSubject()).contains("已過寄出期限").contains("已經逾期");
+            assertThat(mail.getText()).contains("/me/claims/" + claimId).doesNotContain("自動收回");
+        });
+
+        mvc.perform(as(post("/api/admin/jobs/send-deadline-reminders"), ADMIN))
+                .andExpect(jsonPath("$.overdueFound").value(0));
+        assertThat(fakeMailSender.sent()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("自動收回政策、還在寬限期內：逾期信附上回報截止時間與剩餘時間")
+    void autoReleaseClaimWithinGraceGetsDeadlineAndRemaining() throws Exception {
+        organization.updateReleasePolicy(ReleasePolicy.AUTO, 3);
+        organizations.save(organization);
+        UUID claimId = claimAs(publishedWish("寬限中"), DONOR);
+        setShipDeadline(claimId, Instant.now().minus(1, ChronoUnit.DAYS));   // 寬限 3 天，約剩 2 天
+
+        mvc.perform(as(post("/api/admin/jobs/send-deadline-reminders"), ADMIN))
+                .andExpect(jsonPath("$.overdueSent").value(1));
+
+        assertThat(fakeMailSender.sent()).singleElement().satisfies(mail -> {
+            assertThat(mail.getText()).contains("自動收回").contains("距離回報截止還有 1 天 23 小時");
+            assertThat(mail.getText()).containsPattern("\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}（臺灣時間）");
+        });
+    }
+
+    @Test
+    @DisplayName("自動收回政策、寬限期已過：不寄逾期信，交給收回排程（寄 4.2）")
+    void autoReleaseClaimPastGraceIsLeftToTheReleaseSweep() throws Exception {
+        organization.updateReleasePolicy(ReleasePolicy.AUTO, 1);
+        organizations.save(organization);
+        UUID claimId = claimAs(publishedWish("寬限已過"), DONOR);
+        setShipDeadline(claimId, Instant.now().minus(3, ChronoUnit.DAYS));
+
+        mvc.perform(as(post("/api/admin/jobs/send-deadline-reminders"), ADMIN))
+                .andExpect(jsonPath("$.overdueSent").value(0));
+
+        assertThat(fakeMailSender.sent()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("暫停中的認領（願望凍結期間）不寄逾期信")
+    void pausedClaimsAreNotNotifiedAsOverdue() throws Exception {
+        UUID claimId = claimAs(publishedWish("暫停中"), DONOR);
+        setShipDeadline(claimId, Instant.now().minus(1, ChronoUnit.DAYS));
+        entityManager.flush();
+        jdbc.update("UPDATE claims SET deadline_paused_at = now() WHERE id = ?", claimId);
+        entityManager.clear();
+
+        mvc.perform(as(post("/api/admin/jobs/send-deadline-reminders"), ADMIN))
+                .andExpect(jsonPath("$.overdueFound").value(0));
 
         assertThat(fakeMailSender.sent()).isEmpty();
     }

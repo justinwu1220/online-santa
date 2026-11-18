@@ -57,6 +57,18 @@ class ClaimDeadlinePauseTest {
     }
 
     @Test
+    @DisplayName("恢復時也清除「已寄過逾期信」的標記，順延後的期限再過時能再通知一次")
+    void resumeClearsTheOverdueNoticeMarker() {
+        Claim claim = claimWithDeadline(T0.minus(Duration.ofDays(1)));
+        claim.markOverdueNoticeSent();
+
+        claim.pauseDeadline(T0);
+        claim.resumeDeadline(T0.plus(Duration.ofDays(2)));
+
+        assertThat(claim.getOverdueNoticeSentAt()).isNull();
+    }
+
+    @Test
     @DisplayName("沒有暫停過的認領呼叫 resume 不會動到期限與提醒標記")
     void resumeWithoutPauseChangesNothing() {
         Instant deadline = T0.plus(Duration.ofDays(2));

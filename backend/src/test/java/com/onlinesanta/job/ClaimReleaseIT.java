@@ -27,6 +27,9 @@ import com.onlinesanta.organization.ReleasePolicy;
 import com.onlinesanta.support.ApiIntegrationTest;
 import com.onlinesanta.support.TestJwtSupport;
 import com.onlinesanta.user.User;
+import org.springframework.test.context.event.RecordApplicationEvents;
+
+import com.onlinesanta.event.ClaimAutoReleasedEvent;
 import com.onlinesanta.user.UserRepository;
 import com.onlinesanta.wish.AgeRange;
 import com.onlinesanta.wish.PriceRange;
@@ -34,8 +37,12 @@ import com.onlinesanta.wish.Wish;
 import com.onlinesanta.wish.WishCategory;
 import com.onlinesanta.wish.WishRepository;
 
+@RecordApplicationEvents
 @DisplayName("逾期認領的釋回")
 class ClaimReleaseIT extends ApiIntegrationTest {
+
+    @org.springframework.beans.factory.annotation.Autowired
+    org.springframework.test.context.event.ApplicationEvents appEvents;
 
     private static final String ADMIN = "platform-admin@example.com";
     private static final String AUTO_ORG = "auto-org@example.org";
@@ -141,6 +148,9 @@ class ClaimReleaseIT extends ApiIntegrationTest {
 
         assertThat(claimStatusOf(claimId)).isEqualTo("RELEASED");
         assertThat(wishStatusOf(wishId)).isEqualTo("AVAILABLE");
+        // 自動收回要通知原認領者（4.2）：每一筆收回各發布一個事件
+        assertThat(appEvents.stream(ClaimAutoReleasedEvent.class).toList())
+                .singleElement().satisfies(e -> assertThat(e.claimId()).isEqualTo(claimId));
 
         // 願望重新出現在願望牆，別人可以再認領
         mvc.perform(get("/api/wishes"))
