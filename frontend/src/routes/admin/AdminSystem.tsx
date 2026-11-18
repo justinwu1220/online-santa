@@ -44,6 +44,13 @@ export const ACTION_LABELS: Record<AdminAuditAction, string> = {
   VIEW_USER_PROFILE_CHANGES: '檢視認領者個資異動紀錄',
   VIEW_ORGANIZATION_PROFILE_CHANGES: '檢視機構個資異動紀錄',
   VIEW_PROFILE_CHANGE_LOG: '瀏覽個資異動紀錄',
+  SAVE_CAMPAIGN: '設定活動檔期',
+  VOID_RECEIPT: '作廢收據',
+  VIEW_RECEIPT_DOCUMENT: '下載收據 PDF',
+  CREATE_CLOSING_EXPORT: '建立結案文件匯出',
+  DOWNLOAD_CLOSING_EXPORT: '下載結案文件',
+  SEND_RECEIPT_EMAILS: '寄送收據給捐贈者',
+  SEND_ORG_FORM_EMAILS: '寄送領受確認表給機構',
 }
 
 /** 存取個資或改變隱私敏感內容的動作要標出來，這樣掃過一眼就知道哪幾筆值得細看。 */
@@ -53,6 +60,7 @@ const SENSITIVE: AdminAuditAction[] = [
   'DELETE_ATTACHMENT', 'DELETE_ORGANIZATION_DOCUMENT',
   'VIEW_SUSPENSION_RECORD', 'REDACT_MESSAGE', 'EDIT_WISH_CONTENT', 'DELETE_WISH_LETTER',
   'VIEW_USER_PROFILE_CHANGES', 'VIEW_ORGANIZATION_PROFILE_CHANGES', 'VIEW_PROFILE_CHANGE_LOG',
+  'VIEW_RECEIPT_DOCUMENT', 'DOWNLOAD_CLOSING_EXPORT',
 ]
 
 const SCHEDULER_NOTE = '正式環境由 Cloud Scheduler 每日自動執行，走的是獨立的驗證鏈（Google OIDC token），與這裡的手動觸發是同一段邏輯。'

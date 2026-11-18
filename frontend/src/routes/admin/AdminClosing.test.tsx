@@ -1,0 +1,140 @@
+// @vitest-environment jsdom
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CampaignView, PageResponse, ReceiptView } from '../../lib/types'
+import { AdminClosing } from './AdminClosing'
+
+const campaign: CampaignView = {
+  id: 'c1', name: '線上聖誕老人 2026', activityNo: '115000877', permitNo: undefined,
+  collectionStart: '2026-11-25', collectionEnd: '2027-01-25', useStart: '2026-11-25', useEnd: '2027-01-25',
+  receiptPrefix: 'OS2026', nextReceiptNo: 'OS2026-000003', receiptsIssued: 2, status: 'ACTIVE',
+  createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z',
+}
+
+const receipt = (overrides: Partial<ReceiptView>): ReceiptView => ({
+  id: 'r1', claimId: 'k1', receiptNo: 'OS2026-000001', status: 'ISSUED', pdfStatus: 'READY',
+  donorName: '王大明', receiptRequested: true, giftDescription: '積木玩具組', giftQuantity: 1, giftUnit: '份',
+  giftValue: 1200, donatedOn: '2026-12-25', issuedOn: '2026-12-28', organizationName: '快樂兒童之家',
+  ...overrides,
+})
+
+const page = (content: ReceiptView[]): PageResponse<ReceiptView> => ({
+  content, page: 0, size: 20, totalElements: content.length, totalPages: 1, hasNext: false,
+})
+
+const get = vi.fn()
+const post = vi.fn()
+const put = vi.fn()
+
+vi.mock('../../lib/api', async (original) => ({
+  ...(await original<object>()),
+  api: {
+    get: (path: string) => get(path),
+    post: (path: string, body?: unknown) => post(path, body),
+    put: (path: string, body?: unknown) => put(path, body),
+  },
+}))
+
+function renderPage() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter><AdminClosing /></MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+beforeEach(() => {
+  get.mockReset()
+  post.mockReset()
+  put.mockReset()
+  get.mockImplementation(async (path: string) => {
+    if (path.startsWith('/api/admin/campaigns')) return [campaign]
+    if (path.startsWith('/api/admin/receipts?')) {
+      return page([
+        receipt({}),
+        receipt({ id: 'r2', receiptNo: 'OS2026-000002', donorName: '善心人士', receiptRequested: false, pdfStatus: 'PENDING_INFO' }),
+        receipt({ id: 'r3', receiptNo: 'OS2026-000003', status: 'VOIDED', voidReason: '姓名填錯' }),
+      ])
+    }
+    if (path.includes('/download-url')) return { url: 'https://storage.test/x.pdf', expiresAt: '2026-12-30T00:00:00Z' }
+    throw new Error('未預期的請求：' + path)
+  })
+})
+
+describe('結案文件頁', () => {
+  it('顯示檔期資訊與收據編號；缺許可文號時提醒收據不會產生 PDF', async () => {
+    renderPage()
+
+    expect(await screen.findByText('線上聖誕老人 2026')).toBeTruthy()
+    expect(screen.getByText(/已開立 2 張，下一張 OS2026-000003/)).toBeTruthy()
+    expect(screen.getByText('尚未填寫')).toBeTruthy()
+    expect(screen.getByText(/尚未填寫勸募許可文號.*不會產生 PDF/)).toBeTruthy()
+  })
+
+  it('收據清單：列出編號、捐贈者與狀態；作廢的收據不能下載或再作廢', async () => {
+    renderPage()
+
+    const row1 = (await screen.findByText('OS2026-000001')).closest('tr')!
+    expect(within(row1).getByText('要收據')).toBeTruthy()
+    expect(within(row1).getByText('已產生')).toBeTruthy()
+    const row2 = screen.getByText('OS2026-000002').closest('tr')!
+    expect(within(row2).getByText('待補許可文號')).toBeTruthy()
+    const row3 = screen.getByText('OS2026-000003').closest('tr')!
+    expect(within(row3).getByText('已作廢')).toBeTruthy()
+    expect(within(row3).getByRole('button', { name: '白聯' }).hasAttribute('disabled')).toBe(true)
+    expect(within(row3).getByRole('button', { name: '作廢重開' }).hasAttribute('disabled')).toBe(true)
+  })
+
+  it('按白聯會向後端要短效下載網址（kind 帶 WHITE）', async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    renderPage()
+    const row = (await screen.findByText('OS2026-000001')).closest('tr')!
+
+    await userEvent.click(within(row).getByRole('button', { name: '白聯' }))
+
+    await waitFor(() => expect(get).toHaveBeenCalledWith('/api/admin/receipts/r1/download-url?kind=WHITE'))
+    await waitFor(() => expect(click).toHaveBeenCalled())
+    click.mockRestore()
+  })
+
+  it('作廢重開：原因必填，送出後呼叫後端並顯示新編號', async () => {
+    post.mockResolvedValue(receipt({ id: 'r9', receiptNo: 'OS2026-000004' }))
+    renderPage()
+    const row = (await screen.findByText('OS2026-000001')).closest('tr')!
+
+    await userEvent.click(within(row).getByRole('button', { name: '作廢重開' }))
+    await userEvent.click(screen.getByRole('button', { name: '作廢並重開' }))
+    expect(screen.getByText('請至少寫 2 個字')).toBeTruthy()
+    expect(post).not.toHaveBeenCalled()
+
+    await userEvent.type(screen.getByLabelText(/作廢原因/), '捐贈者姓名填錯')
+    await userEvent.click(screen.getByRole('button', { name: '作廢並重開' }))
+
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/api/admin/receipts/r1/void', { reason: '捐贈者姓名填錯' }))
+    expect(await screen.findByText(/已作廢 OS2026-000001，重開為 OS2026-000004/)).toBeTruthy()
+  })
+
+  it('補開收據與補產 PDF：顯示結果', async () => {
+    post.mockImplementation(async (path: string) =>
+      path.includes('issue-missing') ? { done: 3, pending: 0 } : { done: 2, pending: 1 })
+    renderPage()
+    await screen.findByText('OS2026-000001')
+
+    await userEvent.click(screen.getByRole('button', { name: '補開收據' }))
+    expect(await screen.findByText(/已補開 3 張收據/)).toBeTruthy()
+
+    await userEvent.click(screen.getByRole('button', { name: '補產 PDF' }))
+    expect(await screen.findByText(/已產生 2 張收據 PDF，仍有 1 張待補或失敗/)).toBeTruthy()
+  })
+
+  it('沒有任何檔期時說明要先建立', async () => {
+    get.mockImplementation(async () => [])
+    renderPage()
+
+    expect(await screen.findByText(/還沒有活動檔期/)).toBeTruthy()
+  })
+})

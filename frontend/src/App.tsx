@@ -4,6 +4,7 @@ import { EnvironmentBanner } from './components/EnvironmentBanner'
 import { PublicLayout } from './components/layouts/PublicLayout'
 import { Spinner } from './components/ui/Spinner'
 import { RequireRole } from './components/RequireRole'
+import { AdminClosing } from './routes/admin/AdminClosing'
 import { AdminDataChanges } from './routes/admin/AdminDataChanges'
 import { AdminLayout } from './routes/admin/AdminLayout'
 import { AdminOrganizations } from './routes/admin/AdminOrganizations'
@@ -114,6 +115,7 @@ export default function App() {
             <AdminAnnualReview />
           </Suspense>} />
         <Route path="data-changes" element={<AdminDataChanges />} />
+        <Route path="closing" element={<AdminClosing />} />
         <Route path="system" element={<AdminSystem />} />
       </Route>
 

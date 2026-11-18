@@ -730,6 +730,8 @@ export type AdminAuditAction =
   | 'DECIDE_UNLOCK_REQUEST' | 'NOTIFY_AFFECTED_DONORS' | 'VIEW_SUSPENSION_RECORD' | 'REDACT_MESSAGE' | 'DELETE_WISH_LETTER'
   | 'RUN_RELEASE_SWEEP' | 'RUN_ATTACHMENT_CLEANUP' | 'RUN_DEADLINE_REMINDERS'
   | 'VIEW_USER_PROFILE_CHANGES' | 'VIEW_ORGANIZATION_PROFILE_CHANGES' | 'VIEW_PROFILE_CHANGE_LOG'
+  | 'SAVE_CAMPAIGN' | 'VOID_RECEIPT' | 'VIEW_RECEIPT_DOCUMENT' | 'CREATE_CLOSING_EXPORT'
+  | 'DOWNLOAD_CLOSING_EXPORT' | 'SEND_RECEIPT_EMAILS' | 'SEND_ORG_FORM_EMAILS'
 
 export interface AuditLogView {
   id: number
@@ -862,4 +864,81 @@ export interface AdminTeamThread {
   lastAt: string
   /** 團隊還沒讀的機構訊息數 */
   unread: number
+}
+
+// ---------------------------------------------------------------- 結案文件
+
+export type CampaignStatus = 'ACTIVE' | 'CLOSED'
+export type ReceiptStatus = 'ISSUED' | 'VOIDED'
+export type PdfStatus = 'PENDING' | 'PENDING_INFO' | 'READY' | 'FAILED'
+export type PdfKind = 'WHITE' | 'YELLOW_RED'
+
+export interface CampaignView {
+  id: string
+  name: string
+  activityNo?: string
+  permitNo?: string
+  approvedName?: string
+  collectionStart: string
+  collectionEnd: string
+  useStart: string
+  useEnd: string
+  cutoffDate?: string
+  receiptPrefix: string
+  nextReceiptNo: string
+  receiptsIssued: number
+  associationOrgId?: string
+  status: CampaignStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CampaignRequest {
+  name: string
+  activityNo?: string
+  permitNo?: string
+  approvedName?: string
+  collectionStart: string
+  collectionEnd: string
+  useStart: string
+  useEnd: string
+  cutoffDate?: string
+  receiptPrefix?: string
+  firstReceiptSeq?: number
+  associationOrgId?: string
+  status?: CampaignStatus
+}
+
+export interface ReceiptView {
+  id: string
+  claimId: string
+  receiptNo: string
+  status: ReceiptStatus
+  pdfStatus: PdfStatus
+  pdfError?: string
+  donorName: string
+  receiptRequested: boolean
+  donorEmail?: string
+  giftDescription: string
+  giftQuantity: number
+  giftUnit: string
+  giftValue: number
+  donatedOn: string
+  issuedOn: string
+  organizationName: string
+  voidReason?: string
+  voidedAt?: string
+  replacedById?: string
+  whiteSentAt?: string
+  whiteSendError?: string
+}
+
+export interface ReceiptDownload {
+  url: string
+  expiresAt: string
+}
+
+export interface BatchResult {
+  done: number
+  pending: number
 }
