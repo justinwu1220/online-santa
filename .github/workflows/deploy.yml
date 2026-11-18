@@ -12,13 +12,12 @@ on:
   # 允許手動重新部署（例如只是想換一個環境變數）
   workflow_dispatch:
 
-# 同一時間只跑一個部署，避免兩次 push 互相覆蓋。
-# 注意：停在「等待核准」的 run 仍算執行中，會一直佔著這個位子；之後的 push 只會排隊（排隊中的 run
-# 同一時間只保留最新一個，更舊的會被取消），要等它被核准、拒絕或取消才會開始。要換版本請先取消
-# 等待中的 run（gh run cancel <id>）。
-concurrency:
-  group: deploy
-  cancel-in-progress: false
+# 並行限制放在 _deploy.yml 的部署 job（每個環境各自一個群組），不放在整個 workflow 上：
+# 整個 workflow 共用一個群組的話，停在「等待核准」的正式站 run 會一直佔著位子，之後的 push
+# 連測試站都部署不了。現在的行為：
+#   - 測試站：每次 push 都部署。前一次還在部署就排隊，排隊中的同一時間只保留最新一個。
+#   - 正式站：只在核准後才動；核准時若這個版本已不是 main 最新，會直接失敗（見 _deploy.yml），
+#     請改核准最新的那個 run。
 
 env:
   REGION: asia-east1

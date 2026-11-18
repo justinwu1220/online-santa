@@ -21,6 +21,12 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-24.04
+    # 同一個環境同一時間只部署一個，避免兩次部署互相覆蓋；測試站與正式站各自一個群組，
+    # 所以停在等待核准的正式站不會擋住測試站。不取消執行中的部署（中途取消會留下半套），
+    # 排隊的同一時間只保留最新一個。
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
     # 環境專屬的變數（服務名稱、bucket、網址……）都放在 Environment 裡，job 以這個名稱取用
     environment: ${{ inputs.environment }}
     # Workload Identity Federation 需要 OIDC token，不使用長期有效的 JSON 金鑰
@@ -53,6 +59,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      # 正式站是在人工核准之後才跑到這裡，這段時間 main 可能已經有更新的版本。核准舊版本會讓正式站
+      # 比測試站還舊，所以不是最新的就停止，請改核准最新的 run。
+      - name: 確認這個版本仍是 main 最新（只檢查正式站）
+        if: inputs.environment == 'production' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh api "repos/${{ github.repository }}/commits/main" --jq .sha)
+          if [ "$latest" != "${{ github.sha }}" ]; then
+            echo "::error::這個版本（${GITHUB_SHA::7}）已不是 main 最新（${latest::7}）。請取消這次，改核准最新的那個 run。"
+            exit 1
+          fi
 
       # 環境專屬的變數漏設，不能默默退回別的值：測試站漏設 GCS_PRIVATE_BUCKET 卻讀到 repository
       # 層級的正式值，測試站就會把測試資料寫進正式的 bucket。所以這些變數只放在 Environment
