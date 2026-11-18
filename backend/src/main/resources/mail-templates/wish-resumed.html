@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1.9 願望恢復寄送</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 20px; color: #222; font: 16px/1.65 Arial, "PingFang TC", sans-serif; }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 20px; padding-bottom: 14px; }
+    header small, #link-note { color: #555; }
+    h1 { margin: 6px 0 0; font-size: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <!-- 工程套用與欄位對照請見同資料夾 README.md。 -->
+  <template id="email-subject">【線上聖誕老人 2026】您認領的「{{wishTitle}}」可以繼續準備了 🎁</template>
+  <template id="email-body">
+    <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
+      <p style="margin:0 0 16px;">親愛的{{recipientName}}，您好：</p>
+      <p style="margin:0 0 12px;"><strong style="color:#38761d;">謝謝您的等候！我們已確認「{{wishTitle}}」的內容，您可以繼續為孩子準備禮物了。 🎁</strong></p>
+      <p style="margin:0 0 8px;">挑選或寄出禮物前，請再看一下孩子目前的願望：</p>
+      <p style="margin:0 0 16px;"><strong>孩子的暱稱：</strong>{{childNickname}}<br><strong>年齡：</strong>{{childAge}}<br><strong>願望說明：</strong><span style="white-space:pre-line;">{{wishDescription}}</span></p>
+      <p style="margin:0 0 16px;">暫停的這段時間已經加回寄送期限。<br><strong style="color:#a61c00;">新的最晚寄出時間　{{shipDeadline}}（臺灣時間）</strong></p>
+      <p style="margin:0 0 20px;"><a href="{{claimUrl}}" style="color:#1155cc;text-decoration:underline;">到認領頁確認願望與新的寄送期限</a></p>
+      <p style="margin:0 0 20px;">禮物寄出後，請記得回到同一頁填寫寄送資訊，讓機構的夥伴留意收件。謝謝您的幫忙！</p>
+      <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>
+    </div>
+  </template>
+
+  <header>
+    <small>1.9 願望恢復寄送｜信件預覽（使用虛構資料）</small>
+    <h1 id="subject"></h1>
+  </header>
+  <main id="preview"></main>
+  <p id="link-note" role="status"></p>
+  <script>
+    const example = {
+      recipientName: '小晴',
+      wishTitle: '一盒 48 色的色鉛筆',
+      childNickname: '小樹',
+      childAge: '7–9 歲',
+      wishDescription: '我想用色鉛筆畫森林裡的動物，希望有很多種綠色。',
+      shipDeadline: '2026/12/10 18:00'
+    };
+    const fillExample = text => text.replace(/{{(\w+)}}/g, (token, key) => example[key] ?? token);
+    document.getElementById('subject').textContent =
+      fillExample(document.getElementById('email-subject').content.textContent);
+    const preview = document.getElementById('email-body').content.cloneNode(true);
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) walker.currentNode.textContent = fillExample(walker.currentNode.textContent);
+    const link = preview.querySelector('a[href="{{claimUrl}}"]');
+    link.href = '#link-note';
+    link.addEventListener('click', event => {
+      event.preventDefault();
+      document.getElementById('link-note').textContent = '正式寄出時，這個連結會開啟收件人自己的這筆認領。';
+    });
+    document.getElementById('preview').append(preview);
+  </script>
+</body>
+</html>

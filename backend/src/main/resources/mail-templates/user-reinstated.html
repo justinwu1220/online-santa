@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1.13 認領者帳號已恢復</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 20px; color: #222; font: 16px/1.65 Arial, "PingFang TC", sans-serif; }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 20px; padding-bottom: 14px; }
+    header small, #link-note { color: #555; }
+    h1 { margin: 6px 0 0; font-size: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <!-- 工程套用與欄位對照請見同資料夾 README.md。 -->
+  <template id="email-subject">【線上聖誕老人 2026】您的帳號已恢復，可以繼續參與活動了</template>
+  <template id="email-body">
+    <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
+      <p style="margin:0 0 16px;">親愛的{{recipientName}}，您好：</p>
+      <p style="margin:0 0 12px;"><strong style="color:#38761d;">謝謝您的等候！您的帳號已恢復所有功能。</strong>您可以繼續認領願望、傳送站內訊息、回報寄送及修改資料。</p>
+      <p style="margin:0 0 16px;">如果您有因這次停權而暫停的認領，現在可以繼續準備禮物了。<strong>暫停的時間已加回寄送期限</strong>，寄出前請先到「我的認領」確認每份禮物新的最晚寄出時間。</p>
+      <p style="margin:0 0 20px;"><a href="{{publicUrl}}" style="color:#1155cc;text-decoration:underline;">回到線上聖誕老人網站</a></p>
+      <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>
+    </div>
+  </template>
+
+  <header>
+    <small>1.13 認領者帳號已恢復｜信件預覽（使用虛構資料）</small>
+    <h1 id="subject"></h1>
+  </header>
+  <main id="preview"></main>
+  <p id="link-note" role="status"></p>
+  <script>
+    const example = {
+      "recipientName": "小晴"
+    };
+    const fillExample = text => text.replace(/{{(\w+)}}/g, (token, key) => example[key] ?? token);
+    document.getElementById('subject').textContent =
+      fillExample(document.getElementById('email-subject').content.textContent);
+    const preview = document.getElementById('email-body').content.cloneNode(true);
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) walker.currentNode.textContent = fillExample(walker.currentNode.textContent);
+    const link = preview.querySelector('a[href="{{publicUrl}}"]');
+    link.href = '#link-note';
+    link.addEventListener('click', event => {
+      event.preventDefault();
+      document.getElementById('link-note').textContent = '正式寄出時，這個連結會開啟活動網站首頁。';
+    });
+    document.getElementById('preview').append(preview);
+  </script>
+</body>
+</html>

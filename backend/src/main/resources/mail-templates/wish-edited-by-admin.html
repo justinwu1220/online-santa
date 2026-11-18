@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>4.1 團隊已修改願望內容</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 20px; color: #222; font: 16px/1.65 Arial, "PingFang TC", sans-serif; }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 20px; padding-bottom: 14px; }
+    header small, #link-note { color: #555; }
+    h1 { margin: 6px 0 0; font-size: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <!-- 工程套用與欄位對照請見同資料夾「第四項_工程欄位對照.md」。 -->
+  <template id="email-subject">【線上聖誕老人 2026】團隊已修改「{{wishTitle}}」的內容，請查看更新</template>
+  <template id="email-body">
+    <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
+      <p style="margin:0 0 16px;">親愛的{{organizationName}}夥伴，您好：</p>
+      <p style="margin:0 0 16px;">團隊已修改「<strong>{{wishTitle}}</strong>」的內容，請到機構後台讀一讀目前的版本，確認仍符合孩子的心願。</p>
+      <p data-if="actionReason" style="margin:0 0 16px;"><strong>修改原因：</strong><br><span style="white-space:pre-wrap;">{{actionReason}}</span></p>
+      <p data-if="isFrozen" style="margin:0 0 16px;"><strong style="color:#a61c00;">這個願望目前仍凍結，暫時不會顯示在願望牆上。</strong>確認內容後，您可以在後台申請解除凍結。如果還需要調整，請在申請中一併說明。</p>
+      <p style="margin:0 0 16px;"><a href="{{orgUrl}}" style="color:#1155cc;text-decoration:underline;">前往機構後台查看願望</a></p>
+      <p style="margin:0 0 16px;">如果需要我們協助，歡迎在機構後台的「與團隊對話」留言給我們。</p>
+      <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>
+    </div>
+  </template>
+
+  <header>
+    <small>4.1 團隊已修改願望內容｜信件預覽（使用虛構資料）</small>
+    <h1 id="subject"></h1>
+  </header>
+  <main id="preview"></main>
+  <p id="link-note" role="status"></p>
+  <script>
+    const example = {
+      "organizationName": "星星小學",
+      "wishTitle": "一盒 48 色的色鉛筆",
+      "actionReason": "我們已移除說明中的姓名，保留孩子想要的色鉛筆規格。",
+      "isFrozen": true
+    };
+    const fillExample = text => text.replace(/{{(\w+)}}/g, (token, key) => example[key] ?? token);
+    document.getElementById('subject').textContent =
+      fillExample(document.getElementById('email-subject').content.textContent);
+    const preview = document.getElementById('email-body').content.cloneNode(true);
+    for (const block of preview.querySelectorAll('[data-if]')) {
+      const value = example[block.dataset.if];
+      if (value == null || value === false || String(value).trim() === '') block.remove();
+    }
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) walker.currentNode.textContent = fillExample(walker.currentNode.textContent);
+    for (const link of preview.querySelectorAll('a')) {
+      if (!link.getAttribute('href').startsWith('{{')) continue;
+      link.href = '#link-note';
+      link.addEventListener('click', event => {
+        event.preventDefault();
+        document.getElementById('link-note').textContent = '預覽使用虛構資料。正式信件會開啟「' + link.textContent + '」對應的網站頁面。';
+      });
+    }
+    document.getElementById('preview').append(preview);
+  </script>
+</body>
+</html>

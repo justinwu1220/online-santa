@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1.14 管理員結束認領</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 20px; color: #222; font: 16px/1.65 Arial, "PingFang TC", sans-serif; }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 20px; padding-bottom: 14px; }
+    header small, #link-note { color: #555; }
+    h1 { margin: 6px 0 0; font-size: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <!-- 工程套用與欄位對照請見同資料夾 README.md。 -->
+  <template id="email-subject">【線上聖誕老人 2026】團隊已結束您對「{{wishTitle}}」的認領</template>
+  <template id="email-body">
+    <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
+      <p style="margin:0 0 16px;">親愛的{{recipientName}}，您好：</p>
+      <p style="margin:0 0 12px;">活動團隊已結束您對「<strong>{{wishTitle}}</strong>」的認領。<strong style="color:#a61c00;">這份禮物不用再寄出了。</strong></p>
+      <p data-if="releaseReason" style="margin:0 0 16px;"><strong>團隊結束這筆認領的原因：</strong><br><span style="white-space:pre-wrap;">{{releaseReason}}</span></p>
+      <p style="margin:0 0 20px;">如果包裹已經在路上，或您對這次的處理有疑問，請寫信到 <strong>onlinesanta2026@gmail.com</strong>，告訴我們願望名稱，方便團隊協助您確認。</p>
+      <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>
+    </div>
+  </template>
+
+  <header>
+    <small>1.14 管理員結束認領｜信件預覽（使用虛構資料）</small>
+    <h1 id="subject"></h1>
+  </header>
+  <main id="preview"></main>
+  <script>
+    const example = {
+      "recipientName": "小晴",
+      "wishTitle": "一盒 48 色的色鉛筆",
+      "releaseReason": "我們已收到您來信說明這次無法寄送，依您的來信協助結束這筆認領。"
+    };
+    const fillExample = text => text.replace(/{{(\w+)}}/g, (token, key) => example[key] ?? token);
+    document.getElementById('subject').textContent =
+      fillExample(document.getElementById('email-subject').content.textContent);
+    const preview = document.getElementById('email-body').content.cloneNode(true);
+    if (!example.releaseReason?.trim()) preview.querySelector('[data-if="releaseReason"]').remove();
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) walker.currentNode.textContent = fillExample(walker.currentNode.textContent);
+    document.getElementById('preview').append(preview);
+  </script>
+</body>
+</html>

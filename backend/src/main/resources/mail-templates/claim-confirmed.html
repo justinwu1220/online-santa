@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1.2 認領成立｜認領者確認信</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 20px; color: #222; font: 16px/1.65 Arial, "PingFang TC", sans-serif; }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 20px; padding-bottom: 14px; }
+    header small, #link-note { color: #555; }
+    h1 { margin: 6px 0 0; font-size: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <!-- 工程套用與欄位對照請見同資料夾 README.md。 -->
+  <template id="email-subject">【線上聖誕老人 2026】您已認領「{{wishTitle}}」🎁</template>
+  <template id="email-body">
+    <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
+      <p style="margin:0 0 16px;">親愛的{{recipientName}}，您好：</p>
+      <p style="margin:0 0 16px;"><strong style="color:#38761d;">謝謝您願意成為孩子今年的聖誕老人！ 🎅</strong><br>您已經認領了「<strong>{{wishTitle}}</strong>」。挑選禮物時，您可以點開下方的連結，再讀一讀孩子寫下或畫下的願望。</p>
+      <p style="margin:0 0 12px;">這份禮物會由<strong>{{organizationName}}</strong>的夥伴代收，再轉交給孩子。<br><strong style="color:#a61c00;">請在 {{shipDeadline}}（臺灣時間）前寄出禮物。</strong></p>
+      <p style="margin:0 0 16px;">🎁 <a href="{{claimUrl}}" style="color:#1155cc;text-decoration:underline;">查看我的認領、收件人與寄送地址</a></p>
+      <p style="margin:0 0 16px;">禮物寄出後，<strong style="color:#a65300;">請回到同一頁填寫寄送資訊</strong>，讓機構的夥伴知道包裹正在路上。等機構上傳收件證明，我們會再寄信跟您分享禮物送達的好消息！</p>
+      <p style="margin:0 0 20px;">祝您挑禮物愉快，也預祝您聖誕快樂！ 🎄</p>
+      <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>
+    </div>
+  </template>
+
+  <header>
+    <small>1.2 認領成立｜信件預覽（使用虛構資料）</small>
+    <h1 id="subject"></h1>
+  </header>
+  <main id="preview"></main>
+  <p id="link-note" role="status"></p>
+  <script>
+    const example = {
+      recipientName: '小晴',
+      wishTitle: '一盒 48 色的色鉛筆',
+      organizationName: '星星小學',
+      shipDeadline: '2026/12/08 18:00'
+    };
+    const fillExample = text => text.replace(/{{(\w+)}}/g, (token, key) => example[key] ?? token);
+    document.getElementById('subject').textContent =
+      fillExample(document.getElementById('email-subject').content.textContent);
+    const preview = document.getElementById('email-body').content.cloneNode(true);
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) walker.currentNode.textContent = fillExample(walker.currentNode.textContent);
+    const link = preview.querySelector('a');
+    link.href = '#link-note';
+    link.addEventListener('click', event => {
+      event.preventDefault();
+      document.getElementById('link-note').textContent = '正式寄出時，這個連結會開啟收件人自己的這筆認領。';
+    });
+    document.getElementById('preview').append(preview);
+  </script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1.3 寄送期限提醒</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 20px; color: #222; font: 16px/1.65 Arial, "PingFang TC", sans-serif; }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 20px; padding-bottom: 14px; }
+    header small, #link-note { color: #555; }
+    h1 { margin: 6px 0 0; font-size: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <!-- 工程套用與欄位對照請見同資料夾 README.md。 -->
+  <template id="email-subject">【線上聖誕老人 2026】小提醒：「{{wishTitle}}」的寄出期限快到了 🎁</template>
+  <template id="email-body">
+    <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
+      <p style="margin:0 0 16px;">親愛的{{recipientName}}，您好：</p>
+      <p style="margin:0 0 16px;">想提醒您，您為孩子認領的「<strong>{{wishTitle}}</strong>」快到寄出期限囉！<br><strong style="color:#a61c00;">最晚寄出時間　{{shipDeadline}}（臺灣時間）</strong></p>
+      <p style="margin:0 0 12px;">如果禮物還沒寄出，您可以點下方連結查看機構的收件人和地址。請在期限前寄出禮物，再回到同一頁填寫寄送資訊。</p>
+      <p style="margin:0 0 16px;"><strong style="color:#a65300;">如果包裹已經在路上，只要補上寄送資訊就好</strong>，方便機構的夥伴留意收件。</p>
+      <p style="margin:0 0 20px;">📦 <a href="{{claimUrl}}" style="color:#1155cc;text-decoration:underline;">查看收件地址、回報寄送資訊</a></p>
+      <p style="margin:0 0 20px;"><strong style="color:#38761d;">謝謝您特地為孩子準備這份聖誕驚喜！ 🎄</strong></p>
+      <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>
+    </div>
+  </template>
+
+  <header>
+    <small>1.3 寄送期限提醒｜信件預覽（使用虛構資料）</small>
+    <h1 id="subject"></h1>
+  </header>
+  <main id="preview"></main>
+  <p id="link-note" role="status"></p>
+  <script>
+    const example = {
+      recipientName: '小晴',
+      wishTitle: '一盒 48 色的色鉛筆',
+      shipDeadline: '2026/12/08 18:00'
+    };
+    const fillExample = text => text.replace(/{{(\w+)}}/g, (token, key) => example[key] ?? token);
+    document.getElementById('subject').textContent =
+      fillExample(document.getElementById('email-subject').content.textContent);
+    const preview = document.getElementById('email-body').content.cloneNode(true);
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) walker.currentNode.textContent = fillExample(walker.currentNode.textContent);
+    const link = preview.querySelector('a');
+    link.href = '#link-note';
+    link.addEventListener('click', event => {
+      event.preventDefault();
+      document.getElementById('link-note').textContent = '正式寄出時，這個連結會開啟收件人自己的這筆認領。';
+    });
+    document.getElementById('preview').append(preview);
+  </script>
+</body>
+</html>

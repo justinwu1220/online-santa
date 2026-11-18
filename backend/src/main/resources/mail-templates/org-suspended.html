@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1.10 機構暫時停權</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 20px; color: #222; font: 16px/1.65 Arial, "PingFang TC", sans-serif; }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 20px; padding-bottom: 14px; }
+    header small, #link-note { color: #555; }
+    h1 { margin: 6px 0 0; font-size: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <!-- 工程套用與欄位對照請見同資料夾 README.md。 -->
+  <template id="email-subject">【線上聖誕老人 2026】貴單位已暫時停權，請查看原因與解除方式</template>
+  <template id="email-body">
+    <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
+      <p style="margin:0 0 16px;">親愛的{{organizationName}}夥伴，您好：</p>
+      <p style="margin:0 0 12px;"><strong style="color:#a61c00;">貴單位的機構帳號已暫時停權。</strong>您仍可以登入機構後台，有任何疑問，歡迎直接在「與團隊對話」留言給我們。</p>
+      <p data-if="suspensionReason" style="margin:0 0 16px;"><strong>這次的停權原因：</strong><br><span style="white-space:pre-line;">{{suspensionReason}}</span></p>
+      <p style="margin:0 0 16px;">停權期間，貴單位原本公開的願望會暫時從願望牆隱藏。您暫時無法操作願望，也無法透過網站聯繫或回覆認領者。已認領的夥伴仍可在「我的認領」看到停權說明。</p>
+      <p style="margin:0 0 16px;"><strong>如何申請解除停權？</strong><br>您可以在「機構設定」修改機構資料、補上證明文件。處理好需要釐清的事項後，請在同一頁按<strong>「申請解除停權」</strong>，我們會再確認。</p>
+      <p style="margin:0 0 20px;"><a href="{{orgUrl}}" style="color:#1155cc;text-decoration:underline;">前往機構後台</a></p>
+      <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>
+    </div>
+  </template>
+
+  <header>
+    <small>1.10 機構暫時停權｜信件預覽（使用虛構資料）</small>
+    <h1 id="subject"></h1>
+  </header>
+  <main id="preview"></main>
+  <p id="link-note" role="status"></p>
+  <script>
+    const example = {
+      organizationName: '星星小學',
+      suspensionReason: '我們需要確認新任聯絡人已獲貴校授權。請在「機構設定」更新聯絡資料，並補上能確認授權的文件。'
+    };
+    const fillExample = text => text.replace(/{{(\w+)}}/g, (token, key) => example[key] ?? token);
+    document.getElementById('subject').textContent =
+      fillExample(document.getElementById('email-subject').content.textContent);
+    const preview = document.getElementById('email-body').content.cloneNode(true);
+    if (!example.suspensionReason?.trim()) preview.querySelector('[data-if="suspensionReason"]').remove();
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) walker.currentNode.textContent = fillExample(walker.currentNode.textContent);
+    const link = preview.querySelector('a[href="{{orgUrl}}"]');
+    link.href = '#link-note';
+    link.addEventListener('click', event => {
+      event.preventDefault();
+      document.getElementById('link-note').textContent = '正式寄出時，這個連結會開啟貴單位的機構後台。';
+    });
+    document.getElementById('preview').append(preview);
+  </script>
+</body>
+</html>

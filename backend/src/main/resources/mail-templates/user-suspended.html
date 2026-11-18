@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1.13 認領者帳號暫時停權</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 20px; color: #222; font: 16px/1.65 Arial, "PingFang TC", sans-serif; }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 20px; padding-bottom: 14px; }
+    header small, #link-note { color: #555; }
+    h1 { margin: 6px 0 0; font-size: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <!-- 工程套用與欄位對照請見同資料夾 README.md。 -->
+  <template id="email-subject">【線上聖誕老人 2026】您的帳號已暫時停權，請查看原因與聯絡方式</template>
+  <template id="email-body">
+    <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
+      <p style="margin:0 0 16px;">親愛的{{recipientName}}，您好：</p>
+      <p style="margin:0 0 12px;"><strong style="color:#a61c00;">您的線上聖誕老人帳號已暫時停權。</strong>進行中的認領也已暫停，準備好的禮物請先不要寄出。</p>
+      <p data-if="suspensionReason" style="margin:0 0 16px;"><strong>這次的停權原因：</strong><br><span style="white-space:pre-wrap;">{{suspensionReason}}</span></p>
+      <p style="margin:0 0 16px;">您仍可登入網站，在「我的認領」查看紀錄。停權期間，您暫時無法認領新的願望、傳送站內訊息、回報寄送或修改資料。</p>
+      <p style="margin:0 0 20px;">如果您對停權原因有疑問、想補充說明，或有已寄出的包裹需要協助，請寫信到 <a href="mailto:onlinesanta2026@gmail.com" style="color:#1155cc;text-decoration:underline;">onlinesanta2026@gmail.com</a>，我們會與您確認。</p>
+      <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>
+    </div>
+  </template>
+
+  <header>
+    <small>1.13 認領者帳號暫時停權｜信件預覽（使用虛構資料）</small>
+    <h1 id="subject"></h1>
+  </header>
+  <main id="preview"></main>
+  <script>
+    const example = {
+      "recipientName": "小晴",
+      "suspensionReason": "我們收到您反映帳號出現一筆不熟悉的認領，已先暫停帳號操作，等候與您確認。"
+    };
+    const fillExample = text => text.replace(/{{(\w+)}}/g, (token, key) => example[key] ?? token);
+    document.getElementById('subject').textContent =
+      fillExample(document.getElementById('email-subject').content.textContent);
+    const preview = document.getElementById('email-body').content.cloneNode(true);
+    if (!example.suspensionReason?.trim()) preview.querySelector('[data-if="suspensionReason"]').remove();
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) walker.currentNode.textContent = fillExample(walker.currentNode.textContent);
+    document.getElementById('preview').append(preview);
+  </script>
+</body>
+</html>

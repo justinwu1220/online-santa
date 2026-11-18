@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1.4 機構收回認領</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 20px; color: #222; font: 16px/1.65 Arial, "PingFang TC", sans-serif; }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 20px; padding-bottom: 14px; }
+    header small, #link-note { color: #555; }
+    h1 { margin: 6px 0 0; font-size: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <!-- 工程套用與欄位對照請見同資料夾 README.md。 -->
+  <template id="email-subject">【線上聖誕老人 2026】機構已收回您對「{{wishTitle}}」的認領</template>
+  <template id="email-body">
+    <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
+      <p style="margin:0 0 16px;">親愛的{{recipientName}}，您好：</p>
+      <p style="margin:0 0 16px;">謝謝您願意為孩子準備聖誕禮物。<strong>{{organizationName}}</strong>已收回您對「<strong>{{wishTitle}}</strong>」的認領，<strong style="color:#a61c00;">這份禮物不用再寄出了。</strong></p>
+      <p style="margin:0 0 16px;"><strong>機構留下的收回原因：</strong><br><span style="white-space:pre-line;">{{recallReason}}</span></p>
+      <p style="margin:0 0 16px;">如果您已經寄出禮物，請來信 <a href="mailto:onlinesanta2026@gmail.com" style="color:#1155cc;text-decoration:underline;">onlinesanta2026@gmail.com</a> 告訴我們願望名稱。如果手邊有包裹查詢號碼，也請一併附上，方便我們和機構確認收件情形。</p>
+      <p style="margin:0 0 20px;"><strong style="color:#38761d;">如果您還想為其他孩子準備禮物，歡迎<a href="{{wishWallUrl}}" style="color:#38761d;font-weight:bold;text-decoration:underline;">回到願望牆看看</a>。🎄</strong></p>
+      <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>
+    </div>
+  </template>
+
+  <header>
+    <small>1.4 機構收回認領｜信件預覽（使用虛構資料）</small>
+    <h1 id="subject"></h1>
+  </header>
+  <main id="preview"></main>
+  <p id="link-note" role="status"></p>
+  <script>
+    const example = {
+      recipientName: '小晴',
+      organizationName: '星星小學',
+      wishTitle: '一盒 48 色的色鉛筆',
+      recallReason: '已過寄送期限，我們還沒收到寄送資訊，因此先收回這次的認領。'
+    };
+    const fillExample = text => text.replace(/{{(\w+)}}/g, (token, key) => example[key] ?? token);
+    document.getElementById('subject').textContent =
+      fillExample(document.getElementById('email-subject').content.textContent);
+    const preview = document.getElementById('email-body').content.cloneNode(true);
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) walker.currentNode.textContent = fillExample(walker.currentNode.textContent);
+    const link = preview.querySelector('a[href="{{wishWallUrl}}"]');
+    link.href = '#link-note';
+    link.addEventListener('click', event => {
+      event.preventDefault();
+      document.getElementById('link-note').textContent = '正式寄出時，這個連結會開啟活動網站的願望牆首頁。';
+    });
+    document.getElementById('preview').append(preview);
+  </script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1.7 機構申請需要補件</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 20px; color: #222; font: 16px/1.65 Arial, "PingFang TC", sans-serif; }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 20px; padding-bottom: 14px; }
+    header small, #link-note { color: #555; }
+    h1 { margin: 6px 0 0; font-size: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <!-- 工程套用與欄位對照請見同資料夾 README.md。 -->
+  <template id="email-subject">【線上聖誕老人 2026】機構申請需要補件，請補充資料後重新送審</template>
+  <template id="email-body">
+    <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
+      <p style="margin:0 0 16px;">親愛的{{organizationName}}夥伴，您好：</p>
+      <p style="margin:0 0 12px;">謝謝您為孩子報名參加今年的線上聖誕老人活動。<strong style="color:#a61c00;">這次的機構申請還需要補充資料，才能通過審核。</strong></p>
+      <p data-if="reviewNote" style="margin:0 0 16px;"><strong>請協助補充的資料：</strong><br><span style="white-space:pre-line;">{{reviewNote}}</span></p>
+      <p style="margin:0 0 12px;">請點下方連結到「機構設定」補件。<strong>更新資料後，請記得重新送審</strong>，我們收到後會再審核。</p>
+      <p style="margin:0 0 20px;">📝 <a href="{{orgSettingsUrl}}" style="color:#1155cc;text-decoration:underline;">前往機構設定，補充申請資料</a></p>
+      <p style="margin:0 0 20px;">如果不確定該補哪份文件，歡迎寫信到 <a href="mailto:onlinesanta2026@gmail.com" style="color:#1155cc;text-decoration:underline;">onlinesanta2026@gmail.com</a>，我們會協助您確認。</p>
+      <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>
+    </div>
+  </template>
+
+  <header>
+    <small>1.7 機構申請需要補件｜信件預覽（使用虛構資料）</small>
+    <h1 id="subject"></h1>
+  </header>
+  <main id="preview"></main>
+  <p id="link-note" role="status"></p>
+  <script>
+    const example = {
+      organizationName: '星星小學',
+      reviewNote: '您上傳的教職員證照片有些模糊，請再上傳一張能看清楚學校名稱與姓名的照片。'
+    };
+    const fillExample = text => text.replace(/{{(\w+)}}/g, (token, key) => example[key] ?? token);
+    document.getElementById('subject').textContent =
+      fillExample(document.getElementById('email-subject').content.textContent);
+    const preview = document.getElementById('email-body').content.cloneNode(true);
+    if (!example.reviewNote?.trim()) preview.querySelector('[data-if="reviewNote"]').remove();
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) walker.currentNode.textContent = fillExample(walker.currentNode.textContent);
+    const link = preview.querySelector('a[href="{{orgSettingsUrl}}"]');
+    link.href = '#link-note';
+    link.addEventListener('click', event => {
+      event.preventDefault();
+      document.getElementById('link-note').textContent = '正式寄出時，這個連結會開啟機構設定的補件頁面。';
+    });
+    document.getElementById('preview').append(preview);
+  </script>
+</body>
+</html>

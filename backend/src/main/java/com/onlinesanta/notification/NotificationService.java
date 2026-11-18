@@ -2,6 +2,7 @@ package com.onlinesanta.notification;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
@@ -9,10 +10,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailException;
+import org.springframework.mail.MailPreparationException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 
 /**
  * 寄送通知信。
@@ -87,6 +93,7 @@ public class NotificationService {
 
     private final ObjectProvider<JavaMailSender> mailSender;
     private final NotificationProperties properties;
+    private final MailTemplates templates;
     private final Clock clock;
 
     /**
@@ -103,20 +110,64 @@ public class NotificationService {
 
     @Autowired
     public NotificationService(ObjectProvider<JavaMailSender> mailSender,
-                               NotificationProperties properties) {
-        this(mailSender, properties, Clock.systemUTC());
+                               NotificationProperties properties, MailTemplates templates) {
+        this(mailSender, properties, templates, Clock.systemUTC());
+    }
+
+    /** 測試用：樣板直接從 classpath 載入。 */
+    NotificationService(ObjectProvider<JavaMailSender> mailSender,
+                        NotificationProperties properties) {
+        this(mailSender, properties, new MailTemplates(), Clock.systemUTC());
     }
 
     /** 測試用：可以指定時鐘，模擬跨日。 */
     NotificationService(ObjectProvider<JavaMailSender> mailSender,
                         NotificationProperties properties, Clock clock) {
+        this(mailSender, properties, new MailTemplates(), clock);
+    }
+
+    NotificationService(ObjectProvider<JavaMailSender> mailSender,
+                        NotificationProperties properties, MailTemplates templates, Clock clock) {
         this.mailSender = mailSender;
         this.properties = properties;
+        this.templates = templates;
         this.clock = clock;
     }
 
+    /** 寄一封純文字信（舊路徑；新的通知一律走 {@link #sendTemplate}）。 */
     @Async("notificationExecutor")
     public void send(String to, String subject, String body) {
+        dispatch(to, subject, null, body);
+    }
+
+    /**
+     * 套用樣板寄信（非同步）。樣板壞了或欄位缺漏屬於程式錯誤：記 ERROR、不寄，
+     * 不影響已完成的業務交易。
+     */
+    @Async("notificationExecutor")
+    public void sendTemplate(String to, MailTemplateId id, Map<String, ?> values) {
+        sendTemplateNow(to, id, values);
+    }
+
+    /**
+     * 套用樣板寄信（<strong>同步</strong>，在呼叫端的執行緒上寄出）。
+     *
+     * <p>給排程類的信用：排程請求回應之後，Cloud Run 可能把 CPU 降下來，背景執行緒的信會拖很久
+     * 才寄出甚至寄不出；排程本來就不需要「快速回應」，同步寄完再回覆最可靠。
+     */
+    public void sendTemplateNow(String to, MailTemplateId id, Map<String, ?> values) {
+        MailTemplate.Rendered rendered;
+        try {
+            rendered = templates.render(id, values);
+        } catch (RuntimeException e) {
+            log.error("通知信樣板填值失敗，這封信不會寄出。樣板＝{}，收件人＝{}", id, to, e);
+            return;
+        }
+        dispatch(to, rendered.subject(), rendered.html(), rendered.text());
+    }
+
+    /** @param html 為 null 時寄純文字，否則寄 text + html 的 multipart/alternative。 */
+    private void dispatch(String to, String subject, String html, String body) {
         if (to == null || to.isBlank()) {
             log.warn("略過寄信：收件人信箱是空的。主旨＝{}", subject);
             return;
@@ -137,16 +188,35 @@ public class NotificationService {
         }
 
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(properties.fromAddress());
-            message.setTo(to);
-            message.setSubject(fullSubject);
-            message.setText(body);
-            sender.send(message);
+            if (html == null) {
+                SimpleMailMessage message = new SimpleMailMessage();
+                message.setFrom(properties.fromAddress());
+                message.setTo(to);
+                message.setSubject(fullSubject);
+                message.setText(body);
+                sender.send(message);
+            } else {
+                sender.send(mimeMessage(sender, to, fullSubject, html, body));
+            }
             log.info("通知信已寄出。收件人＝{}，主旨＝{}", to, fullSubject);
             recordSuccess();
         } catch (MailException e) {
             recordFailure(to, fullSubject, e);
+        }
+    }
+
+    private MimeMessage mimeMessage(JavaMailSender sender, String to, String subject,
+                                    String html, String text) {
+        try {
+            MimeMessage message = sender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(properties.fromAddress());
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(text, html);   // 純文字在前、HTML 在後：multipart/alternative
+            return message;
+        } catch (MessagingException e) {
+            throw new MailPreparationException(e);
         }
     }
 

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1.7 機構申請審核通過</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 20px; color: #222; font: 16px/1.65 Arial, "PingFang TC", sans-serif; }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 20px; padding-bottom: 14px; }
+    header small, #link-note { color: #555; }
+    h1 { margin: 6px 0 0; font-size: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <!-- 工程套用與欄位對照請見同資料夾 README.md。 -->
+  <template id="email-subject">【線上聖誕老人 2026】機構申請已通過，可以開始登記願望囉！ 🎄</template>
+  <template id="email-body">
+    <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
+      <p style="margin:0 0 16px;">親愛的{{organizationName}}夥伴，您好：</p>
+      <p style="margin:0 0 12px;"><strong style="color:#a61c00;">好消息！貴單位的參與申請已通過審核，歡迎加入今年的線上聖誕老人活動！ 🎅</strong></p>
+      <p style="margin:0 0 16px;">現在就可以陪孩子寫下或畫下聖誕願望了。如果願望卡已經準備好了，請登入機構後台，填寫願望、上傳卡片照片，再送出審核。願望通過後，就會出現在願望牆上，讓聖誕老人認領。</p>
+      <p data-if="reviewNote" style="margin:0 0 16px;"><strong>團隊給貴單位的留言：</strong><br><span style="white-space:pre-line;">{{reviewNote}}</span></p>
+      <p style="margin:0 0 20px;">📝 <a href="{{orgUrl}}" style="color:#1155cc;text-decoration:underline;">前往機構後台，登記孩子的願望</a></p>
+      <p style="margin:0 0 20px;"><strong style="color:#38761d;">謝謝您陪孩子許願，期待和您一起為孩子準備聖誕驚喜！ 🎁</strong></p>
+      <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>
+    </div>
+  </template>
+
+  <header>
+    <small>1.7 機構申請審核通過｜信件預覽（使用虛構資料）</small>
+    <h1 id="subject"></h1>
+  </header>
+  <main id="preview"></main>
+  <p id="link-note" role="status"></p>
+  <script>
+    const example = {
+      organizationName: '星星小學',
+      reviewNote: '謝謝您在電話中說明班上的參與安排！'
+    };
+    const fillExample = text => text.replace(/{{(\w+)}}/g, (token, key) => example[key] ?? token);
+    document.getElementById('subject').textContent =
+      fillExample(document.getElementById('email-subject').content.textContent);
+    const preview = document.getElementById('email-body').content.cloneNode(true);
+    if (!example.reviewNote?.trim()) preview.querySelector('[data-if="reviewNote"]').remove();
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) walker.currentNode.textContent = fillExample(walker.currentNode.textContent);
+    const link = preview.querySelector('a[href="{{orgUrl}}"]');
+    link.href = '#link-note';
+    link.addEventListener('click', event => {
+      event.preventDefault();
+      document.getElementById('link-note').textContent = '正式寄出時，這個連結會開啟機構後台。';
+    });
+    document.getElementById('preview').append(preview);
+  </script>
+</body>
+</html>

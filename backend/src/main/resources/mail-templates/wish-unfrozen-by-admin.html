@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>4.1 管理員已解除願望凍結</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 20px; color: #222; font: 16px/1.65 Arial, "PingFang TC", sans-serif; }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 20px; padding-bottom: 14px; }
+    header small, #link-note { color: #555; }
+    h1 { margin: 6px 0 0; font-size: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <!-- 工程套用與欄位對照請見同資料夾「第四項_工程欄位對照.md」。 -->
+  <template id="email-subject">【線上聖誕老人 2026】團隊已解除「{{wishTitle}}」的願望凍結</template>
+  <template id="email-body">
+    <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
+      <p style="margin:0 0 16px;">親愛的{{organizationName}}夥伴，您好：</p>
+      <p style="margin:0 0 16px;"><strong style="color:#38761d;">團隊已解除先前對「<strong>{{wishTitle}}</strong>」設定的凍結。</strong>謝謝您協助確認願望內容。</p>
+      <p style="margin:0 0 16px;"><strong>目前狀態：</strong>{{wishStatusText}}</p>
+      <p data-if="actionReason" style="margin:0 0 16px;"><strong>團隊留言：</strong><br><span style="white-space:pre-wrap;">{{actionReason}}</span></p>
+      <p style="margin:0 0 16px;"><a href="{{orgUrl}}" style="color:#1155cc;text-decoration:underline;">前往機構後台查看願望</a></p>
+      <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>
+    </div>
+  </template>
+
+  <header>
+    <small>4.1 管理員已解除願望凍結｜信件預覽（使用虛構資料）</small>
+    <h1 id="subject"></h1>
+  </header>
+  <main id="preview"></main>
+  <p id="link-note" role="status"></p>
+  <script>
+    const example = {
+      "organizationName": "星星小學",
+      "wishTitle": "一盒 48 色的色鉛筆",
+      "wishStatusText": "這個願望已回到願望牆，開放認領。",
+      "actionReason": "已確認更新後的願望卡照片。"
+    };
+    const fillExample = text => text.replace(/{{(\w+)}}/g, (token, key) => example[key] ?? token);
+    document.getElementById('subject').textContent =
+      fillExample(document.getElementById('email-subject').content.textContent);
+    const preview = document.getElementById('email-body').content.cloneNode(true);
+    for (const block of preview.querySelectorAll('[data-if]')) {
+      const value = example[block.dataset.if];
+      if (value == null || value === false || String(value).trim() === '') block.remove();
+    }
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) walker.currentNode.textContent = fillExample(walker.currentNode.textContent);
+    for (const link of preview.querySelectorAll('a')) {
+      if (!link.getAttribute('href').startsWith('{{')) continue;
+      link.href = '#link-note';
+      link.addEventListener('click', event => {
+        event.preventDefault();
+        document.getElementById('link-note').textContent = '預覽使用虛構資料。正式信件會開啟「' + link.textContent + '」對應的網站頁面。';
+      });
+    }
+    document.getElementById('preview').append(preview);
+  </script>
+</body>
+</html>

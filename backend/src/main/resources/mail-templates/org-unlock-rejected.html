@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>4.9 機構解除停權申請需補充</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 20px; color: #222; font: 16px/1.65 Arial, "PingFang TC", sans-serif; }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 20px; padding-bottom: 14px; }
+    header small, #link-note { color: #555; }
+    h1 { margin: 6px 0 0; font-size: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <!-- 工程套用與欄位對照請見同資料夾「第四項_工程欄位對照.md」。 -->
+  <template id="email-subject">【線上聖誕老人 2026】貴單位的解除停權申請需要補充資料</template>
+  <template id="email-body">
+    <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
+      <p style="margin:0 0 16px;">親愛的{{organizationName}}夥伴，您好：</p>
+      <p style="margin:0 0 16px;">我們已看過貴單位的解除停權申請。<strong style="color:#a61c00;">這次的申請已退回，機構帳號目前仍在停權中。</strong></p>
+      <p data-if="reviewNote" style="margin:0 0 16px;"><strong>這次退回的原因：</strong><br><span style="white-space:pre-wrap;">{{reviewNote}}</span></p>
+      <p style="margin:0 0 16px;">請登入機構後台，到「機構設定」更新資料或補上證明文件。準備好後，請再按一次<strong>「申請解除停權」</strong>，我們會重新審核。</p>
+      <p style="margin:0 0 16px;"><a href="{{orgUrl}}" style="color:#1155cc;text-decoration:underline;">前往機構後台</a></p>
+      <p style="margin:0 0 16px;">如果不確定要補哪份資料，您在停權期間仍然可以使用「與團隊對話」，直接留言問我們。</p>
+      <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>
+    </div>
+  </template>
+
+  <header>
+    <small>4.9 機構解除停權申請需補充｜信件預覽（使用虛構資料）</small>
+    <h1 id="subject"></h1>
+  </header>
+  <main id="preview"></main>
+  <p id="link-note" role="status"></p>
+  <script>
+    const example = {
+      "organizationName": "星星小學",
+      "reviewNote": "新上傳的文件無法看清楚單位名稱，請補上清晰的版本。"
+    };
+    const fillExample = text => text.replace(/{{(\w+)}}/g, (token, key) => example[key] ?? token);
+    document.getElementById('subject').textContent =
+      fillExample(document.getElementById('email-subject').content.textContent);
+    const preview = document.getElementById('email-body').content.cloneNode(true);
+    for (const block of preview.querySelectorAll('[data-if]')) {
+      const value = example[block.dataset.if];
+      if (value == null || value === false || String(value).trim() === '') block.remove();
+    }
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) walker.currentNode.textContent = fillExample(walker.currentNode.textContent);
+    for (const link of preview.querySelectorAll('a')) {
+      if (!link.getAttribute('href').startsWith('{{')) continue;
+      link.href = '#link-note';
+      link.addEventListener('click', event => {
+        event.preventDefault();
+        document.getElementById('link-note').textContent = '預覽使用虛構資料。正式信件會開啟「' + link.textContent + '」對應的網站頁面。';
+      });
+    }
+    document.getElementById('preview').append(preview);
+  </script>
+</body>
+</html>
