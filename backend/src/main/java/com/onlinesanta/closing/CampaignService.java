@@ -106,6 +106,17 @@ public class CampaignService {
         return campaign.allocateReceiptNo();
     }
 
+    /**
+     * 同 {@link #allocateReceiptNo}，但檔期已結束時回 empty 而不丟例外。
+     * 願望完成的交易裡用這個：丟出例外經過交易代理會把整個交易標成只能回滾，願望就完成不了。
+     */
+    @Transactional
+    public Optional<String> tryAllocateReceiptNo(UUID campaignId) {
+        return campaigns.findByIdForUpdate(campaignId)
+                .filter(Campaign::isActive)
+                .map(Campaign::allocateReceiptNo);
+    }
+
     private void requireNoOverlap(LocalDate start, LocalDate end, UUID excludeId) {
         if (campaigns.countOverlapping(start, end, excludeId) > 0) {
             throw new BusinessRuleException("CAMPAIGN_PERIOD_OVERLAP",

@@ -17,6 +17,7 @@ import com.onlinesanta.attachment.AttachmentRepository;
 import com.onlinesanta.attachment.UploadStatus;
 import com.onlinesanta.auth.AppPrincipal;
 import com.onlinesanta.auth.CurrentUserService;
+import com.onlinesanta.closing.DonationReceiptService;
 import com.onlinesanta.claim.dto.ClaimRequest;
 import com.onlinesanta.claim.dto.RecallRequest;
 import com.onlinesanta.claim.dto.ConfirmReceivedRequest;
@@ -57,6 +58,7 @@ public class ClaimService {
     private final ClaimReceiptService receipts;
     private final TermsService terms;
     private final SystemMessageService systemMessages;
+    private final DonationReceiptService donationReceipts;
 
     public ClaimService(ClaimRepository claims,
                         ClaimEventRepository events,
@@ -68,7 +70,8 @@ public class ClaimService {
                         ApplicationEventPublisher eventPublisher,
                         ClaimReceiptService receipts,
                         TermsService terms,
-                        SystemMessageService systemMessages) {
+                        SystemMessageService systemMessages,
+                        DonationReceiptService donationReceipts) {
         this.claims = claims;
         this.events = events;
         this.wishes = wishes;
@@ -80,6 +83,7 @@ public class ClaimService {
         this.receipts = receipts;
         this.terms = terms;
         this.systemMessages = systemMessages;
+        this.donationReceipts = donationReceipts;
     }
 
     // ================================================================ 認領
@@ -304,6 +308,9 @@ public class ClaimService {
                     "願望的狀態與認領不一致，請重新整理後再試");
         }
         record(claim, ClaimEventType.COMPLETED, principal.userId(), null);
+        // 每個完成的願望開立一張捐贈收據（配號＋快照，與完成同一個交易；PDF 提交後才產生）。
+        // 沒有涵蓋捐贈日的檔期時不開立，不影響完成，列入收據檢查的待補
+        donationReceipts.issueFor(claim);
         return claim;
     }
 

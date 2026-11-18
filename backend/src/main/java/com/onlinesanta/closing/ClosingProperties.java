@@ -1,0 +1,17 @@
+package com.onlinesanta.closing;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
+
+/**
+ * 結案文件設定（{@code app.closing.*}）。
+ *
+ * @param retentionDays 暫存在雲端的檔案（收據 PDF、匯出壓縮檔）保留幾天後自動清除；
+ *                      清除不影響收據本身，開立當下的資料永久存資料庫，PDF 可重新產生且內容相同
+ * @param purpose       收據上的「捐贈用途」句子（範本預印的那一句）
+ */
+@ConfigurationProperties(prefix = "app.closing")
+public record ClosingProperties(
+        @DefaultValue("30") int retentionDays,
+        @DefaultValue("本活動服務對象之個人聖誕禮物") String purpose) {
+}
