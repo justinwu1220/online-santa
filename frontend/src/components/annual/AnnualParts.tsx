@@ -4,21 +4,33 @@ import { DailyClaimsChart } from '../charts/DailyClaimsChart'
 import { MonthlyClaimsChart } from '../charts/MonthlyClaimsChart'
 import { SelectBox } from '../ui/Fields'
 import { ErrorNotice, Spinner } from '../ui/Spinner'
-import type { DailyCount, MonthlyCount } from '../../lib/types'
+import type { DailyCount, OperatingPeriod, PeriodMonthCount } from '../../lib/types'
 
-/** 年度回顧／年度營運共用的零件（機構與管理員兩頁一樣）。 */
+/** 檔期回顧／年度營運共用的零件（機構與管理員兩頁一樣）。 */
 
-export const COHORT_NOTE = '數字以認領年度歸檔：年末認領、隔年才完成的禮物仍算在認領當年，進行中的認領完成後，數字將會更新。'
+export const COHORT_NOTE = '數字以認領所在的檔期歸檔：檔期結束後才完成的禮物仍算在認領當時的檔期，進行中的認領完成後，數字將會更新。'
 
-export function YearPicker({ value, years, onChange }: {
-  value: number
-  years: number[]
-  onChange: (year: number) => void
+/** YYYY-MM-DD → YYYY/M/D，期間選單與說明用，不經過時區換算。 */
+export function shortDate(ymd: string) {
+  const [year, month, day] = ymd.split('-').map(Number)
+  return `${year}/${month}/${day}`
+}
+
+export function periodLabel(period: OperatingPeriod) {
+  return period.unassigned
+    ? `${period.name}（${shortDate(period.start)} 起）`
+    : `${period.name}（${shortDate(period.start)} – ${shortDate(period.end)}）`
+}
+
+export function PeriodPicker({ value, periods, onChange }: {
+  value: string
+  periods: OperatingPeriod[]
+  onChange: (key: string) => void
 }) {
   return (
-    <SelectBox className="annual__year" aria-label="年度" value={value}
-      onChange={(event) => onChange(Number(event.target.value))}>
-      {years.map((item) => <option key={item} value={item}>{item}</option>)}
+    <SelectBox className="annual__year" aria-label="檔期" value={value}
+      onChange={(event) => onChange(event.target.value)}>
+      {periods.map((item) => <option key={item.key} value={item.key}>{periodLabel(item)}</option>)}
     </SelectBox>
   )
 }
@@ -34,36 +46,39 @@ export function Stat({ label, value, hint }: { label: string; value: number | st
 }
 
 /**
- * 每月認領分布：點某個月的長條下鑽成該月的每日分布。外層用 `key={year}` 換年度時重新掛載，
+ * 每月認領分布：點某個月的長條下鑽成該月的每日分布。外層用 `key={期間 key}` 換期間時重新掛載，
  * 下鑽狀態自然回到每月。
  */
-export function MonthlyPanel({ scope, year, title, monthly, fetchDaily }: {
+export function MonthlyPanel({ scope, title, monthly, fetchDaily }: {
   /** 併入 queryKey，機構頁與管理員頁的下鑽查詢不共用快取 */
   scope: string
-  year: number
   title: string
-  monthly: MonthlyCount[]
+  monthly: PeriodMonthCount[]
   fetchDaily: (year: number, month: number) => Promise<{ dailyClaims: DailyCount[] }>
 }) {
-  const [month, setMonth] = useState<number | null>(null)
+  const [picked, setPicked] = useState<{ year: number; month: number } | null>(null)
   const daily = useQuery({
-    queryKey: [scope, 'annual-drilldown', year, month],
-    queryFn: () => fetchDaily(year, month as number),
-    enabled: month !== null,
+    queryKey: [scope, 'period-drilldown', picked?.year, picked?.month],
+    queryFn: () => fetchDaily(picked!.year, picked!.month),
+    enabled: picked !== null,
     placeholderData: keepPreviousData,
   })
+  const crossesYears = new Set(monthly.map((entry) => entry.year)).size > 1
 
   return (
     <section className="panel">
       <div className="panel__head">
-        <h2 className="panel__title">{month === null ? title : `${month} 月認領分布`}</h2>
-        {month !== null && (
-          <button type="button" className="btn btn--sm btn--ghost" onClick={() => setMonth(null)}>← 返回每月</button>
+        <h2 className="panel__title">
+          {picked === null ? title : `${crossesYears ? `${picked.year} 年 ` : ''}${picked.month} 月認領分布`}
+        </h2>
+        {picked !== null && (
+          <button type="button" className="btn btn--sm btn--ghost" onClick={() => setPicked(null)}>← 返回每月</button>
         )}
       </div>
-      {month === null ? (
+      {picked === null ? (
         <>
-          <MonthlyClaimsChart theme="dark" data={monthly} onMonthClick={setMonth} />
+          <MonthlyClaimsChart theme="dark" data={monthly}
+            onMonthClick={(year, month) => setPicked({ year, month })} />
           <p className="annual__note">點擊月份長條可查看單月分布</p>
         </>
       ) : (

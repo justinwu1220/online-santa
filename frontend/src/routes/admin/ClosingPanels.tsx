@@ -1,67 +1,27 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ReasonDialog } from '../../components/console/ReasonDialog'
 import { Pager } from '../../components/ui/Pager'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
-import { pageTitle } from '../../lib/brand'
 import { formatPlainDate } from '../../lib/format'
 import type { CampaignView, PdfStatus, ReceiptStatus, ReceiptView } from '../../lib/types'
-import { CampaignDialog } from './CampaignDialog'
 import {
-  downloadAllReceipts, openReceipt, useCampaigns, useGenerateReceiptPdfs, useIssueMissingReceipts, useReceipts, useVoidReceipt,
+  downloadAllReceipts, openReceipt, useGenerateReceiptPdfs, useIssueMissingReceipts, useReceipts, useVoidReceipt,
   type ReceiptFilter,
 } from './closingQueries'
 
 /**
- * 結案文件：活動檔期設定與捐贈收據。
+ * 年度營運頁的「檔期設定」與「收據」分頁。
  *
  * 願望完成時系統會自動開立收據（配號、存資料）並產生三聯單 PDF；這裡讓管理員設定檔期、
- * 查看與下載收據、作廢重開，以及在檔期晚於願望完成、或許可文號晚於收據開立時補開、補產。
+ * 查看收據、作廢重開，以及在檔期晚於願望完成、或許可文號晚於收據開立時補開、補產。
  */
-export function AdminClosing() {
-  useEffect(() => {
-    document.title = pageTitle('結案文件｜管理員後台')
-    return () => { document.title = pageTitle() }
-  }, [])
-
-  const campaigns = useCampaigns()
-  const [selectedId, setSelectedId] = useState<string>()
-  const [editing, setEditing] = useState<CampaignView | 'new' | null>(null)
-  const current = campaigns.data?.find((item) => item.id === selectedId) ?? campaigns.data?.[0]
-
-  return (
-    <section className="org-tab" aria-labelledby="adClosingTitle">
-      <div className="org-head">
-        <h1 id="adClosingTitle">結案文件</h1>
-        <button type="button" className="btn btn--sm" onClick={() => setEditing('new')}>新增活動檔期</button>
-      </div>
-
-      {campaigns.isLoading && <Spinner label="載入活動檔期" />}
-      {campaigns.isError && <ErrorNotice error={campaigns.error} onRetry={() => void campaigns.refetch()} />}
-      {campaigns.data && campaigns.data.length === 0 && (
-        <p className="org-empty">
-          還沒有活動檔期。建立檔期後，之後完成的願望才會自動開立收據；先前完成的願望可以在檔期建立後補開。
-        </p>
-      )}
-      {campaigns.data && current && (
-        <>
-          <CampaignPanel campaign={current} all={campaigns.data} onSelect={setSelectedId}
-            onEdit={() => setEditing(current)} />
-          <ReceiptsPanel campaign={current} />
-        </>
-      )}
-      <CampaignDialog campaign={editing} onClose={() => setEditing(null)} />
-    </section>
-  )
-}
 
 function period(start: string, end: string) {
   return `${formatPlainDate(start)} 至 ${formatPlainDate(end)}`
 }
 
-function CampaignPanel({ campaign, all, onSelect, onEdit }: {
+export function CampaignPanel({ campaign, onEdit }: {
   campaign: CampaignView
-  all: CampaignView[]
-  onSelect: (id: string) => void
   onEdit: () => void
 }) {
   return (
@@ -73,15 +33,7 @@ function CampaignPanel({ campaign, all, onSelect, onEdit }: {
             {campaign.status === 'ACTIVE' ? '進行中' : '已結束'}
           </span>
         </h2>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {all.length > 1 && (
-            <select className="input" aria-label="選擇檔期" value={campaign.id}
-              onChange={(event) => onSelect(event.target.value)}>
-              {all.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
-          )}
-          <button type="button" className="btn btn--sm" onClick={onEdit}>修改</button>
-        </div>
+        <button type="button" className="btn btn--sm" onClick={onEdit}>修改</button>
       </div>
       <dl className="set-sec__desc" style={{ margin: 0, display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '4px 16px' }}>
         <dt>檔期名稱</dt><dd>{campaign.name}</dd>
@@ -119,7 +71,7 @@ const PDF_LABEL: Record<PdfStatus, string> = {
   PENDING: '待產生', PENDING_INFO: '待補許可文號', READY: '已產生', FAILED: 'PDF 失敗',
 }
 
-function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
+export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
   const [chip, setChip] = useState('all')
   const [q, setQ] = useState('')
   const [page, setPage] = useState(0)

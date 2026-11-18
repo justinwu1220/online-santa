@@ -4,7 +4,6 @@ import { EnvironmentBanner } from './components/EnvironmentBanner'
 import { PublicLayout } from './components/layouts/PublicLayout'
 import { Spinner } from './components/ui/Spinner'
 import { RequireRole } from './components/RequireRole'
-import { AdminClosing } from './routes/admin/AdminClosing'
 import { AdminDataChanges } from './routes/admin/AdminDataChanges'
 import { AdminLayout } from './routes/admin/AdminLayout'
 import { AdminOrganizations } from './routes/admin/AdminOrganizations'
@@ -115,7 +114,8 @@ export default function App() {
             <AdminAnnualReview />
           </Suspense>} />
         <Route path="data-changes" element={<AdminDataChanges />} />
-        <Route path="closing" element={<AdminClosing />} />
+        {/* 結案文件已併入年度營運頁的「收據」分頁，舊網址轉過去 */}
+        <Route path="closing" element={<Navigate to="/admin/annual?tab=receipts" replace />} />
         <Route path="system" element={<AdminSystem />} />
       </Route>
 

@@ -35,6 +35,9 @@ function useRefreshClosing() {
   const queryClient = useQueryClient()
   return () => {
     void queryClient.invalidateQueries({ queryKey: ['closing-campaigns'] })
+    // 檔期的勸募期間一改，所有營運週期的起訖與歸屬都跟著變
+    void queryClient.invalidateQueries({ queryKey: ['admin', 'periods'] })
+    void queryClient.invalidateQueries({ queryKey: ['admin', 'period-stats'] })
     void queryClient.invalidateQueries({ queryKey: ['closing-receipts'] })
     void queryClient.invalidateQueries({ queryKey: ['audit-logs'] })
   }

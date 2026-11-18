@@ -1,48 +1,45 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { COHORT_NOTE, MonthlyPanel, Stat, YearPicker } from '../../components/annual/AnnualParts'
+import { COHORT_NOTE, MonthlyPanel, PeriodPicker, Stat } from '../../components/annual/AnnualParts'
+import { usePeriodList, usePeriodStats } from '../../components/annual/periodQueries'
 import { ClaimOutcomeChart } from '../../components/charts/ClaimOutcomeChart'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { api, withQuery } from '../../lib/api'
 import { pageTitle } from '../../lib/brand'
-import type { OrganizationAnnualStats, OrganizationMonthlyStats } from '../../lib/types'
+import type { OrganizationMonthlyStats, OrganizationPeriodStats } from '../../lib/types'
 
 const fetchDaily = (year: number, month: number) =>
   api.get<OrganizationMonthlyStats>(withQuery('/api/organizations/me/stats/monthly', { year, month }))
 
 /**
- * 年度回顧。設計稿的機構後台沒有這一頁，是既有功能；放在選單第三項，樣式沿用後台面板。
+ * 檔期回顧。設計稿的機構後台沒有這一頁，是既有功能；放在選單第三項，樣式沿用後台面板。
  *
- * 不帶 year 參數時後端自行決定「今年」並附上可選年份清單——第一次載入前不知道
- * 有哪些年份可選，所以年份下拉要等第一次回應回來才能畫出來。
+ * 期間是活動檔期的營運週期，由管理員設定；機構只能選期間、看不到檔期的其他設定。
+ * 預設選項由後端決定（涵蓋今天的檔期），所以選單要等第一次回應才畫得出來。
  */
 export function OrgAnnualReview() {
-  const [year, setYear] = useState<number | undefined>(undefined)
+  const [selected, setSelected] = useState<string>()
 
   useEffect(() => {
     document.title = pageTitle('年度回顧｜機構後台')
     return () => { document.title = pageTitle() }
   }, [])
 
-  const stats = useQuery({
-    queryKey: ['organization', 'annual-stats', year],
-    queryFn: () => api.get<OrganizationAnnualStats>(
-      withQuery('/api/organizations/me/stats/annual', { year })),
-    // 切換年度時保留舊資料直到新的回來，年度下拉本身也是靠 stats.data 才畫得出來
-    placeholderData: keepPreviousData,
-  })
+  const periods = usePeriodList('organization')
+  const options = periods.data?.periods
+  const key = options?.some((item) => item.key === selected) ? selected : periods.data?.defaultKey
+  const stats = usePeriodStats<OrganizationPeriodStats>('organization', key)
 
   return (
     <section className="org-tab" aria-labelledby="orgAnnualTitle">
       <div className="org-head">
         <h1 id="orgAnnualTitle">年度回顧</h1>
-        {stats.data && <YearPicker value={year ?? stats.data.year} years={stats.data.availableYears} onChange={setYear} />}
+        {options && key && <PeriodPicker value={key} periods={options} onChange={setSelected} />}
       </div>
 
       <div className="annual" aria-busy={stats.isPlaceholderData} style={stats.isPlaceholderData ? { opacity: 0.55, transition: 'opacity .2s' } : { transition: 'opacity .2s' }}>
         <p className="annual__note">{COHORT_NOTE}</p>
 
-        {stats.isLoading && <Spinner label="載入年度統計" />}
+        {stats.isLoading && <Spinner label="載入統計" />}
         {stats.isError && <ErrorNotice error={stats.error} onRetry={() => void stats.refetch()} />}
 
         {stats.data && (
@@ -58,12 +55,12 @@ export function OrgAnnualReview() {
               <Stat label="平均完成天數"
                 value={stats.data.averageCompletionDays != null
                   ? stats.data.averageCompletionDays.toFixed(1) : '—'} />
-              <Stat label="跨年完成" value={stats.data.crossYearCompletions}
-                hint="該年度認領、隔年才完成的筆數" />
+              <Stat label="檔期後完成" value={stats.data.completedAfterPeriod}
+                hint="該檔期認領、檔期結束後才完成的筆數" />
             </div>
 
             <div className="annual__charts">
-              <MonthlyPanel key={stats.data.year} scope="org" year={stats.data.year} title="每月認領分布"
+              <MonthlyPanel key={stats.data.period.key} scope="org" title="每月認領分布"
                 monthly={stats.data.monthlyClaims} fetchDaily={fetchDaily} />
               <section className="panel">
                 <div className="panel__head"><h2 className="panel__title">認領結果</h2></div>

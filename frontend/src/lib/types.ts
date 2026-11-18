@@ -633,13 +633,34 @@ export interface AdminMessageView {
   sentAt: string
 }
 
-// ---------------------------------------------------------------- 年度回顧
+// ---------------------------------------------------------------- 檔期營運
 //
-// 年度一律為台北日曆年，認領以 claimedAt 定錨（cohort 制）：完成／釋回／取消都歸屬
-// 認領當年，不看實際發生的時間。詳見後端 TaiwanYear 的說明。
+// 統計期間是檔期的「營運週期」：上一個檔期勸募結束的隔天到本檔期勸募結束日；最後一個檔期結束後的
+// 資料是「尚未建立檔期」。認領以 claimedAt 定錨（cohort 制）：完成／釋回／取消都歸屬認領時所在的期間，
+// 不看實際發生的時間。詳見後端 OperatingPeriod 的說明。
 
-export interface MonthlyCount {
-  /** 1–12，已補零，固定 12 筆 */
+/** 期間選單的一個選項：檔期（或「尚未建立檔期」）與它的營運週期。 */
+export interface OperatingPeriod {
+  /** 檔期 id，或 'unassigned' */
+  key: string
+  campaignId?: string
+  name: string
+  /** 週期第一天、最後一天（台北日期，YYYY-MM-DD） */
+  start: string
+  end: string
+  unassigned: boolean
+}
+
+export interface PeriodList {
+  /** 預設選項：涵蓋今天的檔期，沒有就選最近結束的檔期，都沒有檔期才是尚未建立檔期 */
+  defaultKey: string
+  /** 由新到舊 */
+  periods: OperatingPeriod[]
+}
+
+/** 期間內的一個月份：含年份、依時間排序、沒有資料補 0（週期可能跨年）。 */
+export interface PeriodMonthCount {
+  year: number
   month: number
   count: number
 }
@@ -662,8 +683,8 @@ export interface DonorAnnualSummary {
   availableYears: number[]
 }
 
-export interface OrganizationAnnualStats {
-  year: number
+export interface OrganizationPeriodStats {
+  period: OperatingPeriod
   newWishes: number
   claimed: number
   completed: number
@@ -675,10 +696,9 @@ export interface OrganizationAnnualStats {
   autoReleasedCount: number
   /** 平均完成天數（認領到完成），沒有任何完成筆數時不存在 */
   averageCompletionDays?: number
-  /** 該年度認領、但完成時間落在隔年（或更晚）的筆數 */
-  crossYearCompletions: number
-  monthlyClaims: MonthlyCount[]
-  availableYears: number[]
+  /** 該期間認領、但完成時間落在期間結束之後的筆數 */
+  completedAfterPeriod: number
+  monthlyClaims: PeriodMonthCount[]
 }
 
 /** 機構「每月分布」長條圖點某個月之後的下鑽，見 GET /api/organizations/me/stats/monthly */
@@ -694,8 +714,8 @@ export interface OrganizationCompletionRanking {
   completedCount: number
 }
 
-export interface PlatformAnnualStats {
-  year: number
+export interface PlatformPeriodStats {
+  period: OperatingPeriod
   newDonors: number
   newOrganizations: number
   activeDonors: number
@@ -703,12 +723,11 @@ export interface PlatformAnnualStats {
   claimed: number
   completed: number
   completionRate: number
-  monthlyClaims: MonthlyCount[]
+  monthlyClaims: PeriodMonthCount[]
   /** 只涵蓋三種終局狀態：COMPLETED／RELEASED／CANCELLED */
   claimOutcomes: Record<string, number>
-  /** 該年度完成認領數前五名的機構，僅管理端可見 */
+  /** 該期間完成認領數前五名的機構，僅管理端可見 */
   topOrganizations: OrganizationCompletionRanking[]
-  availableYears: number[]
 }
 
 /** 平台「每月趨勢」長條圖點某個月之後的下鑽，見 GET /api/admin/stats/monthly */

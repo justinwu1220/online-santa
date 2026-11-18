@@ -4,14 +4,34 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CampaignView, PageResponse, ReceiptView } from '../../lib/types'
-import { AdminClosing } from './AdminClosing'
+import type { CampaignView, PageResponse, PeriodList, PlatformPeriodStats, ReceiptView } from '../../lib/types'
+import { AdminAnnualReview } from './AdminAnnualReview'
 
 const campaign: CampaignView = {
   id: 'c1', name: '線上聖誕老人 2026', activityNo: '115000877', permitNo: undefined,
   collectionStart: '2026-11-25', collectionEnd: '2027-01-25', useStart: '2026-11-25', useEnd: '2027-01-25',
   receiptPrefix: 'OS2026', nextReceiptNo: 'OS2026-000003', receiptsIssued: 2, status: 'ACTIVE',
   createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z',
+}
+
+const periodList: PeriodList = {
+  defaultKey: 'c1',
+  periods: [
+    { key: 'unassigned', name: '尚未建立檔期', start: '2027-01-26', end: '2027-02-10', unassigned: true },
+    { key: 'c1', campaignId: 'c1', name: '線上聖誕老人 2026', start: '2026-01-26', end: '2027-01-25', unassigned: false },
+    { key: 'c0', campaignId: 'c0', name: '線上聖誕老人 2025', start: '2025-01-01', end: '2026-01-25', unassigned: false },
+  ],
+}
+
+const stats: PlatformPeriodStats = {
+  period: periodList.periods[1],
+  newDonors: 12, newOrganizations: 3, activeDonors: 9, publishedWishes: 40, claimed: 30, completed: 24,
+  completionRate: 0.8,
+  monthlyClaims: [
+    { year: 2026, month: 11, count: 10 }, { year: 2026, month: 12, count: 15 }, { year: 2027, month: 1, count: 5 },
+  ],
+  claimOutcomes: { COMPLETED: 24, RELEASED: 4, CANCELLED: 2 },
+  topOrganizations: [{ organizationId: 'o1', organizationName: '快樂兒童之家', completedCount: 12 }],
 }
 
 const receipt = (overrides: Partial<ReceiptView>): ReceiptView => ({
@@ -38,11 +58,11 @@ vi.mock('../../lib/api', async (original) => ({
   },
 }))
 
-function renderPage() {
+function renderPage(url = '/admin/annual?tab=receipts') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter><AdminClosing /></MemoryRouter>
+      <MemoryRouter initialEntries={[url]}><AdminAnnualReview /></MemoryRouter>
     </QueryClientProvider>,
   )
 }
@@ -52,7 +72,9 @@ beforeEach(() => {
   post.mockReset()
   put.mockReset()
   get.mockImplementation(async (path: string) => {
-    if (path.startsWith('/api/admin/campaigns')) return [campaign]
+    if (path === '/api/admin/stats/periods') return periodList
+    if (path.startsWith('/api/admin/stats/period?')) return stats
+    if (path.startsWith('/api/admin/campaigns')) return [campaign, { ...campaign, id: 'c0', name: '線上聖誕老人 2025', receiptPrefix: 'OS2025' }]
     if (path.startsWith('/api/admin/receipts?')) {
       return page([
         receipt({}),
@@ -65,9 +87,9 @@ beforeEach(() => {
   })
 })
 
-describe('結案文件頁', () => {
+describe('年度營運頁', () => {
   it('顯示檔期資訊與收據編號；缺許可文號時提醒收據不會產生 PDF', async () => {
-    renderPage()
+    renderPage('/admin/annual?tab=campaign')
 
     expect(await screen.findByText('線上聖誕老人 2026')).toBeTruthy()
     expect(screen.getByText(/已開立 2 張，下一張 OS2026-000003/)).toBeTruthy()
@@ -121,6 +143,8 @@ describe('結案文件頁', () => {
       return { ...base, status: 'READY', prepared: 3, skipped: 1 }
     })
     get.mockImplementation(async (path: string) => {
+      if (path === '/api/admin/stats/periods') return periodList
+      if (path.startsWith('/api/admin/stats/period?')) return stats
       if (path.startsWith('/api/admin/campaigns')) return [campaign]
       if (path.includes('/closing-exports/e1/download-url')) return { url: 'https://storage.test/all.zip', expiresAt: '2026-12-30T01:00:00Z' }
       return page([receipt({})])
@@ -152,6 +176,8 @@ describe('結案文件頁', () => {
     const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
     get.mockImplementation(async (path: string) => {
       if (path.includes('/download-url')) throw new Error('檔期尚未填寫勸募許可文號，補上後才能產生收據 PDF')
+      if (path === '/api/admin/stats/periods') return periodList
+      if (path.startsWith('/api/admin/stats/period?')) return stats
       if (path.startsWith('/api/admin/campaigns')) return [campaign]
       return page([receipt({})])
     })
@@ -196,10 +222,68 @@ describe('結案文件頁', () => {
     expect(await screen.findByText(/已產生 2 張收據 PDF，仍有 1 張待補或失敗/)).toBeTruthy()
   })
 
-  it('沒有任何檔期時說明要先建立', async () => {
-    get.mockImplementation(async () => [])
-    renderPage()
+  it('預設顯示涵蓋今天的檔期的營運統計，期間選單列出各檔期與「尚未建立檔期」', async () => {
+    renderPage('/admin/annual')
 
-    expect(await screen.findByText(/還沒有活動檔期/)).toBeTruthy()
+    expect(await screen.findByText('完成率 80%')).toBeTruthy()
+    expect(screen.getByText('30')).toBeTruthy()
+    expect(screen.getByText('完成率 80%')).toBeTruthy()
+    const picker = screen.getByLabelText('檔期') as HTMLSelectElement
+    expect(picker.value).toBe('c1')
+    expect(within(picker).getAllByRole('option').map((o) => o.textContent)).toEqual([
+      '尚未建立檔期（2027/1/26 起）',
+      '線上聖誕老人 2026（2026/1/26 – 2027/1/25）',
+      '線上聖誕老人 2025（2025/1/1 – 2026/1/25）',
+    ])
+    // 跨年檔期的月份用「年/月」標示，不會把兩年的同月份疊在一起
+    await waitFor(() => expect(get).toHaveBeenCalledWith('/api/admin/stats/period?period=c1'))
+    expect(screen.getByRole('tab', { name: '檔期設定' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: '收據' })).toBeTruthy()
+  })
+
+  it('切換期間：重新查詢該檔期的統計', async () => {
+    renderPage('/admin/annual')
+    await screen.findByText('完成率 80%')
+
+    await userEvent.selectOptions(screen.getByLabelText('檔期'), 'c0')
+
+    await waitFor(() => expect(get).toHaveBeenCalledWith('/api/admin/stats/period?period=c0'))
+  })
+
+  it('選到「尚未建立檔期」：只有營運統計，沒有檔期設定與收據分頁，並提示建立檔期', async () => {
+    renderPage('/admin/annual')
+    await screen.findByText('完成率 80%')
+
+    await userEvent.selectOptions(screen.getByLabelText('檔期'), 'unassigned')
+
+    expect(await screen.findByText(/這段時間還沒有對應的活動檔期/)).toBeTruthy()
+    expect(screen.queryByRole('tab', { name: '檔期設定' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: '收據' })).toBeNull()
+  })
+
+  it('分頁：從營運統計切到檔期設定與收據', async () => {
+    renderPage('/admin/annual')
+    await screen.findByText('完成率 80%')
+
+    await userEvent.click(screen.getByRole('tab', { name: '檔期設定' }))
+    expect(await screen.findByText(/已開立 2 張，下一張 OS2026-000003/)).toBeTruthy()
+
+    await userEvent.click(screen.getByRole('tab', { name: '收據' }))
+    expect(await screen.findByText('OS2026-000001')).toBeTruthy()
+  })
+
+  it('沒有任何檔期時只有「尚未建立檔期」，仍能新增檔期', async () => {
+    get.mockImplementation(async (path: string) => {
+      if (path === '/api/admin/stats/periods') {
+        return { defaultKey: 'unassigned', periods: [periodList.periods[0]] }
+      }
+      if (path.startsWith('/api/admin/stats/period?')) return { ...stats, period: periodList.periods[0] }
+      if (path.startsWith('/api/admin/campaigns')) return []
+      throw new Error('未預期的請求：' + path)
+    })
+    renderPage('/admin/annual')
+
+    expect(await screen.findByText(/這段時間還沒有對應的活動檔期/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: '新增活動檔期' })).toBeTruthy()
   })
 })
