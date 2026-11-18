@@ -83,6 +83,10 @@ public class Organization extends BaseEntity {
     @Column(name = "reviewed_at")
     private Instant reviewedAt;
 
+    /** 本輪送審（首次申請或補件後重新送審）的時間；管理員每日摘要用它算「已等候多久」。 */
+    @Column(name = "submitted_at")
+    private Instant submittedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "release_policy", nullable = false, length = 10)
     private ReleasePolicy releasePolicy;
@@ -107,6 +111,7 @@ public class Organization extends BaseEntity {
         this.description = description;
         this.status = OrganizationStatus.PENDING;
         this.releasePolicy = ReleasePolicy.MANUAL;
+        this.submittedAt = Instant.now();
     }
 
     /** 自助註冊：一律從 PENDING 起算，須經管理員核准才能上架願望。 */
@@ -219,6 +224,11 @@ public class Organization extends BaseEntity {
         this.status = OrganizationStatus.PENDING;
         this.reviewedBy = null;
         this.reviewedAt = null;
+        this.submittedAt = Instant.now();
+    }
+
+    public Instant getSubmittedAt() {
+        return submittedAt;
     }
 
     public boolean canPublishWishes() {

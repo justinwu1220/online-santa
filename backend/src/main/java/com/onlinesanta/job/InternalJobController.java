@@ -30,20 +30,29 @@ public class InternalJobController {
     private final PendingAttachmentCleanupService attachmentCleanup;
     private final DeadlineReminderService deadlineReminders;
     private final LocalAuthService localAuth;
+    private final AdminDigestService adminDigest;
 
     public InternalJobController(ClaimReleaseService releases,
                                  PendingAttachmentCleanupService attachmentCleanup,
                                  DeadlineReminderService deadlineReminders,
-                                 LocalAuthService localAuth) {
+                                 LocalAuthService localAuth,
+                                 AdminDigestService adminDigest) {
         this.releases = releases;
         this.attachmentCleanup = attachmentCleanup;
         this.deadlineReminders = deadlineReminders;
         this.localAuth = localAuth;
+        this.adminDigest = adminDigest;
     }
 
     @PostMapping("/release-expired-claims")
     public ReleaseSweepResult releaseExpiredClaims() {
         return releases.sweep();
+    }
+
+    /** 每日寄給管理員的待審摘要（沒有待審項目時不寄）。 */
+    @PostMapping("/send-admin-digest")
+    public com.onlinesanta.job.dto.AdminDigestResult sendAdminDigest() {
+        return adminDigest.send();
     }
 
     @PostMapping("/cleanup-pending-attachments")

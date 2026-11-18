@@ -154,29 +154,31 @@ public class NotificationService {
      *
      * <p>給排程類的信用：排程請求回應之後，Cloud Run 可能把 CPU 降下來，背景執行緒的信會拖很久
      * 才寄出甚至寄不出；排程本來就不需要「快速回應」，同步寄完再回覆最可靠。
+     *
+     * @return 這封信是否真的交給了寄信伺服器（沒設定寄信、超過每日上限、樣板填值失敗、寄送失敗都是 false）
      */
-    public void sendTemplateNow(String to, MailTemplateId id, Map<String, ?> values) {
+    public boolean sendTemplateNow(String to, MailTemplateId id, Map<String, ?> values) {
         MailTemplate.Rendered rendered;
         try {
             rendered = templates.render(id, values);
         } catch (RuntimeException e) {
             log.error("通知信樣板填值失敗，這封信不會寄出。樣板＝{}，收件人＝{}", id, to, e);
-            return;
+            return false;
         }
-        dispatch(to, rendered.subject(), rendered.html(), rendered.text());
+        return dispatch(to, rendered.subject(), rendered.html(), rendered.text());
     }
 
     /** @param html 為 null 時寄純文字，否則寄 text + html 的 multipart/alternative。 */
-    private void dispatch(String to, String subject, String html, String body) {
+    private boolean dispatch(String to, String subject, String html, String body) {
         if (to == null || to.isBlank()) {
             log.warn("略過寄信：收件人信箱是空的。主旨＝{}", subject);
-            return;
+            return false;
         }
 
         JavaMailSender sender = mailSender.getIfAvailable();
         if (sender == null) {
             log.info("[no-op] 通知信未真的寄出（MAIL_HOST 未設定）。收件人＝{}，主旨＝{}", to, subject);
-            return;
+            return false;
         }
 
         // 主旨前綴（例如測試站的「[測試站]」）：收件人一眼就能分辨這封信不是正式站寄的
@@ -184,7 +186,7 @@ public class NotificationService {
                 ? subject : properties.subjectPrefix() + " " + subject;
 
         if (!reserveDailySlot()) {
-            return;
+            return false;
         }
 
         try {
@@ -200,8 +202,10 @@ public class NotificationService {
             }
             log.info("通知信已寄出。收件人＝{}，主旨＝{}", to, fullSubject);
             recordSuccess();
+            return true;
         } catch (MailException e) {
             recordFailure(to, fullSubject, e);
+            return false;
         }
     }
 
