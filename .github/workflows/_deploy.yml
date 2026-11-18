@@ -43,6 +43,8 @@ jobs:
       HOSTING_SITE: ${{ vars.HOSTING_SITE }}
       SECRET_SUFFIX: ${{ vars.SECRET_SUFFIX }}
       GCS_PRIVATE_BUCKET: ${{ vars.GCS_PRIVATE_BUCKET }}
+      # 公開 bucket（願望卡信件照片、示意圖）也是環境專屬：沒設會變成空字串，後端上傳時才報「公開儲存空間尚未設定」
+      GCS_PUBLIC_BUCKET: ${{ vars.GCS_PUBLIC_BUCKET }}
       APP_ALLOWED_ORIGINS: ${{ vars.APP_ALLOWED_ORIGINS }}
       APP_PUBLIC_URL: ${{ vars.APP_PUBLIC_URL }}
       INTERNAL_JOB_AUDIENCE: ${{ vars.INTERNAL_JOB_AUDIENCE }}
@@ -79,7 +81,7 @@ jobs:
       - name: 檢查設定（缺漏或指錯環境就停止，不碰任何雲端資源）
         run: |
           missing=()
-          for name in CLOUD_RUN_SERVICE CLOUD_RUN_MAX_INSTANCES HOSTING_SITE GCS_PRIVATE_BUCKET \
+          for name in CLOUD_RUN_SERVICE CLOUD_RUN_MAX_INSTANCES HOSTING_SITE GCS_PRIVATE_BUCKET GCS_PUBLIC_BUCKET \
                       APP_ALLOWED_ORIGINS APP_PUBLIC_URL INTERNAL_JOB_AUDIENCE SCHEDULER_SERVICE_ACCOUNT \
                       MAIL_DAILY_LIMIT GCP_PROJECT_ID FIREBASE_PROJECT_ID MAIL_HOST MAIL_FROM; do
             [ -n "${!name}" ] || missing+=("$name")
@@ -113,7 +115,7 @@ jobs:
 
           if [ "$ENVIRONMENT" = "staging" ]; then
             # 測試站的每一個資源名稱都必須看得出是測試站，防止誤指向正式資源
-            for name in CLOUD_RUN_SERVICE HOSTING_SITE GCS_PRIVATE_BUCKET APP_PUBLIC_URL SECRET_SUFFIX; do
+            for name in CLOUD_RUN_SERVICE HOSTING_SITE GCS_PRIVATE_BUCKET GCS_PUBLIC_BUCKET APP_PUBLIC_URL SECRET_SUFFIX; do
               case "${!name}" in
                 *staging*) ;;
                 *) echo "::error::staging 的 $name（${!name:-空值}）看起來不是測試站的資源"; exit 1 ;;
@@ -126,7 +128,7 @@ jobs:
             [ -z "$SECRET_SUFFIX" ] || { echo "::error::production 的 SECRET_SUFFIX 必須是空的（目前是「$SECRET_SUFFIX」）"; exit 1; }
             # 正式站不能出現「測試站」橫幅：會嚇到真正的使用者，也代表環境變數放錯地方了
             [ -z "$ENV_LABEL" ] || { echo "::error::production 的 ENV_LABEL 必須是空的（目前是「$ENV_LABEL」），否則正式站會顯示環境提示橫幅"; exit 1; }
-            for name in CLOUD_RUN_SERVICE HOSTING_SITE GCS_PRIVATE_BUCKET APP_PUBLIC_URL; do
+            for name in CLOUD_RUN_SERVICE HOSTING_SITE GCS_PRIVATE_BUCKET GCS_PUBLIC_BUCKET APP_PUBLIC_URL; do
               case "${!name}" in
                 *staging*) echo "::error::production 的 $name（${!name}）含有 staging"; exit 1 ;;
               esac
@@ -178,7 +180,7 @@ jobs:
             APP_AUTH_COOKIE_SECURE=true
             APP_ADMIN_EMAILS=${{ vars.APP_ADMIN_EMAILS }}
             APP_ALLOWED_ORIGINS=${{ env.APP_ALLOWED_ORIGINS }}
-            GCS_PUBLIC_BUCKET=${{ vars.GCS_PUBLIC_BUCKET }}
+            GCS_PUBLIC_BUCKET=${{ env.GCS_PUBLIC_BUCKET }}
             WISH_IMAGE_ENABLED=${{ vars.WISH_IMAGE_ENABLED || 'false' }}
             GCS_PRIVATE_BUCKET=${{ env.GCS_PRIVATE_BUCKET }}
             INTERNAL_JOB_AUDIENCE=${{ env.INTERNAL_JOB_AUDIENCE }}
