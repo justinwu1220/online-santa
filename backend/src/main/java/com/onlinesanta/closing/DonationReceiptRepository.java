@@ -8,7 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface DonationReceiptRepository extends JpaRepository<DonationReceipt, UUID> {
+public interface DonationReceiptRepository
+        extends JpaRepository<DonationReceipt, UUID>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<DonationReceipt> {
 
     Optional<DonationReceipt> findByReceiptNo(String receiptNo);
 

@@ -77,6 +77,21 @@ public class GcsObjectStorage implements ObjectStorage {
     }
 
     @Override
+    public String createDownloadUrl(StorageBucket bucket, String objectName, Duration ttl, String downloadFileName) {
+        if (downloadFileName == null || !downloadFileName.matches("[A-Za-z0-9._ -]{1,100}")) {
+            throw new IllegalArgumentException("下載檔名必須是 ASCII 英數字、點、底線、減號與空白：" + downloadFileName);
+        }
+        BlobInfo blob = BlobInfo
+                .newBuilder(BlobId.of(properties.bucketName(bucket), objectName))
+                .build();
+        return storage.signUrl(blob, ttl.toSeconds(), TimeUnit.SECONDS,
+                SignUrlOption.httpMethod(HttpMethod.GET),
+                SignUrlOption.withQueryParams(java.util.Map.of("response-content-disposition",
+                        "attachment; filename=\"" + downloadFileName + "\"")),
+                SignUrlOption.withV4Signature()).toString();
+    }
+
+    @Override
     public String publicUrl(String objectName) {
         return "https://storage.googleapis.com/%s/%s"
                 .formatted(properties.publicBucket(), objectName);

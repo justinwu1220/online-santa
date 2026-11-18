@@ -34,6 +34,15 @@ public interface ObjectStorage {
     /** 產生限時的讀取網址。只用於 {@link StorageBucket#PRIVATE}。 */
     String createDownloadUrl(StorageBucket bucket, String objectName, Duration ttl);
 
+    /**
+     * 同上，但要求瀏覽器以指定檔名下載（Content-Disposition: attachment）。
+     * 物件路徑是 closing/receipts/OS2026-000001/white.pdf 這種，沒有指定的話下載下來會是 white.pdf，分不出是哪張。
+     * 預設實作忽略檔名；GCS 實作會帶進簽章。檔名只能是 ASCII（不含引號與換行）。
+     */
+    default String createDownloadUrl(StorageBucket bucket, String objectName, Duration ttl, String downloadFileName) {
+        return createDownloadUrl(bucket, objectName, ttl);
+    }
+
     /** 公開 bucket 的固定網址，不需簽章。 */
     String publicUrl(String objectName);
 

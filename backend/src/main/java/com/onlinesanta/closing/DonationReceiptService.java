@@ -134,6 +134,25 @@ public class DonationReceiptService {
         return real == null || real.isBlank() ? KIND_NAME : real.strip();
     }
 
+    /**
+     * 補開收據：檔期建立或補上之後，為「已完成、寄出日落在勸募期間、卻還沒有有效收據」的認領開立，
+     * 依完成時間排序，讓流水號與完成的先後一致。PDF 在提交後產生。
+     *
+     * @return 這次開立的張數
+     */
+    @Transactional
+    public int issueMissing(UUID campaignId) {
+        Campaign campaign = campaigns.findById(campaignId)
+                .orElseThrow(() -> ResourceNotFoundException.of("活動檔期", campaignId));
+        int issued = 0;
+        for (Claim claim : claims.findCompletedMissingReceipt(campaign.getCollectionStart(), campaign.getCollectionEnd())) {
+            if (issueFor(claim).isPresent()) {
+                issued++;
+            }
+        }
+        return issued;
+    }
+
     // ------------------------------------------------------------ 作廢重開
 
     /**
@@ -221,6 +240,32 @@ public class DonationReceiptService {
         }
         String object = kind == PdfKind.WHITE ? r.getWhiteObject() : r.getYellowRedObject();
         return object == null ? Optional.empty() : storage.read(StorageBucket.PRIVATE, object);
+    }
+
+    /**
+     * 確保收據 PDF 已在雲端（過期被清掉就重新產生），回傳物件路徑；尚缺許可文號或版面失敗時回 empty。
+     * 管理員下載用：回傳路徑讓呼叫端簽發短效下載網址，檔案內容不經過後端。
+     */
+    @Transactional
+    public Optional<String> ensurePdfObject(UUID receiptId, PdfKind kind) {
+        DonationReceipt r = receipts.findById(receiptId)
+                .orElseThrow(() -> ResourceNotFoundException.of("收據", receiptId));
+        if (r.getStatus() == ReceiptStatus.VOIDED) {
+            throw new BusinessRuleException("RECEIPT_VOIDED", "這張收據已作廢，沒有可下載的 PDF");
+        }
+        if (r.getPdfStatus() != PdfStatus.READY || missingFile(r)) {
+            r = generatePdf(receiptId);
+        }
+        if (r.getPdfStatus() != PdfStatus.READY) {
+            return Optional.empty();
+        }
+        return Optional.of(kind == PdfKind.WHITE ? r.getWhiteObject() : r.getYellowRedObject());
+    }
+
+    private boolean missingFile(DonationReceipt r) {
+        return r.getWhiteObject() == null || r.getYellowRedObject() == null
+                || storage.find(StorageBucket.PRIVATE, r.getWhiteObject()).isEmpty()
+                || storage.find(StorageBucket.PRIVATE, r.getYellowRedObject()).isEmpty();
     }
 
     /**
