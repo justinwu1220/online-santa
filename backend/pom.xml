@@ -66,6 +66,20 @@
             <version>${google-cloud-storage.version}</version>
         </dependency>
 
+        <!-- 結案文件：以收據範本 PDF 為底產生三聯單、各式 PDF 報表。
+             commons-logging 排除：Spring 已提供 spring-jcl，兩份並存會重複載入同名類別 -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.5</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <!-- Email 通知：認領成立、審核結果、回饋照片、新訊息、寄送期限提醒 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
