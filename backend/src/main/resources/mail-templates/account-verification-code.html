@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>0.1 信箱驗證碼</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 20px; color: #222; font: 16px/1.65 Arial, "PingFang TC", sans-serif; }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 20px; padding-bottom: 14px; }
+    header small, #link-note { color: #555; }
+    h1 { margin: 6px 0 0; font-size: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <template id="email-subject">【線上聖誕老人 2026】信箱驗證碼 {{code}}</template>
+  <template id="email-body">
+    <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
+      <p style="margin:0 0 16px;">您好：</p>
+      <p style="margin:0 0 12px;"><strong style="color:#38761d;">歡迎來到線上聖誕老人！ 🎅</strong>請回到網站輸入下面這組 6 位數驗證碼，完成信箱驗證：</p>
+      <p style="margin:0 0 16px;font-size:28px;letter-spacing:6px;"><strong style="color:#38761d;">{{code}}</strong></p>
+      <p style="margin:0 0 16px;">驗證碼在 <strong>{{codeMinutes}} 分鐘</strong>內有效。輸入錯誤太多次時，需要重新取得新的驗證碼。</p>
+      <p style="margin:0 0 20px;"><strong style="color:#a61c00;">如果不是您本人申請的，請忽略這封信，不需要做任何事。</strong>請不要把驗證碼告訴任何人，我們的團隊也不會向您索取。</p>
+      <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>
+    </div>
+  </template>
+
+  <header>
+    <small>0.1 信箱驗證碼｜信件預覽（使用虛構資料）</small>
+    <h1 id="subject"></h1>
+  </header>
+  <main id="preview"></main>
+  <p id="link-note" role="status"></p>
+  <script>
+    const example = { code: '482916', codeMinutes: 15 };
+    const fillExample = text => text.replace(/{{(\w+)}}/g, (token, key) => example[key] ?? token);
+    document.getElementById('subject').textContent =
+      fillExample(document.getElementById('email-subject').content.textContent);
+    const preview = document.getElementById('email-body').content.cloneNode(true);
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) walker.currentNode.textContent = fillExample(walker.currentNode.textContent);
+
+    document.getElementById('preview').append(preview);
+  </script>
+</body>
+</html>

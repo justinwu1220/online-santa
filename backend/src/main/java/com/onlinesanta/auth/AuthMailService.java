@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.onlinesanta.notification.MailFields;
+import com.onlinesanta.notification.MailTemplateId;
 import com.onlinesanta.notification.NotificationProperties;
 import com.onlinesanta.notification.NotificationService;
 
@@ -35,41 +37,20 @@ public class AuthMailService {
     }
 
     public void sendVerificationCode(String to, String code) {
-        String subject = "【線上聖誕老人】信箱驗證碼 " + code;
-        String body = """
-                你好，
-
-                你的信箱驗證碼是：%s
-
-                請回到網站輸入這組驗證碼，%d 分鐘內有效。
-                如果不是你本人申請的，請忽略這封信，不需要做任何事。
-
-                線上聖誕老人
-                """.formatted(code, CODE_TTL_MINUTES);
         if (!properties.isConfigured()) {
             log.info("[dev-mail] 信箱驗證碼 {}（收件人＝{}）", code, to);
         }
-        afterCommit(() -> notifications.send(to, subject, body));
+        afterCommit(() -> notifications.sendTemplate(to, MailTemplateId.ACCOUNT_VERIFICATION_CODE,
+                MailFields.of("code", code, "codeMinutes", CODE_TTL_MINUTES)));
     }
 
     public void sendPasswordReset(String to, String token) {
         String link = properties.publicUrl() + "/reset-password?token=" + token;
-        String subject = "【線上聖誕老人】重設密碼";
-        String body = """
-                你好，
-
-                我們收到了重設密碼的申請。請點擊下方連結設定新密碼，%d 分鐘內有效，且只能使用一次：
-
-                %s
-
-                如果不是你本人申請的，請忽略這封信，你的密碼不會有任何變動。
-
-                線上聖誕老人
-                """.formatted(RESET_TTL_MINUTES, link);
         if (!properties.isConfigured()) {
             log.info("[dev-mail] 重設密碼連結 {}（收件人＝{}）", link, to);
         }
-        afterCommit(() -> notifications.send(to, subject, body));
+        afterCommit(() -> notifications.sendTemplate(to, MailTemplateId.PASSWORD_RESET,
+                MailFields.of("resetUrl", link, "resetMinutes", RESET_TTL_MINUTES)));
     }
 
     private static void afterCommit(Runnable action) {

@@ -7,6 +7,10 @@ package com.onlinesanta.notification;
  */
 public enum MailTemplateId {
 
+    // ── 帳號信（本專案自行設計，沿用同一套風格）
+    ACCOUNT_VERIFICATION_CODE("0.1_信箱驗證碼"),
+    PASSWORD_RESET("0.2_重設密碼"),
+
     // ── 既有通知（編號對照 Resend 自動寄信內容 README）
     CLAIM_CONFIRMED("1.2_認領成立_認領者確認信"),
     DEADLINE_REMINDER("1.3_寄送期限提醒"),
