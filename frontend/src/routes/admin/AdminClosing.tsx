@@ -7,7 +7,7 @@ import { formatPlainDate } from '../../lib/format'
 import type { CampaignView, PdfStatus, ReceiptStatus, ReceiptView } from '../../lib/types'
 import { CampaignDialog } from './CampaignDialog'
 import {
-  downloadReceipt, useCampaigns, useGenerateReceiptPdfs, useIssueMissingReceipts, useReceipts, useVoidReceipt,
+  openReceipt, useCampaigns, useGenerateReceiptPdfs, useIssueMissingReceipts, useReceipts, useVoidReceipt,
   type ReceiptFilter,
 } from './closingQueries'
 
@@ -137,9 +137,9 @@ function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
   async function download(receipt: ReceiptView, kind: 'WHITE' | 'YELLOW_RED') {
     setDownloadError(undefined)
     try {
-      await downloadReceipt(receipt.id, kind)
+      await openReceipt(receipt.id, kind)
     } catch (e) {
-      setDownloadError(e instanceof Error ? e.message : '下載失敗，請稍後再試')
+      setDownloadError(e instanceof Error ? e.message : '開啟失敗，請稍後再試')
     }
   }
 
@@ -177,7 +177,7 @@ function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
       </div>
       <p className="set-sec__desc" style={{ margin: 0 }}>
         「補開收據」為已完成、寄出日落在勸募期間、卻還沒有收據的願望開立（依完成順序配號）；
-        「補產 PDF」為還沒有 PDF 的收據補產，填入許可文號後按這個。下載收據 PDF 含捐贈者證號，每次下載都會寫入稽核。
+        「補產 PDF」為還沒有 PDF 的收據補產，填入許可文號後按這個。收據 PDF 含捐贈者證號，每次開啟都會寫入稽核。
       </p>
       {(issueMissing.isError || generate.isError) && <ErrorNotice error={issueMissing.error ?? generate.error} />}
       {notice && <div className={`callout callout--${notice.tone}`} role="status"><p>{notice.text}</p></div>}

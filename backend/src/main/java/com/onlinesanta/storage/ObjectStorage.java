@@ -35,8 +35,9 @@ public interface ObjectStorage {
     String createDownloadUrl(StorageBucket bucket, String objectName, Duration ttl);
 
     /**
-     * 同上，但要求瀏覽器以指定檔名下載（Content-Disposition: attachment）。
-     * 物件路徑是 closing/receipts/OS2026-000001/white.pdf 這種，沒有指定的話下載下來會是 white.pdf，分不出是哪張。
+     * 同上，但帶指定檔名（Content-Disposition: inline; filename=…）：PDF 在瀏覽器分頁內預覽，
+     * 分頁標題與另存的檔名都是指定的名稱。用 inline 而不是 attachment，是為了讓管理員能在新分頁先看再決定存不存。
+     * 物件路徑是 closing/receipts/OS2026-000001/white.pdf 這種，沒有指定的話檔名會是 white.pdf，分不出是哪張。
      * 預設實作忽略檔名；GCS 實作會帶進簽章。檔名只能是 ASCII（不含引號與換行）。
      */
     default String createDownloadUrl(StorageBucket bucket, String objectName, Duration ttl, String downloadFileName) {

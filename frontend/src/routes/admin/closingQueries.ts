@@ -77,14 +77,26 @@ export function useGenerateReceiptPdfs() {
   })
 }
 
-/** 取得短效下載網址（每次都寫稽核），並讓瀏覽器直接下載。 */
-export async function downloadReceipt(id: string, kind: PdfKind) {
-  const result = await api.get<ReceiptDownload>(
-    withQuery(`/api/admin/receipts/${id}/download-url`, { kind }))
-  const link = document.createElement('a')
-  link.href = result.url
-  link.rel = 'noopener'
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
+/**
+ * 在新分頁開啟收據 PDF（預覽，可再另存）。網址是短效的，每次取得都會寫稽核。
+ *
+ * 先在使用者按下按鈕的當下同步開好空白分頁，拿到網址再導過去：非同步請求完成後才呼叫
+ * window.open，會被瀏覽器當成彈出視窗擋掉。取得網址失敗就把空白分頁關掉，錯誤丟回給呼叫端顯示。
+ */
+export async function openReceipt(id: string, kind: PdfKind) {
+  const tab = window.open('', '_blank')
+  if (tab) tab.opener = null
+  try {
+    const result = await api.get<ReceiptDownload>(
+      withQuery(`/api/admin/receipts/${id}/download-url`, { kind }))
+    if (tab) {
+      tab.location.href = result.url
+    } else {
+      // 瀏覽器還是擋了空白分頁：退回在同一個分頁開，至少看得到
+      window.location.href = result.url
+    }
+  } catch (e) {
+    tab?.close()
+    throw e
+  }
 }

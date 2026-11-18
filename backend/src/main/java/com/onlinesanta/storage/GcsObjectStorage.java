@@ -87,7 +87,7 @@ public class GcsObjectStorage implements ObjectStorage {
         return storage.signUrl(blob, ttl.toSeconds(), TimeUnit.SECONDS,
                 SignUrlOption.httpMethod(HttpMethod.GET),
                 SignUrlOption.withQueryParams(java.util.Map.of("response-content-disposition",
-                        "attachment; filename=\"" + downloadFileName + "\"")),
+                        "inline; filename=\"" + downloadFileName + "\"")),
                 SignUrlOption.withV4Signature()).toString();
     }
 

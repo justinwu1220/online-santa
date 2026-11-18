@@ -89,16 +89,39 @@ describe('結案文件頁', () => {
     expect(within(row3).getByRole('button', { name: '作廢重開' }).hasAttribute('disabled')).toBe(true)
   })
 
-  it('按白聯會向後端要短效下載網址（kind 帶 WHITE）', async () => {
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+  it('按白聯：在新分頁開啟（先同步開空白分頁，再導向短效網址），不離開收據頁', async () => {
+    const tab = { location: { href: '' }, close: vi.fn(), opener: {} }
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
     renderPage()
     const row = (await screen.findByText('OS2026-000001')).closest('tr')!
 
     await userEvent.click(within(row).getByRole('button', { name: '白聯' }))
 
     await waitFor(() => expect(get).toHaveBeenCalledWith('/api/admin/receipts/r1/download-url?kind=WHITE'))
-    await waitFor(() => expect(click).toHaveBeenCalled())
-    click.mockRestore()
+    expect(open).toHaveBeenCalledWith('', '_blank')
+    await waitFor(() => expect(tab.location.href).toBe('https://storage.test/x.pdf'))
+    expect(tab.opener).toBeNull()
+    expect(tab.close).not.toHaveBeenCalled()
+    open.mockRestore()
+  })
+
+  it('取不到網址（例如缺許可文號）：關掉空白分頁並在頁面顯示原因', async () => {
+    const tab = { location: { href: '' }, close: vi.fn(), opener: {} }
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+    get.mockImplementation(async (path: string) => {
+      if (path.includes('/download-url')) throw new Error('檔期尚未填寫勸募許可文號，補上後才能產生收據 PDF')
+      if (path.startsWith('/api/admin/campaigns')) return [campaign]
+      return page([receipt({})])
+    })
+    renderPage()
+    const row = (await screen.findByText('OS2026-000001')).closest('tr')!
+
+    await userEvent.click(within(row).getByRole('button', { name: '白聯' }))
+
+    expect(await screen.findByText(/檔期尚未填寫勸募許可文號/)).toBeTruthy()
+    expect(tab.close).toHaveBeenCalled()
+    expect(tab.location.href).toBe('')
+    open.mockRestore()
   })
 
   it('作廢重開：原因必填，送出後呼叫後端並顯示新編號', async () => {
