@@ -8,7 +8,7 @@ const CLOSE_MS = 220
 const EASE_OUT = 'cubic-bezier(.22,.8,.3,1)'
 
 /**
- * 右側抽屜（設計稿 15.4）。原生 `<dialog>`，寬 600px（手機全寬）。
+ * 右側抽屜（設計稿 15.4）。原生 `<dialog>`，寬 600px（手機全寬）；`wide` 時加寬到 960px（內容有長文字的表格用）。
  *
  * - **只動位移**（translateX），不對整片抽屜做透明度動畫——文字在透明度動畫結束時會換抗鋸齒，
  *   看起來像閃一下。開啟 0.32s 減速、關閉 0.22s 加速。
@@ -18,7 +18,7 @@ const EASE_OUT = 'cubic-bezier(.22,.8,.3,1)'
  *
  * @param tone 抽屜的強調色（狀態色）：`data-tone` 驅動 CSS 變數，分頁底線、進度、引言線、主要按鈕都跟著變
  */
-export function Drawer({ open, onClose, tone, labelledBy, title, chip, tabs, foot, children, dismissible = true }: {
+export function Drawer({ open, onClose, tone, labelledBy, title, chip, tabs, foot, children, dismissible = true, wide = false }: {
   open: boolean
   onClose: () => void
   tone?: string
@@ -34,6 +34,8 @@ export function Drawer({ open, onClose, tone, labelledBy, title, chip, tabs, foo
   children: ReactNode
   /** 送出中不能用 Esc 或點背景關掉 */
   dismissible?: boolean
+  /** 加寬（960px）。預設 600px；內容含「舊 → 新」這類長文字對照時使用 */
+  wide?: boolean
 }) {
   const ref = useRef<HTMLDialogElement>(null)
   const pressedInside = useRef(false)
@@ -79,6 +81,7 @@ export function Drawer({ open, onClose, tone, labelledBy, title, chip, tabs, foo
       ref={ref}
       className="drawer"
       data-tone={tone}
+      data-wide={wide || undefined}
       aria-labelledby={labelledBy}
       onCancel={(event) => {
         // 檔案選擇器按取消、抽屜裡的對話框按 Esc，都會有 cancel 事件冒泡上來；只處理抽屜自己的 Esc

@@ -132,7 +132,7 @@ function TargetDrawer({ target, onClose }: {
   })
 
   return (
-    <Drawer open={target !== null} onClose={onClose} tone="review" labelledBy="adChangeDrawerTitle"
+    <Drawer open={target !== null} onClose={onClose} tone="review" labelledBy="adChangeDrawerTitle" wide
       title={shown?.label ?? shown?.targetId ?? ''}
       chip={shown && (
         <span className="st-chip" data-s="pending">

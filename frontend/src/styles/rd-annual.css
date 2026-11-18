@@ -102,8 +102,9 @@
 .badge--resubmit{background:rgba(167,139,250,.16);color:#c4b5fd;border:1px solid rgba(167,139,250,.35)}
 .wh-changes{display:flex;flex-direction:column;gap:10px}
 .wh-changes__since{margin:0;font-size:12.5px;color:var(--fg-muted)}
-.wh-change{display:grid;grid-template-columns:auto auto 1fr;gap:2px 8px;align-items:baseline;font-size:14px}
+.wh-change{display:grid;grid-template-columns:minmax(0,auto) auto minmax(0,1fr);gap:2px 8px;align-items:baseline;font-size:14px}
 .wh-change strong{grid-column:1/-1;font-size:13px;color:var(--fg)}
+.wh-change__old,.wh-change__new{overflow-wrap:anywhere}
 .wh-change__old{color:var(--fg-muted);text-decoration:line-through;text-decoration-color:rgba(248,113,113,.6)}
 .wh-change__arrow{color:var(--fg-muted)}
 .wh-change__new{color:var(--fg);font-weight:700}
