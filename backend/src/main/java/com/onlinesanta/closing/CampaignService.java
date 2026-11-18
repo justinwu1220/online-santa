@@ -17,7 +17,8 @@ import com.onlinesanta.organization.OrganizationRepository;
 /**
  * 活動檔期的管理與收據配號。
  *
- * <p>兩個進行中的檔期，勸募期間不可重疊：收據以捐贈日歸屬檔期，重疊會讓同一天的捐贈不知道該歸誰。
+ * <p>檔期的勸募期間不可重疊（含已結束的）：收據以捐贈日歸屬檔期、營運統計以週期歸屬檔期，
+ * 重疊會讓同一天的資料不知道該歸誰。
  */
 @Service
 public class CampaignService {
@@ -72,9 +73,7 @@ public class CampaignService {
             throw new BusinessRuleException("RECEIPT_PREFIX_TAKEN", "收據前綴「%s」已被別的檔期使用".formatted(prefix));
         }
         CampaignStatus status = request.status() == null ? campaign.getStatus() : request.status();
-        if (status == CampaignStatus.ACTIVE) {
-            requireNoOverlap(request.collectionStart(), request.collectionEnd(), id);
-        }
+        requireNoOverlap(request.collectionStart(), request.collectionEnd(), id);
         requireAssociationOrg(request.associationOrgId());
 
         campaign.update(request.name().strip(), request.activityNo(), request.permitNo(), request.approvedName(),
@@ -120,7 +119,7 @@ public class CampaignService {
     private void requireNoOverlap(LocalDate start, LocalDate end, UUID excludeId) {
         if (campaigns.countOverlapping(start, end, excludeId) > 0) {
             throw new BusinessRuleException("CAMPAIGN_PERIOD_OVERLAP",
-                    "勸募期間與另一個進行中的檔期重疊：收據以捐贈日歸屬檔期，期間不能重疊");
+                    "勸募期間與另一個檔期重疊：收據與營運統計都以日期歸屬檔期，期間不能重疊（已結束的檔期也一樣）");
         }
     }
 

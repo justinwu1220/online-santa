@@ -15,7 +15,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.onlinesanta.admin.dto.AuditLogView;
-import com.onlinesanta.admin.dto.PlatformAnnualStatsView;
+import com.onlinesanta.admin.dto.PlatformPeriodStatsView;
+import com.onlinesanta.closing.OperatingPeriodService;
+import com.onlinesanta.closing.dto.PeriodListView;
 import com.onlinesanta.admin.dto.PlatformMonthlyStatsView;
 import com.onlinesanta.admin.dto.PlatformStatsView;
 import com.onlinesanta.common.PageResponse;
@@ -34,15 +36,18 @@ public class AdminOverviewController {
 
     private final AdminStatsService stats;
     private final AdminAnnualStatsService annualStats;
+    private final OperatingPeriodService periods;
     private final AdminAuditService audit;
     private final UserRepository users;
 
     public AdminOverviewController(AdminStatsService stats,
                                    AdminAnnualStatsService annualStats,
+                                   OperatingPeriodService periods,
                                    AdminAuditService audit,
                                    UserRepository users) {
         this.stats = stats;
         this.annualStats = annualStats;
+        this.periods = periods;
         this.audit = audit;
         this.users = users;
     }
@@ -53,16 +58,23 @@ public class AdminOverviewController {
         return stats.collect();
     }
 
-    @GetMapping("/stats/annual")
-    @Operation(summary = "年度營運總覽",
-            description = "新捐贈者、新機構、認領、完成率、每月趨勢、機構完成排行等年度統計")
-    public PlatformAnnualStatsView annualStats(@RequestParam(required = false) Integer year) {
-        return annualStats.annual(year);
+    @GetMapping("/stats/periods")
+    @Operation(summary = "檔期選單", description = "各檔期的營運週期，由新到舊，附預設選項")
+    public PeriodListView statsPeriods() {
+        return periods.list();
+    }
+
+    @GetMapping("/stats/period")
+    @Operation(summary = "檔期營運總覽",
+            description = "新捐贈者、新機構、認領、完成率、每月趨勢、機構完成排行等統計；"
+                    + "period 為檔期 id 或 unassigned，省略時用預設選項")
+    public PlatformPeriodStatsView periodStats(@RequestParam(required = false) String period) {
+        return annualStats.period(periods.resolve(period));
     }
 
     @GetMapping("/stats/monthly")
     @Operation(summary = "平台單月每日認領分布",
-            description = "年度營運頁「每月趨勢」長條圖的下鑽；year、month 皆必填，month 須介於 1–12")
+            description = "營運頁「每月趨勢」長條圖的下鑽；year、month 皆必填，month 須介於 1–12")
     public PlatformMonthlyStatsView monthlyStats(@RequestParam int year, @RequestParam int month) {
         return annualStats.monthly(year, month);
     }

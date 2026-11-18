@@ -33,11 +33,13 @@ public interface CampaignRepository extends JpaRepository<Campaign, UUID> {
             """)
     List<Campaign> findActiveCovering(@Param("day") LocalDate day);
 
-    /** 與指定勸募期間重疊的其他進行中檔期數（{@code excludeId} 為 null 代表新增）。 */
+    /**
+     * 與指定勸募期間重疊的其他檔期數（含已結束的；{@code excludeId} 為 null 代表新增）。
+     * 營運統計把每個檔期換算成一段不重疊的週期，已結束的檔期也不能重疊。
+     */
     @Query("""
             select count(c) from Campaign c
-            where c.status = com.onlinesanta.closing.CampaignStatus.ACTIVE
-              and (:excludeId is null or c.id <> :excludeId)
+            where (:excludeId is null or c.id <> :excludeId)
               and c.collectionStart <= :end and c.collectionEnd >= :start
             """)
     long countOverlapping(@Param("start") LocalDate start, @Param("end") LocalDate end,

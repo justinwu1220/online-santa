@@ -12,13 +12,15 @@ import com.onlinesanta.claim.ClaimEventRepository;
 import com.onlinesanta.claim.ClaimRepository;
 import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.common.dto.DailyCount;
-import com.onlinesanta.common.dto.MonthlyCount;
-import com.onlinesanta.organization.dto.OrganizationAnnualStatsView;
+import com.onlinesanta.closing.OperatingPeriod;
+import com.onlinesanta.closing.dto.OperatingPeriodView;
+import com.onlinesanta.common.dto.PeriodMonthCount;
+import com.onlinesanta.organization.dto.OrganizationPeriodStatsView;
 import com.onlinesanta.organization.dto.OrganizationMonthlyStatsView;
 import com.onlinesanta.wish.WishRepository;
 
 /**
- * 機構後台的年度回顧統計。
+ * 機構後台的檔期回顧統計。
  *
  * <p><strong>安全注意：</strong>{@code /api/organizations/me/**} 沒有路徑層級的角色限制，
  * 全靠這裡呼叫 {@link CurrentUserService#requireOrganizationId()} 擋人——任何登入者都打得到
@@ -41,11 +43,10 @@ public class OrganizationStatsService {
     }
 
     @Transactional(readOnly = true)
-    public OrganizationAnnualStatsView annual(Integer year) {
+    public OrganizationPeriodStatsView period(OperatingPeriod period) {
         UUID organizationId = currentUser.requireOrganizationId();
-        int resolvedYear = year != null ? year : TaiwanYear.currentYear();
-        Instant from = TaiwanYear.startOf(resolvedYear);
-        Instant to = TaiwanYear.endOf(resolvedYear);
+        Instant from = period.from();
+        Instant to = period.to();
 
         long newWishes = wishes.countByOrganizationAndCreatedAtBetween(organizationId, from, to);
 
@@ -59,18 +60,15 @@ public class OrganizationStatsService {
 
         long autoReleased = claimEvents.countAutoReleasedForOrganization(organizationId, from, to);
         Double averageCompletionDays = claims.averageCompletionDaysForOrganization(organizationId, from, to);
-        long crossYearCompletions = claims.countCrossYearCompletions(organizationId, from, to);
+        long completedAfterPeriod = claims.countCompletedAfterPeriod(organizationId, from, to);
 
-        List<MonthlyCount> monthlyClaims = MonthlyCount.fill(
+        List<PeriodMonthCount> monthlyClaims = PeriodMonthCount.fill(period.months(),
                 claims.monthlyClaimsForOrganization(organizationId, from, to));
 
-        List<Integer> availableYears = TaiwanYear.availableYearsSince(
-                claims.earliestClaimedAtByOrganization(organizationId));
-
-        return new OrganizationAnnualStatsView(
-                resolvedYear, newWishes, claimed, completed, completionRate,
-                released, cancelled, autoReleased, averageCompletionDays, crossYearCompletions,
-                monthlyClaims, availableYears);
+        return new OrganizationPeriodStatsView(
+                OperatingPeriodView.from(period), newWishes, claimed, completed, completionRate,
+                released, cancelled, autoReleased, averageCompletionDays, completedAfterPeriod,
+                monthlyClaims);
     }
 
     /** 「每月分布」長條圖點選某月後的下鑽：該月每日的認領分布。 */

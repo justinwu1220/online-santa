@@ -34,6 +34,11 @@ public final class TaiwanYear {
         return startOf(year + 1);
     }
 
+    /** 台北日期的起點（該日 00:00）；營運週期的 {@code [from, to)} 用它換算。 */
+    public static Instant startOfDay(LocalDate day) {
+        return day.atStartOfDay(ZONE).toInstant();
+    }
+
     /** 目前台北時間所在的年度。 */
     public static int currentYear() {
         return LocalDate.now(ZONE).getYear();

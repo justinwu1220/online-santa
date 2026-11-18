@@ -11,23 +11,25 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.onlinesanta.admin.dto.OrganizationCompletionRankingView;
-import com.onlinesanta.admin.dto.PlatformAnnualStatsView;
+import com.onlinesanta.admin.dto.PlatformPeriodStatsView;
 import com.onlinesanta.admin.dto.PlatformMonthlyStatsView;
 import com.onlinesanta.claim.ClaimRepository;
 import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.common.dto.DailyCount;
-import com.onlinesanta.common.dto.MonthlyCount;
+import com.onlinesanta.closing.OperatingPeriod;
+import com.onlinesanta.closing.dto.OperatingPeriodView;
+import com.onlinesanta.common.dto.PeriodMonthCount;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.user.UserRepository;
 import com.onlinesanta.user.UserRole;
 import com.onlinesanta.wish.WishRepository;
 
 /**
- * 監控中心的年度營運統計。
+ * 監控中心的檔期營運統計。
  *
  * <p>與 {@link AdminStatsService} 分開：那裡是不分年度的全站現況分佈，這裡是
- * cohort 制的年度彙總，兩者的統計口徑不同（見 {@link com.onlinesanta.common.TaiwanYear}）。
+ * cohort 制的檔期彙總，兩者的統計口徑不同（見 {@link com.onlinesanta.common.TaiwanYear}）。
  */
 @Service
 public class AdminAnnualStatsService {
@@ -48,10 +50,9 @@ public class AdminAnnualStatsService {
     }
 
     @Transactional(readOnly = true)
-    public PlatformAnnualStatsView annual(Integer year) {
-        int resolvedYear = year != null ? year : TaiwanYear.currentYear();
-        Instant from = TaiwanYear.startOf(resolvedYear);
-        Instant to = TaiwanYear.endOf(resolvedYear);
+    public PlatformPeriodStatsView period(OperatingPeriod period) {
+        Instant from = period.from();
+        Instant to = period.to();
 
         long newDonors = users.countByRoleAndCreatedAtBetween(UserRole.DONOR, from, to);
         long newOrganizations = organizations.countByCreatedAtBetween(from, to);
@@ -63,7 +64,8 @@ public class AdminAnnualStatsService {
         long completed = (Long) claimAggregate[1];
         double completionRate = claimed == 0 ? 0.0 : (double) completed / claimed;
 
-        List<MonthlyCount> monthlyClaims = MonthlyCount.fill(claims.monthlyClaimsPlatformWide(from, to));
+        List<PeriodMonthCount> monthlyClaims = PeriodMonthCount.fill(period.months(),
+                claims.monthlyClaimsPlatformWide(from, to));
         Map<String, Long> claimOutcomes = claimOutcomes(claims.claimOutcomeCountsPlatformWide(from, to));
 
         List<OrganizationCompletionRankingView> topOrganizations = claims
@@ -73,12 +75,10 @@ public class AdminAnnualStatsService {
                         (UUID) row[0], (String) row[1], (Long) row[2]))
                 .toList();
 
-        List<Integer> availableYears = TaiwanYear.availableYearsSince(claims.earliestClaimedAtPlatformWide());
-
-        return new PlatformAnnualStatsView(
-                resolvedYear, newDonors, newOrganizations, activeDonors, publishedWishes,
+        return new PlatformPeriodStatsView(
+                OperatingPeriodView.from(period), newDonors, newOrganizations, activeDonors, publishedWishes,
                 claimed, completed, completionRate, monthlyClaims, claimOutcomes,
-                topOrganizations, availableYears);
+                topOrganizations);
     }
 
     /** 「每月趨勢」長條圖點選某月後的下鑽：該月每日的認領分布。 */
@@ -93,7 +93,7 @@ public class AdminAnnualStatsService {
     }
 
     /**
-     * 認領結果分布補零：三種終局狀態即使該年度沒有任何一筆，也要出現在回應裡，
+     * 認領結果分布補零：三種終局狀態即使該期間沒有任何一筆，也要出現在回應裡，
      * 前端才能穩定畫出完整的圓餅圖（比照 {@code AdminStatsService.counts()} 的做法）。
      */
     private Map<String, Long> claimOutcomes(List<Object[]> rows) {

@@ -311,10 +311,9 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
                                                      @Param("from") Instant from, @Param("to") Instant to);
 
     /**
-     * 跨年完成：該年度認領、但完成時間落在隔年（或更晚）的筆數。
+     * 期間結束後才完成：該期間認領、但完成時間落在期間結束之後的筆數。
      *
-     * <p>量化聖誕檔期作業拖過年末的規模——{@code completedAt >= to} 代表完成時已不在
-     * 認領當年的日曆年內（{@code to} 是認領年度的隔年起點）。
+     * <p>量化作業拖過檔期結束的規模——{@code completedAt >= to}（{@code to} 是期間結束隔天）。
      */
     @Query("""
             select count(c) from Claim c
@@ -324,7 +323,7 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
                and c.status = com.onlinesanta.claim.ClaimStatus.COMPLETED
                and c.completedAt >= :to
             """)
-    long countCrossYearCompletions(@Param("organizationId") UUID organizationId,
+    long countCompletedAfterPeriod(@Param("organizationId") UUID organizationId,
                                    @Param("from") Instant from, @Param("to") Instant to);
 
     /**
@@ -346,7 +345,7 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
                                                 @Param("from") Instant from, @Param("to") Instant to);
 
     /**
-     * 機構的每月認領分布，月份為台北時區的月份（1–12）。
+     * 機構期間內每月的認領數，每列為 [年, 月, 筆數]，年月為台北時區（營運週期可能跨年）。
      *
      * <p>用原生 SQL 的 {@code AT TIME ZONE} 換算——JPQL 表達不了時區轉換。直接在 SQL 裡
      * 算出月份數字，而非用 {@code date_trunc} 回傳時間戳：後者經 JDBC 映射回
@@ -354,14 +353,15 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
      * 在此不需要月份以外的資訊，直接算出整數最不容易出錯。
      */
     @Query(value = """
-            select extract(month from (c.claimed_at AT TIME ZONE 'Asia/Taipei'))::int as month,
+            select extract(year from (c.claimed_at AT TIME ZONE 'Asia/Taipei'))::int as year,
+                   extract(month from (c.claimed_at AT TIME ZONE 'Asia/Taipei'))::int as month,
                    count(*)
               from claims c
               join wishes w on w.id = c.wish_id
              where w.organization_id = :organizationId
                and c.claimed_at >= :from
                and c.claimed_at < :to
-             group by month
+             group by year, month
             """, nativeQuery = true)
     List<Object[]> monthlyClaimsForOrganization(@Param("organizationId") UUID organizationId,
                                                 @Param("from") Instant from, @Param("to") Instant to);
@@ -403,13 +403,14 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
             """)
     List<Object[]> platformAnnualClaimAggregate(@Param("from") Instant from, @Param("to") Instant to);
 
-    /** 平台年度的每月認領趨勢，月份為台北時區的月份（1–12）。 */
+    /** 平台期間內每月的認領數，每列為 [年, 月, 筆數]，年月為台北時區（營運週期可能跨年）。 */
     @Query(value = """
-            select extract(month from (claimed_at AT TIME ZONE 'Asia/Taipei'))::int as month,
+            select extract(year from (claimed_at AT TIME ZONE 'Asia/Taipei'))::int as year,
+                   extract(month from (claimed_at AT TIME ZONE 'Asia/Taipei'))::int as month,
                    count(*)
               from claims
              where claimed_at >= :from and claimed_at < :to
-             group by month
+             group by year, month
             """, nativeQuery = true)
     List<Object[]> monthlyClaimsPlatformWide(@Param("from") Instant from, @Param("to") Instant to);
 

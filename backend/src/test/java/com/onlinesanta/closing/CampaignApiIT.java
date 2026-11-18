@@ -94,6 +94,23 @@ class CampaignApiIT extends ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("已結束的檔期也不能重疊：營運統計把每個檔期換算成一段不重疊的週期")
+    void closedCampaignsCannotOverlapEither() throws Exception {
+        UUID first = createViaApi(request("第一檔", "OS2026", LocalDate.of(2026, 11, 25), LocalDate.of(2027, 1, 25)));
+        CampaignRequest close = new CampaignRequest("第一檔", "115000877", null, null,
+                LocalDate.of(2026, 11, 25), LocalDate.of(2027, 1, 25), LocalDate.of(2026, 11, 25),
+                LocalDate.of(2027, 1, 25), null, "OS2026", null, null, CampaignStatus.CLOSED);
+        mvc.perform(as(withBody(put("/api/admin/campaigns/{id}", first), close), ADMIN)).andExpect(status().isOk());
+
+        mvc.perform(as(withBody(post("/api/admin/campaigns"),
+                        request("與已結束檔期重疊", "OS2027", LocalDate.of(2027, 1, 1), LocalDate.of(2027, 2, 1))), ADMIN))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("CAMPAIGN_PERIOD_OVERLAP"));
+        // 緊接在後面（不重疊）沒問題
+        createViaApi(request("下一檔", "OS2027", LocalDate.of(2027, 1, 26), LocalDate.of(2027, 3, 1)));
+    }
+
+    @Test
     @DisplayName("日期、前綴格式有誤時回 400")
     void validatesInput() throws Exception {
         mvc.perform(as(withBody(post("/api/admin/campaigns"),

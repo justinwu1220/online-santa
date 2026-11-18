@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
@@ -22,6 +23,9 @@ import jakarta.persistence.PersistenceContext;
 
 import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.claim.dto.ReleaseRequest;
+import com.onlinesanta.closing.Campaign;
+import com.onlinesanta.closing.CampaignService;
+import com.onlinesanta.closing.dto.CampaignRequest;
 import com.onlinesanta.support.ShipRequests;
 import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.support.ApiIntegrationTest;
@@ -34,7 +38,7 @@ import com.onlinesanta.wish.Wish;
 import com.onlinesanta.wish.WishCategory;
 import com.onlinesanta.wish.WishRepository;
 
-@DisplayName("機構後台的年度回顧")
+@DisplayName("機構後台的檔期回顧")
 class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
 
     private static final String ORG_A = "org-a@example.org";
@@ -52,6 +56,9 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    CampaignService campaignService;
 
     @PersistenceContext
     EntityManager entityManager;
@@ -107,6 +114,15 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
         entityManager.clear();
     }
 
+    private Campaign campaign(String name, LocalDate start, LocalDate end, String prefix) {
+        return campaignService.create(new CampaignRequest(name, null, null, null, start, end, start, end,
+                null, prefix, null, null, null));
+    }
+
+    private static Instant taipei(int year, int month, int day, int hour, int minute) {
+        return ZonedDateTime.of(year, month, day, hour, minute, 0, 0, TaiwanYear.ZONE).toInstant();
+    }
+
     private void completeFully(UUID claimId, String orgMember) throws Exception {
         completeAsOrganization(claimId, orgMember)
                 .andExpect(status().isOk());
@@ -115,10 +131,8 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
     // ------------------------------------------------------------ 基本彙總
 
     @Test
-    @DisplayName("年度統計涵蓋新增願望、認領、完成率")
-    void annualStatsAggregateCorrectly() throws Exception {
-        int thisYear = TaiwanYear.currentYear();
-
+    @DisplayName("統計涵蓋新增願望、認領、完成率（沒有檔期時是「尚未建立檔期」）")
+    void periodStatsAggregateCorrectly() throws Exception {
         UUID wish1 = publishedWish(organizationA, "願望一");
         UUID claim1 = claimAs(wish1, DONOR);
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claim1, DONOR);
@@ -133,10 +147,9 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
 
         publishedWish(organizationA, "願望三（未認領）");
 
-        mvc.perform(as(get("/api/organizations/me/stats/annual")
-                        .param("year", String.valueOf(thisYear)), ORG_A))
+        mvc.perform(as(get("/api/organizations/me/stats/period"), ORG_A))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.year").value(thisYear))
+                .andExpect(jsonPath("$.period.key").value("unassigned"))
                 .andExpect(jsonPath("$.newWishes").value(3))
                 .andExpect(jsonPath("$.claimed").value(2))
                 .andExpect(jsonPath("$.completed").value(1))
@@ -146,49 +159,47 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("願望歸年用 createdAt，不是發布時間")
+    @DisplayName("願望歸期用 createdAt，不是發布時間")
     void newWishesCountUsesCreatedAtNotPublishedAt() throws Exception {
-        int thisYear = TaiwanYear.currentYear();
-        int lastYear = thisYear - 1;
+        Campaign first = campaign("2025 檔期", LocalDate.of(2025, 11, 25), LocalDate.of(2026, 1, 25), "T25");
+        Campaign second = campaign("2026 檔期", LocalDate.of(2026, 11, 25), LocalDate.of(2027, 1, 25), "T26");
 
-        // 去年建立、今年才發布（published_at 是現在，created_at 在去年）
-        UUID wishId = publishedWish(organizationA, "去年建立、今年才上架");
-        backdateWish(wishId, TaiwanYear.startOf(lastYear).plusSeconds(3600));
+        // 2025 檔期期間建立、今天才發布（published_at 是現在，created_at 在 2025）
+        UUID wishId = publishedWish(organizationA, "早就建立、今天才上架");
+        backdateWish(wishId, taipei(2025, 12, 1, 10, 0));
 
-        mvc.perform(as(get("/api/organizations/me/stats/annual")
-                        .param("year", String.valueOf(lastYear)), ORG_A))
+        mvc.perform(as(get("/api/organizations/me/stats/period").param("period", first.getId().toString()), ORG_A))
                 .andExpect(jsonPath("$.newWishes").value(1));
-        mvc.perform(as(get("/api/organizations/me/stats/annual")
-                        .param("year", String.valueOf(thisYear)), ORG_A))
+        mvc.perform(as(get("/api/organizations/me/stats/period").param("period", second.getId().toString()), ORG_A))
                 .andExpect(jsonPath("$.newWishes").value(0));
     }
 
-    // ------------------------------------------------------------ cohort 與跨年完成
+    // ------------------------------------------------------------ cohort 與期間結束後完成
 
     @Test
-    @DisplayName("跨年完成：該年度認領、隔年完成的筆數會被量化")
-    void crossYearCompletionsAreCounted() throws Exception {
-        UUID wishId = publishedWish(organizationA, "跨年完成");
+    @DisplayName("期間結束後才完成：該檔期認領、之後才完成的筆數會被量化")
+    void completionsAfterThePeriodAreCounted() throws Exception {
+        Campaign first = campaign("2025 檔期", LocalDate.of(2025, 11, 25), LocalDate.of(2026, 1, 25), "T25");
+        Campaign second = campaign("2026 檔期", LocalDate.of(2026, 11, 25), LocalDate.of(2027, 1, 25), "T26");
+        UUID wishId = publishedWish(organizationA, "拖到檔期結束後完成");
         UUID claimId = claimAs(wishId, DONOR);
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
         mvc.perform(as(withBody(post("/api/claims/{id}/ship", claimId),
                         ShipRequests.of("郵局", "R1")), DONOR)).andExpect(status().isOk());
         completeFully(claimId, ORG_A);
 
-        Instant claimedAt = TaiwanYear.startOf(2025).plus(360, ChronoUnit.DAYS);
-        Instant completedAt = TaiwanYear.startOf(2026).plusSeconds(3600 * 24 * 5L);
-        backdateClaim(claimId, claimedAt, completedAt);
+        backdateClaim(claimId, taipei(2026, 1, 20, 10, 0), taipei(2026, 2, 5, 10, 0));
 
-        mvc.perform(as(get("/api/organizations/me/stats/annual").param("year", "2025"), ORG_A))
+        mvc.perform(as(get("/api/organizations/me/stats/period").param("period", first.getId().toString()), ORG_A))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.claimed").value(1))
                 .andExpect(jsonPath("$.completed").value(1))
-                .andExpect(jsonPath("$.crossYearCompletions").value(1))
+                .andExpect(jsonPath("$.completedAfterPeriod").value(1))
                 .andExpect(jsonPath("$.averageCompletionDays").isNumber());
 
-        mvc.perform(as(get("/api/organizations/me/stats/annual").param("year", "2026"), ORG_A))
+        mvc.perform(as(get("/api/organizations/me/stats/period").param("period", second.getId().toString()), ORG_A))
                 .andExpect(jsonPath("$.claimed").value(0))
-                .andExpect(jsonPath("$.crossYearCompletions").value(0));
+                .andExpect(jsonPath("$.completedAfterPeriod").value(0));
     }
 
     @Test
@@ -206,53 +217,61 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
         mvc.perform(as(post("/api/admin/jobs/release-expired-claims"), "platform-admin@example.com"))
                 .andExpect(status().isOk());
 
-        int thisYear = TaiwanYear.currentYear();
-        mvc.perform(as(get("/api/organizations/me/stats/annual")
-                        .param("year", String.valueOf(thisYear)), ORG_A))
+        mvc.perform(as(get("/api/organizations/me/stats/period"), ORG_A))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.released").value(1))
                 .andExpect(jsonPath("$.autoReleasedCount").value(1));
     }
 
-    // ------------------------------------------------------------ 每月分布與可選年份
+    // ------------------------------------------------------------ 每月分布與期間選單
 
     @Test
-    @DisplayName("每月認領分布固定回傳 12 個月，沒有資料的月份補零")
-    void monthlyClaimsAreZeroFilledForAllTwelveMonths() throws Exception {
-        UUID claimId = claimAs(publishedWish(organizationA, "三月的認領"), DONOR);
-        Instant march = TaiwanYear.startOf(2025).plus(65, ChronoUnit.DAYS); // 落在三月
-        backdateClaim(claimId, march, null);
+    @DisplayName("每月認領分布涵蓋期間的每個月份（含年份、依時間排序），沒有資料的月份補零")
+    void monthlyClaimsAreZeroFilledForEveryMonthOfThePeriod() throws Exception {
+        Campaign campaign = campaign("2025 檔期", LocalDate.of(2025, 11, 25), LocalDate.of(2026, 1, 25), "T25");
+        UUID claimId = claimAs(publishedWish(organizationA, "十二月的認領"), DONOR);
+        backdateClaim(claimId, taipei(2025, 12, 15, 10, 0), null);
 
-        mvc.perform(as(get("/api/organizations/me/stats/annual").param("year", "2025"), ORG_A))
+        mvc.perform(as(get("/api/organizations/me/stats/period").param("period", campaign.getId().toString()), ORG_A))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.monthlyClaims.length()").value(12))
-                .andExpect(jsonPath("$.monthlyClaims[2].month").value(3))
-                .andExpect(jsonPath("$.monthlyClaims[2].count").value(1))
-                .andExpect(jsonPath("$.monthlyClaims[0].count").value(0));
+                .andExpect(jsonPath("$.monthlyClaims.length()").value(3))
+                .andExpect(jsonPath("$.monthlyClaims[0].year").value(2025))
+                .andExpect(jsonPath("$.monthlyClaims[0].month").value(11))
+                .andExpect(jsonPath("$.monthlyClaims[0].count").value(0))
+                .andExpect(jsonPath("$.monthlyClaims[1].month").value(12))
+                .andExpect(jsonPath("$.monthlyClaims[1].count").value(1))
+                .andExpect(jsonPath("$.monthlyClaims[2].year").value(2026))
+                .andExpect(jsonPath("$.monthlyClaims[2].month").value(1));
     }
 
     @Test
-    @DisplayName("可選年份由最早一筆認領推導，沒有認領時只回今年")
-    void availableYearsAreDerivedFromEarliestClaim() throws Exception {
-        mvc.perform(as(get("/api/organizations/me/stats/annual"), ORG_A))
+    @DisplayName("期間選單：沒有檔期時只有「尚未建立檔期」；有檔期後由新到舊，預設是涵蓋今天的檔期")
+    void periodsListFollowsTheCampaigns() throws Exception {
+        mvc.perform(as(get("/api/organizations/me/stats/periods"), ORG_A))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.availableYears.length()").value(1))
-                .andExpect(jsonPath("$.availableYears[0]").value(TaiwanYear.currentYear()));
+                .andExpect(jsonPath("$.defaultKey").value("unassigned"))
+                .andExpect(jsonPath("$.periods.length()").value(1));
 
-        UUID claimId = claimAs(publishedWish(organizationA, "兩年前的認領"), DONOR);
-        int twoYearsAgo = TaiwanYear.currentYear() - 2;
-        backdateClaim(claimId, TaiwanYear.startOf(twoYearsAgo).plusSeconds(3600), null);
+        LocalDate today = LocalDate.now(TaiwanYear.ZONE);
+        Campaign past = campaign("去年檔期", today.minusDays(400), today.minusDays(340), "TOLD");
+        Campaign current = campaign("今年檔期", today.minusDays(5), today.plusDays(30), "TNOW");
 
-        mvc.perform(as(get("/api/organizations/me/stats/annual"), ORG_A))
-                .andExpect(jsonPath("$.availableYears.length()").value(3))
-                .andExpect(jsonPath("$.availableYears[0]").value(TaiwanYear.currentYear()))
-                .andExpect(jsonPath("$.availableYears[2]").value(twoYearsAgo));
+        mvc.perform(as(get("/api/organizations/me/stats/periods"), ORG_A))
+                .andExpect(jsonPath("$.defaultKey").value(current.getId().toString()))
+                // 兩個檔期之間的空檔算進後一個檔期的週期；進行中的檔期尚未結束，沒有「尚未建立檔期」
+                .andExpect(jsonPath("$.periods.length()").value(2))
+                .andExpect(jsonPath("$.periods[0].name").value("今年檔期"))
+                .andExpect(jsonPath("$.periods[0].start").value(today.minusDays(339).toString()))
+                .andExpect(jsonPath("$.periods[1].key").value(past.getId().toString()));
+        // 機構看不到許可文號等檔期設定
+        mvc.perform(as(get("/api/organizations/me/stats/periods"), ORG_A))
+                .andExpect(jsonPath("$.periods[0].permitNo").doesNotExist());
     }
 
     // ------------------------------------------------------------ 機構隔離與權限
 
     @Test
-    @DisplayName("機構彼此看不到對方的年度統計")
+    @DisplayName("機構彼此看不到對方的統計")
     void statsAreIsolatedPerOrganization() throws Exception {
         UUID claimId = claimAs(publishedWish(organizationA, "甲機構的認領"), DONOR);
         uploadConfirmedAttachment(AttachmentPurpose.SHIPPING_PROOF, claimId, DONOR);
@@ -260,15 +279,12 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
                         ShipRequests.of("郵局", "R1")), DONOR)).andExpect(status().isOk());
         completeFully(claimId, ORG_A);
 
-        int thisYear = TaiwanYear.currentYear();
-        mvc.perform(as(get("/api/organizations/me/stats/annual")
-                        .param("year", String.valueOf(thisYear)), ORG_A))
+        mvc.perform(as(get("/api/organizations/me/stats/period"), ORG_A))
                 .andExpect(jsonPath("$.claimed").value(1))
                 .andExpect(jsonPath("$.completed").value(1));
 
         // 乙機構完全看不到甲機構的數字
-        mvc.perform(as(get("/api/organizations/me/stats/annual")
-                        .param("year", String.valueOf(thisYear)), ORG_B))
+        mvc.perform(as(get("/api/organizations/me/stats/period"), ORG_B))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.claimed").value(0))
                 .andExpect(jsonPath("$.completed").value(0))
@@ -276,18 +292,20 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("非機構成員無法查詢機構的年度統計")
+    @DisplayName("非機構成員無法查詢機構的統計")
     void nonOrganizationMembersCannotAccessStats() throws Exception {
-        mvc.perform(as(get("/api/organizations/me/stats/annual"), DONOR))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.errorCode").value("NOT_ORG_MEMBER"));
+        for (String path : new String[]{"/api/organizations/me/stats/period", "/api/organizations/me/stats/periods"}) {
+            mvc.perform(as(get(path), DONOR))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.errorCode").value("NOT_ORG_MEMBER"));
+        }
     }
 
     @Test
-    @DisplayName("未登入無法查詢機構的年度統計")
+    @DisplayName("未登入無法查詢機構的統計")
     void anonymousCannotAccessStats() throws Exception {
-        mvc.perform(get("/api/organizations/me/stats/annual"))
-                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/organizations/me/stats/period")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/organizations/me/stats/periods")).andExpect(status().isUnauthorized());
     }
 
     // ------------------------------------------------------------ 每月分布下鑽

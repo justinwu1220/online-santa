@@ -5,7 +5,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.onlinesanta.organization.dto.OrganizationAnnualStatsView;
+import com.onlinesanta.auth.CurrentUserService;
+import com.onlinesanta.closing.OperatingPeriodService;
+import com.onlinesanta.closing.dto.PeriodListView;
+import com.onlinesanta.organization.dto.OrganizationPeriodStatsView;
 import com.onlinesanta.organization.dto.OrganizationMonthlyStatsView;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,21 +21,34 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public class OrganizationStatsController {
 
     private final OrganizationStatsService stats;
+    private final OperatingPeriodService periods;
+    private final CurrentUserService currentUser;
 
-    public OrganizationStatsController(OrganizationStatsService stats) {
+    public OrganizationStatsController(OrganizationStatsService stats, OperatingPeriodService periods,
+                                       CurrentUserService currentUser) {
         this.stats = stats;
+        this.periods = periods;
+        this.currentUser = currentUser;
     }
 
-    @GetMapping("/annual")
-    @Operation(summary = "機構年度回顧",
-            description = "新增願望、認領、完成率、釋回、跨年完成等年度統計，附可選年份清單")
-    public OrganizationAnnualStatsView annual(@RequestParam(required = false) Integer year) {
-        return stats.annual(year);
+    @GetMapping("/periods")
+    @Operation(summary = "檔期選單", description = "各檔期的營運週期，由新到舊，附預設選項")
+    public PeriodListView periods() {
+        currentUser.requireOrganizationId();
+        return periods.list();
+    }
+
+    @GetMapping("/period")
+    @Operation(summary = "機構檔期回顧",
+            description = "新增願望、認領、完成率、釋回、期間結束後完成等檔期統計；period 為檔期 id，省略時用預設選項")
+    public OrganizationPeriodStatsView period(@RequestParam(required = false) String period) {
+        currentUser.requireOrganizationId();
+        return stats.period(periods.resolve(period));
     }
 
     @GetMapping("/monthly")
     @Operation(summary = "機構單月每日認領分布",
-            description = "年度回顧頁「每月分布」長條圖的下鑽；year、month 皆必填，month 須介於 1–12")
+            description = "檔期回顧頁「每月分布」長條圖的下鑽；year、month 皆必填，month 須介於 1–12")
     public OrganizationMonthlyStatsView monthly(@RequestParam int year, @RequestParam int month) {
         return stats.monthly(year, month);
     }
