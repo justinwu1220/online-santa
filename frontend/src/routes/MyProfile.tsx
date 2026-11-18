@@ -86,6 +86,9 @@ function AccountSection({ profile, user }: { profile: UserProfile; user?: Curren
             <span className={`badge ${profile.emailVerified ? 'badge--ok' : 'badge--warn'}`}>
               {profile.emailVerified ? '已驗證' : '未驗證'}
             </span>
+            <span className="auth-note" style={{ display: 'block', margin: '4px 0 0' }}>
+              這是你的登入信箱，無法修改。
+            </span>
           </dd>
         </div>
         <div>

@@ -9,6 +9,7 @@ import { digitsOnly, isValidTaxId } from '../../lib/taxId'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { useToast } from '../../components/ui/toastContext'
 import { ApiError, api } from '../../lib/api'
+import { useAuth } from '../../lib/authContext'
 import { pageTitle } from '../../lib/brand'
 import { EASE_OUT, reducedMotion } from '../../lib/motion'
 import { isCompleteLandline, isCompleteMobile } from '../../lib/phone'
@@ -161,9 +162,9 @@ export function OrgSettings() {
     need('responsiblePerson', '請填寫負責人姓名')
     need('withholdingTaxId', '請填寫扣繳單位統一編號')
     if (form.withholdingTaxId.trim() && !isValidTaxId(form.withholdingTaxId)) next.withholdingTaxId = '請填寫 8 碼數字的統一編號'
-    need('contactEmail', '請填寫聯絡信箱')
+    need('contactEmail', '請填寫聯絡人信箱')
     if (form.contactEmail.trim() && !/^\S+@\S+\.\S+$/.test(form.contactEmail.trim())) {
-      next.contactEmail = '聯絡信箱格式不正確'
+      next.contactEmail = '聯絡人信箱格式不正確'
     }
     if (!form.mobilePhone.trim()) next.mobilePhone = '請填寫行動電話'
     else if (!isCompleteMobile(form.mobilePhone)) next.mobilePhone = '行動電話請填 10 碼，例如 0912-345-678'
@@ -188,6 +189,7 @@ export function OrgSettings() {
   const introLength = [...form.description].length
   const previewUrl = photo?.url ?? organization.photoUrl
   const err = (key: string) => errors[key]
+  const { email: loginEmail } = useAuth()
 
   return (
     <section className="org-tab" aria-labelledby="orgSetTitle">
@@ -197,6 +199,10 @@ export function OrgSettings() {
         <section className="panel set-sec" aria-labelledby="setInfoTitle">
           <h2 className="set-sec__title" id="setInfoTitle">機構資料</h2>
           <div className="form-grid">
+            <FormField label="登入帳號" span={6}
+              hint="你登入用的信箱，無法在這裡修改。下方的「聯絡人信箱」是機構收系統通知信的信箱，兩者是分開的">
+              <Input type="email" value={loginEmail ?? ''} readOnly aria-readonly="true" />
+            </FormField>
             <FormField label="機構名稱" required span={6} error={err('name')}>
               <Input maxLength={120} value={form.name} onChange={update('name')} />
             </FormField>
@@ -205,8 +211,8 @@ export function OrgSettings() {
               <Input maxLength={100} autoComplete="name" value={form.contactPerson}
                 onChange={update('contactPerson')} />
             </FormField>
-            <FormField label="聯絡信箱" required span={3} error={err('contactEmail')}
-              hint="不會顯示給認領者">
+            <FormField label="聯絡人信箱" required span={3} error={err('contactEmail')}
+              hint="機構收系統通知信（審核結果、停權通知等）的信箱，不是登入信箱；不會顯示給認領者">
               <Input type="email" maxLength={255} autoComplete="email" value={form.contactEmail}
                 onChange={update('contactEmail')} />
             </FormField>

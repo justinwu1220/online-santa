@@ -266,7 +266,7 @@ function ApplyForm({ email }: { email: string }) {
     need('responsiblePerson', '負責人姓名')
     need('withholdingTaxId', '扣繳單位統一編號')
     if (form.withholdingTaxId.trim() && !isValidTaxId(form.withholdingTaxId)) next.withholdingTaxId = '請填寫 8 碼數字的統一編號'
-    need('contactEmail', '聯絡信箱', contactEmail.trim())
+    need('contactEmail', '聯絡人信箱', contactEmail.trim())
     if (contactEmail.trim() && !/^\S+@\S+\.\S+$/.test(contactEmail.trim())) next.contactEmail = '請確認信箱格式'
     need('mobilePhone', '行動電話')
     if (form.mobilePhone && !isCompleteMobile(form.mobilePhone)) next.mobilePhone = '請填寫 10 碼手機號碼，例如 0912-345-678'
@@ -373,7 +373,7 @@ function ApplyForm({ email }: { email: string }) {
                   value={form.contactPerson} onChange={update('contactPerson')} />
               </FormField>
 
-              <FormField label="聯絡信箱" required span={3} error={err('contactEmail')}
+              <FormField label="聯絡人信箱" required span={3} error={err('contactEmail')}
                 hint="請以機構的聯絡信箱為優先">
                 <Input type="email" maxLength={255} autoComplete="email" value={contactEmail}
                   onChange={(event) => {
