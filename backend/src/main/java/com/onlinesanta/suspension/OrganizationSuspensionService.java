@@ -174,6 +174,8 @@ public class OrganizationSuspensionService {
         audit.record(AdminAuditAction.DECIDE_UNLOCK_REQUEST, organizationId, "退回解除停權申請");
         teamChat.reply(organizationId, new SendMessageRequest(
                 "平台管理員退回了貴機構的解除停權申請，機構仍然停權中。原因：%s。處理後可以再次申請。".formatted(note.strip())));
+        eventPublisher.publishEvent(new com.onlinesanta.event.OrganizationUnlockRejectedEvent(
+                organizationId, note.strip()));
         return view(pending);
     }
 

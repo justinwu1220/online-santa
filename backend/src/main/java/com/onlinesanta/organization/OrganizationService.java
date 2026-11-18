@@ -3,6 +3,7 @@ package com.onlinesanta.organization;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,14 +32,17 @@ public class OrganizationService {
     private final TermsService terms;
     private final TeamChatService teamChat;
     private final ProfileChangeLogService changeLog;
+    private final ApplicationEventPublisher eventPublisher;
 
     public OrganizationService(OrganizationRepository organizations,
                                UserRepository users,
                                CurrentUserService currentUser,
                                TermsService terms,
                                TeamChatService teamChat,
-                               ProfileChangeLogService changeLog) {
+                               ProfileChangeLogService changeLog,
+                               ApplicationEventPublisher eventPublisher) {
         this.changeLog = changeLog;
+        this.eventPublisher = eventPublisher;
         this.organizations = organizations;
         this.users = users;
         this.currentUser = currentUser;
@@ -88,6 +92,7 @@ public class OrganizationService {
                 .orElseThrow(() -> ResourceNotFoundException.of("使用者", principal.userId()));
         user.joinOrganization(organization.getId());
         teamChat.greetNewOrganization(organization.getId());
+        eventPublisher.publishEvent(new com.onlinesanta.event.OrganizationSubmittedEvent(organization.getId(), false));
 
         return organization;
     }
@@ -143,6 +148,7 @@ public class OrganizationService {
     public Organization resubmitMine() {
         Organization organization = getById(currentUser.requireOrganizationId());
         organization.resubmitForReview();
+        eventPublisher.publishEvent(new com.onlinesanta.event.OrganizationSubmittedEvent(organization.getId(), true));
         return organization;
     }
 

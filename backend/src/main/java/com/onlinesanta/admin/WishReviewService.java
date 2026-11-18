@@ -13,6 +13,7 @@ import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.claim.Claim;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.event.WishFrozenEvent;
+import com.onlinesanta.event.WishModeratedByAdminEvent;
 import com.onlinesanta.message.SystemMessageService;
 import com.onlinesanta.wish.Wish;
 import com.onlinesanta.wish.WishEventService;
@@ -94,6 +95,8 @@ public class WishReviewService {
         history.record(wish, WishEventType.FROZEN, admin.userId(), reason, false);
         systemMessages.wishFrozen(wishId, reason);
         paused.ifPresent(claim -> eventPublisher.publishEvent(new WishFrozenEvent(claim.getId(), true)));
+        eventPublisher.publishEvent(new WishModeratedByAdminEvent(
+                wishId, WishModeratedByAdminEvent.Action.FROZEN, reason));
         return wish;
     }
 
@@ -145,12 +148,23 @@ public class WishReviewService {
                 }
             }
         }
+        // 通知機構用「動作最具體」的那一種：改了欄位 > 只屏蔽信件照片 > 只凍結。
+        // 什麼都沒變（已凍結、又沒改欄位也沒屏蔽）就不通知。
+        WishModeratedByAdminEvent.Action action = null;
         if (!changed.isEmpty()) {
             systemMessages.wishContentEdited(wishId, reason);
+            action = WishModeratedByAdminEvent.Action.CONTENT_EDITED;
+        } else if (maskLetter) {
+            systemMessages.wishLetterMasked(wishId, reason, wish.isFrozen());
+            action = WishModeratedByAdminEvent.Action.PHOTO_REMOVED;
         } else if (frozenNow) {
             systemMessages.wishFrozen(wishId, reason);
+            action = WishModeratedByAdminEvent.Action.FROZEN;
         }
         paused.ifPresent(claim -> eventPublisher.publishEvent(new WishFrozenEvent(claim.getId(), true)));
+        if (action != null) {
+            eventPublisher.publishEvent(new WishModeratedByAdminEvent(wishId, action, reason));
+        }
         return wish;
     }
 
@@ -173,6 +187,8 @@ public class WishReviewService {
         history.record(wish, WishEventType.UNFROZEN, admin.userId(), null, false);
         systemMessages.wishUnfrozen(wishId);
         resumed.ifPresent(claim -> eventPublisher.publishEvent(new WishFrozenEvent(claim.getId(), false)));
+        eventPublisher.publishEvent(new WishModeratedByAdminEvent(
+                wishId, WishModeratedByAdminEvent.Action.UNFROZEN, null));
         return wish;
     }
 
@@ -193,6 +209,8 @@ public class WishReviewService {
         history.record(wish, WishEventType.ADMIN_EDITED, admin.userId(), "原因：%s；刪除信件照片".formatted(text), true);
         audit.record(AdminAuditAction.DELETE_WISH_LETTER, wishId, "%s；刪除信件照片，原因：%s".formatted(wish.getTitle(), text));
         systemMessages.wishLetterDeleted(wishId, text);
+        eventPublisher.publishEvent(new WishModeratedByAdminEvent(
+                wishId, WishModeratedByAdminEvent.Action.PHOTO_REMOVED, text));
         return wish;
     }
 

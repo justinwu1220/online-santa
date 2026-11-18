@@ -1,6 +1,7 @@
 package com.onlinesanta.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -21,7 +22,13 @@ import com.onlinesanta.admin.dto.ReviewReasonRequest;
 import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.attachment.dto.UploadUrlRequest;
 import com.onlinesanta.support.ShipRequests;
+import com.onlinesanta.admin.dto.WishFreezeRequest;
+import com.onlinesanta.admin.dto.WishContentEditRequest;
 import com.onlinesanta.event.ClaimCreatedEvent;
+import com.onlinesanta.event.OrganizationSubmittedEvent;
+import com.onlinesanta.event.OrganizationUnlockRejectedEvent;
+import com.onlinesanta.event.WishUnlockDecidedEvent;
+import com.onlinesanta.event.WishModeratedByAdminEvent;
 import com.onlinesanta.event.WishFrozenEvent;
 import com.onlinesanta.event.UserSuspensionEvent;
 import com.onlinesanta.event.OrganizationSuspensionEvent;
@@ -444,6 +451,140 @@ class NotificationTriggerIT extends ApiIntegrationTest {
 
         suspensionListener.onUserSuspension(new UserSuspensionEvent(donorId, false, null));
         expectMail(4, DONOR, "帳號", "我的認領");
+    }
+
+    // ================================================================ 機構端通知（4.1、4.5、4.9、4.10）
+
+    @Autowired
+    OrganizationNoticeNotificationListener organizationNoticeListener;
+
+    @Test
+    @DisplayName("管理員處置願望的四種信：凍結、修改內容、移除照片、直接解除")
+    void wishModerationNotifications() throws Exception {
+        UUID wishId = publishedWish("被處置的願望");
+        String to = "org-contact@example.org";
+
+        organizationNoticeListener.onWishModerated(new WishModeratedByAdminEvent(
+                wishId, WishModeratedByAdminEvent.Action.FROZEN, "疑似含真實姓名"));
+        expectMail(1, to, "被處置的願望", "疑似含真實姓名");
+
+        organizationNoticeListener.onWishModerated(new WishModeratedByAdminEvent(
+                wishId, WishModeratedByAdminEvent.Action.CONTENT_EDITED, "已改寫說明"));
+        expectMail(2, to, "被處置的願望", "已改寫說明");
+
+        organizationNoticeListener.onWishModerated(new WishModeratedByAdminEvent(
+                wishId, WishModeratedByAdminEvent.Action.PHOTO_REMOVED, "信件含個資"));
+        expectMail(3, to, "被處置的願望", "信件含個資");
+
+        // 直接解除：沒有管理員留言也能寄；願望已回牆時信上這樣說
+        organizationNoticeListener.onWishModerated(new WishModeratedByAdminEvent(
+                wishId, WishModeratedByAdminEvent.Action.UNFROZEN, null));
+        expectMail(4, to, "被處置的願望", "已回到願望牆");
+    }
+
+    @Test
+    @DisplayName("凍結狀態以提交後的實際狀態為準：修改內容的信只在仍凍結時才寫「仍凍結」；解除後仍凍結就不說已回牆")
+    void moderationMailsReflectTheActualFrozenState() throws Exception {
+        UUID wishId = publishedWish("實際狀態");
+        String to = "org-contact@example.org";
+
+        // 沒有凍結時，修改內容的信不能說「目前仍凍結」
+        organizationNoticeListener.onWishModerated(new WishModeratedByAdminEvent(
+                wishId, WishModeratedByAdminEvent.Action.CONTENT_EDITED, "只改了說明"));
+        awaitMailCount(1);
+        assertThat(fakeMailSender.sent().get(0).getText()).doesNotContain("仍凍結");
+
+        // 真的凍結之後再寄，就會說仍凍結；此時「解除」信也不能說已回到願望牆
+        mvc.perform(as(withBody(post("/api/admin/wishes/{id}/freeze", wishId),
+                new WishFreezeRequest("先暫時凍結調查")), ADMIN)).andExpect(status().isOk());
+        organizationNoticeListener.onWishModerated(new WishModeratedByAdminEvent(
+                wishId, WishModeratedByAdminEvent.Action.CONTENT_EDITED, "只改了說明"));
+        awaitMailCount(2);
+        assertThat(fakeMailSender.sent().get(1).getText()).contains("仍凍結");
+
+        organizationNoticeListener.onWishModerated(new WishModeratedByAdminEvent(
+                wishId, WishModeratedByAdminEvent.Action.UNFROZEN, null));
+        expectMail(3, to, "實際狀態", "仍暫停公開");
+        assertThat(fakeMailSender.sent().get(2).getText()).doesNotContain("已回到願望牆");
+    }
+
+    @Test
+    @DisplayName("願望解除凍結申請的結果：通過與退回（退回附原因）")
+    void unlockDecisionNotifications() throws Exception {
+        UUID wishId = publishedWish("申請解除的願望");
+        String to = "org-contact@example.org";
+
+        organizationNoticeListener.onUnlockDecided(new WishUnlockDecidedEvent(wishId, true, "謝謝補充"));
+        expectMail(1, to, "申請解除的願望", "謝謝補充");
+
+        organizationNoticeListener.onUnlockDecided(new WishUnlockDecidedEvent(wishId, false, "請說明修改了什麼"));
+        expectMail(2, to, "申請解除的願望", "請說明修改了什麼");
+    }
+
+    @Test
+    @DisplayName("解除停權申請被退回；首次申請與重新送審的收件確認")
+    void organizationNotices() throws Exception {
+        String to = "org-contact@example.org";
+
+        organizationNoticeListener.onOrganizationUnlockRejected(
+                new OrganizationUnlockRejectedEvent(organization.getId(), "請補上最新的立案證明"));
+        expectMail(1, to, "停權", "請補上最新的立案證明");
+
+        organizationNoticeListener.onOrganizationSubmitted(
+                new OrganizationSubmittedEvent(organization.getId(), false));
+        expectMail(2, to, "申請", ORG_NAME);
+        assertThat(fakeMailSender.sent().get(1).getText()).contains(to);
+
+        organizationNoticeListener.onOrganizationSubmitted(
+                new OrganizationSubmittedEvent(organization.getId(), true));
+        expectMail(3, to, "重新送審", ORG_NAME);
+    }
+
+    @Test
+    @DisplayName("管理員凍結、解除凍結、修改內容會發布 WishModeratedByAdminEvent，動作與原因正確")
+    void adminWishActionsPublishModerationEvents() throws Exception {
+        UUID wishId = publishedWish("處置事件");
+
+        mvc.perform(as(withBody(post("/api/admin/wishes/{id}/freeze", wishId),
+                new WishFreezeRequest("疑似含真實姓名")), ADMIN)).andExpect(status().isOk());
+        mvc.perform(as(post("/api/admin/wishes/{id}/unfreeze", wishId), ADMIN)).andExpect(status().isOk());
+
+        assertThat(events.stream(WishModeratedByAdminEvent.class).toList())
+                .extracting(WishModeratedByAdminEvent::action, WishModeratedByAdminEvent::reason)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(WishModeratedByAdminEvent.Action.FROZEN, "疑似含真實姓名"),
+                        org.assertj.core.groups.Tuple.tuple(WishModeratedByAdminEvent.Action.UNFROZEN, null));
+    }
+
+    @Test
+    @DisplayName("被退件的機構補件後重新送審，會發布 OrganizationSubmittedEvent（resubmission＝true）")
+    void resubmissionPublishesSubmittedEvent() throws Exception {
+        organization.reject(null, "請補立案證明文件");
+        organizations.save(organization);
+
+        mvc.perform(as(post("/api/organizations/me/resubmit"), ORG_USER)).andExpect(status().isOk());
+
+        assertThat(events.stream(OrganizationSubmittedEvent.class).toList())
+                .singleElement().satisfies(e -> {
+                    assertThat(e.organizationId()).isEqualTo(organization.getId());
+                    assertThat(e.resubmission()).isTrue();
+                });
+    }
+
+    @Test
+    @DisplayName("只屏蔽信件照片（沒改任何欄位）算「移除照片」：發布事件，並留站內訊息")
+    void maskOnlyCountsAsPhotoRemoved() throws Exception {
+        UUID wishId = publishedWish("只屏蔽照片");
+
+        mvc.perform(as(withBody(patch("/api/admin/wishes/{id}/content", wishId),
+                new WishContentEditRequest(null, null, null, null, "信件含個資", false, true)), ADMIN))
+                .andExpect(status().isOk());
+
+        assertThat(events.stream(WishModeratedByAdminEvent.class).toList())
+                .singleElement().satisfies(e -> {
+                    assertThat(e.action()).isEqualTo(WishModeratedByAdminEvent.Action.PHOTO_REMOVED);
+                    assertThat(e.reason()).isEqualTo("信件含個資");
+                });
     }
 
     // ================================================================ AFTER_COMMIT 語意本身

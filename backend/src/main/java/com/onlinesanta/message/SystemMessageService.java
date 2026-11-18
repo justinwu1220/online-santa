@@ -101,6 +101,13 @@ public class SystemMessageService {
         post(wishId, null, "管理員刪除了這個願望的信件照片。原因：%s。你可以在申請解除凍結時附上新的信件照片，經管理員核准後才會顯示。".formatted(reason));
     }
 
+    /** 管理員只屏蔽了願望的信件照片（沒有改欄位）。屏蔽＝不再顯示給他人，檔案仍在。 */
+    @Transactional
+    public void wishLetterMasked(UUID wishId, String reason, boolean frozen) {
+        post(wishId, null, "管理員屏蔽了這個願望的信件照片，不會再顯示給他人。原因：%s。%s".formatted(reason,
+                frozen ? "願望目前凍結中，確認後可以申請解除凍結；申請時可附上新的信件照片，經管理員核准後才會顯示。" : ""));
+    }
+
     /** 管理員處理了機構的解除申請。 */
     @Transactional
     public void unlockDecided(UUID wishId, boolean approved, String note) {

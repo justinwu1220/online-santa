@@ -173,6 +173,8 @@ public class WishUnlockService {
         audit.record(AdminAuditAction.DECIDE_UNLOCK_REQUEST, wishId, "核准解除凍結：" + wish.getTitle());
         systemMessages.unlockDecided(wishId, true, note);
         resumed.ifPresent(claim -> eventPublisher.publishEvent(new WishFrozenEvent(claim.getId(), false)));
+        eventPublisher.publishEvent(new com.onlinesanta.event.WishUnlockDecidedEvent(
+                wishId, true, blankToNull(note)));
         return wish;
     }
 
@@ -187,6 +189,8 @@ public class WishUnlockService {
         history.record(wish, WishEventType.UNLOCK_REJECTED, admin.userId(), note.strip(), false);
         audit.record(AdminAuditAction.DECIDE_UNLOCK_REQUEST, wishId, "退回解除凍結申請：" + wish.getTitle());
         systemMessages.unlockDecided(wishId, false, note);
+        eventPublisher.publishEvent(new com.onlinesanta.event.WishUnlockDecidedEvent(
+                wishId, false, note.strip()));
         return wish;
     }
 
