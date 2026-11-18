@@ -87,13 +87,6 @@ function triggerDownload(url: string) {
   link.remove()
 }
 
-/** 直接下載收據 PDF（存檔）。網址是短效的，每次取得都會寫稽核。 */
-export async function downloadReceipt(id: string, kind: PdfKind) {
-  const result = await api.get<ReceiptDownload>(
-    withQuery(`/api/admin/receipts/${id}/download-url`, { kind, mode: 'DOWNLOAD' }))
-  triggerDownload(result.url)
-}
-
 /**
  * 全部下載：建立匯出、反覆推進（每次後端在約 15 秒內做一段）直到完成，再下載壓縮檔。
  * 進度透過 onProgress 回報；失敗時丟出錯誤。回傳最後的匯出狀態（含略過張數）。

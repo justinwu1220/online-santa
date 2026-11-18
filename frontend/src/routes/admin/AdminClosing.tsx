@@ -7,7 +7,7 @@ import { formatPlainDate } from '../../lib/format'
 import type { CampaignView, PdfStatus, ReceiptStatus, ReceiptView } from '../../lib/types'
 import { CampaignDialog } from './CampaignDialog'
 import {
-  downloadAllReceipts, downloadReceipt, openReceipt, useCampaigns, useGenerateReceiptPdfs, useIssueMissingReceipts, useReceipts, useVoidReceipt,
+  downloadAllReceipts, openReceipt, useCampaigns, useGenerateReceiptPdfs, useIssueMissingReceipts, useReceipts, useVoidReceipt,
   type ReceiptFilter,
 } from './closingQueries'
 
@@ -136,12 +136,12 @@ function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
 
   const [exportProgress, setExportProgress] = useState<string>()
 
-  async function open(receipt: ReceiptView, kind: 'WHITE' | 'YELLOW_RED', save: boolean) {
+  async function open(receipt: ReceiptView, kind: 'WHITE' | 'YELLOW_RED') {
     setDownloadError(undefined)
     try {
-      await (save ? downloadReceipt(receipt.id, kind) : openReceipt(receipt.id, kind))
+      await openReceipt(receipt.id, kind)
     } catch (e) {
-      setDownloadError(e instanceof Error ? e.message : (save ? '下載失敗，請稍後再試' : '開啟失敗，請稍後再試'))
+      setDownloadError(e instanceof Error ? e.message : '開啟失敗，請稍後再試')
     }
   }
 
@@ -204,7 +204,7 @@ function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
       </div>
       <p className="set-sec__desc" style={{ margin: 0 }}>
         「補開收據」為已完成、寄出日落在勸募期間、卻還沒有收據的願望開立（依完成順序配號）；
-        「補產 PDF」為還沒有 PDF 的收據補產，填入許可文號後按這個。點「白聯」「黃紅聯」在新分頁預覽，旁邊的「下載」直接存檔；「全部下載」把有效收據的白聯與黃紅聯打包成一個壓縮檔。收據 PDF 含捐贈者證號，每次開啟或下載都會寫入稽核。
+        「補產 PDF」為還沒有 PDF 的收據補產，填入許可文號後按這個。點「白聯」「黃紅聯」在新分頁預覽；「全部下載」把有效收據的白聯與黃紅聯打包成一個壓縮檔。收據 PDF 含捐贈者證號，每次開啟或下載都會寫入稽核。
       </p>
       {(issueMissing.isError || generate.isError) && <ErrorNotice error={issueMissing.error ?? generate.error} />}
       {notice && <div className={`callout callout--${notice.tone}`} role="status"><p>{notice.text}</p></div>}
@@ -269,7 +269,7 @@ function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
 
 function ReceiptRow({ receipt, onOpen, onVoid }: {
   receipt: ReceiptView
-  onOpen: (receipt: ReceiptView, kind: 'WHITE' | 'YELLOW_RED', save: boolean) => void
+  onOpen: (receipt: ReceiptView, kind: 'WHITE' | 'YELLOW_RED') => void
   onVoid: (receipt: ReceiptView) => void
 }) {
   const voided = receipt.status === 'VOIDED'
@@ -306,15 +306,10 @@ function ReceiptRow({ receipt, onOpen, onVoid }: {
         )}
       </td>
       <td>
-        <div style={{ display: 'grid', gap: 4, justifyItems: 'start' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {([['WHITE', '白聯'], ['YELLOW_RED', '黃紅聯']] as const).map(([kind, label]) => (
-            <span key={kind}>
-              {/* 點聯別本身就是預覽（新分頁）；旁邊的「下載」直接存檔 */}
-              <button type="button" className="btn btn--sm" disabled={voided} aria-label={`預覽${label}`}
-                onClick={() => onOpen(receipt, kind, false)}>{label}</button>{' '}
-              <button type="button" className="btn btn--sm" disabled={voided} aria-label={`下載${label}`}
-                onClick={() => onOpen(receipt, kind, true)}>下載</button>
-            </span>
+            <button key={kind} type="button" className="btn btn--sm" disabled={voided} aria-label={`預覽${label}`}
+              onClick={() => onOpen(receipt, kind)}>{label}</button>
           ))}
           <button type="button" className="btn btn--sm" disabled={voided} onClick={() => onVoid(receipt)}>作廢重開</button>
         </div>

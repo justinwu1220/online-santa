@@ -86,7 +86,8 @@ describe('結案文件頁', () => {
     const row3 = screen.getByText('OS2026-000003').closest('tr')!
     expect(within(row3).getByText('已作廢')).toBeTruthy()
     expect(within(row3).getByRole('button', { name: '預覽白聯' }).hasAttribute('disabled')).toBe(true)
-    expect(within(row3).getByRole('button', { name: '下載黃紅聯' }).hasAttribute('disabled')).toBe(true)
+    expect(within(row3).getByRole('button', { name: '預覽黃紅聯' }).hasAttribute('disabled')).toBe(true)
+    expect(within(row3).queryByRole('button', { name: /下載/ })).toBeNull()
     expect(within(row3).getByRole('button', { name: '作廢重開' }).hasAttribute('disabled')).toBe(true)
   })
 
@@ -103,22 +104,6 @@ describe('結案文件頁', () => {
     await waitFor(() => expect(tab.location.href).toBe('https://storage.test/x.pdf'))
     expect(tab.opener).toBeNull()
     expect(tab.close).not.toHaveBeenCalled()
-    open.mockRestore()
-  })
-
-  it('按下載：向後端要「直接存檔」的網址（mode=DOWNLOAD），不開新分頁', async () => {
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
-    const open = vi.spyOn(window, 'open')
-    renderPage()
-    const row = (await screen.findByText('OS2026-000001')).closest('tr')!
-
-    await userEvent.click(within(row).getByRole('button', { name: '下載黃紅聯' }))
-
-    await waitFor(() => expect(get).toHaveBeenCalledWith(
-      '/api/admin/receipts/r1/download-url?kind=YELLOW_RED&mode=DOWNLOAD'))
-    await waitFor(() => expect(click).toHaveBeenCalled())
-    expect(open).not.toHaveBeenCalled()
-    click.mockRestore()
     open.mockRestore()
   })
 
