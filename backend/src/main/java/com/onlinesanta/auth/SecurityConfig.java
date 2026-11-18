@@ -157,7 +157,9 @@ public class SecurityConfig {
     private CorsConfiguration apiCors() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(properties.allowedOrigins());
-        config.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
+        // PUT：活動檔期的修改用 PUT。少了它，瀏覽器的預檢會被擋成「Invalid CORS request」（403），
+        // 而 MockMvc 的測試沒帶 Origin 標頭看不出來
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         // 本機開發前端（localhost:5173）與 API（localhost:8080）不同來源，換發登入狀態的 cookie
         // 要靠這個才送得出去。來源是明確列舉的白名單，不是萬用字元

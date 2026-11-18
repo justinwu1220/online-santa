@@ -59,6 +59,17 @@ class CorsConfigurationTest {
         }
 
         @Test
+        @DisplayName("API 用到的每一種 HTTP 方法預檢都通過（PUT 用於修改活動檔期）")
+        void everyMethodTheApiUsesPassesThePreflight() {
+            for (String method : List.of("GET", "POST", "PUT", "PATCH", "DELETE")) {
+                CorsConfiguration config = preflight(sourceWith(), "/api/admin/campaigns/1", method);
+
+                assertThat(config.checkHttpMethod(org.springframework.http.HttpMethod.valueOf(method)))
+                        .as("預檢 %s", method).isNotNull();
+            }
+        }
+
+        @Test
         @DisplayName("其他網域不行")
         void otherOriginsAreRejected() {
             CorsConfiguration config = preflight(sourceWith(), "/api/wishes", "POST");
