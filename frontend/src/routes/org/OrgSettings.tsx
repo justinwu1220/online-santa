@@ -199,9 +199,12 @@ export function OrgSettings() {
         <section className="panel set-sec" aria-labelledby="setInfoTitle">
           <h2 className="set-sec__title" id="setInfoTitle">機構資料</h2>
           <div className="form-grid">
-            <FormField label="登入帳號" span={6}>
-              <Input type="email" value={loginEmail ?? ''} readOnly disabled aria-readonly="true" />
-            </FormField>
+            <dl className="ship-summary c-6">
+              <div>
+                <dt>登入帳號</dt>
+                <dd>{loginEmail ?? '—'}</dd>
+              </div>
+            </dl>
             <FormField label="機構名稱" required span={6} error={err('name')}>
               <Input maxLength={120} value={form.name} onChange={update('name')} />
             </FormField>
