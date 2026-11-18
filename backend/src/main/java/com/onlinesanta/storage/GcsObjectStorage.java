@@ -77,7 +77,8 @@ public class GcsObjectStorage implements ObjectStorage {
     }
 
     @Override
-    public String createDownloadUrl(StorageBucket bucket, String objectName, Duration ttl, String downloadFileName) {
+    public String createDownloadUrl(StorageBucket bucket, String objectName, Duration ttl,
+                                    String downloadFileName, boolean inline) {
         if (downloadFileName == null || !downloadFileName.matches("[A-Za-z0-9._ -]{1,100}")) {
             throw new IllegalArgumentException("下載檔名必須是 ASCII 英數字、點、底線、減號與空白：" + downloadFileName);
         }
@@ -87,7 +88,7 @@ public class GcsObjectStorage implements ObjectStorage {
         return storage.signUrl(blob, ttl.toSeconds(), TimeUnit.SECONDS,
                 SignUrlOption.httpMethod(HttpMethod.GET),
                 SignUrlOption.withQueryParams(java.util.Map.of("response-content-disposition",
-                        "inline; filename=\"" + downloadFileName + "\"")),
+                        (inline ? "inline" : "attachment") + "; filename=\"" + downloadFileName + "\"")),
                 SignUrlOption.withV4Signature()).toString();
     }
 
