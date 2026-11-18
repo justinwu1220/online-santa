@@ -46,4 +46,18 @@ public interface ObjectStorage {
      * 設成永久快取沒有「快取到舊圖」的風險。
      */
     void applyCacheControl(StorageBucket bucket, String objectName, String cacheControl);
+
+    /**
+     * 後端直接寫入一個物件（結案文件、收據 PDF 等後端自己產生的檔案）。已存在就覆蓋。
+     */
+    void put(StorageBucket bucket, String objectName, String contentType, byte[] content);
+
+    /**
+     * 串流寫入大型物件（匯出壓縮檔）：呼叫端寫完必須 {@code close()}，物件才算建立完成。
+     * 不要整包放進記憶體：Cloud Run 只有 1Gi，而且同時有很多請求。
+     */
+    java.io.OutputStream openWrite(StorageBucket bucket, String objectName, String contentType);
+
+    /** 讀回物件完整內容；不存在回 empty。只用於小檔（單張收據 PDF 等）。 */
+    Optional<byte[]> read(StorageBucket bucket, String objectName);
 }

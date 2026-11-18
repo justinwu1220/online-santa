@@ -22,6 +22,7 @@ public class InMemoryObjectStorage implements ObjectStorage {
 
     private final Map<String, StoredObject> objects = new ConcurrentHashMap<>();
     private final Map<String, String> cacheControls = new ConcurrentHashMap<>();
+    private final Map<String, byte[]> contents = new ConcurrentHashMap<>();
 
     @Override
     public UploadTarget createUploadUrl(StorageBucket bucket, String objectName,
@@ -51,6 +52,30 @@ public class InMemoryObjectStorage implements ObjectStorage {
     @Override
     public void delete(StorageBucket bucket, String objectName) {
         objects.remove(key(bucket, objectName));
+        contents.remove(key(bucket, objectName));
+    }
+
+    @Override
+    public void put(StorageBucket bucket, String objectName, String contentType, byte[] content) {
+        contents.put(key(bucket, objectName), content.clone());
+        objects.put(key(bucket, objectName), new StoredObject(objectName, contentType, content.length));
+    }
+
+    @Override
+    public java.io.OutputStream openWrite(StorageBucket bucket, String objectName, String contentType) {
+        return new java.io.ByteArrayOutputStream() {
+            @Override
+            public void close() throws java.io.IOException {
+                super.close();
+                put(bucket, objectName, contentType, toByteArray());
+            }
+        };
+    }
+
+    @Override
+    public Optional<byte[]> read(StorageBucket bucket, String objectName) {
+        byte[] bytes = contents.get(key(bucket, objectName));
+        return bytes == null ? Optional.empty() : Optional.of(bytes.clone());
     }
 
     @Override
@@ -81,6 +106,7 @@ public class InMemoryObjectStorage implements ObjectStorage {
 
     public void reset() {
         objects.clear();
+        contents.clear();
     }
 
     private String key(StorageBucket bucket, String objectName) {

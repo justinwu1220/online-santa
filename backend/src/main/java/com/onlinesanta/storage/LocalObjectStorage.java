@@ -97,6 +97,33 @@ public class LocalObjectStorage implements ObjectStorage {
         }
     }
 
+    @Override
+    public void put(StorageBucket bucket, String objectName, String contentType, byte[] content) {
+        write(bucket, objectName, contentType, content);
+    }
+
+    @Override
+    public java.io.OutputStream openWrite(StorageBucket bucket, String objectName, String contentType) {
+        Path file = pathOf(bucket, objectName);
+        try {
+            Files.createDirectories(file.getParent());
+            Files.writeString(file.resolveSibling(file.getFileName() + ".type"), contentType);
+            return Files.newOutputStream(file);
+        } catch (IOException e) {
+            throw new UncheckedIOException("寫入本機儲存失敗：" + objectName, e);
+        }
+    }
+
+    @Override
+    public Optional<byte[]> read(StorageBucket bucket, String objectName) {
+        Path file = pathOf(bucket, objectName);
+        try {
+            return Files.isRegularFile(file) ? Optional.of(Files.readAllBytes(file)) : Optional.empty();
+        } catch (IOException e) {
+            throw new UncheckedIOException("讀取本機儲存的物件失敗：" + objectName, e);
+        }
+    }
+
     /**
      * 刻意 no-op。{@link DevStorageController} 直接把檔案讀回來，沒有 CDN 或瀏覽器快取
      * 這種會因為 {@code Cache-Control} 而表現不同的中間層，本機開發用不到這個資訊；
@@ -111,9 +138,11 @@ public class LocalObjectStorage implements ObjectStorage {
     // ------------------------------------------------------------ 內部
 
     Path pathOf(StorageBucket bucket, String objectName) {
-        Path resolved = root.resolve(bucket.name().toLowerCase()).resolve(objectName).normalize();
-        // 擋掉 ../ 之類的路徑穿越
-        if (!resolved.startsWith(root)) {
+        Path bucketDir = root.resolve(bucket.name().toLowerCase());
+        Path resolved = bucketDir.resolve(objectName).normalize();
+        // 擋掉 ../ 之類的路徑穿越：必須留在「自己 bucket」的資料夾內，
+        // 只擋「跑出根目錄」的話，私有 bucket 的物件名稱還是能寫進公開 bucket 的資料夾
+        if (!resolved.startsWith(bucketDir)) {
             throw new IllegalArgumentException("物件名稱不合法：" + objectName);
         }
         return resolved;

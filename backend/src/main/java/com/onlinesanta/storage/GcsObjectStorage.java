@@ -88,6 +88,36 @@ public class GcsObjectStorage implements ObjectStorage {
     }
 
     @Override
+    public void put(StorageBucket bucket, String objectName, String contentType, byte[] content) {
+        BlobInfo blob = BlobInfo
+                .newBuilder(BlobId.of(properties.bucketName(bucket), objectName))
+                .setContentType(contentType)
+                .build();
+        storage.create(blob, content);
+    }
+
+    @Override
+    public java.io.OutputStream openWrite(StorageBucket bucket, String objectName, String contentType) {
+        BlobInfo blob = BlobInfo
+                .newBuilder(BlobId.of(properties.bucketName(bucket), objectName))
+                .setContentType(contentType)
+                .build();
+        return java.nio.channels.Channels.newOutputStream(storage.writer(blob));
+    }
+
+    @Override
+    public Optional<byte[]> read(StorageBucket bucket, String objectName) {
+        try {
+            return Optional.of(storage.readAllBytes(BlobId.of(properties.bucketName(bucket), objectName)));
+        } catch (com.google.cloud.storage.StorageException e) {
+            if (e.getCode() == 404) {
+                return Optional.empty();
+            }
+            throw e;
+        }
+    }
+
+    @Override
     public void applyCacheControl(StorageBucket bucket, String objectName, String cacheControl) {
         // storage.update 是 PATCH 語意：BlobInfo 裡沒設的欄位不會被清空，
         // 只有這裡明確 set 的 cacheControl 會被送出去更新

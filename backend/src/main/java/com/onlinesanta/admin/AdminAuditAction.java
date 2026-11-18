@@ -106,7 +106,30 @@ public enum AdminAuditAction {
     VIEW_ORGANIZATION_PROFILE_CHANGES,
 
     /** 跨對象瀏覽個資異動紀錄（沒有指定對象）。 */
-    VIEW_PROFILE_CHANGE_LOG;
+    VIEW_PROFILE_CHANGE_LOG,
+
+    // ── 結案文件 ────────────────────────────────────────────────
+
+    /** 新增或修改活動檔期（期間、許可文號、收據前綴等）。 */
+    SAVE_CAMPAIGN,
+
+    /** 作廢收據（保留原號與替代關係）。 */
+    VOID_RECEIPT,
+
+    /** 下載單張收據 PDF（內容含捐贈者姓名與證號）。 */
+    VIEW_RECEIPT_DOCUMENT,
+
+    /** 建立結案文件匯出。 */
+    CREATE_CLOSING_EXPORT,
+
+    /** 下載結案文件壓縮檔（含身分證字號）。 */
+    DOWNLOAD_CLOSING_EXPORT,
+
+    /** 寄送收據白聯給捐贈者。 */
+    SEND_RECEIPT_EMAILS,
+
+    /** 寄送領受確認表給合作機構。 */
+    SEND_ORG_FORM_EMAILS;
 
     public AdminAuditTargetType targetType() {
         return switch (this) {
@@ -123,7 +146,9 @@ public enum AdminAuditAction {
                     -> AdminAuditTargetType.USER;
             case RELEASE_CLAIM_BY_ADMIN, REDACT_MESSAGE -> AdminAuditTargetType.CLAIM;
             case RUN_RELEASE_SWEEP, RUN_ATTACHMENT_CLEANUP, RUN_DEADLINE_REMINDERS,
-                 VIEW_PROFILE_CHANGE_LOG -> AdminAuditTargetType.SYSTEM;
+                 VIEW_PROFILE_CHANGE_LOG, SAVE_CAMPAIGN, CREATE_CLOSING_EXPORT, DOWNLOAD_CLOSING_EXPORT,
+                 SEND_RECEIPT_EMAILS, SEND_ORG_FORM_EMAILS -> AdminAuditTargetType.SYSTEM;
+            case VOID_RECEIPT, VIEW_RECEIPT_DOCUMENT -> AdminAuditTargetType.CLAIM;
         };
     }
 }
