@@ -22,10 +22,15 @@ import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.attachment.dto.UploadUrlRequest;
 import com.onlinesanta.support.ShipRequests;
 import com.onlinesanta.event.ClaimCreatedEvent;
+import com.onlinesanta.event.WishFrozenEvent;
+import com.onlinesanta.event.UserSuspensionEvent;
+import com.onlinesanta.event.OrganizationSuspensionEvent;
+import com.onlinesanta.event.OrgSuspensionClaimEvent;
+import com.onlinesanta.event.ClaimReleasedByAdminEvent;
+import com.onlinesanta.event.ClaimRecalledEvent;
+import com.onlinesanta.event.AffectedDonorNoticeEvent;
 import com.onlinesanta.event.FeedbackPhotoConfirmedEvent;
-import com.onlinesanta.event.NewMessageEvent;
 import com.onlinesanta.event.OrganizationReviewedEvent;
-import com.onlinesanta.event.WishReviewedEvent;
 import com.onlinesanta.message.dto.SendMessageRequest;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
@@ -98,12 +103,6 @@ class NotificationTriggerIT extends ApiIntegrationTest {
 
     @Autowired
     FeedbackPhotoConfirmedNotificationListener feedbackPhotoListener;
-
-    @Autowired
-    NewMessageNotificationListener newMessageListener;
-
-    @Autowired
-    WishReviewedNotificationListener wishReviewedListener;
 
     private RecordingMailSender fakeMailSender;
     private Organization organization;
@@ -285,49 +284,21 @@ class NotificationTriggerIT extends ApiIntegrationTest {
         return attachmentId;
     }
 
-    // ================================================================ 防轟炸節流（新訊息）
-
-    @Test
-    @DisplayName("對方已有未讀訊息時，同一寄件人再寄不會觸發通知；對方已讀後才會再觸發")
-    void newMessageThrottleSkipsWhileRecipientHasUnread() throws Exception {
-        UUID claimId = claimAs(publishedWish("訊息節流"), DONOR);
-
-        mvc.perform(as(withBody(post("/api/claims/{id}/messages", claimId),
-                        new SendMessageRequest("第一則")), DONOR))
-                .andExpect(status().isOk());
-        assertThat(events.stream(NewMessageEvent.class)).hasSize(1);
-
-        // 對方（機構）還沒讀第一則，捐贈者又寄第二則——不該再觸發
-        mvc.perform(as(withBody(post("/api/claims/{id}/messages", claimId),
-                        new SendMessageRequest("第二則，對方還沒讀第一則")), DONOR))
-                .andExpect(status().isOk());
-        assertThat(events.stream(NewMessageEvent.class)).hasSize(1);
-
-        // 機構讀取（markRead）之後，捐贈者再寄一則，應該恢復觸發
-        mvc.perform(as(post("/api/claims/{id}/messages/mark-read", claimId), ORG_USER))
-                .andExpect(status().isOk());
-        mvc.perform(as(withBody(post("/api/claims/{id}/messages", claimId),
-                        new SendMessageRequest("第三則，對方已讀前面的")), DONOR))
-                .andExpect(status().isOk());
-        assertThat(events.stream(NewMessageEvent.class)).hasSize(2);
-    }
-
     // ================================================================ 監聽器組出的信件內容
 
     @Test
-    @DisplayName("認領成立會寄兩封：機構收到認領通知，認領者收到確認信")
-    void claimCreatedNotificationContent() throws Exception {
+    @DisplayName("認領成立只寄一封：認領者收到確認信，機構不再收信")
+    void claimCreatedSendsOnlyTheDonorConfirmation() throws Exception {
         UUID wishId = publishedWish("內容檢查的願望");
         UUID claimId = claimAs(wishId, DONOR);
 
         claimCreatedListener.onClaimCreated(new ClaimCreatedEvent(claimId));
-        awaitMailCount(2);
+        awaitMailCount(1);
+        // 多等一下，確認沒有第二封（原本會寄給機構的那封已停寄）
+        Thread.sleep(300);
 
-        assertThat(fakeMailSender.sent()).anySatisfy((SimpleMailMessage mail) -> {
-            assertThat(mail.getTo()).containsExactly("org-contact@example.org");
-            assertThat(mail.getSubject()).contains("內容檢查的願望");
-            assertThat(mail.getText()).contains("內容檢查的願望").contains("/org");
-        });
+        assertThat(fakeMailSender.sent()).singleElement().satisfies((SimpleMailMessage mail) ->
+                assertThat(mail.getTo()).containsExactly(DONOR));
     }
 
     /**
@@ -341,46 +312,18 @@ class NotificationTriggerIT extends ApiIntegrationTest {
         UUID claimId = claimAs(publishedWish("確認信檢查"), DONOR);
 
         claimCreatedListener.onClaimCreated(new ClaimCreatedEvent(claimId));
-        awaitMailCount(2);
+        awaitMailCount(1);
 
-        assertThat(fakeMailSender.sent()).anySatisfy((SimpleMailMessage mail) -> {
+        assertThat(fakeMailSender.sentMails()).singleElement().satisfies(sent -> {
+            SimpleMailMessage mail = sent.message();
             assertThat(mail.getTo()).containsExactly(DONOR);
-            assertThat(mail.getSubject()).contains("您已認領").contains("確認信檢查");
+            assertThat(mail.getSubject()).startsWith("【線上聖誕老人 2026】").contains("您已認領").contains("確認信檢查");
             assertThat(mail.getText())
                     .contains(ORG_NAME)
-                    .contains("寄送期限")
+                    .contains("前寄出禮物").containsPattern("\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}（臺灣時間）")
                     .contains("/me/claims/" + claimId);
-        });
-    }
-
-    @Test
-    @DisplayName("願望核准後通知機構，內文含願望標題與後台連結")
-    void wishApprovedNotificationContent() throws Exception {
-        UUID wishId = publishedWish("審核通過的願望");
-
-        wishReviewedListener.onWishReviewed(new WishReviewedEvent(wishId, true, null));
-        awaitMailCount(1);
-
-        assertThat(fakeMailSender.sent()).singleElement().satisfies((SimpleMailMessage mail) -> {
-            assertThat(mail.getTo()).containsExactly("org-contact@example.org");
-            assertThat(mail.getSubject()).contains("審核通過的願望").contains("已通過審核");
-            assertThat(mail.getText()).contains("審核通過的願望").contains("/org");
-        });
-    }
-
-    @Test
-    @DisplayName("願望退回時通知機構並附上原因")
-    void wishRejectedNotificationContent() throws Exception {
-        UUID wishId = publishedWish("被退回的願望");
-
-        wishReviewedListener.onWishReviewed(
-                new WishReviewedEvent(wishId, false, "描述含可識別的個人資訊"));
-        awaitMailCount(1);
-
-        assertThat(fakeMailSender.sent()).singleElement().satisfies((SimpleMailMessage mail) -> {
-            assertThat(mail.getTo()).containsExactly("org-contact@example.org");
-            assertThat(mail.getSubject()).contains("需要修改");
-            assertThat(mail.getText()).contains("描述含可識別的個人資訊");
+            // HTML 版同樣帶著連結，且是 multipart/alternative
+            assertThat(sent.html()).contains("/me/claims/" + claimId).contains(ORG_NAME);
         });
     }
 
@@ -397,7 +340,7 @@ class NotificationTriggerIT extends ApiIntegrationTest {
         assertThat(fakeMailSender.sent()).singleElement().satisfies((SimpleMailMessage mail) -> {
             assertThat(mail.getTo()).containsExactly("org-contact@example.org");
             assertThat(mail.getSubject()).contains("需要補件");
-            assertThat(mail.getText()).contains("請補立案證明文件");
+            assertThat(mail.getText()).contains("請補立案證明文件").contains("/org/settings");
         });
     }
 
@@ -410,8 +353,8 @@ class NotificationTriggerIT extends ApiIntegrationTest {
 
         assertThat(fakeMailSender.sent()).singleElement().satisfies((SimpleMailMessage mail) -> {
             assertThat(mail.getTo()).containsExactly("org-contact@example.org");
-            assertThat(mail.getSubject()).contains("核准");
-            assertThat(mail.getText()).contains("核准").contains("/org");
+            assertThat(mail.getSubject()).contains("機構申請已通過");
+            assertThat(mail.getText()).contains("審核").contains("/org");
         });
     }
 
@@ -429,23 +372,78 @@ class NotificationTriggerIT extends ApiIntegrationTest {
         });
     }
 
+    // ================================================================ 其餘各封通知都能組出信件
+    //
+    // 欄位名稱與樣板對不上時，寄信會記一行 ERROR 然後「不寄」——使用者那邊只是沒收到信，
+    // 沒有任何錯誤畫面。所以每個分支都要有一個「真的收到信」的測試。
+
+    @Autowired
+    SuspensionNotificationListener suspensionListener;
+
+    @Autowired
+    WishFrozenNotificationListener wishFrozenListener;
+
+    @Autowired
+    ClaimRecalledNotificationListener claimRecalledListener;
+
+    private void expectMail(int count, String to, String subjectPart, String textPart) {
+        awaitMailCount(count);
+        assertThat(fakeMailSender.sent()).hasSize(count);
+        SimpleMailMessage mail = fakeMailSender.sent().get(count - 1);
+        assertThat(mail.getTo()).containsExactly(to);
+        assertThat(mail.getSubject()).startsWith("【線上聖誕老人 2026】").contains(subjectPart);
+        assertThat(mail.getText()).contains(textPart);
+    }
+
     @Test
-    @DisplayName("新訊息通知：捐贈者發送時通知機構，機構發送時通知捐贈者")
-    void newMessageNotificationRecipientDependsOnSender() throws Exception {
-        UUID claimId = claimAs(publishedWish("訊息內容檢查"), DONOR);
-        User donor = users.findAll().stream()
-                .filter(u -> u.getEmail().equals(DONOR)).findFirst().orElseThrow();
+    @DisplayName("認領者收到的各封信：收回、暫停、恢復、機構停權連動、個案通知、結束認領")
+    void donorFacingNotifications() throws Exception {
+        UUID claimId = claimAs(publishedWish("各種通知"), DONOR);
+        String claimUrl = "/me/claims/" + claimId;
 
-        newMessageListener.onNewMessage(new NewMessageEvent(claimId, donor.getId()));
-        awaitMailCount(1);
-        assertThat(fakeMailSender.sent()).singleElement()
-                .satisfies(mail -> assertThat(mail.getTo()).containsExactly("org-contact@example.org"));
+        claimRecalledListener.onClaimRecalled(new ClaimRecalledEvent(claimId, "認領者聯繫不上"));
+        expectMail(1, DONOR, "各種通知", "認領者聯繫不上");
 
-        User orgMember = users.findAll().stream()
-                .filter(u -> u.getEmail().equals(ORG_USER)).findFirst().orElseThrow();
-        newMessageListener.onNewMessage(new NewMessageEvent(claimId, orgMember.getId()));
-        awaitMailCount(2);
-        assertThat(fakeMailSender.sent().get(1).getTo()).containsExactly(DONOR);
+        wishFrozenListener.onWishFrozen(new WishFrozenEvent(claimId, true));
+        expectMail(2, DONOR, "各種通知", claimUrl);
+
+        wishFrozenListener.onWishFrozen(new WishFrozenEvent(claimId, false));
+        expectMail(3, DONOR, "各種通知", claimUrl);
+        // 恢復信帶孩子的願望內容與（未過期的）新期限
+        assertThat(fakeMailSender.sent().get(2).getText()).contains("（臺灣時間）");
+
+        suspensionListener.onClaimAffected(new OrgSuspensionClaimEvent(claimId, true));
+        expectMail(4, DONOR, "各種通知", ORG_NAME);
+
+        suspensionListener.onClaimAffected(new OrgSuspensionClaimEvent(claimId, false));
+        expectMail(5, DONOR, "各種通知", claimUrl);
+
+        suspensionListener.onAffectedDonorNotice(new AffectedDonorNoticeEvent(claimId, "第一行\n第二行"));
+        expectMail(6, DONOR, "各種通知", "第一行\n第二行");
+
+        suspensionListener.onClaimReleasedByAdmin(new ClaimReleasedByAdminEvent(claimId, "重複認領"));
+        expectMail(7, DONOR, "各種通知", "重複認領");
+    }
+
+    @Test
+    @DisplayName("機構收到的停權與解除信，以及認領者帳號停權與恢復信")
+    void suspensionNotifications() throws Exception {
+        suspensionListener.onOrganizationSuspension(
+                new OrganizationSuspensionEvent(organization.getId(), true, "文件造假"));
+        expectMail(1, "org-contact@example.org", "停權", "文件造假");
+
+        suspensionListener.onOrganizationSuspension(
+                new OrganizationSuspensionEvent(organization.getId(), false, null));
+        expectMail(2, "org-contact@example.org", "停權", "/org");
+
+        claimAs(publishedWish("帳號停權用"), DONOR);
+        UUID donorId = users.findAll().stream()
+                .filter(u -> u.getEmail().equals(DONOR)).findFirst().orElseThrow().getId();
+        suspensionListener.onUserSuspension(new UserSuspensionEvent(donorId, true, "多次違規"));
+        expectMail(3, DONOR, "帳號", "多次違規");
+
+        suspensionListener.onUserSuspension(new UserSuspensionEvent(donorId, false, null));
+        expectMail(4, DONOR, "帳號", "我的認領");
     }
 
     // ================================================================ AFTER_COMMIT 語意本身
@@ -463,12 +461,10 @@ class NotificationTriggerIT extends ApiIntegrationTest {
         TestTransaction.end();
 
         try {
-            // 認領成立會寄兩封：機構的認領通知與認領者的確認信
-            awaitMailCount(2);
-            assertThat(fakeMailSender.sent()).hasSize(2);
-            assertThat(fakeMailSender.sent()).anySatisfy((SimpleMailMessage mail) ->
-                    assertThat(mail.getTo()).containsExactly("org-contact@example.org"));
-            assertThat(fakeMailSender.sent()).anySatisfy((SimpleMailMessage mail) ->
+            // 認領成立只寄認領者的確認信（給機構的那封已停寄）
+            awaitMailCount(1);
+            Thread.sleep(300);
+            assertThat(fakeMailSender.sent()).singleElement().satisfies((SimpleMailMessage mail) ->
                     assertThat(mail.getTo()).containsExactly(DONOR));
         } finally {
             // 這次真正 commit 過，資料不會隨測試自動回滾，明確清掉並真正 commit 這次清理。

@@ -13,7 +13,6 @@ import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.claim.Claim;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.event.WishFrozenEvent;
-import com.onlinesanta.event.WishReviewedEvent;
 import com.onlinesanta.message.SystemMessageService;
 import com.onlinesanta.wish.Wish;
 import com.onlinesanta.wish.WishEventService;
@@ -62,7 +61,6 @@ public class WishReviewService {
         audit.record(AdminAuditAction.APPROVE_WISH, wishId, wish.getTitle());
         history.record(wish, WishEventType.APPROVED, admin.userId(), null, true);
         systemMessages.wishApproved(wishId);
-        eventPublisher.publishEvent(new WishReviewedEvent(wishId, true, null));
         return wish;
     }
 
@@ -75,7 +73,6 @@ public class WishReviewService {
         audit.record(AdminAuditAction.REJECT_WISH, wishId, wish.getTitle());
         history.record(wish, WishEventType.REJECTED, admin.userId(), reason, false);
         systemMessages.wishRejected(wishId, reason);
-        eventPublisher.publishEvent(new WishReviewedEvent(wishId, false, reason));
         return wish;
     }
 

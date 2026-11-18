@@ -20,7 +20,8 @@
       <p style="margin:0 0 12px;"><strong style="color:#38761d;">謝謝您的等候！我們已確認「{{wishTitle}}」的內容，您可以繼續為孩子準備禮物了。 🎁</strong></p>
       <p style="margin:0 0 8px;">挑選或寄出禮物前，請再看一下孩子目前的願望：</p>
       <p style="margin:0 0 16px;"><strong>孩子的暱稱：</strong>{{childNickname}}<br><strong>年齡：</strong>{{childAge}}<br><strong>願望說明：</strong><span style="white-space:pre-line;">{{wishDescription}}</span></p>
-      <p style="margin:0 0 16px;">暫停的這段時間已經加回寄送期限。<br><strong style="color:#a61c00;">新的最晚寄出時間　{{shipDeadline}}（臺灣時間）</strong></p>
+      <p data-if="shipDeadline" style="margin:0 0 16px;">暫停的這段時間已經加回寄送期限。<br><strong style="color:#a61c00;">新的最晚寄出時間　{{shipDeadline}}（臺灣時間）</strong></p>
+      <p data-if="deadlinePassed" style="margin:0 0 16px;">暫停的這段時間已經加回寄送期限，但新的期限算出來已經過了。<strong style="color:#a61c00;">請先到下方認領頁確認目前的狀況</strong>，需要協助請寫信到 <a href="mailto:onlinesanta2026@gmail.com" style="color:#1155cc;text-decoration:underline;">onlinesanta2026@gmail.com</a>。</p>
       <p style="margin:0 0 20px;"><a href="{{claimUrl}}" style="color:#1155cc;text-decoration:underline;">到認領頁確認願望與新的寄送期限</a></p>
       <p style="margin:0 0 20px;">禮物寄出後，請記得回到同一頁填寫寄送資訊，讓機構的夥伴留意收件。謝謝您的幫忙！</p>
       <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>

@@ -18,7 +18,8 @@
     <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
       <p style="margin:0 0 16px;">親愛的{{recipientName}}，您好：</p>
       <p style="margin:0 0 12px;"><strong style="color:#38761d;">謝謝您的等候！{{organizationName}}已解除停權，您可以把「{{wishTitle}}」寄給機構的夥伴了。 🎁</strong></p>
-      <p style="margin:0 0 16px;">我們已把暫停的時間加回這筆認領的寄送期限。<br><strong style="color:#a61c00;">新的最晚寄出時間　{{shipDeadline}}（臺灣時間）</strong></p>
+      <p data-if="shipDeadline" style="margin:0 0 16px;">我們已把暫停的時間加回這筆認領的寄送期限。<br><strong style="color:#a61c00;">新的最晚寄出時間　{{shipDeadline}}（臺灣時間）</strong></p>
+      <p data-if="deadlinePassed" style="margin:0 0 16px;">暫停的這段時間已經加回寄送期限，但新的期限算出來已經過了。<strong style="color:#a61c00;">請先到下方認領頁確認目前的狀況</strong>，需要協助請寫信到 <a href="mailto:onlinesanta2026@gmail.com" style="color:#1155cc;text-decoration:underline;">onlinesanta2026@gmail.com</a>。</p>
       <p style="margin:0 0 16px;"><a href="{{claimUrl}}" style="color:#1155cc;text-decoration:underline;">到認領頁確認新期限與收件地址</a></p>
       <p style="margin:0 0 20px;">禮物寄出後，請回到同一頁填寫寄送資訊，讓機構的夥伴留意收件。謝謝您為孩子準備這份聖誕驚喜！</p>
       <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>

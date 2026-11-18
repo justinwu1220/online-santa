@@ -245,6 +245,8 @@ public class Claim extends BaseEntity {
             this.shipDeadlineAt = shipDeadlineAt.plus(java.time.Duration.between(deadlinePausedAt, now));
         }
         this.deadlinePausedAt = null;
+        // 期限往後延了，先前「快到期了」的提醒已經不準：清掉標記，讓新的期限臨近時再提醒一次
+        this.deadlineReminderSentAt = null;
     }
 
     public Instant getDeadlinePausedAt() {

@@ -1,23 +1,26 @@
 package com.onlinesanta.notification;
 
+import java.time.Instant;
+
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import com.onlinesanta.claim.Claim;
 import com.onlinesanta.claim.ClaimRepository;
-import com.onlinesanta.claim.ClaimRestriction;
 import com.onlinesanta.event.AffectedDonorNoticeEvent;
 import com.onlinesanta.event.ClaimReleasedByAdminEvent;
-import com.onlinesanta.event.UserSuspensionEvent;
 import com.onlinesanta.event.OrgSuspensionClaimEvent;
 import com.onlinesanta.event.OrganizationSuspensionEvent;
+import com.onlinesanta.event.UserSuspensionEvent;
 import com.onlinesanta.organization.OrganizationRepository;
 import com.onlinesanta.user.UserRepository;
 
 /**
- * 機構停權相關的通知：機構的聯絡信箱、還沒寄出的認領者（自動），以及管理員手動通知的認領者。
- * 都在交易提交後才寄。
+ * 停權相關的通知：機構停權／解除（1.10）、受影響認領者暫停／恢復（1.11）、
+ * 管理員手動的個案通知（1.12）、認領者帳號停權／恢復（1.13）、管理員結束認領（1.14）。
+ *
+ * <p>全部 {@code AFTER_COMMIT}：停權交易 rollback 的話，狀態根本沒有改，信不該寄。
  */
 @Component
 public class SuspensionNotificationListener {
@@ -38,125 +41,81 @@ public class SuspensionNotificationListener {
         this.properties = properties;
     }
 
+    // ── 1.10 機構停權／解除 ──────────────────────────────────────
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onOrganizationSuspension(OrganizationSuspensionEvent event) {
         organizations.findById(event.organizationId()).ifPresent(organization -> {
-            String subject = event.suspended() ? "您的機構已被停權" : "您的機構已解除停權";
-            String body = event.suspended()
-                    ? """
-                    %s 您好，
-
-                    平台管理員已停權貴機構，原因：%s
-
-                    停權期間您仍可登入機構後台，在「與團隊對話」與管理員聯繫、修改機構資料並補上傳證明文件；
-                    但無法對願望進行任何操作，也無法聯繫認領者。您的願望已凍結，認領者會看到停權說明。
-                    資料處理好後，請到「機構設定」按「申請解除停權」。
-                    %s/org
-
-                    線上聖誕老人
-                    """.formatted(organization.getName(), event.reason(), properties.publicUrl())
-                    : """
-                    %s 您好，
-
-                    平台管理員已解除貴機構的停權，願望與認領已恢復，認領者的寄送期限會順延停權的時間。
-                    %s/org
-
-                    線上聖誕老人
-                    """.formatted(organization.getName(), properties.publicUrl());
-            notifications.send(organization.getContactEmail(), subject, body);
+            if (event.suspended()) {
+                notifications.sendTemplate(organization.getContactEmail(), MailTemplateId.ORG_SUSPENDED,
+                        MailFields.of(
+                                "organizationName", organization.getName(),
+                                "suspensionReason", event.reason(),
+                                "orgUrl", MailFields.orgUrl(properties)));
+            } else {
+                notifications.sendTemplate(organization.getContactEmail(), MailTemplateId.ORG_REINSTATED,
+                        MailFields.of(
+                                "organizationName", organization.getName(),
+                                "orgUrl", MailFields.orgUrl(properties)));
+            }
         });
     }
 
+    // ── 1.11 機構停權／復權對認領者的影響 ────────────────────────────
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onClaimAffected(OrgSuspensionClaimEvent event) {
         claims.findWithDetailsById(event.claimId()).ifPresent(claim -> {
-            String title = claim.getWish().getTitle();
-            String subject = event.suspended()
-                    ? "您認領的「%s」暫停處理中".formatted(title)
-                    : "您認領的「%s」已恢復處理".formatted(title);
-            String body = event.suspended()
-                    ? """
-                    您好，
-
-                    您認領的「%s」所屬機構已被管理員暫時停權，正在積極處理中。
-                    暫停處理期間您不需要寄出禮物，寄送期限也暫停計算。若有問題可聯絡：%s
-                    認領頁：%s/me/claims/%s
-
-                    線上聖誕老人
-                    """.formatted(title, ClaimRestriction.CONTACT_EMAIL, properties.publicUrl(), claim.getId())
-                    : """
-                    您好，
-
-                    您認領的「%s」所屬機構已恢復，暫停的時間會加回寄送期限，請到認領頁確認新的期限。
-                    認領頁：%s/me/claims/%s
-
-                    線上聖誕老人
-                    """.formatted(title, properties.publicUrl(), claim.getId());
-            notifications.send(claim.getDonor().getEmail(), subject, body);
+            var fields = MailFields.of(
+                    "recipientName", MailFields.recipientName(claim.getDonor()),
+                    "wishTitle", claim.getWish().getTitle(),
+                    "organizationName", claim.getWish().getOrganization().getName(),
+                    "claimUrl", MailFields.claimUrl(properties, claim));
+            if (event.suspended()) {
+                notifications.sendTemplate(claim.getDonor().getEmail(),
+                        MailTemplateId.ORG_SUSPENDED_CLAIM_PAUSED, fields);
+            } else {
+                // 暫停時已逾期的認領，恢復後期限可能仍在過去：不顯示日期，見 MailFields.resumedDeadline
+                notifications.sendTemplate(claim.getDonor().getEmail(),
+                        MailTemplateId.ORG_REINSTATED_CLAIM_RESUMED,
+                        MailFields.merge(fields, MailFields.resumedDeadline(claim, Instant.now())));
+            }
         });
     }
 
+    // ── 1.12 團隊給認領者的個案通知 ──────────────────────────────
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onAffectedDonorNotice(AffectedDonorNoticeEvent event) {
-        claims.findWithDetailsById(event.claimId()).ifPresent((Claim claim) -> notifications.send(
-                claim.getDonor().getEmail(),
-                "關於您認領的「%s」".formatted(claim.getWish().getTitle()),
-                """
-                您好，
-
-                關於您認領的「%s」（%s）：
-
-                %s
-
-                若有問題可聯絡：%s
-                認領頁：%s/me/claims/%s
-
-                線上聖誕老人
-                """.formatted(claim.getWish().getTitle(), claim.getWish().getOrganization().getName(),
-                        event.message(), ClaimRestriction.CONTACT_EMAIL, properties.publicUrl(), claim.getId())));
+        claims.findWithDetailsById(event.claimId()).ifPresent((Claim claim) -> notifications.sendTemplate(
+                claim.getDonor().getEmail(), MailTemplateId.TEAM_CASE_NOTICE, MailFields.of(
+                        "recipientName", MailFields.recipientName(claim.getDonor()),
+                        "wishTitle", claim.getWish().getTitle(),
+                        "organizationName", claim.getWish().getOrganization().getName(),
+                        "adminMessage", event.message(),
+                        "claimUrl", MailFields.claimUrl(properties, claim))));
     }
 
-    /** 認領者被停權或解除停權：寄信告知本人（原因、受限的範圍與聯絡信箱）。 */
+    // ── 1.13 認領者帳號停權／恢復 ────────────────────────────────
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onUserSuspension(UserSuspensionEvent event) {
         users.findById(event.userId()).ifPresent(user -> {
-            String subject = event.suspended() ? "您的帳號目前受到限制" : "您的帳號已恢復";
-            String body = event.suspended()
-                    ? """
-                    您好，
-
-                    您的帳號因以下原因目前受到限制：%s
-
-                    受限期間您仍可登入查看自己的認領，但無法認領新的願望、傳送訊息、回報寄送或修改資料，
-                    進行中的認領也暫停處理。若有疑問可聯絡：%s
-
-                    線上聖誕老人
-                    """.formatted(event.reason(), ClaimRestriction.CONTACT_EMAIL)
-                    : """
-                    您好，
-
-                    您的帳號已經恢復，所有功能恢復正常；因受限而暫停的認領會繼續，寄送期限會順延受限的時間。
-                    %s
-
-                    線上聖誕老人
-                    """.formatted(properties.publicUrl());
-            notifications.send(user.getEmail(), subject, body);
+            if (event.suspended()) {
+                notifications.sendTemplate(user.getEmail(), MailTemplateId.USER_SUSPENDED, MailFields.of(
+                        "recipientName", MailFields.recipientName(user),
+                        "suspensionReason", event.reason()));
+            } else {
+                notifications.sendTemplate(user.getEmail(), MailTemplateId.USER_REINSTATED, MailFields.of(
+                        "recipientName", MailFields.recipientName(user),
+                        "publicUrl", properties.publicUrl()));
+            }
         });
     }
 
-    /** 管理員釋出認領：告知認領者這筆認領結束了、不需要再寄。 */
+    // ── 1.14 管理員結束認領 ──────────────────────────────────────
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onClaimReleasedByAdmin(ClaimReleasedByAdminEvent event) {
-        claims.findWithDetailsById(event.claimId()).ifPresent(claim -> notifications.send(
-                claim.getDonor().getEmail(),
-                "您認領的「%s」已由管理員釋出".formatted(claim.getWish().getTitle()),
-                """
-                您好，
-
-                管理員釋出了您認領的「%s」，原因：%s
-                您不需要再寄送這份禮物。若有疑問可聯絡：%s
-
-                線上聖誕老人
-                """.formatted(claim.getWish().getTitle(), event.reason(), ClaimRestriction.CONTACT_EMAIL)));
+        claims.findWithDetailsById(event.claimId()).ifPresent(claim -> notifications.sendTemplate(
+                claim.getDonor().getEmail(), MailTemplateId.CLAIM_RELEASED_BY_ADMIN, MailFields.of(
+                        "recipientName", MailFields.recipientName(claim.getDonor()),
+                        "wishTitle", claim.getWish().getTitle(),
+                        "releaseReason", event.reason())));
     }
 }

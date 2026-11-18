@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +16,6 @@ import com.onlinesanta.claim.Claim;
 import com.onlinesanta.claim.ClaimRestriction;
 import com.onlinesanta.claim.ClaimService;
 import com.onlinesanta.common.exception.BusinessRuleException;
-import com.onlinesanta.event.NewMessageEvent;
 import com.onlinesanta.message.dto.MessageView;
 import com.onlinesanta.message.dto.SendMessageRequest;
 
@@ -33,16 +31,13 @@ public class MessageService {
     private final MessageRepository messages;
     private final ClaimService claims;
     private final CurrentUserService currentUser;
-    private final ApplicationEventPublisher eventPublisher;
 
     public MessageService(MessageRepository messages,
                           ClaimService claims,
-                          CurrentUserService currentUser,
-                          ApplicationEventPublisher eventPublisher) {
+                          CurrentUserService currentUser) {
         this.messages = messages;
         this.claims = claims;
         this.currentUser = currentUser;
-        this.eventPublisher = eventPublisher;
     }
 
     @Transactional(readOnly = true)
@@ -75,18 +70,8 @@ public class MessageService {
                     claim.isOwnedBy(sender.userId()) ? restriction.donorMessage() : restriction.organizationMessage());
         }
 
-        // 防轟炸：這個判斷必須在存這則新訊息「之前」算，不然這則訊息自己一定會讓
-        // 對方的未讀數變成非 0，條件永遠不成立。如果對方已經有這個寄件人先前寄的
-        // 訊息還沒讀，就不再寄信——等對方讀了，下一則新訊息才會再次觸發通知。
-        boolean recipientHasUnreadFromSender = messages
-                .countByClaimIdAndReadAtIsNullAndSenderUserId(claimId, sender.userId()) > 0;
-
         Message message = messages.save(Message.user(
                 claim.getWish().getId(), claimId, sender.userId(), request.body().strip()));
-
-        if (!recipientHasUnreadFromSender) {
-            eventPublisher.publishEvent(new NewMessageEvent(claimId, sender.userId()));
-        }
 
         return MessageView.from(message, sender.userId(), !claim.isOwnedBy(sender.userId()));
     }

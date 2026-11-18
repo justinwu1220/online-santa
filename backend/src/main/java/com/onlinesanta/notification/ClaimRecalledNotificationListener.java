@@ -8,7 +8,7 @@ import com.onlinesanta.claim.Claim;
 import com.onlinesanta.claim.ClaimRepository;
 import com.onlinesanta.event.ClaimRecalledEvent;
 
-/** 機構收回認領 → 寄信告知認領者原因，並說明不需要再寄送、可以認領其他願望。 */
+/** 機構收回認領後，通知原認領者不用再寄禮物了（1.4）。 */
 @Component
 public class ClaimRecalledNotificationListener {
 
@@ -29,18 +29,11 @@ public class ClaimRecalledNotificationListener {
     }
 
     private void notify(Claim claim, ClaimRecalledEvent event) {
-        String subject = "機構收回了您認領的「%s」".formatted(claim.getWish().getTitle());
-        String body = """
-                您好，
-
-                機構收回了您認領的「%s」。
-                原因：%s
-
-                您不需要再寄送禮物了，謝謝您的心意。也歡迎回到願望牆認領其他孩子的願望：
-                %s
-
-                線上聖誕老人
-                """.formatted(claim.getWish().getTitle(), event.reason(), properties.publicUrl());
-        notifications.send(claim.getDonor().getEmail(), subject, body);
+        notifications.sendTemplate(claim.getDonor().getEmail(), MailTemplateId.CLAIM_RECALLED, MailFields.of(
+                "recipientName", MailFields.recipientName(claim.getDonor()),
+                "wishTitle", claim.getWish().getTitle(),
+                "organizationName", claim.getWish().getOrganization().getName(),
+                "recallReason", event.reason(),
+                "wishWallUrl", properties.publicUrl()));
     }
 }

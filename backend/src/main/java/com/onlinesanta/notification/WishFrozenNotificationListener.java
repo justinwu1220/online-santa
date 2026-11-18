@@ -1,15 +1,21 @@
 package com.onlinesanta.notification;
 
+import java.time.Instant;
+
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import com.onlinesanta.claim.Claim;
 import com.onlinesanta.claim.ClaimRepository;
-import com.onlinesanta.claim.ClaimRestriction;
 import com.onlinesanta.event.WishFrozenEvent;
 
-/** 管理員凍結／解除凍結已認領的願望 → 寄信告知認領者：暫停期間不用寄出，解除後期限順延。 */
+/**
+ * 願望被管理員凍結或解凍時，通知該筆認領者暫停／恢復寄送（1.9）。
+ *
+ * <p>事件只在「確實有認領被暫停或恢復」時才發布，且恢復信的寄送期限讀的是交易提交後重新載入的
+ * 認領——已經加回暫停時間。恢復後期限仍在過去的認領不顯示日期，見 {@link MailFields#resumedDeadline}。
+ */
 @Component
 public class WishFrozenNotificationListener {
 
@@ -30,37 +36,25 @@ public class WishFrozenNotificationListener {
     }
 
     private void notify(Claim claim, boolean frozen) {
-        String title = claim.getWish().getTitle();
         // 「認領頁」要連到那一筆認領，不是網站首頁——首頁是願望牆，收信人看不到自己的認領
-        String claimUrl = properties.publicUrl() + "/me/claims/" + claim.getId();
-        String subject = frozen
-                ? "您認領的「%s」暫停處理中".formatted(title)
-                : "您認領的「%s」已恢復處理".formatted(title);
-        String body = frozen
-                ? """
-                您好，
-
-                平台正在確認您認領的「%s」的內容，暫停處理期間您不需要寄出禮物，寄送期限也會暫停計算。
-                如有疑問，歡迎在認領頁向機構詢問，或來信 %s。
-                認領頁：%s
-
-                線上聖誕老人
-                """.formatted(title, ClaimRestriction.CONTACT_EMAIL, claimUrl)
-                : """
-                您好，
-
-                您認領的「%s」已經恢復處理，暫停的時間會加回寄送期限，請到認領頁確認新的期限。
-                願望內容可能已經更新，目前的內容如下：
-                  孩子的暱稱：%s
-                  年齡：%s
-                  願望說明：%s
-                認領頁：%s
-
-                線上聖誕老人
-                """.formatted(title, claim.getWish().getChildAlias(),
-                        claim.getWish().getAgeRange() == null ? "—" : claim.getWish().getAgeRange().getLabel(),
-                        claim.getWish().getDescription() == null ? "—" : claim.getWish().getDescription(),
-                        claimUrl);
-        notifications.send(claim.getDonor().getEmail(), subject, body);
+        String claimUrl = MailFields.claimUrl(properties, claim);
+        String recipient = MailFields.recipientName(claim.getDonor());
+        String title = claim.getWish().getTitle();
+        if (frozen) {
+            notifications.sendTemplate(claim.getDonor().getEmail(), MailTemplateId.WISH_PAUSED, MailFields.of(
+                    "recipientName", recipient, "wishTitle", title, "claimUrl", claimUrl));
+            return;
+        }
+        notifications.sendTemplate(claim.getDonor().getEmail(), MailTemplateId.WISH_RESUMED, MailFields.merge(
+                MailFields.of(
+                        "recipientName", recipient,
+                        "wishTitle", title,
+                        "childNickname", claim.getWish().getChildAlias(),
+                        "childAge", claim.getWish().getAgeRange() == null
+                                ? "—" : claim.getWish().getAgeRange().getLabel(),
+                        "wishDescription", claim.getWish().getDescription() == null
+                                ? "—" : claim.getWish().getDescription(),
+                        "claimUrl", claimUrl),
+                MailFields.resumedDeadline(claim, Instant.now())));
     }
 }

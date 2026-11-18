@@ -8,7 +8,11 @@ import com.onlinesanta.claim.Claim;
 import com.onlinesanta.claim.ClaimRepository;
 import com.onlinesanta.event.FeedbackPhotoConfirmedEvent;
 
-/** 機構的送禮回饋照片確認上傳成功 → 通知該筆認領的捐贈者。 */
+/**
+ * 機構上傳收件證明照片後，通知認領者（1.5）。
+ *
+ * <p>每張確認的照片各寄一封（沒有節流），維持與先前相同的行為。
+ */
 @Component
 public class FeedbackPhotoConfirmedNotificationListener {
 
@@ -30,15 +34,10 @@ public class FeedbackPhotoConfirmedNotificationListener {
     }
 
     private void notify(Claim claim) {
-        String subject = "「%s」的機構收件證明來囉".formatted(claim.getWish().getTitle());
-        String body = """
-                您好，
-
-                您送出的「%s」，機構上傳了收件證明，確認您送出的禮物已經送達，一起看看孩子收到禮物的樣子吧：
-                %s/me/claims/%s
-
-                線上聖誕老人
-                """.formatted(claim.getWish().getTitle(), properties.publicUrl(), claim.getId());
-        notifications.send(claim.getDonor().getEmail(), subject, body);
+        notifications.sendTemplate(claim.getDonor().getEmail(), MailTemplateId.FEEDBACK_PHOTO, MailFields.of(
+                "recipientName", MailFields.recipientName(claim.getDonor()),
+                "wishTitle", claim.getWish().getTitle(),
+                "organizationName", claim.getWish().getOrganization().getName(),
+                "claimUrl", MailFields.claimUrl(properties, claim)));
     }
 }

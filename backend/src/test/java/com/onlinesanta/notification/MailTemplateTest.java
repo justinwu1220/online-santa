@@ -109,6 +109,29 @@ class MailTemplateTest {
     }
 
     @Test
+    @DisplayName("恢復寄送信：期限有效時只寫日期；期限已過時不寫日期，改顯示請到認領頁確認")
+    void resumeTemplatesHandleAPassedDeadline() {
+        for (MailTemplateId id : new MailTemplateId[] {
+                MailTemplateId.WISH_RESUMED, MailTemplateId.ORG_REINSTATED_CLAIM_RESUMED}) {
+            MailTemplate t = TEMPLATES.get(id);
+
+            Map<String, Object> valid = sampleValues(t);
+            valid.put("shipDeadline", "2026/12/25 18:00");
+            valid.put("deadlinePassed", false);
+            MailTemplate.Rendered ok = t.render(valid);
+            assertThat(ok.text()).contains("2026/12/25 18:00").doesNotContain("已經過了");
+
+            Map<String, Object> passed = sampleValues(t);
+            passed.put("shipDeadline", null);
+            passed.put("deadlinePassed", true);
+            MailTemplate.Rendered late = t.render(passed);
+            assertThat(late.text()).doesNotContain("新的最晚寄出時間").contains("已經過了")
+                    .contains("onlinesanta2026@gmail.com");
+            assertThat(late.html()).doesNotContain("data-if");
+        }
+    }
+
+    @Test
     @DisplayName("缺欄位是程式錯誤：丟例外，不會寄出殘留 {{ }} 的信")
     void missingFieldFails() {
         MailTemplate t = TEMPLATES.get(MailTemplateId.CLAIM_CONFIRMED);

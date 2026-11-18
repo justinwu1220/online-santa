@@ -3,6 +3,7 @@ package com.onlinesanta.job;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -15,6 +16,8 @@ import com.onlinesanta.claim.Claim;
 import com.onlinesanta.claim.ClaimRepository;
 import com.onlinesanta.claim.ClaimStatus;
 import com.onlinesanta.job.dto.DeadlineReminderResult;
+import com.onlinesanta.notification.MailFields;
+import com.onlinesanta.notification.MailTemplateId;
 import com.onlinesanta.notification.NotificationFormat;
 import com.onlinesanta.notification.NotificationProperties;
 import com.onlinesanta.notification.NotificationService;
@@ -99,21 +102,11 @@ public class DeadlineReminderService {
 
         claim.markDeadlineReminderSent();
 
-        String subject = "提醒：「%s」的寄送期限快到了".formatted(claim.getWish().getTitle());
-        String body = """
-                您好，
-
-                您認領的「%s」寄送期限是 %s，記得盡快寄出並回來回報寄送資訊喔！
-
-                查看認領詳情：
-                %s/me/claims/%s
-
-                線上聖誕老人
-                """.formatted(
-                        claim.getWish().getTitle(),
-                        NotificationFormat.dateTime(claim.getShipDeadlineAt()),
-                        properties.publicUrl(),
-                        claim.getId());
-        notifications.send(claim.getDonor().getEmail(), subject, body);
+        // 同步寄出：排程請求回應後，Cloud Run 可能把 CPU 降下來，背景執行緒的信會拖很久才寄
+        notifications.sendTemplateNow(claim.getDonor().getEmail(), MailTemplateId.DEADLINE_REMINDER, Map.of(
+                "recipientName", MailFields.recipientName(claim.getDonor()),
+                "wishTitle", claim.getWish().getTitle(),
+                "shipDeadline", NotificationFormat.dateTime(claim.getShipDeadlineAt()),
+                "claimUrl", MailFields.claimUrl(properties, claim)));
     }
 }

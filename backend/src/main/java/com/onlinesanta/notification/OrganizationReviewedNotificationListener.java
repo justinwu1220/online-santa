@@ -8,7 +8,7 @@ import com.onlinesanta.event.OrganizationReviewedEvent;
 import com.onlinesanta.organization.Organization;
 import com.onlinesanta.organization.OrganizationRepository;
 
-/** 機構審核結果（核准／駁回）→ 通知機構的 contactEmail。 */
+/** 機構申請審核結果（1.7）：通過、或需要補件。審核意見取自機構資料，空白時樣板整段省略。 */
 @Component
 public class OrganizationReviewedNotificationListener {
 
@@ -31,32 +31,16 @@ public class OrganizationReviewedNotificationListener {
     }
 
     private void notify(Organization organization, boolean approved) {
-        String subject = approved ? "機構審核結果：核准" : "機構審核結果：需要補件";
-        String reasonLine = organization.getReviewNote() == null || organization.getReviewNote().isBlank()
-                ? "" : "\n審核意見：" + organization.getReviewNote() + "\n";
-
-        String body = approved
-                ? """
-                        %s 您好，
-
-                        恭喜，您的機構申請已經核准，現在可以開始上架願望了。
-                        %s
-                        登入機構後台開始使用：
-                        %s/org
-
-                        線上聖誕老人
-                        """.formatted(organization.getName(), reasonLine, properties.publicUrl())
-                : """
-                        %s 您好，
-
-                        您的機構申請這次沒有通過，請參考以下意見補件後重新送審。
-                        %s
-                        登入機構後台補件：
-                        %s/org/settings
-
-                        線上聖誕老人
-                        """.formatted(organization.getName(), reasonLine, properties.publicUrl());
-
-        notifications.send(organization.getContactEmail(), subject, body);
+        if (approved) {
+            notifications.sendTemplate(organization.getContactEmail(), MailTemplateId.ORG_APPROVED, MailFields.of(
+                    "organizationName", organization.getName(),
+                    "reviewNote", organization.getReviewNote(),
+                    "orgUrl", MailFields.orgUrl(properties)));
+        } else {
+            notifications.sendTemplate(organization.getContactEmail(), MailTemplateId.ORG_NEEDS_FIX, MailFields.of(
+                    "organizationName", organization.getName(),
+                    "reviewNote", organization.getReviewNote(),
+                    "orgSettingsUrl", MailFields.orgSettingsUrl(properties)));
+        }
     }
 }
