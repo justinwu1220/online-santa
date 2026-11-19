@@ -18,6 +18,7 @@ import com.onlinesanta.admin.AdminAuditAction;
 import com.onlinesanta.admin.AdminAuditService;
 import com.onlinesanta.closing.dto.CampaignRequest;
 import com.onlinesanta.closing.dto.CampaignView;
+import com.onlinesanta.closing.dto.FinanceView;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,11 +32,28 @@ import jakarta.validation.Valid;
 public class AdminCampaignController {
 
     private final CampaignService campaigns;
+    private final CampaignFinanceService finance;
     private final AdminAuditService audit;
 
-    public AdminCampaignController(CampaignService campaigns, AdminAuditService audit) {
+    public AdminCampaignController(CampaignService campaigns, CampaignFinanceService finance, AdminAuditService audit) {
         this.campaigns = campaigns;
+        this.finance = finance;
         this.audit = audit;
+    }
+
+    @GetMapping("/{id}/finance")
+    @Operation(summary = "檔期財務資料",
+            description = "每個月的現金實募、利息、募得款實支與自籌。空白＝待補，0＝已核實沒有發生")
+    public FinanceView finance(@PathVariable UUID id) {
+        return finance.get(id);
+    }
+
+    @PutMapping("/{id}/finance")
+    @Operation(summary = "儲存檔期財務資料", description = "只保存有填寫的月份；全部空白的月份不留紀錄")
+    public FinanceView saveFinance(@PathVariable UUID id, @Valid @RequestBody FinanceView request) {
+        FinanceView saved = finance.save(id, request);
+        audit.record(AdminAuditAction.SAVE_CAMPAIGN, id, "更新檔期財務資料（現金、利息、實支、自籌）");
+        return saved;
     }
 
     @GetMapping

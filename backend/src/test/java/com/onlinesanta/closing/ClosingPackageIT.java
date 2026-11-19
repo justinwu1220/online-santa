@@ -128,6 +128,39 @@ class ClosingPackageIT extends ApiIntegrationTest {
         throw new AssertionError("沒有工作表");
     }
 
+    private static byte[] unzipEntry(byte[] zip, String name) throws Exception {
+        try (ZipInputStream in = new ZipInputStream(new ByteArrayInputStream(zip), StandardCharsets.UTF_8)) {
+            for (ZipEntry e = in.getNextEntry(); e != null; e = in.getNextEntry()) {
+                if (e.getName().equals(name)) {
+                    return in.readAllBytes();
+                }
+            }
+        }
+        throw new AssertionError("沒有 " + name);
+    }
+
+    @Test
+    @DisplayName("財務資料填了的欄位不再列為待補；沒填的仍然列出，且不當作 0")
+    void filledFinanceIsNotPending() throws Exception {
+        completedClaim("第一個");
+        var months = new java.util.ArrayList<com.onlinesanta.closing.dto.FinanceView.Month>();
+        for (java.time.YearMonth m = java.time.YearMonth.from(campaign.getCollectionStart());
+             !m.isAfter(java.time.YearMonth.from(campaign.getCollectionEnd())); m = m.plusMonths(1)) {
+            months.add(new com.onlinesanta.closing.dto.FinanceView.Month(m.getYear(), m.getMonthValue(), 0L, null, null, null));
+        }
+        mvc.perform(as(withBody(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/api/admin/campaigns/{id}/finance", campaign.getId()),
+                        new com.onlinesanta.closing.dto.FinanceView(months, 0L, "沒有自籌")), ADMIN)).andExpect(status().isOk());
+
+        Map<String, byte[]> zip = buildPackage(ClosingStage.C);
+
+        String todo = new String(zip.get("05_留存備份/待補資料.md"), StandardCharsets.UTF_8);
+        assertThat(todo).doesNotContain("現金實募（每月").doesNotContain("本會自籌支應金額");   // 已核實為 0
+        assertThat(todo).contains("利息收入（每月");                                           // 還沒填
+        String cash = new String(unzipEntry(zip.get("05_留存備份/結案登記簿.xlsx"), "xl/worksheets/sheet3.xml"), StandardCharsets.UTF_8);
+        assertThat(cash).contains("待補").contains("沒有自籌");
+    }
+
     private static int pages(byte[] pdf) throws Exception {
         try (PDDocument d = Loader.loadPDF(pdf)) {
             return d.getNumberOfPages();
@@ -147,6 +180,11 @@ class ClosingPackageIT extends ApiIntegrationTest {
                 "03_收據/紅聯（給捐贈人）/OSK-000001.pdf", "03_收據/白黃聯（協會留存）/OSK-000002.pdf",
                 "05_留存備份/00_收據檢查.txt", "05_留存備份/00_收據清單.csv", "05_留存備份/待補資料.md");
         assertThat(zip.keySet()).noneMatch(n -> n.contains("支出明細"));        // C 沒有支出明細
+        // 每個外部機構一份 05A 與一份 05B（兩份都不含個人資料，可以安全寄給機構）；沒有指定協會自身服務對象就沒有 05C
+        assertThat(zip.keySet()).contains("04_機構確認/待簽章/001_快樂兒童之家/05A_機構物資領受暨發放確認表.pdf",
+                "04_機構確認/待簽章/001_快樂兒童之家/05B_個人物資領受證明_機構留存.pdf");
+        assertThat(zip.keySet()).noneMatch(n -> n.contains("05C"));
+        assertThat(pages(zip.get("04_機構確認/待簽章/001_快樂兒童之家/05B_個人物資領受證明_機構留存.pdf"))).isEqualTo(2);   // 兩個願望兩組頁
 
         String sheet = sheetOf(zip.get(dir + "02_捐物人資料.xlsx"));
         assertThat(sheet).doesNotContain("123321").contains("OSK-000001", "OSK-000002", "王大明");
@@ -174,8 +212,13 @@ class ClosingPackageIT extends ApiIntegrationTest {
         Map<String, byte[]> zip = buildPackage(ClosingStage.D);
 
         String dir = "02_交給康乃心/D.結案備查/";
-        assertThat(zip.keySet()).contains(dir + "04_支出明細資料.xlsx", dir + "04_支出明細資料.pdf");
+        assertThat(zip.keySet()).contains(dir + "04_支出明細資料.xlsx", dir + "04_支出明細資料.pdf",
+                dir + "03_執行(服務)成果報告.pdf", "05_留存備份/結案登記簿.xlsx");
         assertThat(zip.keySet()).noneMatch(n -> n.contains("捐物人資料"));
+        assertThat(pages(zip.get(dir + "03_執行(服務)成果報告.pdf"))).isGreaterThanOrEqualTo(1);
+        // 登記簿：五個工作表，含受贈與轉贈、收據、現金與自籌、勾稽、來源索引
+        String workbook = new String(unzipEntry(zip.get("05_留存備份/結案登記簿.xlsx"), "xl/workbook.xml"), StandardCharsets.UTF_8);
+        assertThat(workbook).contains("受贈與轉贈", "收據", "現金與自籌", "勾稽", "來源索引");
         String sheet = sheetOf(zip.get(dir + "04_支出明細資料.xlsx"));
         assertThat(sheet).doesNotContain("123321").contains("財物支出", "OSK-000001", "其他", "實物轉貨".replace("貨", "贈"))
                 .contains("轉贈快樂兒童之家");

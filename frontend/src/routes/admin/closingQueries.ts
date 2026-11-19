@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, withQuery } from '../../lib/api'
 import type {
-  CampaignRequest, CampaignView, ClosingStage, ExportView, PageResponse, PdfKind, PdfStatus, ReceiptCheck,
+  CampaignRequest, CampaignView, ClosingStage, ExportView, FinanceData, PageResponse, PdfKind, PdfStatus, ReceiptCheck,
   ReceiptDownload, ReceiptStatus, ReceiptView,
 } from '../../lib/types'
 
@@ -28,6 +28,24 @@ export function useReceipts(campaignId: string | undefined, filter: ReceiptFilte
       campaignId, status: filter.status, pdfStatus: filter.pdfStatus, q: filter.q || undefined,
       page: filter.page, size: 20,
     })),
+  })
+}
+
+export function useFinance(campaignId: string) {
+  return useQuery({
+    queryKey: ['closing-finance', campaignId],
+    queryFn: () => api.get<FinanceData>(`/api/admin/campaigns/${campaignId}/finance`),
+  })
+}
+
+export function useSaveFinance(campaignId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (data: FinanceData) => api.put<FinanceData>(`/api/admin/campaigns/${campaignId}/finance`, data),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(['closing-finance', campaignId], saved)
+      void queryClient.invalidateQueries({ queryKey: ['audit-logs'] })
+    },
   })
 }
 

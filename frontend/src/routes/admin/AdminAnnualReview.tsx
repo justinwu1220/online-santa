@@ -10,6 +10,7 @@ import { pageTitle } from '../../lib/brand'
 import type { CampaignView, PlatformMonthlyStats, PlatformPeriodStats } from '../../lib/types'
 import { CampaignDialog } from './CampaignDialog'
 import { CampaignPanel, ReceiptsPanel } from './ClosingPanels'
+import { FinancePanel } from './FinancePanel'
 import { useCampaigns } from './closingQueries'
 
 const fetchDaily = (year: number, month: number) =>
@@ -129,7 +130,12 @@ export function AdminAnnualReview() {
         </div>
       )}
 
-      {tab === 'campaign' && campaign && <CampaignPanel campaign={campaign} onEdit={() => setEditing(campaign)} />}
+      {tab === 'campaign' && campaign && (
+        <>
+          <CampaignPanel campaign={campaign} onEdit={() => setEditing(campaign)} />
+          <FinancePanel key={campaign.id} campaignId={campaign.id} />
+        </>
+      )}
       {tab === 'receipts' && campaign && <ReceiptsPanel campaign={campaign} />}
 
       <CampaignDialog campaign={editing} onClose={() => setEditing(null)} />

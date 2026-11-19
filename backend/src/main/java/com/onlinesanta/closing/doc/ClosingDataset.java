@@ -28,6 +28,8 @@ public record ClosingDataset(
         List<OrgGroup> organizations,
         List<MonthRow> months,
         Totals totals,
+        FinanceSummary finance,
+        List<ReceiptLogRow> receiptLog,
         List<String> outOfRange) {
 
     /**
@@ -70,6 +72,27 @@ public record ClosingDataset(
     }
 
     public record Totals(int giftCount, int quantity, long value, int organizationCount) {
+    }
+
+    /**
+     * 範圍內的財務資料（手動欄位）。合計只有在範圍內<strong>每個月都已填寫</strong>時才有值，
+     * 否則是 null＝待補；不會把沒填的月份當 0。
+     */
+    public record FinanceSummary(
+            Long cashIncome,
+            Long interest,
+            Long cashExpense,
+            Long selfFundedAmount,
+            String selfFundedNote,
+            List<FinanceMonth> months) {
+    }
+
+    /** 收據簿的一列（含作廢的）。作廢的收據保留原號與替代關係，不能因為重開就消失。 */
+    public record ReceiptLogRow(String receiptNo, String status, LocalDate issuedOn, LocalDate donatedOn, int value,
+                                String voidReason, String replacedByNo) {
+    }
+
+    public record FinanceMonth(int year, int month, Long cashIncome, Long interest, Long cashExpense, String note) {
     }
 
     /** 外部機構（不含協會自身服務對象）。 */

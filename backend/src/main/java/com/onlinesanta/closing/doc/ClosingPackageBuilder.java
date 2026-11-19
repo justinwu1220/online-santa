@@ -30,11 +30,18 @@ public class ClosingPackageBuilder {
     private final OfficialExcel excel;
     private final PdfTableWriter tables;
     private final ClosingProperties properties;
+    private final ReportPdfWriter report;
+    private final RegistryWorkbook registry;
+    private final OrgFormPdfWriter orgForms;
 
-    public ClosingPackageBuilder(OfficialExcel excel, PdfTableWriter tables, ClosingProperties properties) {
+    public ClosingPackageBuilder(OfficialExcel excel, PdfTableWriter tables, ClosingProperties properties,
+                                 ReportPdfWriter report, RegistryWorkbook registry, OrgFormPdfWriter orgForms) {
+        this.orgForms = orgForms;
         this.excel = excel;
         this.tables = tables;
         this.properties = properties;
+        this.report = report;
+        this.registry = registry;
     }
 
     public Built build(ClosingDataset data) {
@@ -56,6 +63,13 @@ public class ClosingPackageBuilder {
                     "01_捐款人資料.pdf、成果報告的所得", "只有純物資：現金欄維持「待補」，經核實為 0 才填 0"));
         }
         if (stage.includesExpenses()) {
+            ReportPdfWriter.Result reportPdf = report.write(data);
+            String reportName = stage == ClosingStage.D ? "03_執行(服務)成果報告.pdf" : "05_執行(服務)成果報告.pdf";
+            files.add(new PackageFile(dir + reportName, reportPdf.pdf()));
+            if (!reportPdf.replacedChars().isEmpty()) {
+                todo.add(new TodoItem("PDF 字型沒有這些字，已畫成「？」：" + reportPdf.replacedChars(), "工程（補字型）", reportName,
+                        "其他文件不受影響"));
+            }
             String name = stage == ClosingStage.D ? "04_支出明細資料" : "06_支出明細資料";
             files.add(new PackageFile(dir + name + ".xlsx", excel.expenseList(data)));
             PdfTableWriter.Result pdf = tables.render(expenseSpec(data));
@@ -65,6 +79,19 @@ public class ClosingPackageBuilder {
                     "協會（向承辦確認）", name + ".xlsx／.pdf",
                     "傳票號碼先用收據編號、支付方式「其他」、其他付款方式「實物轉贈」，待承辦確認"));
         }
+        files.add(new PackageFile("05_留存備份/結案登記簿.xlsx", registry.build(data)));
+        for (OrgFormPdfWriter.Form form : orgForms.build(data)) {
+            files.add(new PackageFile(form.path(), form.pdf()));
+            if (!form.replacedChars().isEmpty()) {
+                todo.add(new TodoItem("PDF 字型沒有這些字，已畫成「？」：" + form.replacedChars(), "工程（補字型）", form.path(),
+                        "其他文件不受影響"));
+            }
+        }
+        if (data.campaign().getAssociationOrgId() == null) {
+            todo.add(new TodoItem("協會自身服務對象的機構帳號（檔期的「自身服務對象機構」）", "管理員（檔期設定）", "05C",
+                    "沒有指定就不產生 05C；本會直接發放份數寫待確認"));
+        }
+        financeTodo(todo, data);
         if (!data.outOfRange().isEmpty()) {
             todo.add(new TodoItem("有 %d 張有效收據的收到日不在本階段資料範圍（%s 至 %s）內：%s".formatted(
                     data.outOfRange().size(), RocDate.slash(data.from()), RocDate.slash(data.cutoff()),
@@ -97,6 +124,31 @@ public class ClosingPackageBuilder {
 
     private static String cellText(String s) {
         return s == null ? "" : s.replace("|", "／").replace("\n", " ");
+    }
+
+    /** 系統沒有的資料：現金、利息、募得款實支、自籌，以及個人實際領受、議決、公開徵信。 */
+    private static void financeTodo(List<TodoItem> todo, ClosingDataset d) {
+        var f = d.finance();
+        if (f.interest() == null) {
+            todo.add(new TodoItem("利息收入（每月；沒有也要核實後填 0）", "協會財務", "成果報告、照表操作頁的利息欄",
+                    "文件上寫待補，不當作 0"));
+        }
+        if (f.cashIncome() == null) {
+            todo.add(new TodoItem("現金實募（每月；純物資也要核實後填 0）", "協會財務", "成果報告所得、照表操作頁",
+                    "文件上寫待補，不當作 0"));
+        }
+        if (d.stage().includesExpenses() && f.cashExpense() == null) {
+            todo.add(new TodoItem("募得款實支（現金）", "協會財務", "成果報告、支出明細", "文件上寫待補"));
+        }
+        if (f.selfFundedAmount() == null) {
+            todo.add(new TodoItem("本會自籌支應金額與說明（沒有也要核實後填 0）", "協會財務", "成果報告、照表操作頁", "文件上寫待補"));
+        }
+        todo.add(new TodoItem("個人實際領受（去重人數與份數）、未發放與差異", "各機構（05A 回傳）、協會（05C）",
+                "成果報告統計、照表操作頁說明", "機構領受數已有；個人領受寫待補"));
+        todo.add(new TodoItem("理事會議決情形（日期、第幾屆第幾次、結果）與公開徵信辦理情形", "協會",
+                "成果報告、照表操作頁說明", "寫待議決、待發布；不套用「業經通過」"));
+        todo.add(new TodoItem("簽章、用印、核對人簽名", "協會（經手人、會計、負責人、團體用印）", "所有核章 PDF、05A／B／C、收據",
+                "一律留白，系統不產生簽章"));
     }
 
     private static void charsTodo(List<TodoItem> todo, PdfTableWriter.Result pdf, String file) {

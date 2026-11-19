@@ -65,6 +65,13 @@ public class Campaign extends BaseEntity {
     @Column(name = "association_org_id")
     private UUID associationOrgId;
 
+    /** 本會自籌支應的金額與說明；NULL＝待補。自籌不從募得物資扣除，另列。 */
+    @Column(name = "self_funded_amount")
+    private Long selfFundedAmount;
+
+    @Column(name = "self_funded_note", length = 500)
+    private String selfFundedNote;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private CampaignStatus status;
@@ -151,6 +158,11 @@ public class Campaign extends BaseEntity {
         return isActive() && !date.isBefore(wishListStart) && !date.isAfter(wishListEnd);
     }
 
+    public void updateSelfFunded(Long amount, String note) {
+        this.selfFundedAmount = amount;
+        this.selfFundedNote = blankToNull(note);
+    }
+
     public boolean isActive() {
         return status == CampaignStatus.ACTIVE;
     }
@@ -209,6 +221,14 @@ public class Campaign extends BaseEntity {
 
     public int getReceiptsIssued() {
         return receiptsIssued;
+    }
+
+    public Long getSelfFundedAmount() {
+        return selfFundedAmount;
+    }
+
+    public String getSelfFundedNote() {
+        return selfFundedNote;
     }
 
     public UUID getAssociationOrgId() {

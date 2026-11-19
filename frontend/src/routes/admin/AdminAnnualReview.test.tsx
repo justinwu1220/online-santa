@@ -4,7 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CampaignView, PageResponse, PeriodList, PlatformPeriodStats, ReceiptView } from '../../lib/types'
+import type { CampaignView, FinanceData, PageResponse, PeriodList, PlatformPeriodStats, ReceiptView } from '../../lib/types'
 import { AdminAnnualReview } from './AdminAnnualReview'
 
 const campaign: CampaignView = {
@@ -22,6 +22,14 @@ const periodList: PeriodList = {
     { key: 'c1', campaignId: 'c1', name: '線上聖誕老人 2026', start: '2026-01-26', end: '2027-01-25', unassigned: false },
     { key: 'c0', campaignId: 'c0', name: '線上聖誕老人 2025', start: '2025-01-01', end: '2026-01-25', unassigned: false },
   ],
+}
+
+const finance: FinanceData = {
+  months: [
+    { year: 2026, month: 11, cashIncome: 0, interest: null, cashExpense: null },
+    { year: 2026, month: 12, cashIncome: null, interest: null, cashExpense: null },
+  ],
+  selfFundedAmount: null,
 }
 
 const stats: PlatformPeriodStats = {
@@ -75,6 +83,7 @@ beforeEach(() => {
   get.mockImplementation(async (path: string) => {
     if (path === '/api/admin/stats/periods') return periodList
     if (path.startsWith('/api/admin/stats/period?')) return stats
+    if (path.endsWith('/finance')) return finance
     if (path.startsWith('/api/admin/campaigns')) return [campaign, { ...campaign, id: 'c0', name: '線上聖誕老人 2025', receiptPrefix: 'OS2025' }]
     if (path.startsWith('/api/admin/receipts?')) {
       return page([
@@ -317,6 +326,28 @@ describe('年度營運頁', () => {
 
     await userEvent.click(screen.getByRole('tab', { name: '收據' }))
     expect(await screen.findByText('OS2026-000001')).toBeTruthy()
+  })
+
+  it('財務資料：空白是待補、0 是已核實沒有；只送出有改的資料，儲存後清掉未儲存狀態', async () => {
+    put.mockResolvedValue({ ...finance, months: [
+      { year: 2026, month: 11, cashIncome: 0, interest: 5, cashExpense: null },
+      { year: 2026, month: 12, cashIncome: null, interest: null, cashExpense: null },
+    ] })
+    renderPage('/admin/annual?tab=campaign')
+    const interest = (await screen.findByLabelText('2026/11 利息')) as HTMLInputElement
+    expect((screen.getByLabelText('2026/11 現金實募') as HTMLInputElement).value).toBe('0')   // 0 顯示 0
+    expect(interest.value).toBe('')                                                          // null 顯示空白（待補）
+    expect(interest.placeholder).toBe('待補')
+    expect((screen.getByRole('button', { name: '儲存' }) as HTMLButtonElement).disabled).toBe(true)
+
+    await userEvent.type(interest, '5')
+    await userEvent.click(screen.getByRole('button', { name: '儲存' }))
+
+    await waitFor(() => expect(put).toHaveBeenCalled())
+    const [path, body] = put.mock.calls[0]
+    expect(path).toBe('/api/admin/campaigns/c1/finance')
+    expect(body.months[0]).toMatchObject({ cashIncome: 0, interest: 5, cashExpense: null })
+    expect(await screen.findByText('已儲存。')).toBeTruthy()
   })
 
   it('沒有任何檔期時只有「尚未建立檔期」，仍能新增檔期', async () => {
