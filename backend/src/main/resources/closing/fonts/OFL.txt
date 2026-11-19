@@ -1,6 +1,8 @@
-Copyright 2024 The LXGW WenKai Project Authors (https://github.com/lxgw/LxgwWenkaiTC)
+Copyright (c) 2026 Ministry of Digital Affairs, Taiwan (TW-Kai 全字庫正楷體, https://data.cns11643.gov.tw/)
 
-This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This Font Software is made available under the SIL Open Font License, Version 1.1
+(also available under the Open Government Data License, version 1.0, https://data.gov.tw/en/license).
+This file is a subset of TW-Kai (Big5 characters, ASCII and punctuation), produced with BuildKaiSubset.
 This license is copied below, and is also available with a FAQ at:
 https://openfontlicense.org
 

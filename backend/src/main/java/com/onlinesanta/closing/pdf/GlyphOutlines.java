@@ -28,7 +28,7 @@ import org.springframework.stereotype.Component;
 /**
  * 把中文字用「字形向量輪廓」畫進 PDF，而不是嵌入字型。
  *
- * <p>為什麼不嵌入：PDFBox 3.0.5／3.0.6 對霞鶩文楷、Noto 這類字型做子集嵌入會產生錯字形（實測，
+ * <p>為什麼不嵌入：PDFBox 3.0.5／3.0.6 對楷體、Noto 這類字型做子集嵌入會產生錯字形（實測，
  * 整份字型嵌入才正常，但每份 PDF 要 5MB）。直接畫輪廓不依賴字型表格的細節，也不會有嵌入授權的疑慮
  * （字型採 SIL OFL，文件不受授權限制）。代價是文字不能選取或搜尋——收據與報表是印出來用的。
  *
@@ -38,7 +38,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class GlyphOutlines {
 
-    private static final String FONT_RESOURCE = "closing/fonts/LXGWWenKaiTC-Subset.ttf";
+    private static final String FONT_RESOURCE = "closing/fonts/TW-Kai-Subset.ttf";
 
     /** 一個字形的路徑指令：0 移動、1 直線、2 三次曲線、3 封閉。座標在字型單位（y 向上，與 PDF 同向）。 */
     private record Glyph(byte[] ops, float[] coords, int advance) {

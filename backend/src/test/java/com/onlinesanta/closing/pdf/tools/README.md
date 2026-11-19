@@ -10,7 +10,8 @@
    java -cp <classes;test-classes;依賴> com.onlinesanta.closing.pdf.tools.BuildReceiptTemplate extract template-320.pdf 工作目錄
    ```
    產生 `labels.tsv`（每段文字的頁、位置、字級、顏色、內容）與 `chars.txt`（用到的所有字）。
-3. **裁小字型**（fontTools）：以 `chars.txt` 加數字 0–9，把完整的霞鶩文楷裁成只含這些字的 `labels.ttf`（不留 GSUB/GPOS 等，約 100KB）。
+3. **裁小字型**：`BuildKaiSubset TW-Kai.ttf labels.ttf chars.txt only`，以 `chars.txt` 加數字 0–9，把完整的全字庫正楷體裁成只含這些字的 `labels.ttf`（約 0.28MB）。
+   結案文件用的整份子集用 `BuildKaiSubset TW-Kai.ttf TW-Kai-Subset.ttf`（不帶 `only`，Big5 全部字）。
 4. **組範本**：
    ```
    ... BuildReceiptTemplate build template-320.pdf 工作目錄 labels.ttf 輸出.pdf

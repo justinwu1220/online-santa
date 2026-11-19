@@ -44,7 +44,7 @@ public enum MailTemplateId {
     ORG_APPLICATION_RECEIVED("4.10_已收到機構參與申請"),
     ORG_RESUBMISSION_RECEIVED("4.10_已收到機構重新送審資料"),
 
-    // ── 結案文件（管理員在結案頁手動寄出；文案草稿，上線前請協會與團隊確認）
+    // ── 結案文件（管理員在結案頁手動寄出；文案已由使用者確認）
     CLOSING_RECEIPT_RED("5.1_捐贈收據（紅聯）"),
     CLOSING_ORG_FORMS("5.2_機構物資領受確認表");
 

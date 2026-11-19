@@ -74,11 +74,11 @@ class ReceiptPdfRendererTest {
     }
 
     @Test
-    @DisplayName("單份檔案大小在合理範圍（Logo 已壓縮）")
+    @DisplayName("單份檔案大小在合理範圍（Logo 已壓縮；固定標籤的楷體字型約 0.3MB）")
     void fileSizeIsReasonable() {
         ReceiptPdfRenderer.Rendered r = RENDERER.render(sample());
-        assertThat(r.redCopy().length).isLessThan(300_000);
-        assertThat(r.whiteYellow().length).isLessThan(300_000);
+        assertThat(r.redCopy().length).isLessThan(450_000);
+        assertThat(r.whiteYellow().length).isLessThan(450_000);
     }
 
     @Test

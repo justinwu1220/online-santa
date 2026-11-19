@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
  * 收據三聯單範本（三頁：白、黃、紅）。
  *
  * <p>這份 PDF 不是使用者提供的原檔，而是由原檔用 {@code tools/BuildReceiptTemplate} 產生：範本上所有文字
- * 統一改用霞鶩文楷（原檔的標楷體只是子集，也不能散布），固定標籤以真正的文字寫回原位置；
+ * 統一改用全字庫正楷體 TW-Kai（原檔的標楷體只是子集，也不能散布），固定標籤以真正的文字寫回原位置；
  * 預印的舊編號、舊許可文號與期間兩行、數量欄的「份」已經移除，由每張收據自己的內容取代。
  * 產生步驟與來源見 {@code closing/README.md}。
  *
