@@ -32,4 +32,7 @@ public interface DonationReceiptRepository
     List<DonationReceipt> findNeedingPdf(@Param("campaignId") UUID campaignId);
 
     long countByCampaignIdAndStatus(UUID campaignId, ReceiptStatus status);
+
+    /** 暫存期限已過、檔案該清除的收據 PDF。 */
+    List<DonationReceipt> findByPdfStatusAndPdfExpiresAtBefore(PdfStatus pdfStatus, java.time.Instant cutoff);
 }

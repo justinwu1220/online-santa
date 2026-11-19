@@ -3,9 +3,9 @@ import { ReasonDialog } from '../../components/console/ReasonDialog'
 import { Pager } from '../../components/ui/Pager'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { formatPlainDate } from '../../lib/format'
-import type { CampaignView, PdfStatus, ReceiptStatus, ReceiptView } from '../../lib/types'
+import type { CampaignView, PdfStatus, ReceiptCheck, ReceiptStatus, ReceiptView } from '../../lib/types'
 import {
-  downloadAllReceipts, openReceipt, useGenerateReceiptPdfs, useIssueMissingReceipts, useReceipts, useVoidReceipt,
+  downloadAllReceipts, openReceipt, useGenerateReceiptPdfs, useIssueMissingReceipts, useReceiptCheck, useReceipts, useVoidReceipt,
   type ReceiptFilter,
 } from './closingQueries'
 
@@ -87,6 +87,8 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
   const generate = useGenerateReceiptPdfs()
 
   const [exportProgress, setExportProgress] = useState<string>()
+  const [checking, setChecking] = useState(false)
+  const check = useReceiptCheck(campaign.id, checking)
 
   async function open(receipt: ReceiptView, kind: 'WHITE' | 'YELLOW_RED') {
     setDownloadError(undefined)
@@ -140,6 +142,10 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
       <div className="panel__head" style={{ marginBottom: 0 }}>
         <h2 className="panel__title">收據</h2>
         <div style={{ display: 'flex', gap: 8 }}>
+          <button type="button" className="btn btn--sm" disabled={check.isFetching}
+            onClick={() => { if (checking) void check.refetch(); else setChecking(true) }}>
+            {check.isFetching ? '檢查中…' : '收據檢查'}
+          </button>
           <button type="button" className="btn btn--sm" disabled={exportProgress !== undefined}
             onClick={() => void runExport()}>
             {exportProgress ?? '全部下載'}
@@ -160,6 +166,8 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
       </p>
       {(issueMissing.isError || generate.isError) && <ErrorNotice error={issueMissing.error ?? generate.error} />}
       {notice && <div className={`callout callout--${notice.tone}`} role="status"><p>{notice.text}</p></div>}
+      {check.isError && <ErrorNotice error={check.error} onRetry={() => void check.refetch()} />}
+      {check.data && <ReceiptCheckResult check={check.data} onClose={() => setChecking(false)} />}
       {downloadError && <div className="callout callout--warn" role="alert"><p>{downloadError}</p></div>}
 
       <div className="org-filters" role="tablist" aria-label="依收據狀態篩選">
@@ -267,5 +275,39 @@ function ReceiptRow({ receipt, onOpen, onVoid }: {
         </div>
       </td>
     </tr>
+  )
+}
+
+function ReceiptCheckResult({ check, onClose }: { check: ReceiptCheck; onClose: () => void }) {
+  const errors = check.issues.filter((item) => item.severity === 'ERROR')
+  const warnings = check.issues.filter((item) => item.severity === 'WARNING')
+  return (
+    <div className={`callout callout--${errors.length > 0 ? 'warn' : 'ok'}`} role="status" aria-label="收據檢查結果">
+      <p>
+        <strong>{errors.length > 0 ? `收據檢查：有 ${errors.length} 項需處理` : '收據檢查：沒有需處理的項目'}</strong>
+        {warnings.length > 0 && `，另有 ${warnings.length} 項提醒`}
+      </p>
+      <p>
+        已完成的願望 {check.completedWishes} 筆、有效收據 {check.validReceipts} 張（作廢 {check.voidedReceipts} 張），
+        時價合計 {check.totalValue.toLocaleString('zh-TW')} 元。
+        PDF：已產生 {check.pdfReady}、待產生 {check.pdfPending}、待補許可文號 {check.pdfPendingInfo}、失敗 {check.pdfFailed}。
+        全部下載的壓縮檔裡，白聯與黃紅聯資料夾各 {check.pdfReady} 檔。
+      </p>
+      {check.issues.length > 0 && (
+        <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+          {check.issues.map((item, index) => (
+            <li key={index}>
+              <span className="st-chip" data-s={item.severity === 'ERROR' ? 'returned' : 'draft'} style={{ marginRight: 6 }}>
+                {item.severity === 'ERROR' ? '需處理' : '提醒'}
+              </span>
+              {item.receiptNo && <strong>{item.receiptNo}：</strong>}{item.message}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p style={{ marginTop: 8 }}>
+        <button type="button" className="btn btn--sm btn--ghost" onClick={onClose}>收起</button>
+      </p>
+    </div>
   )
 }

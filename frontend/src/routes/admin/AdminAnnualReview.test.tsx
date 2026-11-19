@@ -222,6 +222,31 @@ describe('年度營運頁', () => {
     expect(await screen.findByText(/已產生 2 張收據 PDF，仍有 1 張待補或失敗/)).toBeTruthy()
   })
 
+  it('收據檢查：按下才執行，列出需處理與提醒的項目', async () => {
+    const result = {
+      campaignId: 'c1', campaignName: '線上聖誕老人 2026', checkedAt: '2026-12-30T00:00:00Z',
+      completedWishes: 3, validReceipts: 2, voidedReceipts: 1, totalValue: 3600,
+      pdfReady: 1, pdfPending: 0, pdfPendingInfo: 1, pdfFailed: 0,
+      issues: [
+        { severity: 'ERROR', code: 'MISSING_RECEIPT', message: '已完成的願望「積木」沒有有效收據：尚未開立，可按「補開收據」' },
+        { severity: 'WARNING', code: 'NO_EVIDENCE', receiptNo: 'OS2026-000002', message: '沒有上傳發票佐證（時價 1200 元）' },
+      ],
+    }
+    const base = get.getMockImplementation()!
+    get.mockImplementation(async (path: string) =>
+      path.endsWith('/receipt-check') ? result : base(path))
+    renderPage()
+    await screen.findByText('OS2026-000001')
+    expect(get).not.toHaveBeenCalledWith('/api/admin/campaigns/c1/receipt-check')
+
+    await userEvent.click(screen.getByRole('button', { name: '收據檢查' }))
+
+    expect(await screen.findByText('收據檢查：有 1 項需處理')).toBeTruthy()
+    expect(screen.getByText(/時價合計 3,600 元/)).toBeTruthy()
+    expect(screen.getByText(/已完成的願望「積木」沒有有效收據/)).toBeTruthy()
+    expect(screen.getByText('OS2026-000002：')).toBeTruthy()
+  })
+
   it('預設顯示涵蓋今天的檔期的營運統計，期間選單列出各檔期與「尚未建立檔期」', async () => {
     renderPage('/admin/annual')
 

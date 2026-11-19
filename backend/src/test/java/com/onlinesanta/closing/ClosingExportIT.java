@@ -167,7 +167,7 @@ class ClosingExportIT extends ApiIntegrationTest {
         assertThat(done.getExpiresAt()).isAfter(java.time.Instant.now().plus(Duration.ofDays(29)));
 
         Map<String, byte[]> zip = unzip(storage.read(StorageBucket.PRIVATE, done.getObjectName()).orElseThrow());
-        assertThat(zip.keySet()).containsExactly("00_收據清單.csv",
+        assertThat(zip.keySet()).containsExactly("00_收據檢查.txt", "00_收據清單.csv",
                 "白聯/OSE-000001.pdf", "黃紅聯/OSE-000001.pdf",
                 "白聯/OSE-000002.pdf", "黃紅聯/OSE-000002.pdf",
                 "白聯/OSE-000003.pdf", "黃紅聯/OSE-000003.pdf");

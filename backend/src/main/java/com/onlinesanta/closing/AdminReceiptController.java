@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.onlinesanta.admin.AdminAuditAction;
 import com.onlinesanta.admin.AdminAuditService;
 import com.onlinesanta.closing.dto.BatchResult;
+import com.onlinesanta.closing.dto.ReceiptCheckView;
 import com.onlinesanta.closing.dto.ReceiptDownloadView;
 import com.onlinesanta.closing.dto.ReceiptView;
 import com.onlinesanta.closing.dto.VoidReceiptRequest;
@@ -44,10 +45,13 @@ public class AdminReceiptController {
     private final ObjectStorage storage;
     private final StorageProperties storageProperties;
     private final AdminAuditService audit;
+    private final ReceiptCheckService receiptCheck;
 
     public AdminReceiptController(DonationReceiptRepository receipts, DonationReceiptService receiptService,
                                   CampaignService campaignService, ObjectStorage storage,
-                                  StorageProperties storageProperties, AdminAuditService audit) {
+                                  StorageProperties storageProperties, AdminAuditService audit,
+                                  ReceiptCheckService receiptCheck) {
+        this.receiptCheck = receiptCheck;
         this.receipts = receipts;
         this.receiptService = receiptService;
         this.campaignService = campaignService;
@@ -103,6 +107,13 @@ public class AdminReceiptController {
                 "作廢收據 %s，重開為 %s。原因：%s".formatted(old.getReceiptNo(), replacement.getReceiptNo(),
                         request.reason().strip()));
         return ReceiptView.from(replacement);
+    }
+
+    @GetMapping("/campaigns/{campaignId}/receipt-check")
+    @Operation(summary = "收據檢查",
+            description = "完成的願望是否都有有效收據、編號是否連續、PDF 是否都能產生、證號與發票佐證是否齊全。只列差異，不改資料")
+    public ReceiptCheckView receiptCheck(@PathVariable UUID campaignId) {
+        return receiptCheck.check(campaignId);
     }
 
     @PostMapping("/campaigns/{campaignId}/issue-missing-receipts")

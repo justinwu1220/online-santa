@@ -31,12 +31,15 @@ public class InternalJobController {
     private final DeadlineReminderService deadlineReminders;
     private final LocalAuthService localAuth;
     private final AdminDigestService adminDigest;
+    private final com.onlinesanta.closing.ClosingCleanupService closingCleanup;
 
     public InternalJobController(ClaimReleaseService releases,
                                  PendingAttachmentCleanupService attachmentCleanup,
                                  DeadlineReminderService deadlineReminders,
                                  LocalAuthService localAuth,
-                                 AdminDigestService adminDigest) {
+                                 AdminDigestService adminDigest,
+                                 com.onlinesanta.closing.ClosingCleanupService closingCleanup) {
+        this.closingCleanup = closingCleanup;
         this.releases = releases;
         this.attachmentCleanup = attachmentCleanup;
         this.deadlineReminders = deadlineReminders;
@@ -53,6 +56,12 @@ public class InternalJobController {
     @PostMapping("/send-admin-digest")
     public com.onlinesanta.job.dto.AdminDigestResult sendAdminDigest() {
         return adminDigest.send();
+    }
+
+    /** 清除過了暫存期限（預設 30 天）的收據 PDF 與匯出壓縮檔；資料庫裡的收據資料保留。 */
+    @PostMapping("/cleanup-closing-files")
+    public com.onlinesanta.job.dto.ClosingCleanupResult cleanupClosingFiles() {
+        return closingCleanup.cleanup();
     }
 
     @PostMapping("/cleanup-pending-attachments")

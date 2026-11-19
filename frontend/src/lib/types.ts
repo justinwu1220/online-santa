@@ -977,3 +977,26 @@ export interface ExportView {
   expiresAt?: string
   createdAt: string
 }
+
+export interface ReceiptCheckIssue {
+  severity: 'ERROR' | 'WARNING'
+  code: string
+  receiptNo?: string
+  message: string
+}
+
+/** 檔期的收據檢查，見 GET /api/admin/campaigns/{id}/receipt-check。不含捐贈者姓名與證號。 */
+export interface ReceiptCheck {
+  campaignId: string
+  campaignName: string
+  checkedAt: string
+  completedWishes: number
+  validReceipts: number
+  voidedReceipts: number
+  totalValue: number
+  pdfReady: number
+  pdfPending: number
+  pdfPendingInfo: number
+  pdfFailed: number
+  issues: ReceiptCheckIssue[]
+}

@@ -61,10 +61,13 @@ public class ClosingExportService {
     private final CampaignService campaigns;
     private final ObjectStorage storage;
     private final ClosingProperties properties;
+    private final ReceiptCheckService receiptCheck;
 
     public ClosingExportService(ClosingExportRepository exports, DonationReceiptRepository receipts,
                                 DonationReceiptService receiptService, CampaignService campaigns,
-                                ObjectStorage storage, ClosingProperties properties) {
+                                ObjectStorage storage, ClosingProperties properties,
+                                ReceiptCheckService receiptCheck) {
+        this.receiptCheck = receiptCheck;
         this.exports = exports;
         this.receipts = receipts;
         this.receiptService = receiptService;
@@ -164,6 +167,7 @@ public class ClosingExportService {
              ZipOutputStream zip = new ZipOutputStream(counting, StandardCharsets.UTF_8)) {
             zip.setLevel(Deflater.NO_COMPRESSION);          // PDF 已經壓縮過，再壓只是白花 CPU
 
+            putText(zip, "00_收據檢查.txt", receiptCheck.check(export.getCampaignId()).toText());
             putText(zip, "00_收據清單.csv", "﻿" + csv(all));
             if (!skipped.isEmpty()) {
                 putText(zip, "00_未收進壓縮檔的收據.txt", skippedNote(skipped));

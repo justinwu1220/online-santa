@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, withQuery } from '../../lib/api'
 import type {
-  BatchResult, CampaignRequest, CampaignView, ExportView, PageResponse, PdfKind, PdfStatus, ReceiptDownload,
-  ReceiptStatus, ReceiptView,
+  BatchResult, CampaignRequest, CampaignView, ExportView, PageResponse, PdfKind, PdfStatus, ReceiptCheck,
+  ReceiptDownload, ReceiptStatus, ReceiptView,
 } from '../../lib/types'
 
 /** 結案文件的資料來源：活動檔期與收據。動作成功後一律讓檔期與收據清單重新載入。 */
@@ -31,6 +31,17 @@ export function useReceipts(campaignId: string | undefined, filter: ReceiptFilte
   })
 }
 
+/** 收據檢查：按「執行檢查」才查（要掃整個檔期），不自動重抓，避免看到半新半舊的結果。 */
+export function useReceiptCheck(campaignId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['closing-receipt-check', campaignId],
+    enabled,
+    staleTime: Infinity,
+    gcTime: 0,
+    queryFn: () => api.get<ReceiptCheck>(`/api/admin/campaigns/${campaignId}/receipt-check`),
+  })
+}
+
 function useRefreshClosing() {
   const queryClient = useQueryClient()
   return () => {
@@ -39,6 +50,7 @@ function useRefreshClosing() {
     void queryClient.invalidateQueries({ queryKey: ['admin', 'periods'] })
     void queryClient.invalidateQueries({ queryKey: ['admin', 'period-stats'] })
     void queryClient.invalidateQueries({ queryKey: ['closing-receipts'] })
+    void queryClient.invalidateQueries({ queryKey: ['closing-receipt-check'] })
     void queryClient.invalidateQueries({ queryKey: ['audit-logs'] })
   }
 }
