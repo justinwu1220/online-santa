@@ -180,6 +180,12 @@ class ClosingPackageIT extends ApiIntegrationTest {
                 "03_收據/紅聯（給捐贈人）/OSK-000001.pdf", "03_收據/白黃聯（協會留存）/OSK-000002.pdf",
                 "05_留存備份/00_收據檢查.txt", "05_留存備份/00_收據清單.csv", "05_留存備份/待補資料.md");
         assertThat(zip.keySet()).noneMatch(n -> n.contains("支出明細"));        // C 沒有支出明細
+        assertThat(zip.keySet()).contains("00_開始這裡.html", dir + "00_照表操作.html",
+                "02_交給康乃心/Facebook公開徵信/00_發文說明.html",
+                "02_交給康乃心/Facebook公開徵信/C_勸募期滿/01_貼文文字.txt",
+                "02_交給康乃心/Facebook公開徵信/C_勸募期滿/02_徵信圖片/001.jpg");
+        String operation = new String(zip.get(dir + "00_照表操作.html"), StandardCharsets.UTF_8);
+        assertThat(operation).contains("c.items.0.name").contains("OSK-000001");
         // 每個外部機構一份 05A 與一份 05B（兩份都不含個人資料，可以安全寄給機構）；沒有指定協會自身服務對象就沒有 05C
         assertThat(zip.keySet()).contains("04_機構確認/待簽章/001_快樂兒童之家/05A_機構物資領受暨發放確認表.pdf",
                 "04_機構確認/待簽章/001_快樂兒童之家/05B_個人物資領受證明_機構留存.pdf");

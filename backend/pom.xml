@@ -80,6 +80,14 @@
             </exclusions>
         </dependency>
 
+        <!-- 結案的「照表操作」HTML 預填：解析素材頁、填入欄位值、複製重複列。
+             1.14.2 是本機 Maven 快取裡有的版本（離線建置只能用快取裡有的）。 -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.14.2</version>
+        </dependency>
+
         <!-- Email 通知：認領成立、審核結果、回饋照片、新訊息、寄送期限提醒 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -33,10 +33,15 @@ public class ClosingPackageBuilder {
     private final ReportPdfWriter report;
     private final RegistryWorkbook registry;
     private final OrgFormPdfWriter orgForms;
+    private final OperationPageFiller operationPages;
+    private final FacebookPackageBuilder facebook;
 
     public ClosingPackageBuilder(OfficialExcel excel, PdfTableWriter tables, ClosingProperties properties,
-                                 ReportPdfWriter report, RegistryWorkbook registry, OrgFormPdfWriter orgForms) {
+                                 ReportPdfWriter report, RegistryWorkbook registry, OrgFormPdfWriter orgForms,
+                                 OperationPageFiller operationPages, FacebookPackageBuilder facebook) {
+        this.facebook = facebook;
         this.orgForms = orgForms;
+        this.operationPages = operationPages;
         this.excel = excel;
         this.tables = tables;
         this.properties = properties;
@@ -79,6 +84,18 @@ public class ClosingPackageBuilder {
                     "協會（向承辦確認）", name + ".xlsx／.pdf",
                     "傳票號碼先用收據編號、支付方式「其他」、其他付款方式「實物轉贈」，待承辦確認"));
         }
+        // 照表操作頁與入口頁：康乃心照頁面逐欄複製到官網
+        OperationPageFiller.Filled page = operationPages.fill(data);
+        files.add(new PackageFile(dir + "00_照表操作.html", page.html()));
+        files.add(new PackageFile("00_開始這裡.html", OperationPageFiller.startPage(stage)));
+        if (page.pendingFields() > 0) {
+            todo.add(new TodoItem("照表操作頁還有 %d 個欄位是「【待確認】」（複製按鈕停用）".formatted(page.pendingFields()),
+                    "管理員（補財務資料）、協會（確認事實）", dir + "00_照表操作.html",
+                    "補齊財務資料與事實後重新產生文件包；已備妥的欄位可以先複製"));
+        }
+        FacebookPackageBuilder.Built fb = facebook.build(data);
+        files.addAll(fb.files());
+        todo.addAll(fb.todo());
         files.add(new PackageFile("05_留存備份/結案登記簿.xlsx", registry.build(data)));
         for (OrgFormPdfWriter.Form form : orgForms.build(data)) {
             files.add(new PackageFile(form.path(), form.pdf()));
