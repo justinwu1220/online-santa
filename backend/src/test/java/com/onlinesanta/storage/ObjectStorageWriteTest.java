@@ -25,17 +25,17 @@ class ObjectStorageWriteTest {
         assertThat(storage.read(StorageBucket.PRIVATE, "closing/none.pdf")).isEmpty();
 
         byte[] pdf = "%PDF-1.7 小檔".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        storage.put(StorageBucket.PRIVATE, "closing/receipts/OS2026-000001/white.pdf", "application/pdf", pdf);
-        assertThat(storage.read(StorageBucket.PRIVATE, "closing/receipts/OS2026-000001/white.pdf")).contains(pdf);
-        assertThat(storage.find(StorageBucket.PRIVATE, "closing/receipts/OS2026-000001/white.pdf"))
+        storage.put(StorageBucket.PRIVATE, "closing/receipts/OS2026-000001/red.pdf", "application/pdf", pdf);
+        assertThat(storage.read(StorageBucket.PRIVATE, "closing/receipts/OS2026-000001/red.pdf")).contains(pdf);
+        assertThat(storage.find(StorageBucket.PRIVATE, "closing/receipts/OS2026-000001/red.pdf"))
                 .hasValueSatisfying(o -> {
                     assertThat(o.contentType()).isEqualTo("application/pdf");
                     assertThat(o.sizeBytes()).isEqualTo(pdf.length);
                 });
 
         // 覆蓋寫入
-        storage.put(StorageBucket.PRIVATE, "closing/receipts/OS2026-000001/white.pdf", "application/pdf", new byte[] {1});
-        assertThat(storage.read(StorageBucket.PRIVATE, "closing/receipts/OS2026-000001/white.pdf")).contains(new byte[] {1});
+        storage.put(StorageBucket.PRIVATE, "closing/receipts/OS2026-000001/red.pdf", "application/pdf", new byte[] {1});
+        assertThat(storage.read(StorageBucket.PRIVATE, "closing/receipts/OS2026-000001/red.pdf")).contains(new byte[] {1});
 
         // 串流寫入：close 之後物件才存在
         try (OutputStream out = storage.openWrite(StorageBucket.PRIVATE, "closing/exports/x.zip", "application/zip")) {

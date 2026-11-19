@@ -147,7 +147,7 @@ class ClosingExportIT extends ApiIntegrationTest {
     // ------------------------------------------------------------ 匯出
 
     @Test
-    @DisplayName("分段推進：預算用完先回進度；之後完成並產生壓縮檔（白聯、黃紅聯、清單），到期時間為 30 天後")
+    @DisplayName("分段推進：預算用完先回進度；之後完成並產生壓縮檔（紅聯、白黃聯、清單），到期時間為 30 天後")
     void advancesInStepsAndBuildsTheZip() throws Exception {
         completedClaim("第一個");
         completedClaim("第二個");
@@ -168,11 +168,11 @@ class ClosingExportIT extends ApiIntegrationTest {
 
         Map<String, byte[]> zip = unzip(storage.read(StorageBucket.PRIVATE, done.getObjectName()).orElseThrow());
         assertThat(zip.keySet()).containsExactly("00_收據檢查.txt", "00_收據清單.csv",
-                "白聯/OSE-000001.pdf", "黃紅聯/OSE-000001.pdf",
-                "白聯/OSE-000002.pdf", "黃紅聯/OSE-000002.pdf",
-                "白聯/OSE-000003.pdf", "黃紅聯/OSE-000003.pdf");
-        assertThat(pages(zip.get("白聯/OSE-000002.pdf"))).isEqualTo(1);
-        assertThat(pages(zip.get("黃紅聯/OSE-000002.pdf"))).isEqualTo(2);
+                "紅聯（給捐贈人）/OSE-000001.pdf", "白黃聯（協會留存）/OSE-000001.pdf",
+                "紅聯（給捐贈人）/OSE-000002.pdf", "白黃聯（協會留存）/OSE-000002.pdf",
+                "紅聯（給捐贈人）/OSE-000003.pdf", "白黃聯（協會留存）/OSE-000003.pdf");
+        assertThat(pages(zip.get("紅聯（給捐贈人）/OSE-000002.pdf"))).isEqualTo(1);
+        assertThat(pages(zip.get("白黃聯（協會留存）/OSE-000002.pdf"))).isEqualTo(2);
         String csv = new String(zip.get("00_收據清單.csv"), StandardCharsets.UTF_8);
         assertThat(csv).startsWith("﻿編號,").contains("OSE-000001", "OSE-000003").contains("匯出測試機構");
         assertThat(csv.lines().count()).isEqualTo(4);      // 欄名＋三張
@@ -208,8 +208,8 @@ class ClosingExportIT extends ApiIntegrationTest {
         assertThat(done.getStatus()).isEqualTo(ExportStatus.READY);
         assertThat(done.getSkipped()).isEqualTo(1);
         Map<String, byte[]> zip = unzip(storage.read(StorageBucket.PRIVATE, done.getObjectName()).orElseThrow());
-        assertThat(zip.keySet()).contains("00_未收進壓縮檔的收據.txt", "白聯/OSE-000001.pdf")
-                .doesNotContain("白聯/OSE-000002.pdf");
+        assertThat(zip.keySet()).contains("00_未收進壓縮檔的收據.txt", "紅聯（給捐贈人）/OSE-000001.pdf")
+                .doesNotContain("紅聯（給捐贈人）/OSE-000002.pdf");
         assertThat(new String(zip.get("00_未收進壓縮檔的收據.txt"), StandardCharsets.UTF_8))
                 .contains("OSE-000002").contains("實際收件機構");
     }
@@ -220,14 +220,14 @@ class ClosingExportIT extends ApiIntegrationTest {
         UUID claimId = completedClaim("暫存被清掉");
         DonationReceipt r = receipts.findValidByClaimId(claimId).orElseThrow();
         receiptService().generatePdf(r.getId());
-        storage.delete(StorageBucket.PRIVATE, "closing/receipts/OSE-000001/white.pdf");
+        storage.delete(StorageBucket.PRIVATE, "closing/receipts/OSE-000001/red.pdf");
         UUID id = startExport();
 
         ClosingExport done = exportService.advance(id);
 
         assertThat(done.getStatus()).isEqualTo(ExportStatus.READY);
         assertThat(unzip(storage.read(StorageBucket.PRIVATE, done.getObjectName()).orElseThrow()).keySet())
-                .contains("白聯/OSE-000001.pdf");
+                .contains("紅聯（給捐贈人）/OSE-000001.pdf");
     }
 
     @Test
@@ -279,9 +279,9 @@ class ClosingExportIT extends ApiIntegrationTest {
         UUID claimId = completedClaim("開啟方式");
         UUID receiptId = receipts.findValidByClaimId(claimId).orElseThrow().getId();
 
-        mvc.perform(as(get("/api/admin/receipts/{id}/download-url", receiptId).param("kind", "WHITE"), ADMIN))
+        mvc.perform(as(get("/api/admin/receipts/{id}/download-url", receiptId).param("kind", "RED"), ADMIN))
                 .andExpect(status().isOk());
-        mvc.perform(as(get("/api/admin/receipts/{id}/download-url", receiptId).param("kind", "WHITE")
+        mvc.perform(as(get("/api/admin/receipts/{id}/download-url", receiptId).param("kind", "RED")
                         .param("mode", "DOWNLOAD"), ADMIN))
                 .andExpect(status().isOk());
 

@@ -79,7 +79,7 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
   const [checking, setChecking] = useState(false)
   const check = useReceiptCheck(campaign.id, checking)
 
-  async function open(receipt: ReceiptView, kind: 'WHITE' | 'YELLOW_RED') {
+  async function open(receipt: ReceiptView, kind: 'RED' | 'WHITE_YELLOW') {
     setDownloadError(undefined)
     try {
       await openReceipt(receipt.id, kind)
@@ -126,7 +126,7 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
       </div>
       <p className="set-sec__desc" style={{ margin: 0 }}>
         願望完成時系統會自動開立收據並產生 PDF，收據的捐贈日期是機構確認的實際收到日。
-        點「白聯」「黃紅聯」在新分頁預覽；「全部下載」把有效收據的白聯與黃紅聯打包成一個壓縮檔；
+        點「紅聯」（給捐贈人）「白黃聯」（協會留存）在新分頁預覽；「全部下載」把有效收據的紅聯與白黃聯打包成一個壓縮檔；
         「收據檢查」列出有問題的收據。收據 PDF 含捐贈者證號，每次開啟或下載都會寫入稽核。
       </p>
       {notice && <div className={`callout callout--${notice.tone}`} role="status"><p>{notice.text}</p></div>}
@@ -193,7 +193,7 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
 
 function ReceiptRow({ receipt, onOpen, onVoid }: {
   receipt: ReceiptView
-  onOpen: (receipt: ReceiptView, kind: 'WHITE' | 'YELLOW_RED') => void
+  onOpen: (receipt: ReceiptView, kind: 'RED' | 'WHITE_YELLOW') => void
   onVoid: (receipt: ReceiptView) => void
 }) {
   const voided = receipt.status === 'VOIDED'
@@ -231,7 +231,7 @@ function ReceiptRow({ receipt, onOpen, onVoid }: {
       </td>
       <td>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {([['WHITE', '白聯'], ['YELLOW_RED', '黃紅聯']] as const).map(([kind, label]) => (
+          {([['RED', '紅聯'], ['WHITE_YELLOW', '白黃聯']] as const).map(([kind, label]) => (
             <button key={kind} type="button" className="btn btn--sm" disabled={voided} aria-label={`預覽${label}`}
               onClick={() => onOpen(receipt, kind)}>{label}</button>
           ))}
@@ -255,7 +255,7 @@ function ReceiptCheckResult({ check, onClose }: { check: ReceiptCheck; onClose: 
         已完成的願望 {check.completedWishes} 筆、有效收據 {check.validReceipts} 張（作廢 {check.voidedReceipts} 張），
         時價合計 {check.totalValue.toLocaleString('zh-TW')} 元。
         PDF：已產生 {check.pdfReady}、待產生 {check.pdfPending}、失敗 {check.pdfFailed}。
-        全部下載的壓縮檔裡，白聯與黃紅聯資料夾各 {check.pdfReady} 檔。
+        全部下載的壓縮檔裡，紅聯與白黃聯資料夾各 {check.pdfReady} 檔。
       </p>
       {check.issues.length > 0 && (
         <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>

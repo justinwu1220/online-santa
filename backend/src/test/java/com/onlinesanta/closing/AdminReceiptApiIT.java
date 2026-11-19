@@ -136,9 +136,9 @@ class AdminReceiptApiIT extends ApiIntegrationTest {
         UUID claimId = completedClaim("要下載");
         UUID receiptId = receipts.findValidByClaimId(claimId).orElseThrow().getId();
 
-        mvc.perform(as(get("/api/admin/receipts/{id}/download-url", receiptId).param("kind", "WHITE"), ADMIN))
+        mvc.perform(as(get("/api/admin/receipts/{id}/download-url", receiptId).param("kind", "RED"), ADMIN))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.url").value(org.hamcrest.Matchers.containsString("closing/receipts/OSA-000001/white.pdf")))
+                .andExpect(jsonPath("$.url").value(org.hamcrest.Matchers.containsString("closing/receipts/OSA-000001/red.pdf")))
                 .andExpect(jsonPath("$.expiresAt").exists());
 
         assertThat(receipts.findById(receiptId).orElseThrow().getPdfStatus()).isEqualTo(PdfStatus.READY);
@@ -155,7 +155,7 @@ class AdminReceiptApiIT extends ApiIntegrationTest {
         UUID claimId = completedClaim("缺文號");
         UUID receiptId = receipts.findValidByClaimId(claimId).orElseThrow().getId();
 
-        mvc.perform(as(get("/api/admin/receipts/{id}/download-url", receiptId).param("kind", "WHITE"), ADMIN))
+        mvc.perform(as(get("/api/admin/receipts/{id}/download-url", receiptId).param("kind", "RED"), ADMIN))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("RECEIPT_PDF_NOT_READY"))
                 .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("許可文號")));
@@ -166,7 +166,7 @@ class AdminReceiptApiIT extends ApiIntegrationTest {
                 null, null, CampaignStatus.ACTIVE);
         campaigns.saveAndFlush(loaded);
 
-        mvc.perform(as(get("/api/admin/receipts/{id}/download-url", receiptId).param("kind", "WHITE"), ADMIN))
+        mvc.perform(as(get("/api/admin/receipts/{id}/download-url", receiptId).param("kind", "RED"), ADMIN))
                 .andExpect(status().isOk());
         assertThat(receipts.findById(receiptId).orElseThrow().getPdfStatus()).isEqualTo(PdfStatus.READY);
     }

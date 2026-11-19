@@ -75,7 +75,7 @@ public class AdminReceiptController {
 
     @GetMapping("/receipts/{id}/download-url")
     @Operation(summary = "取得收據 PDF 的短效網址（在瀏覽器分頁預覽，可另存）",
-            description = "kind＝WHITE（白聯）或 YELLOW_RED（黃紅聯）；mode＝PREVIEW（分頁預覽，預設）或 DOWNLOAD（直接存檔）。"
+            description = "kind＝RED（紅聯，給捐贈人）或 WHITE_YELLOW（白黃聯，協會留存）；mode＝PREVIEW（分頁預覽，預設）或 DOWNLOAD（直接存檔）。"
                     + "PDF 含捐贈者證號，每次開啟都寫稽核。"
                     + "暫存過期會先重新產生；版面放不下或證號解不開等無法產生時回 409")
     public ReceiptDownloadView downloadUrl(@PathVariable UUID id, @RequestParam PdfKind kind,
@@ -87,8 +87,8 @@ public class AdminReceiptController {
                 "這張收據的 PDF 無法產生：" + (receipt.getPdfError() == null ? "請查看收據狀態" : receipt.getPdfError())));
         audit.record(AdminAuditAction.VIEW_RECEIPT_DOCUMENT, receipt.getClaimId(),
                 "%s收據 %s（%s）".formatted(mode == ReceiptOpenMode.PREVIEW ? "預覽" : "下載", receipt.getReceiptNo(),
-                        kind == PdfKind.WHITE ? "白聯" : "黃紅聯"));
-        String fileName = receipt.getReceiptNo() + (kind == PdfKind.WHITE ? "-white.pdf" : "-yellow-red.pdf");
+                        kind == PdfKind.RED ? "紅聯" : "白黃聯"));
+        String fileName = receipt.getReceiptNo() + (kind == PdfKind.RED ? "-red.pdf" : "-white-yellow.pdf");
         var ttl = storageProperties.downloadUrlTtl();
         return new ReceiptDownloadView(
                 storage.createDownloadUrl(StorageBucket.PRIVATE, object, ttl, fileName,

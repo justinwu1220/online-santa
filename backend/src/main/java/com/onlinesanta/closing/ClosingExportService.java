@@ -38,10 +38,10 @@ import com.onlinesanta.storage.StorageBucket;
  * <ol>
  *   <li><b>補產 PDF</b>：還沒有 PDF（待產生、暫存已過期）的收據逐張產生。本次匯出已經試過仍無法產生的
  *       （缺許可文號、版面放不下）不再重試，最後列在壓縮檔內的說明檔。</li>
- *   <li><b>打包</b>：並行讀回各張收據的白聯與黃紅聯，依序串流寫進壓縮檔（不整包進記憶體）。</li>
+ *   <li><b>打包</b>：並行讀回各張收據的紅聯（給捐贈人）與白黃聯（協會留存），依序串流寫進壓縮檔（不整包進記憶體）。</li>
  * </ol>
  *
- * <p>壓縮檔結構：{@code 白聯/編號.pdf}、{@code 黃紅聯/編號.pdf}、{@code 00_收據清單.csv}（不含證號）、
+ * <p>壓縮檔結構：{@code 紅聯（給捐贈人）/編號.pdf}、{@code 白黃聯（協會留存）/編號.pdf}、{@code 00_收據清單.csv}（不含證號）、
  * 有收據沒收進來時的 {@code 00_未收進壓縮檔的收據.txt}。檔名是 UTF-8。
  */
 @Service
@@ -177,12 +177,12 @@ public class ClosingExportService {
                 List<Future<byte[][]>> futures = new ArrayList<>();
                 for (DonationReceipt r : batch) {
                     futures.add(pool.submit(() -> new byte[][] {
-                            read(r, PdfKind.WHITE), read(r, PdfKind.YELLOW_RED)}));
+                            read(r, PdfKind.RED), read(r, PdfKind.WHITE_YELLOW)}));
                 }
                 for (int i = 0; i < batch.size(); i++) {
                     byte[][] pair = futures.get(i).get();
-                    putBytes(zip, "白聯/" + batch.get(i).getReceiptNo() + ".pdf", pair[0]);
-                    putBytes(zip, "黃紅聯/" + batch.get(i).getReceiptNo() + ".pdf", pair[1]);
+                    putBytes(zip, "紅聯（給捐贈人）/" + batch.get(i).getReceiptNo() + ".pdf", pair[0]);
+                    putBytes(zip, "白黃聯（協會留存）/" + batch.get(i).getReceiptNo() + ".pdf", pair[1]);
                 }
             }
             zip.finish();
@@ -201,14 +201,14 @@ public class ClosingExportService {
     }
 
     private boolean filesMissing(DonationReceipt r) {
-        return r.getWhiteObject() == null || r.getYellowRedObject() == null
-                || storage.find(StorageBucket.PRIVATE, r.getWhiteObject()).isEmpty()
-                || storage.find(StorageBucket.PRIVATE, r.getYellowRedObject()).isEmpty();
+        return r.getRedObject() == null || r.getWhiteYellowObject() == null
+                || storage.find(StorageBucket.PRIVATE, r.getRedObject()).isEmpty()
+                || storage.find(StorageBucket.PRIVATE, r.getWhiteYellowObject()).isEmpty();
     }
 
     /** 讀回收據 PDF（只讀儲存，可在工作執行緒執行）。 */
     private byte[] read(DonationReceipt r, PdfKind kind) {
-        String object = kind == PdfKind.WHITE ? r.getWhiteObject() : r.getYellowRedObject();
+        String object = kind == PdfKind.RED ? r.getRedObject() : r.getWhiteYellowObject();
         return (object == null ? java.util.Optional.<byte[]>empty() : storage.read(StorageBucket.PRIVATE, object))
                 .orElseThrow(() -> new IllegalStateException("收據 " + r.getReceiptNo() + " 的 PDF 讀不到"));
     }

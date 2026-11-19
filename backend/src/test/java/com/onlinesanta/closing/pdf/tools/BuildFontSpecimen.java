@@ -482,7 +482,7 @@ public final class BuildFontSpecimen {
             };
             ReceiptPdfRenderer renderer = new ReceiptPdfRenderer(wholeFont, glyphs);
             ReceiptPdfRenderer.Rendered rendered = renderer.render(data);
-            PDDocument receiptDoc = Loader.loadPDF(rendered.white());
+            PDDocument receiptDoc = Loader.loadPDF(rendered.redCopy());
             keepOpen.add(receiptDoc);
             PDFormXObject form = new LayerUtility(d.doc()).importPageAsForm(receiptDoc, 0);
             float scale = (W - 2 * MARGIN) / 595.28f;

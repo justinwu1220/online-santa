@@ -16,11 +16,11 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.springframework.stereotype.Component;
 
 /**
- * 產生收據三聯單：在範本上疊上這張收據的內容，再拆成白聯與黃紅聯兩個檔案。
+ * 產生收據三聯單：在範本上疊上這張收據的內容，再拆成紅聯與白黃聯兩個檔案。
  *
  * <p>範本（{@link ReceiptTemplate}）已含全部固定文字；這裡只疊上每張收據自己的內容，
  * 用字形輪廓繪製（見 {@link GlyphOutlines}）。三聯內容完全一致，只有底色與聯別不同（範本本身決定）。拆檔照使用者指定：
- * 白聯一頁一檔；黃聯、紅聯兩頁一檔（黃在前、紅在後）。
+ * 紅聯一頁一檔（給捐贈人）；白聯、黃聯兩頁一檔（協會留存，白在前、黃在後）。
  *
  * <p>版面座標都集中在 {@link Layout}，單位 pt、PDF 座標（原點左下、y 向上），{@code y} 一律是文字基線。
  * 數值取自範本文字的實際位置與 SPEC 的定位提示，之後調整版面只動這一處。
@@ -29,7 +29,7 @@ import org.springframework.stereotype.Component;
 public class ReceiptPdfRenderer {
 
     /** 拆好的兩個檔案。 */
-    public record Rendered(byte[] white, byte[] yellowRed) {
+    public record Rendered(byte[] redCopy, byte[] whiteYellow) {
     }
 
     /** 版面常數。 */
@@ -117,7 +117,7 @@ public class ReceiptPdfRenderer {
                     drawContent(g, cs, data);
                 }
             }
-            return new Rendered(save(doc, 0, 1), save(doc, 1, 3));
+            return new Rendered(save(doc, 2, 3), save(doc, 0, 2));
         } catch (IOException e) {
             throw new UncheckedIOException("產生收據 PDF 失敗：" + data.receiptNo(), e);
         }

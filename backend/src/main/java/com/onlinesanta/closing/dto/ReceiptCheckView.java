@@ -50,8 +50,8 @@ public record ReceiptCheckView(
         sb.append("有效收據時價合計：").append(totalValue).append(" 元\n");
         sb.append("PDF：已就緒 ").append(pdfReady).append("、待產生 ").append(pdfPending)
                 .append("、失敗 ").append(pdfFailed).append('\n');
-        sb.append("壓縮檔預期：白聯、黃紅聯資料夾各 ").append(pdfReady).append(" 檔；")
-                .append("頁數分別為 1 頁與 2 頁\n\n");
+        sb.append("壓縮檔預期：紅聯、白黃聯資料夾各 ").append(pdfReady).append(" 檔；")
+                .append("頁數分別為 1 頁（紅聯）與 2 頁（白黃聯）\n\n");
         if (issues.isEmpty()) {
             sb.append("沒有發現問題。\n");
         } else {

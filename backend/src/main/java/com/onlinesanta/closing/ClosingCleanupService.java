@@ -53,8 +53,8 @@ public class ClosingCleanupService {
         for (java.util.UUID id : receiptIds) {
             try {
                 tx.executeWithoutResult(status -> receipts.findById(id).ifPresent(r -> {
-                    deleteQuietly(r.getWhiteObject());
-                    deleteQuietly(r.getYellowRedObject());
+                    deleteQuietly(r.getRedObject());
+                    deleteQuietly(r.getWhiteYellowObject());
                     r.markPdfExpired();
                     receipts.save(r);
                 }));

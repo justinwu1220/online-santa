@@ -204,10 +204,13 @@ public class DonationReceiptService {
         try {
             var rendered = renderer.render(renderData(r));
             String base = "closing/receipts/" + r.getReceiptNo() + "/";
-            storage.put(StorageBucket.PRIVATE, base + "white.pdf", "application/pdf", rendered.white());
-            storage.put(StorageBucket.PRIVATE, base + "yellow-red.pdf", "application/pdf", rendered.yellowRed());
+            storage.put(StorageBucket.PRIVATE, base + "red.pdf", "application/pdf", rendered.redCopy());
+            storage.put(StorageBucket.PRIVATE, base + "white-yellow.pdf", "application/pdf", rendered.whiteYellow());
+            // 改版前的舊檔名（白聯、黃紅聯）如果還在雲端，順手清掉，免得含證號的檔案留著
+            storage.delete(StorageBucket.PRIVATE, base + "white.pdf");
+            storage.delete(StorageBucket.PRIVATE, base + "yellow-red.pdf");
             Instant now = Instant.now();
-            r.markPdfReady(base + "white.pdf", base + "yellow-red.pdf", now,
+            r.markPdfReady(base + "red.pdf", base + "white-yellow.pdf", now,
                     now.plus(Duration.ofDays(properties.retentionDays())));
         } catch (ReceiptLayoutException e) {
             log.warn("收據 {} 的 PDF 放不進版面：{}", r.getReceiptNo(), e.getMessage());
@@ -236,7 +239,7 @@ public class DonationReceiptService {
         if (r.getPdfStatus() != PdfStatus.READY) {
             return Optional.empty();
         }
-        String object = kind == PdfKind.WHITE ? r.getWhiteObject() : r.getYellowRedObject();
+        String object = kind == PdfKind.RED ? r.getRedObject() : r.getWhiteYellowObject();
         return object == null ? Optional.empty() : storage.read(StorageBucket.PRIVATE, object);
     }
 
@@ -257,13 +260,13 @@ public class DonationReceiptService {
         if (r.getPdfStatus() != PdfStatus.READY) {
             return Optional.empty();
         }
-        return Optional.of(kind == PdfKind.WHITE ? r.getWhiteObject() : r.getYellowRedObject());
+        return Optional.of(kind == PdfKind.RED ? r.getRedObject() : r.getWhiteYellowObject());
     }
 
     private boolean missingFile(DonationReceipt r) {
-        return r.getWhiteObject() == null || r.getYellowRedObject() == null
-                || storage.find(StorageBucket.PRIVATE, r.getWhiteObject()).isEmpty()
-                || storage.find(StorageBucket.PRIVATE, r.getYellowRedObject()).isEmpty();
+        return r.getRedObject() == null || r.getWhiteYellowObject() == null
+                || storage.find(StorageBucket.PRIVATE, r.getRedObject()).isEmpty()
+                || storage.find(StorageBucket.PRIVATE, r.getWhiteYellowObject()).isEmpty();
     }
 
     private ReceiptData renderData(DonationReceipt r) {
@@ -282,7 +285,7 @@ public class DonationReceiptService {
     }
 
     private void deleteFiles(DonationReceipt r) {
-        for (String object : new String[] {r.getWhiteObject(), r.getYellowRedObject()}) {
+        for (String object : new String[] {r.getRedObject(), r.getWhiteYellowObject()}) {
             if (object != null) {
                 storage.delete(StorageBucket.PRIVATE, object);
             }

@@ -32,14 +32,14 @@ public record ReceiptView(
         String voidReason,
         Instant voidedAt,
         UUID replacedById,
-        Instant whiteSentAt,
-        String whiteSendError) {
+        Instant redSentAt,
+        String redSendError) {
 
     public static ReceiptView from(DonationReceipt r) {
         return new ReceiptView(r.getId(), r.getClaimId(), r.getReceiptNo(), r.getStatus(), r.getPdfStatus(),
                 r.getPdfError(), r.getDonorName(), r.isReceiptRequested(), r.getDonorEmail(),
                 r.getGiftDescription(), r.getGiftQuantity(), r.getGiftUnit(), r.getGiftValue(), r.getDonatedOn(),
                 r.getIssuedOn(), r.getOrganizationName(), r.getVoidReason(), r.getVoidedAt(), r.getReplacedById(),
-                r.getWhiteSentAt(), r.getWhiteSendError());
+                r.getRedSentAt(), r.getRedSendError());
     }
 }

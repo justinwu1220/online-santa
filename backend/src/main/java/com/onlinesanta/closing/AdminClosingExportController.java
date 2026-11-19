@@ -56,7 +56,7 @@ public class AdminClosingExportController {
 
     @PostMapping("/campaigns/{campaignId}/receipt-exports")
     @Operation(summary = "建立收據匯出（全部下載）",
-            description = "把檔期的有效收據（白聯、黃紅聯）打包成一個壓縮檔。建立後請反覆呼叫 advance 推進")
+            description = "把檔期的有效收據（紅聯、白黃聯）打包成一個壓縮檔。建立後請反覆呼叫 advance 推進")
     public ExportView create(@PathVariable UUID campaignId) {
         ClosingExport export = exports.start(campaignId, currentUser.requireAdmin().userId());
         audit.record(AdminAuditAction.CREATE_CLOSING_EXPORT, campaignId,

@@ -37,7 +37,7 @@ public interface ObjectStorage {
     /**
      * 同上，但帶指定檔名與開啟方式（Content-Disposition）：
      * {@code inline=true} 讓瀏覽器在分頁內預覽（PDF），{@code false} 直接下載存檔；兩種的分頁標題與另存檔名
-     * 都是指定的名稱。物件路徑是 closing/receipts/OS2026-000001/white.pdf 這種，沒有指定的話檔名會是 white.pdf，
+     * 都是指定的名稱。物件路徑是 closing/receipts/OS2026-000001/red.pdf 這種，沒有指定的話檔名會是 red.pdf，
      * 分不出是哪張。預設實作忽略檔名與開啟方式；GCS 實作會帶進簽章。檔名只能是 ASCII（不含引號與換行）。
      */
     default String createDownloadUrl(StorageBucket bucket, String objectName, Duration ttl,

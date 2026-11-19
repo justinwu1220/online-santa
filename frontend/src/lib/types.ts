@@ -890,7 +890,8 @@ export interface AdminTeamThread {
 export type CampaignStatus = 'ACTIVE' | 'CLOSED'
 export type ReceiptStatus = 'ISSUED' | 'VOIDED'
 export type PdfStatus = 'PENDING' | 'READY' | 'FAILED'
-export type PdfKind = 'WHITE' | 'YELLOW_RED'
+/** 紅聯給捐贈人；白黃聯（兩頁）由協會留存 */
+export type PdfKind = 'RED' | 'WHITE_YELLOW'
 
 export interface CampaignView {
   id: string
@@ -951,8 +952,8 @@ export interface ReceiptView {
   voidReason?: string
   voidedAt?: string
   replacedById?: string
-  whiteSentAt?: string
-  whiteSendError?: string
+  redSentAt?: string
+  redSendError?: string
 }
 
 export interface ReceiptDownload {

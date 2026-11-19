@@ -112,11 +112,11 @@ public class DonationReceipt extends BaseEntity {
     @Column(name = "pdf_error", length = 500)
     private String pdfError;
 
-    @Column(name = "white_object", length = 255)
-    private String whiteObject;
+    @Column(name = "red_object", length = 255)
+    private String redObject;
 
-    @Column(name = "yellow_red_object", length = 255)
-    private String yellowRedObject;
+    @Column(name = "white_yellow_object", length = 255)
+    private String whiteYellowObject;
 
     @Column(name = "pdf_generated_at")
     private Instant pdfGeneratedAt;
@@ -133,11 +133,11 @@ public class DonationReceipt extends BaseEntity {
     @Column(name = "replaced_by_id")
     private UUID replacedById;
 
-    @Column(name = "white_sent_at")
-    private Instant whiteSentAt;
+    @Column(name = "red_sent_at")
+    private Instant redSentAt;
 
-    @Column(name = "white_send_error", length = 500)
-    private String whiteSendError;
+    @Column(name = "red_send_error", length = 500)
+    private String redSendError;
 
     protected DonationReceipt() {
     }
@@ -183,9 +183,9 @@ public class DonationReceipt extends BaseEntity {
         return permitNoUsed != null;
     }
 
-    public void markPdfReady(String whiteObject, String yellowRedObject, Instant generatedAt, Instant expiresAt) {
-        this.whiteObject = whiteObject;
-        this.yellowRedObject = yellowRedObject;
+    public void markPdfReady(String redObject, String whiteYellowObject, Instant generatedAt, Instant expiresAt) {
+        this.redObject = redObject;
+        this.whiteYellowObject = whiteYellowObject;
         this.pdfGeneratedAt = generatedAt;
         this.pdfExpiresAt = expiresAt;
         this.pdfStatus = PdfStatus.READY;
@@ -201,8 +201,8 @@ public class DonationReceipt extends BaseEntity {
     /** 暫存的 PDF 已被清除（到期），資料仍在，下次需要時重新產生。 */
     public void markPdfExpired() {
         this.pdfStatus = PdfStatus.PENDING;
-        this.whiteObject = null;
-        this.yellowRedObject = null;
+        this.redObject = null;
+        this.whiteYellowObject = null;
         this.pdfExpiresAt = null;
     }
 
@@ -221,13 +221,13 @@ public class DonationReceipt extends BaseEntity {
         this.replacedById = replacementId;
     }
 
-    public void markWhiteSent(Instant at) {
-        this.whiteSentAt = at;
-        this.whiteSendError = null;
+    public void markRedSent(Instant at) {
+        this.redSentAt = at;
+        this.redSendError = null;
     }
 
-    public void markWhiteSendFailed(String error) {
-        this.whiteSendError = error == null ? null : error.substring(0, Math.min(error.length(), 500));
+    public void markRedSendFailed(String error) {
+        this.redSendError = error == null ? null : error.substring(0, Math.min(error.length(), 500));
     }
 
     // ------------------------------------------------------------ getters
@@ -328,12 +328,12 @@ public class DonationReceipt extends BaseEntity {
         return pdfError;
     }
 
-    public String getWhiteObject() {
-        return whiteObject;
+    public String getRedObject() {
+        return redObject;
     }
 
-    public String getYellowRedObject() {
-        return yellowRedObject;
+    public String getWhiteYellowObject() {
+        return whiteYellowObject;
     }
 
     public Instant getPdfGeneratedAt() {
@@ -356,11 +356,11 @@ public class DonationReceipt extends BaseEntity {
         return replacedById;
     }
 
-    public Instant getWhiteSentAt() {
-        return whiteSentAt;
+    public Instant getRedSentAt() {
+        return redSentAt;
     }
 
-    public String getWhiteSendError() {
-        return whiteSendError;
+    public String getRedSendError() {
+        return redSendError;
     }
 }

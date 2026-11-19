@@ -125,7 +125,7 @@ public enum AdminAuditAction {
     /** 下載結案文件壓縮檔（含身分證字號）。 */
     DOWNLOAD_CLOSING_EXPORT,
 
-    /** 寄送收據白聯給捐贈者。 */
+    /** 寄送收據紅聯給捐贈者。 */
     SEND_RECEIPT_EMAILS,
 
     /** 寄送領受確認表給合作機構。 */

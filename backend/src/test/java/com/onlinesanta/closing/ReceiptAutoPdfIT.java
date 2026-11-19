@@ -91,8 +91,8 @@ class ReceiptAutoPdfIT extends ApiIntegrationTest {
             DonationReceipt receipt = receipts.findValidByClaimId(claimId).orElseThrow();
             assertThat(receipt.getPdfStatus()).isEqualTo(PdfStatus.READY);
             assertThat(receipt.getPdfError()).isNull();
-            assertThat(storage.find(StorageBucket.PRIVATE, receipt.getWhiteObject())).isPresent();
-            assertThat(storage.find(StorageBucket.PRIVATE, receipt.getYellowRedObject())).isPresent();
+            assertThat(storage.find(StorageBucket.PRIVATE, receipt.getRedObject())).isPresent();
+            assertThat(storage.find(StorageBucket.PRIVATE, receipt.getWhiteYellowObject())).isPresent();
         } finally {
             cleanUp();
         }

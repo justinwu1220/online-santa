@@ -211,7 +211,7 @@ class DonationReceiptIT extends ApiIntegrationTest {
     // ------------------------------------------------------------ PDF
 
     @Test
-    @DisplayName("產生 PDF：白聯 1 頁、黃紅聯 2 頁，存進私有 bucket，設定到期時間；內容含編號")
+    @DisplayName("產生 PDF：紅聯 1 頁、白黃聯 2 頁，存進私有 bucket，設定到期時間；內容含編號")
     void generatesAndStoresPdf() throws Exception {
         campaign("衛部救字第1150000號");
         UUID claimId = shippedClaim("要產生", false);
@@ -223,8 +223,8 @@ class DonationReceiptIT extends ApiIntegrationTest {
         assertThat(r.getPdfStatus()).isEqualTo(PdfStatus.READY);
         assertThat(r.getPdfExpiresAt()).isAfter(r.getPdfGeneratedAt().plusSeconds(29L * 24 * 3600));
         assertThat(r.getPermitNoUsed()).isEqualTo("衛部救字第1150000號");
-        byte[] white = storage.read(StorageBucket.PRIVATE, "closing/receipts/OST-000001/white.pdf").orElseThrow();
-        byte[] yellowRed = storage.read(StorageBucket.PRIVATE, "closing/receipts/OST-000001/yellow-red.pdf").orElseThrow();
+        byte[] white = storage.read(StorageBucket.PRIVATE, "closing/receipts/OST-000001/red.pdf").orElseThrow();
+        byte[] yellowRed = storage.read(StorageBucket.PRIVATE, "closing/receipts/OST-000001/white-yellow.pdf").orElseThrow();
         assertThat(pages(white)).isEqualTo(1);
         assertThat(pages(yellowRed)).isEqualTo(2);
         try (PDDocument d = Loader.loadPDF(white)) {
@@ -243,14 +243,14 @@ class DonationReceiptIT extends ApiIntegrationTest {
         DonationReceipt failed = receiptService.generatePdf(receiptId);
         assertThat(failed.getPdfStatus()).isEqualTo(PdfStatus.FAILED);
         assertThat(failed.getPdfError()).contains("許可文號");
-        assertThat(receiptService.readPdf(receiptId, PdfKind.WHITE)).isEmpty();
+        assertThat(receiptService.readPdf(receiptId, PdfKind.RED)).isEmpty();
 
         c = campaigns.findById(c.getId()).orElseThrow();
         c.update(c.getName(), null, "衛部救字第1150000號", null, c.getCollectionStart(), c.getCollectionEnd(),
                 c.getUseStart(), c.getUseEnd(), c.getWishListStart(), c.getWishListEnd(), c.getReceiptPrefix(), null, null, CampaignStatus.ACTIVE);
         campaigns.saveAndFlush(c);
 
-        assertThat(receiptService.readPdf(receiptId, PdfKind.WHITE)).isPresent();
+        assertThat(receiptService.readPdf(receiptId, PdfKind.RED)).isPresent();
         assertThat(receipts.findById(receiptId).orElseThrow().getPdfStatus()).isEqualTo(PdfStatus.READY);
     }
 
@@ -296,7 +296,7 @@ class DonationReceiptIT extends ApiIntegrationTest {
         complete(claimId);
         UUID receiptId = validReceiptOf(claimId).getId();
         receiptService.generatePdf(receiptId);
-        byte[] before = receiptService.readPdf(receiptId, PdfKind.WHITE).orElseThrow();
+        byte[] before = receiptService.readPdf(receiptId, PdfKind.RED).orElseThrow();
 
         // 之後檔期的文號被改了，已產生過的收據不受影響
         c = campaigns.findById(c.getId()).orElseThrow();
@@ -304,9 +304,9 @@ class DonationReceiptIT extends ApiIntegrationTest {
                 c.getUseStart(), c.getUseEnd(), c.getWishListStart(), c.getWishListEnd(), c.getReceiptPrefix(), null, null, CampaignStatus.ACTIVE);
         campaigns.saveAndFlush(c);
         // 暫存到期被清除
-        storage.delete(StorageBucket.PRIVATE, "closing/receipts/OST-000001/white.pdf");
+        storage.delete(StorageBucket.PRIVATE, "closing/receipts/OST-000001/red.pdf");
 
-        byte[] after = receiptService.readPdf(receiptId, PdfKind.WHITE).orElseThrow();
+        byte[] after = receiptService.readPdf(receiptId, PdfKind.RED).orElseThrow();
 
         assertThat(receipts.findById(receiptId).orElseThrow().getPermitNoUsed()).isEqualTo("衛部救字第1150000號");
         try (PDDocument d1 = Loader.loadPDF(before); PDDocument d2 = Loader.loadPDF(after)) {
@@ -370,10 +370,10 @@ class DonationReceiptIT extends ApiIntegrationTest {
         assertThat(reloadedOld.getReplacedById()).isEqualTo(replacement.getId());
         assertThat(replacement.getReceiptNo()).isEqualTo("OST-000002");
         assertThat(validReceiptOf(claimId).getId()).isEqualTo(replacement.getId());
-        assertThatThrownBy(() -> receiptService.readPdf(old.getId(), PdfKind.WHITE))
+        assertThatThrownBy(() -> receiptService.readPdf(old.getId(), PdfKind.RED))
                 .isInstanceOf(BusinessRuleException.class).hasMessageContaining("已作廢");
         // 作廢的 PDF 檔案一併清掉
-        assertThat(storage.read(StorageBucket.PRIVATE, "closing/receipts/OST-000001/white.pdf")).isEmpty();
+        assertThat(storage.read(StorageBucket.PRIVATE, "closing/receipts/OST-000001/red.pdf")).isEmpty();
     }
 
     @Test

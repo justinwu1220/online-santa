@@ -133,7 +133,7 @@ class ClosingMaintenanceIT extends ApiIntegrationTest {
         assertThat(view.passed()).isTrue();
         assertThat(view.issues()).extracting(Issue::code).containsExactly("NO_EVIDENCE");
         assertThat(view.issues().get(0).receiptNo()).isEqualTo(receipts.findValidByClaimId(withoutProof).orElseThrow().getReceiptNo());
-        assertThat(view.toText()).contains("有效收據：2 張").contains("白聯、黃紅聯資料夾各 2 檔");
+        assertThat(view.toText()).contains("有效收據：2 張").contains("紅聯、白黃聯資料夾各 2 檔");
     }
 
     @Test
@@ -246,8 +246,8 @@ class ClosingMaintenanceIT extends ApiIntegrationTest {
         DonationReceipt fresh = receipts.findValidByClaimId(freshClaim).orElseThrow();
         receiptService.generatePdf(old.getId());
         receiptService.generatePdf(fresh.getId());
-        String oldWhite = receipts.findById(old.getId()).orElseThrow().getWhiteObject();
-        String freshWhite = receipts.findById(fresh.getId()).orElseThrow().getWhiteObject();
+        String oldWhite = receipts.findById(old.getId()).orElseThrow().getRedObject();
+        String freshWhite = receipts.findById(fresh.getId()).orElseThrow().getRedObject();
 
         String exportBody = mvc.perform(as(post("/api/admin/campaigns/{id}/receipt-exports", campaign.getId()), ADMIN))
                 .andReturn().getResponse().getContentAsString();
@@ -274,7 +274,7 @@ class ClosingMaintenanceIT extends ApiIntegrationTest {
         assertThat(exportRepository.findById(exportId).orElseThrow().getStatus()).isEqualTo(ExportStatus.EXPIRED);
 
         // 需要時重新產生，編號與內容不變
-        assertThat(receiptService.ensurePdfObject(old.getId(), PdfKind.WHITE)).isPresent();
+        assertThat(receiptService.ensurePdfObject(old.getId(), PdfKind.RED)).isPresent();
         assertThat(receipts.findById(old.getId()).orElseThrow().getPdfStatus()).isEqualTo(PdfStatus.READY);
 
         // 再跑一次沒有東西可清

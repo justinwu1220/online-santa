@@ -109,8 +109,8 @@ describe('年度營運頁', () => {
     expect(within(row2).getByText('待產生')).toBeTruthy()
     const row3 = screen.getByText('OS2026-000003').closest('tr')!
     expect(within(row3).getByText('已作廢')).toBeTruthy()
-    expect(within(row3).getByRole('button', { name: '預覽白聯' }).hasAttribute('disabled')).toBe(true)
-    expect(within(row3).getByRole('button', { name: '預覽黃紅聯' }).hasAttribute('disabled')).toBe(true)
+    expect(within(row3).getByRole('button', { name: '預覽紅聯' }).hasAttribute('disabled')).toBe(true)
+    expect(within(row3).getByRole('button', { name: '預覽白黃聯' }).hasAttribute('disabled')).toBe(true)
     expect(within(row3).queryByRole('button', { name: /下載/ })).toBeNull()
     expect(within(row3).getByRole('button', { name: '作廢重開' }).hasAttribute('disabled')).toBe(true)
   })
@@ -121,9 +121,9 @@ describe('年度營運頁', () => {
     renderPage()
     const row = (await screen.findByText('OS2026-000001')).closest('tr')!
 
-    await userEvent.click(within(row).getByRole('button', { name: '預覽白聯' }))
+    await userEvent.click(within(row).getByRole('button', { name: '預覽紅聯' }))
 
-    await waitFor(() => expect(get).toHaveBeenCalledWith('/api/admin/receipts/r1/download-url?kind=WHITE'))
+    await waitFor(() => expect(get).toHaveBeenCalledWith('/api/admin/receipts/r1/download-url?kind=RED'))
     expect(open).toHaveBeenCalledWith('', '_blank')
     await waitFor(() => expect(tab.location.href).toBe('https://storage.test/x.pdf'))
     expect(tab.opener).toBeNull()
@@ -186,7 +186,7 @@ describe('年度營運頁', () => {
     renderPage()
     const row = (await screen.findByText('OS2026-000001')).closest('tr')!
 
-    await userEvent.click(within(row).getByRole('button', { name: '預覽白聯' }))
+    await userEvent.click(within(row).getByRole('button', { name: '預覽紅聯' }))
 
     expect(await screen.findByText(/檔期尚未填寫勸募許可文號/)).toBeTruthy()
     expect(tab.close).toHaveBeenCalled()

@@ -54,31 +54,31 @@ class ReceiptPdfRendererTest {
     }
 
     @Test
-    @DisplayName("白聯 1 頁、黃紅聯 2 頁；範本預印的舊編號、待確認、舊許可行沒有任何殘留")
+    @DisplayName("紅聯 1 頁、白黃聯 2 頁；範本預印的舊編號、待確認、舊許可行沒有任何殘留")
     void splitsIntoWhiteAndYellowRedWithoutResidualText() throws Exception {
         ReceiptPdfRenderer.Rendered r = RENDERER.render(sample());
 
-        assertThat(pagesOf(r.white())).isEqualTo(1);
-        assertThat(pagesOf(r.yellowRed())).isEqualTo(2);
+        assertThat(pagesOf(r.redCopy())).isEqualTo(1);
+        assertThat(pagesOf(r.whiteYellow())).isEqualTo(2);
         // 固定標籤是真文字（可擷取）；範本預印的填寫位置文字必須已移除，內容以輪廓繪製（不可擷取）
-        for (byte[] pdf : new byte[][] {r.white(), r.yellowRed()}) {
+        for (byte[] pdf : new byte[][] {r.redCopy(), r.whiteYellow()}) {
             String text = textOf(pdf);
             assertThat(text).contains("捐贈收據").contains("實際收件機構").contains("合計新臺幣");
             assertThat(text).doesNotContain("OS2026-000001").doesNotContain("待確認")
                     .doesNotContain("許可勸募期間").doesNotContain("勸募活動：");
         }
 
-        preview("white", r.white(), 0);
-        preview("yellow", r.yellowRed(), 0);
-        preview("red", r.yellowRed(), 1);
+        preview("white", r.redCopy(), 0);
+        preview("yellow", r.whiteYellow(), 0);
+        preview("red", r.whiteYellow(), 1);
     }
 
     @Test
     @DisplayName("單份檔案大小在合理範圍（Logo 已壓縮）")
     void fileSizeIsReasonable() {
         ReceiptPdfRenderer.Rendered r = RENDERER.render(sample());
-        assertThat(r.white().length).isLessThan(300_000);
-        assertThat(r.yellowRed().length).isLessThan(300_000);
+        assertThat(r.redCopy().length).isLessThan(300_000);
+        assertThat(r.whiteYellow().length).isLessThan(300_000);
     }
 
     @Test
@@ -88,8 +88,8 @@ class ReceiptPdfRendererTest {
         ReceiptPdfRenderer.Rendered r = RENDERER.render(new ReceiptData(d.receiptNo(), d.issuedOn(), "善心人士", null,
                 d.donatedOn(), d.activityName(), d.permitNo(), d.collectionStart(), d.collectionEnd(), d.purpose(),
                 d.itemDescription(), 2, "份", 0, d.recipientOrgName()));
-        assertThat(pagesOf(r.white())).isEqualTo(1);
-        preview("no-id-zero-value", r.white(), 0);
+        assertThat(pagesOf(r.redCopy())).isEqualTo(1);
+        preview("no-id-zero-value", r.redCopy(), 0);
     }
 
     @Test
@@ -100,8 +100,8 @@ class ReceiptPdfRendererTest {
                 "財團法人台灣兒童與青少年關懷慈善基金會", "12345678", d.donatedOn(), d.activityName(), d.permitNo(),
                 d.collectionStart(), d.collectionEnd(), d.purpose(),
                 "兒童益智積木玩具組（含說明書與收納袋，適合四歲以上）", 12, "份", 9_999_999, "財團法人彰化縣身心障礙者福利服務中心"));
-        assertThat(pagesOf(r.white())).isEqualTo(1);
-        preview("long-text", r.white(), 0);
+        assertThat(pagesOf(r.redCopy())).isEqualTo(1);
+        preview("long-text", r.redCopy(), 0);
     }
 
     @Test
