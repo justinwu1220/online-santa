@@ -129,7 +129,7 @@ public final class BuildReceiptTemplate {
      * 掃描一頁的文字區塊。{@code strip} 為 true 時把含文字的區塊整個移除並回存內容流。
      * 同一區塊裡連續的 Tj 沒有各自的位置，靠前一段的寬度接續。
      */
-    private static List<Label> scan(PDDocument doc, PDPage page, int pageNo, boolean strip) throws IOException {
+    static List<Label> scan(PDDocument doc, PDPage page, int pageNo, boolean strip) throws IOException {
         List<Object> tokens = new PDFStreamParser(page).parse();
         List<Object> kept = new ArrayList<>(tokens.size());
         List<Label> labels = new ArrayList<>();

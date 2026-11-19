@@ -370,12 +370,12 @@ public final class BuildFontSpecimen {
         line(d, p, "產生日期 " + LocalDate.now() + "　　線上聖誕老人・結案文件", MARGIN, 10);
         p.y -= 26;
         gray(p, 0);
-        para(d, p, "這份文件列出所有可以用在捐贈收據上的候選字型，每個字型一頁，內容都是用該字型真的畫出來的收據與文字樣張，"
-                + "讓你直接比較外觀。請挑出想使用的字型（可以挑一個用在全部文字，也可以標題與內文各挑一個），"
+        para(d, p, "這份文件列出所有可以用在捐贈收據上的候選字型，每個字型一頁，每一頁的收據都是「整張」用該字型真的畫出來的"
+                + "（標題、欄位名稱、備註、直排文字與填入的內容全部是同一個字型），讓你直接比較外觀。請挑出想使用的字型（可以挑一個用在全部文字，也可以標題與內文各挑一個），"
                 + "確定之後才會修改收據。目前還沒有更動任何收據字型。", MARGIN, W - 2 * MARGIN, 11, 17);
         p.y -= 6;
-        para(d, p, "怎麼看：每頁上方是授權與覆蓋字集統計；中間是用該字型畫的真實收據（只有「動態填入的內容」是該字型，"
-                + "固定標籤因為印在範本上，另外在下方用該字型列出樣張）；最下方是長姓名、數字、大寫金額與罕用字的壓力測試。"
+        para(d, p, "怎麼看：每頁上方是授權與覆蓋字集統計；中間是整張收據；最下方是長姓名、數字、大寫金額與罕用字的壓力測試。"
+                + "字寬與霞鶩文楷不同的字型，個別欄位可能略有擠壓或偏移，那是預覽沒有逐項校正的結果，選定後會調整。"
                 + "「常用字／次常用字覆蓋」用 Big5 的 5401 個常用字與 7652 個次常用字計算，數字越高越不會遇到缺字。",
                 MARGIN, W - 2 * MARGIN, 11, 17);
         p.y -= 10;
@@ -473,7 +473,14 @@ public final class BuildFontSpecimen {
         ReceiptData data = sampleData();
         boolean receiptOk = true;
         try {
-            ReceiptPdfRenderer renderer = new ReceiptPdfRenderer(template, glyphs);
+            byte[] templateBytes = fullTemplate(template, glyphs);
+            ReceiptTemplate wholeFont = new ReceiptTemplate() {
+                @Override
+                public byte[] pdf() {
+                    return templateBytes;
+                }
+            };
+            ReceiptPdfRenderer renderer = new ReceiptPdfRenderer(wholeFont, glyphs);
             ReceiptPdfRenderer.Rendered rendered = renderer.render(data);
             PDDocument receiptDoc = Loader.loadPDF(rendered.white());
             keepOpen.add(receiptDoc);
@@ -481,7 +488,7 @@ public final class BuildFontSpecimen {
             float scale = (W - 2 * MARGIN) / 595.28f;
             float h = 446.46f * scale;
             gray(p, 0.35f);
-            line(d, p, "用這個字型畫出的收據（只有填入的內容是此字型；左上角的圖樣與固定標籤維持原範本）", MARGIN, 9);
+            line(d, p, "整張收據都用這個字型畫出（標題、欄位名稱、備註、直排文字與填入的內容；只有左上角的圖樣與表格線是原範本）", MARGIN, 9);
             p.y -= 6;
             p.cs.saveGraphicsState();
             p.cs.transform(new Matrix(scale, 0, 0, scale, MARGIN, p.y - h));
@@ -497,18 +504,6 @@ public final class BuildFontSpecimen {
             para(d, p, "這個字型無法畫出完整收據：" + e.getMessage(), MARGIN, W - 2 * MARGIN, 10, 14);
             p.y -= 6;
         }
-
-        // 固定標籤樣張
-        gray(p, 0.35f);
-        line(d, p, "固定文字樣張（收據上的標題、欄位名稱、備註，字級與收據相同）", MARGIN, 9);
-        p.y -= 16;
-        gray(p, 0);
-        specimenLine(d, p, sample, glyphs, "社團法人彰化縣康乃心關懷協會", 17);
-        specimenLine(d, p, sample, glyphs, "捐贈收據　捐贈人　先生／小姐／單位　台照", 16);
-        specimenLine(d, p, sample, glyphs, "項目　物資名稱與規格　數量　備註　合計新臺幣　佰拾萬仟佰拾元整", 10.5f);
-        specimenLine(d, p, sample, glyphs, "身分證字號／統一編號　捐贈日期　時價（新臺幣元）　實際收件機構", 9.5f);
-        specimenLine(d, p, sample, glyphs, "納稅義務人申報綜合所得稅捐贈列舉扣除時，其可申報扣除金額，仍應以稽徵機關依所得稅法查核認定為主。", 7);
-        p.y -= 6;
 
         // 壓力測試
         gray(p, 0.35f);
@@ -555,6 +550,54 @@ public final class BuildFontSpecimen {
         p.cs.addRect(MARGIN, p.y - h, W - 2 * MARGIN, h);
         p.cs.stroke();
         p.cs.close();
+    }
+
+    /**
+     * 把範本上所有固定文字清掉，改用候選字型把每一段原樣畫回原位置（位置、字級、顏色都照原範本），
+     * 得到「整個收據都是這個字型」的範本。字型的字寬和霞鶩文楷不同時，個別欄位可能略有擠壓或偏移，
+     * 採用字型時會逐項校正。
+     */
+    static byte[] fullTemplate(ReceiptTemplate base, GlyphOutlines glyphs) throws IOException {
+        try (PDDocument doc = Loader.loadPDF(base.pdf())) {
+            GlyphOutlines.Session session = glyphs.session(doc);
+            List<PDPage> pages = new ArrayList<>();
+            doc.getPages().forEach(pages::add);
+            // 文字的位置、字級與顏色取自使用者的原始範本（專案內的範本用不同寫法，讀不到座標）；
+            // 專案範本只拿來清掉文字、當底圖
+            List<List<BuildReceiptTemplate.Label>> labelsByPage = originalLabels();
+            for (int i = 0; i < pages.size(); i++) {
+                BuildReceiptTemplate.scan(doc, pages.get(i), i, true);
+            }
+            for (int i = 0; i < pages.size(); i++) {
+                try (PDPageContentStream cs = new PDPageContentStream(
+                        doc, pages.get(i), PDPageContentStream.AppendMode.APPEND, true, true)) {
+                    for (BuildReceiptTemplate.Label l : labelsByPage.get(i)) {
+                        cs.setNonStrokingColor(l.r(), l.g(), l.b());
+                        session.draw(cs, l.text(), l.x(), l.y(), l.size());
+                    }
+                }
+            }
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            doc.save(out);
+            return out.toByteArray();
+        }
+    }
+
+    private static List<List<BuildReceiptTemplate.Label>> originalLabelsCache;
+
+    static synchronized List<List<BuildReceiptTemplate.Label>> originalLabels() throws IOException {
+        if (originalLabelsCache == null) {
+            Path original = Path.of("C:/Users/z8912/Downloads/結案文件/01_製作素材/康乃心_活動捐贈收據_三聯空白版.pdf");
+            List<List<BuildReceiptTemplate.Label>> result = new ArrayList<>();
+            try (PDDocument source = Loader.loadPDF(original.toFile())) {
+                int i = 0;
+                for (PDPage page : source.getPages()) {
+                    result.add(BuildReceiptTemplate.scan(source, page, i++, false));
+                }
+            }
+            originalLabelsCache = result;
+        }
+        return originalLabelsCache;
     }
 
     static String orNone(String s) {
