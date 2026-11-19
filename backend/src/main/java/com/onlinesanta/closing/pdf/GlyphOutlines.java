@@ -50,13 +50,29 @@ public class GlyphOutlines {
     private final Map<Integer, Glyph> cache = new ConcurrentHashMap<>();
 
     public GlyphOutlines() {
+        this(loadBundledFont());
+    }
+
+    /**
+     * 用指定的字型繪字。正式環境只用上面預設的內建字型；這個建構子給字型預覽工具
+     * （{@code tools/BuildFontSpecimen}）比較不同字型的收據外觀用。字型必須是 TrueType 輪廓（glyf）。
+     */
+    public GlyphOutlines(TrueTypeFont font) {
+        this.font = font;
+        try {
+            this.cmap = font.getUnicodeCmapLookup();
+            this.unitsPerEm = font.getUnitsPerEm();
+        } catch (IOException e) {
+            throw new UncheckedIOException("讀取字型失敗", e);
+        }
+    }
+
+    private static TrueTypeFont loadBundledFont() {
         try (InputStream in = GlyphOutlines.class.getClassLoader().getResourceAsStream(FONT_RESOURCE)) {
             if (in == null) {
                 throw new IllegalStateException("找不到結案文件字型：" + FONT_RESOURCE);
             }
-            this.font = new TTFParser().parse(new RandomAccessReadBuffer(in));
-            this.cmap = font.getUnicodeCmapLookup();
-            this.unitsPerEm = font.getUnitsPerEm();
+            return new TTFParser().parse(new RandomAccessReadBuffer(in));
         } catch (IOException e) {
             throw new UncheckedIOException("載入結案文件字型失敗", e);
         }
