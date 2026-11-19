@@ -53,6 +53,10 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
     @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})
     Optional<Claim> findWithDetailsById(UUID id);
 
+    /** 結案文件用：一次取回一批認領與它們的願望（孩子暱稱、願望標題）。 */
+    @EntityGraph(attributePaths = {"wish"})
+    List<Claim> findWithWishByIdIn(Collection<UUID> ids);
+
     /**
      * 監控中心的認領清單。篩選條件見 {@link ClaimSpecifications}。覆寫是為了掛上
      * EntityGraph，列表每一列都要顯示願望、機構與捐贈者，不掛的話會 N+1。

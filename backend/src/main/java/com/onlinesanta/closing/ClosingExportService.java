@@ -62,12 +62,18 @@ public class ClosingExportService {
     private final ObjectStorage storage;
     private final ClosingProperties properties;
     private final ReceiptCheckService receiptCheck;
+    private final com.onlinesanta.closing.doc.ClosingDataService dataService;
+    private final com.onlinesanta.closing.doc.ClosingPackageBuilder packageBuilder;
 
     public ClosingExportService(ClosingExportRepository exports, DonationReceiptRepository receipts,
                                 DonationReceiptService receiptService, CampaignService campaigns,
                                 ObjectStorage storage, ClosingProperties properties,
-                                ReceiptCheckService receiptCheck) {
+                                ReceiptCheckService receiptCheck,
+                                com.onlinesanta.closing.doc.ClosingDataService dataService,
+                                com.onlinesanta.closing.doc.ClosingPackageBuilder packageBuilder) {
         this.receiptCheck = receiptCheck;
+        this.dataService = dataService;
+        this.packageBuilder = packageBuilder;
         this.exports = exports;
         this.receipts = receipts;
         this.receiptService = receiptService;
@@ -84,6 +90,17 @@ public class ClosingExportService {
             throw new BusinessRuleException("NO_RECEIPTS", "這個檔期還沒有有效的收據，沒有可匯出的內容");
         }
         return exports.save(new ClosingExport(campaignId, ExportKind.RECEIPTS, total, adminUserId));
+    }
+
+    /** 建立結案文件包匯出（C 成果備查、D 結案備查、CD 併報）。 */
+    @Transactional
+    public ClosingExport startPackage(UUID campaignId, com.onlinesanta.closing.doc.ClosingStage stage, UUID adminUserId) {
+        campaigns.get(campaignId);
+        int total = (int) receipts.countByCampaignIdAndStatus(campaignId, ReceiptStatus.ISSUED);
+        if (total == 0) {
+            throw new BusinessRuleException("NO_RECEIPTS", "這個檔期還沒有有效的收據，沒有可匯出的內容");
+        }
+        return exports.save(new ClosingExport(campaignId, ExportKind.CLOSING_PACKAGE, stage, total, adminUserId));
     }
 
     @Transactional(readOnly = true)
@@ -167,10 +184,22 @@ public class ClosingExportService {
              ZipOutputStream zip = new ZipOutputStream(counting, StandardCharsets.UTF_8)) {
             zip.setLevel(Deflater.NO_COMPRESSION);          // PDF 已經壓縮過，再壓只是白花 CPU
 
-            putText(zip, "00_收據檢查.txt", receiptCheck.check(export.getCampaignId()).toText());
-            putText(zip, "00_收據清單.csv", "﻿" + csv(all));
+            boolean pack = export.getKind() == ExportKind.CLOSING_PACKAGE;
+            String receiptsRoot = pack ? "03_收據/" : "";
+            String keepRoot = pack ? "05_留存備份/" : "";
+            putText(zip, keepRoot + "00_收據檢查.txt", receiptCheck.check(export.getCampaignId()).toText());
+            putText(zip, keepRoot + "00_收據清單.csv", "﻿" + csv(all));
             if (!skipped.isEmpty()) {
-                putText(zip, "00_未收進壓縮檔的收據.txt", skippedNote(skipped));
+                putText(zip, keepRoot + "00_未收進壓縮檔的收據.txt", skippedNote(skipped));
+            }
+            if (pack) {
+                var dataset = dataService.load(export.getCampaignId(), export.getStage());
+                var built = packageBuilder.build(dataset);
+                for (var file : built.files()) {
+                    putBytes(zip, file.path(), file.bytes());
+                }
+                putText(zip, keepRoot + "待補資料.md", com.onlinesanta.closing.doc.ClosingPackageBuilder.todoMarkdown(
+                        dataset, built.todo()));
             }
             for (int from = 0; from < included.size(); from += FETCH_BATCH) {
                 List<DonationReceipt> batch = included.subList(from, Math.min(from + FETCH_BATCH, included.size()));
@@ -181,8 +210,8 @@ public class ClosingExportService {
                 }
                 for (int i = 0; i < batch.size(); i++) {
                     byte[][] pair = futures.get(i).get();
-                    putBytes(zip, "紅聯（給捐贈人）/" + batch.get(i).getReceiptNo() + ".pdf", pair[0]);
-                    putBytes(zip, "白黃聯（協會留存）/" + batch.get(i).getReceiptNo() + ".pdf", pair[1]);
+                    putBytes(zip, receiptsRoot + "紅聯（給捐贈人）/" + batch.get(i).getReceiptNo() + ".pdf", pair[0]);
+                    putBytes(zip, receiptsRoot + "白黃聯（協會留存）/" + batch.get(i).getReceiptNo() + ".pdf", pair[1]);
                 }
             }
             zip.finish();

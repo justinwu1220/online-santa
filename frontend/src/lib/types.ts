@@ -963,10 +963,14 @@ export interface ReceiptDownload {
 
 export type ExportStatus = 'PREPARING' | 'READY' | 'FAILED' | 'EXPIRED'
 
+/** 結案階段：C 成果備查、D 結案備查、CD 併報 */
+export type ClosingStage = 'C' | 'D' | 'CD'
+
 export interface ExportView {
   id: string
   campaignId: string
-  kind: 'RECEIPTS'
+  kind: 'RECEIPTS' | 'CLOSING_PACKAGE'
+  stage?: ClosingStage
   status: ExportStatus
   total: number
   prepared: number

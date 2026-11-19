@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, withQuery } from '../../lib/api'
 import type {
-  CampaignRequest, CampaignView, ExportView, PageResponse, PdfKind, PdfStatus, ReceiptCheck,
+  CampaignRequest, CampaignView, ClosingStage, ExportView, PageResponse, PdfKind, PdfStatus, ReceiptCheck,
   ReceiptDownload, ReceiptStatus, ReceiptView,
 } from '../../lib/types'
 
@@ -88,10 +88,21 @@ function triggerDownload(url: string) {
  * 全部下載：建立匯出、反覆推進（每次後端在約 15 秒內做一段）直到完成，再下載壓縮檔。
  * 進度透過 onProgress 回報；失敗時丟出錯誤。回傳最後的匯出狀態（含略過張數）。
  */
-export async function downloadAllReceipts(
+export function downloadAllReceipts(
   campaignId: string, onProgress: (view: ExportView) => void,
 ): Promise<ExportView> {
-  let view = await api.post<ExportView>(`/api/admin/campaigns/${campaignId}/receipt-exports`)
+  return runExportJob(`/api/admin/campaigns/${campaignId}/receipt-exports`, onProgress)
+}
+
+/** 結案文件包（官方 Excel、核章 PDF、成果報告、05 表單、收據、待補資料）：流程與全部下載相同。 */
+export function downloadClosingPackage(
+  campaignId: string, stage: ClosingStage, onProgress: (view: ExportView) => void,
+): Promise<ExportView> {
+  return runExportJob(`/api/admin/campaigns/${campaignId}/closing-packages?stage=${stage}`, onProgress)
+}
+
+async function runExportJob(createPath: string, onProgress: (view: ExportView) => void): Promise<ExportView> {
+  let view = await api.post<ExportView>(createPath)
   onProgress(view)
   while (view.status === 'PREPARING') {
     view = await api.post<ExportView>(`/api/admin/closing-exports/${view.id}/advance`)

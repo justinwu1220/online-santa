@@ -3,9 +3,9 @@ import { ReasonDialog } from '../../components/console/ReasonDialog'
 import { Pager } from '../../components/ui/Pager'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { formatPlainDate } from '../../lib/format'
-import type { CampaignView, PdfStatus, ReceiptCheck, ReceiptStatus, ReceiptView } from '../../lib/types'
+import type { CampaignView, ClosingStage, PdfStatus, ReceiptCheck, ReceiptStatus, ReceiptView } from '../../lib/types'
 import {
-  downloadAllReceipts, openReceipt, useReceiptCheck, useReceipts, useVoidReceipt,
+  downloadAllReceipts, downloadClosingPackage, openReceipt, useReceiptCheck, useReceipts, useVoidReceipt,
   type ReceiptFilter,
 } from './closingQueries'
 
@@ -129,6 +129,7 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
         點「紅聯」（給捐贈人）「白黃聯」（協會留存）在新分頁預覽；「全部下載」把有效收據的紅聯與白黃聯打包成一個壓縮檔；
         「收據檢查」列出有問題的收據。收據 PDF 含捐贈者證號，每次開啟或下載都會寫入稽核。
       </p>
+      <ClosingPackageSection campaignId={campaign.id} />
       {notice && <div className={`callout callout--${notice.tone}`} role="status"><p>{notice.text}</p></div>}
       {check.isError && <ErrorNotice error={check.error} onRetry={() => void check.refetch()} />}
       {check.data && <ReceiptCheckResult check={check.data} onClose={() => setChecking(false)} />}
@@ -272,6 +273,54 @@ function ReceiptCheckResult({ check, onClose }: { check: ReceiptCheck; onClose: 
       <p style={{ marginTop: 8 }}>
         <button type="button" className="btn btn--sm btn--ghost" onClick={onClose}>收起</button>
       </p>
+    </div>
+  )
+}
+
+const STAGES: { value: ClosingStage; label: string }[] = [
+  { value: 'C', label: 'C 成果備查（勸募期滿）' },
+  { value: 'D', label: 'D 結案備查（使用完竣）' },
+  { value: 'CD', label: '成果結案併報' },
+]
+
+/**
+ * 結案文件包：依階段產生官方 Excel、核章 PDF、成果報告、05 表單、收據與待補資料，打包成一個壓縮檔。
+ * 沒有的資料（現金、利息、簽章、用印…）文件上寫「待補」，清單在壓縮檔的 05_留存備份/待補資料.md。
+ */
+function ClosingPackageSection({ campaignId }: { campaignId: string }) {
+  const [stage, setStage] = useState<ClosingStage>('C')
+  const [progress, setProgress] = useState<string>()
+  const [result, setResult] = useState<{ tone: 'ok' | 'warn'; text: string }>()
+
+  async function run() {
+    setResult(undefined)
+    setProgress('準備中…')
+    try {
+      const view = await downloadClosingPackage(campaignId, stage, (v) => {
+        setProgress(v.status === 'PREPARING' ? `準備與打包中…（${v.prepared}/${v.total}）` : '準備下載…')
+      })
+      setResult({
+        tone: view.skipped > 0 ? 'warn' : 'ok',
+        text: '已下載結案文件包。請先看壓縮檔裡 05_留存備份/待補資料.md，那裡列出還缺哪些資料；簽章與用印都是留白的。'
+          + (view.skipped > 0 ? ` 另有 ${view.skipped} 張收據因 PDF 無法產生沒有收進去。` : ''),
+      })
+    } catch (e) {
+      setResult({ tone: 'warn', text: e instanceof Error ? e.message : '產生失敗，請稍後再試' })
+    } finally {
+      setProgress(undefined)
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <select className="input" aria-label="結案階段" value={stage} style={{ width: 'auto' }}
+        onChange={(event) => setStage(event.target.value as ClosingStage)}>
+        {STAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+      </select>
+      <button type="button" className="btn btn--sm" disabled={progress !== undefined} onClick={() => void run()}>
+        {progress ?? '產生結案文件包'}
+      </button>
+      {result && <div className={`callout callout--${result.tone}`} role="status" style={{ flexBasis: '100%' }}><p>{result.text}</p></div>}
     </div>
   )
 }

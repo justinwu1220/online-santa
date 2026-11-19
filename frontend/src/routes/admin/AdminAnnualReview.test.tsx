@@ -163,6 +163,30 @@ describe('年度營運頁', () => {
     click.mockRestore()
   })
 
+  it('結案文件包：選階段、建立匯出、推進到完成後下載，提醒先看待補資料', async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const base = {
+      id: 'p1', campaignId: 'c1', kind: 'CLOSING_PACKAGE' as const, stage: 'D' as const, total: 2, prepared: 0, skipped: 0,
+      createdAt: '2026-12-30T00:00:00Z',
+    }
+    post.mockImplementation(async (path: string) =>
+      path.includes('/closing-packages') ? { ...base, status: 'PREPARING' } : { ...base, status: 'READY', prepared: 2 })
+    const base2 = get.getMockImplementation()!
+    get.mockImplementation(async (path: string) =>
+      path.includes('/closing-exports/p1/download-url')
+        ? { url: 'https://storage.test/pkg.zip', expiresAt: '2026-12-30T01:00:00Z' } : base2(path))
+    renderPage()
+    await screen.findByText('OS2026-000001')
+
+    await userEvent.selectOptions(screen.getByLabelText('結案階段'), 'D')
+    await userEvent.click(screen.getByRole('button', { name: '產生結案文件包' }))
+
+    expect(await screen.findByText(/已下載結案文件包。請先看壓縮檔裡 05_留存備份\/待補資料.md/)).toBeTruthy()
+    expect(post).toHaveBeenCalledWith('/api/admin/campaigns/c1/closing-packages?stage=D', undefined)
+    expect(click).toHaveBeenCalled()
+    click.mockRestore()
+  })
+
   it('全部下載失敗：顯示原因', async () => {
     post.mockRejectedValue(new Error('這個檔期還沒有有效的收據，沒有可匯出的內容'))
     renderPage()
