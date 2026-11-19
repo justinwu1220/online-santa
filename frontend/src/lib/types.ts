@@ -966,6 +966,26 @@ export type ExportStatus = 'PREPARING' | 'READY' | 'FAILED' | 'EXPIRED'
 /** 結案階段：C 成果備查、D 結案備查、CD 併報 */
 export type ClosingStage = 'C' | 'D' | 'CD'
 
+/** 結案寄信的預覽／進度。stopped：LIMIT＝每日寄信額度用完；NOT_CONFIGURED＝寄信未設定。 */
+export interface MailTarget {
+  id: string
+  name: string
+  recipient: string | null
+  status: 'SENT' | 'FAILED' | 'PENDING' | 'NO_EMAIL'
+  error: string | null
+}
+export interface MailProgress {
+  total: number
+  sent: number
+  failed: number
+  pending: number
+  notReady: number
+  noEmail: number
+  dailyLimit: number
+  stopped: 'LIMIT' | 'NOT_CONFIGURED' | null
+  targets: MailTarget[]
+}
+
 export interface ExportView {
   id: string
   campaignId: string

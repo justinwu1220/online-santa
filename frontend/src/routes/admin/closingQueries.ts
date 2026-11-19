@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, withQuery } from '../../lib/api'
 import type {
-  CampaignRequest, CampaignView, ClosingStage, ExportView, FinanceData, PageResponse, PdfKind, PdfStatus, ReceiptCheck,
-  ReceiptDownload, ReceiptStatus, ReceiptView,
+  CampaignRequest, CampaignView, ClosingStage, ExportView, FinanceData, MailProgress, PageResponse, PdfKind, PdfStatus,
+  ReceiptCheck, ReceiptDownload, ReceiptStatus, ReceiptView,
 } from '../../lib/types'
 
 /** 結案文件的資料來源：活動檔期與收據。動作成功後一律讓檔期與收據清單重新載入。 */
@@ -110,6 +110,39 @@ export function downloadAllReceipts(
   campaignId: string, onProgress: (view: ExportView) => void,
 ): Promise<ExportView> {
   return runExportJob(`/api/admin/campaigns/${campaignId}/receipt-exports`, onProgress)
+}
+
+export type MailKind = 'receipts' | 'org-forms'
+
+function mailPath(campaignId: string, kind: MailKind, stage: ClosingStage) {
+  const base = `/api/admin/campaigns/${campaignId}/closing-mail/${kind}`
+  return { preview: kind === 'org-forms' ? `${base}?stage=${stage}` : base, send: `${base}/send` }
+}
+
+/** 寄送前預覽：只看將寄幾封，不寄信。 */
+export function previewMail(campaignId: string, kind: MailKind, stage: ClosingStage) {
+  return api.get<MailProgress>(mailPath(campaignId, kind, stage).preview)
+}
+
+/**
+ * 分段寄出：每次呼叫後端在約 15 秒內寄一段，反覆呼叫到待寄為 0、額度用完（stopped）或這一輪沒有進展為止。
+ * 失敗的信不會在同一輪重試（要重試用 retryFailed 另開一輪）。
+ */
+export async function sendMail(
+  campaignId: string, kind: MailKind, stage: ClosingStage, retryFailed: boolean, onProgress: (p: MailProgress) => void,
+): Promise<MailProgress> {
+  const { send } = mailPath(campaignId, kind, stage)
+  let retry = retryFailed
+  let last: MailProgress | undefined
+  for (;;) {
+    const params = [kind === 'org-forms' ? `stage=${stage}` : '', retry ? 'retryFailed=true' : ''].filter(Boolean)
+    const p = await api.post<MailProgress>(params.length > 0 ? `${send}?${params.join('&')}` : send)
+    onProgress(p)
+    retry = false
+    const stalled = last !== undefined && p.sent === last.sent && p.failed === last.failed
+    if (p.pending === 0 || p.stopped !== null || stalled) return p
+    last = p
+  }
 }
 
 /** 結案文件包（官方 Excel、核章 PDF、成果報告、05 表單、收據、待補資料）：流程與全部下載相同。 */

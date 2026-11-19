@@ -168,17 +168,42 @@ public class NotificationService {
         return dispatch(to, rendered.subject(), rendered.html(), rendered.text());
     }
 
+    /** 一封信的寄送結果。結案文件的批次寄送靠它分辨「額度用完要停」與「單封失敗可重寄」。 */
+    public enum Outcome { SENT, NO_RECIPIENT, NOT_CONFIGURED, LIMIT_REACHED, FAILED }
+
+    /**
+     * 套用樣板同步寄信，可帶附件，回傳寄送結果（不只是成功與否）。
+     *
+     * <p>給結案文件的批次寄送用：樣板填值失敗算 FAILED；額度用完回 LIMIT_REACHED，呼叫端應停止並留待明天續寄。
+     */
+    public Outcome deliverTemplate(String to, MailTemplateId id, Map<String, ?> values,
+                                   java.util.List<MailAttachment> attachments) {
+        MailTemplate.Rendered rendered;
+        try {
+            rendered = templates.render(id, values);
+        } catch (RuntimeException e) {
+            log.error("通知信樣板填值失敗，這封信不會寄出。樣板＝{}，收件人＝{}", id, to, e);
+            return Outcome.FAILED;
+        }
+        return dispatchOutcome(to, rendered.subject(), rendered.html(), rendered.text(), attachments);
+    }
+
     /** @param html 為 null 時寄純文字，否則寄 text + html 的 multipart/alternative。 */
     private boolean dispatch(String to, String subject, String html, String body) {
+        return dispatchOutcome(to, subject, html, body, java.util.List.of()) == Outcome.SENT;
+    }
+
+    private Outcome dispatchOutcome(String to, String subject, String html, String body,
+                                    java.util.List<MailAttachment> attachments) {
         if (to == null || to.isBlank()) {
             log.warn("略過寄信：收件人信箱是空的。主旨＝{}", subject);
-            return false;
+            return Outcome.NO_RECIPIENT;
         }
 
         JavaMailSender sender = mailSender.getIfAvailable();
         if (sender == null) {
             log.info("[no-op] 通知信未真的寄出（MAIL_HOST 未設定）。收件人＝{}，主旨＝{}", to, subject);
-            return false;
+            return Outcome.NOT_CONFIGURED;
         }
 
         // 主旨前綴（例如測試站的「[測試站]」）：收件人一眼就能分辨這封信不是正式站寄的
@@ -186,7 +211,7 @@ public class NotificationService {
                 ? subject : properties.subjectPrefix() + " " + subject;
 
         if (!reserveDailySlot()) {
-            return false;
+            return Outcome.LIMIT_REACHED;
         }
 
         try {
@@ -198,22 +223,25 @@ public class NotificationService {
                 message.setText(body);
                 sender.send(message);
             } else {
-                sender.send(mimeMessage(sender, to, fullSubject, html, body));
+                sender.send(mimeMessage(sender, to, fullSubject, html, body, attachments));
             }
             log.info("通知信已寄出。收件人＝{}，主旨＝{}", to, fullSubject);
             recordSuccess();
-            return true;
+            return Outcome.SENT;
         } catch (MailException e) {
             recordFailure(to, fullSubject, e);
-            return false;
+            return Outcome.FAILED;
         }
     }
 
     private MimeMessage mimeMessage(JavaMailSender sender, String to, String subject,
-                                    String html, String text) {
+                                    String html, String text, java.util.List<MailAttachment> attachments) {
         try {
             MimeMessage message = sender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            for (MailAttachment a : attachments) {
+                helper.addAttachment(a.fileName(), new org.springframework.core.io.ByteArrayResource(a.content()), a.contentType());
+            }
             helper.setFrom(properties.fromAddress());
             helper.setTo(to);
             helper.setSubject(subject);

@@ -60,6 +60,21 @@ public class OrgFormPdfWriter {
         return forms;
     }
 
+    /** 寄給單一機構的兩份表單（寄信用；內容與壓縮檔內的相同）。找不到機構回 null。 */
+    public record OrgForms(byte[] form05A, byte[] form05B) {
+    }
+
+    public OrgForms buildFor(ClosingDataset d, java.util.UUID organizationId) {
+        int seq = 0;
+        for (OrgGroup g : d.externalOrganizations()) {
+            seq++;
+            if (g.organizationId().equals(organizationId)) {
+                return new OrgForms(form05A(d, g, seq, "").pdf(), form05B(d, g, "").pdf());
+            }
+        }
+        return null;
+    }
+
     /** 路徑用的機構簡稱：拿掉路徑不允許的字元，最多 20 字。 */
     static String safeName(String name) {
         String clean = name.replaceAll("[\\\\/:*?\"<>|\\s]", "");

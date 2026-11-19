@@ -3,10 +3,10 @@ import { ReasonDialog } from '../../components/console/ReasonDialog'
 import { Pager } from '../../components/ui/Pager'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { formatPlainDate } from '../../lib/format'
-import type { CampaignView, ClosingStage, PdfStatus, ReceiptCheck, ReceiptStatus, ReceiptView } from '../../lib/types'
+import type { CampaignView, ClosingStage, MailProgress, MailTarget, PdfStatus, ReceiptCheck, ReceiptStatus, ReceiptView } from '../../lib/types'
 import {
-  downloadAllReceipts, downloadClosingPackage, openReceipt, useReceiptCheck, useReceipts, useVoidReceipt,
-  type ReceiptFilter,
+  downloadAllReceipts, downloadClosingPackage, openReceipt, previewMail, sendMail, useReceiptCheck, useReceipts, useVoidReceipt,
+  type MailKind, type ReceiptFilter,
 } from './closingQueries'
 
 /**
@@ -130,6 +130,7 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
         「收據檢查」列出有問題的收據。收據 PDF 含捐贈者證號，每次開啟或下載都會寫入稽核。
       </p>
       <ClosingPackageSection campaignId={campaign.id} />
+      <ClosingMailSection campaignId={campaign.id} />
       {notice && <div className={`callout callout--${notice.tone}`} role="status"><p>{notice.text}</p></div>}
       {check.isError && <ErrorNotice error={check.error} onRetry={() => void check.refetch()} />}
       {check.data && <ReceiptCheckResult check={check.data} onClose={() => setChecking(false)} />}
@@ -273,6 +274,101 @@ function ReceiptCheckResult({ check, onClose }: { check: ReceiptCheck; onClose: 
       <p style={{ marginTop: 8 }}>
         <button type="button" className="btn btn--sm btn--ghost" onClick={onClose}>收起</button>
       </p>
+    </div>
+  )
+}
+
+/**
+ * 結案寄信：紅聯收據寄給勾選要收據的捐贈人、05A＋05B 寄給受贈機構。
+ * 先「預覽」（不寄信）看將寄幾封，再按「確認寄出」；已寄的不會重寄，失敗的可另按「重寄失敗」。
+ */
+function ClosingMailSection({ campaignId }: { campaignId: string }) {
+  const [stage, setStage] = useState<ClosingStage>('CD')
+  return (
+    <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
+      <h3 style={{ margin: 0, fontSize: 16 }}>寄送</h3>
+      <MailBlock campaignId={campaignId} kind="receipts" stage={stage} title="紅聯收據寄給捐贈人"
+        hint="只寄給填了「要收據」且有信箱的捐贈人，附紅聯 PDF；白聯與黃聯由協會留存，不寄。" />
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span className="muted">機構確認表依哪個結案階段計算：</span>
+        <select className="input" aria-label="機構確認表階段" value={stage} style={{ width: 'auto' }}
+          onChange={(event) => setStage(event.target.value as ClosingStage)}>
+          {STAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+        </select>
+      </div>
+      <MailBlock campaignId={campaignId} kind="org-forms" stage={stage} title="機構確認表（05A＋05B）寄給受贈機構"
+        hint="每個受贈機構一封，附 05A、05B；康乃心自己的 05C 不寄。05B 內沒有任何個人資料。" />
+    </div>
+  )
+}
+
+function MailBlock({ campaignId, kind, stage, title, hint }: {
+  campaignId: string; kind: MailKind; stage: ClosingStage; title: string; hint: string
+}) {
+  const [progress, setProgress] = useState<MailProgress>()
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<{ tone: 'ok' | 'warn'; text: string }>()
+
+  async function run(action: () => Promise<MailProgress>, done: (p: MailProgress) => string) {
+    setBusy(true)
+    setMessage(undefined)
+    try {
+      const p = await action()
+      setProgress(p)
+      setMessage({ tone: p.stopped || p.failed > 0 ? 'warn' : 'ok', text: done(p) })
+    } catch (e) {
+      setMessage({ tone: 'warn', text: e instanceof Error ? e.message : '操作失敗，請稍後再試' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const sendText = (p: MailProgress) => {
+    if (p.stopped === 'NOT_CONFIGURED') return '寄信功能尚未設定，沒有寄出任何信。'
+    if (p.stopped === 'LIMIT') return `今天的寄信額度用完了，已寄 ${p.sent} 封，還有 ${p.pending} 封明天再按「確認寄出」續寄。`
+    return `已寄出 ${p.sent} 封${p.failed > 0 ? `，${p.failed} 封失敗（可按「重寄失敗」）` : ''}。`
+  }
+
+  const statusText = (t: MailTarget) => {
+    if (t.status === 'SENT') return '已寄'
+    if (t.status === 'FAILED') return `失敗（${t.error ?? ''}）`
+    return t.status === 'NO_EMAIL' ? '沒有信箱' : '待寄'
+  }
+
+  return (
+    <div className="card" style={{ padding: 12, display: 'grid', gap: 8 }}>
+      <strong>{title}</strong>
+      <p className="muted" style={{ margin: 0 }}>{hint}</p>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button type="button" className="btn btn--sm" disabled={busy}
+          onClick={() => void run(() => previewMail(campaignId, kind, stage), (p) => `預覽完成：待寄 ${p.pending} 封。`)}>
+          寄送前預覽
+        </button>
+        {progress && progress.pending > 0 && (
+          <button type="button" className="btn btn--sm btn--primary" disabled={busy}
+            onClick={() => void run(() => sendMail(campaignId, kind, stage, false, setProgress), sendText)}>
+            {busy ? '寄送中…' : `確認寄出 ${progress.pending} 封`}
+          </button>
+        )}
+        {progress && progress.failed > 0 && (
+          <button type="button" className="btn btn--sm" disabled={busy}
+            onClick={() => void run(() => sendMail(campaignId, kind, stage, true, setProgress), sendText)}>
+            重寄失敗（{progress.failed} 封）
+          </button>
+        )}
+      </div>
+      {progress && (
+        <p style={{ margin: 0 }}>
+          應寄 {progress.total}　已寄 {progress.sent}　待寄 {progress.pending}　失敗 {progress.failed}
+          {progress.notReady > 0 && `　PDF 尚未備妥 ${progress.notReady}`}
+          {progress.noEmail > 0 && `　沒有信箱 ${progress.noEmail}`}
+          {progress.dailyLimit > 0 && `　（每日寄信上限 ${progress.dailyLimit} 封）`}
+        </p>
+      )}
+      {progress?.targets.map((t) => (
+        <div key={t.id} className="muted">{t.name}：{t.recipient ?? '—'}　{statusText(t)}</div>
+      ))}
+      {message && <div className={`callout callout--${message.tone}`} role="status"><p>{message.text}</p></div>}
     </div>
   )
 }

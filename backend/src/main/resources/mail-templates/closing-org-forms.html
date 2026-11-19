@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>5.2 機構物資領受確認表</title>
+  <style>
+    body { max-width: 760px; margin: 32px auto; padding: 0 20px; color: #222; font: 16px/1.65 Arial, "PingFang TC", sans-serif; }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 20px; padding-bottom: 14px; }
+    header small { color: #555; }
+    h1 { margin: 6px 0 0; font-size: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <!-- 草稿：文案尚待協會與團隊確認。欄位由結案寄送流程填入。 -->
+  <template id="email-subject">【線上聖誕老人 2026】{{organizationName}}物資領受確認表，請協助簽章回傳</template>
+  <template id="email-body">
+    <div lang="zh-Hant-TW" style="font-family:Arial,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:16px;line-height:1.65;color:#222;">
+      <p style="margin:0 0 16px;">{{recipientName}}，您好：</p>
+      <p style="margin:0 0 12px;"><strong style="color:#a61c00;">感謝{{organizationName}}參與「{{activityName}}」。</strong></p>
+      <p style="margin:0 0 12px;">為了完成活動結案，請協助確認貴機構收到的物資，隨信附上兩份文件：</p>
+      <p style="margin:0 0 8px;">１、<strong>機構物資領受暨發放確認表（05A）</strong>：列出貴機構收到的禮物，請核對數量，並填寫已發放數量與簽收留存情形。</p>
+      <p style="margin:0 0 12px;">２、<strong>個人物資領受證明（05B）</strong>：每位受贈孩子一組，請由受贈人或其代表簽收後由貴機構留存。</p>
+      <p style="margin:0 0 12px;">兩份文件都需要貴機構簽章。05B 上的個人資料由機構自行保存，<strong>不需要回傳給我們</strong>；請將簽章後的 05A 回傳給團隊即可。</p>
+      <p style="margin:0 0 20px;">若表上的品名、數量或日期與實際不符，請在差異欄註明，或直接回覆這封信。謝謝您為孩子們的付出！ 🎁</p>
+      <p style="margin:0;">Best wishes,<br>線上聖誕老人團隊</p>
+    </div>
+  </template>
+
+  <header>
+    <small>5.2 機構物資領受確認表｜信件預覽（使用虛構資料）</small>
+    <h1 id="subject"></h1>
+  </header>
+  <main id="preview"></main>
+  <script>
+    const example = { recipientName: '王主任', organizationName: '星星小學', activityName: '線上聖誕老人 2026' };
+    const fillExample = text => text.replace(/{{(\w+)}}/g, (token, key) => example[key] ?? token);
+    document.getElementById('subject').textContent =
+      fillExample(document.getElementById('email-subject').content.textContent);
+    const preview = document.getElementById('email-body').content.cloneNode(true);
+    const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) walker.currentNode.textContent = fillExample(walker.currentNode.textContent);
+    document.getElementById('preview').append(preview);
+  </script>
+</body>
+</html>

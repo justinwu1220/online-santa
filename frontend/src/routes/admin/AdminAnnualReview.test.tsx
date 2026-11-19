@@ -196,6 +196,37 @@ describe('年度營運頁', () => {
     click.mockRestore()
   })
 
+  it('寄送：先預覽（不寄信），確認後分段寄出直到待寄為 0；額度用完時停下並說明', async () => {
+    const progress = (over: object) => ({
+      total: 3, sent: 0, failed: 0, pending: 3, notReady: 0, noEmail: 0, dailyLimit: 100, stopped: null, targets: [], ...over,
+    })
+    get.mockImplementation(async (path: string) => {
+      if (path === '/api/admin/stats/periods') return periodList
+      if (path.startsWith('/api/admin/stats/period?')) return stats
+      if (path.includes('/closing-mail/receipts')) return progress({})
+      if (path.startsWith('/api/admin/campaigns')) return [campaign]
+      return page([receipt({})])
+    })
+    let sends = 0
+    post.mockImplementation(async (path: string) => {
+      if (!path.includes('/closing-mail/receipts/send')) return {}
+      sends += 1
+      return sends === 1 ? progress({ sent: 2, pending: 1 }) : progress({ sent: 2, pending: 1, stopped: 'LIMIT' })
+    })
+    renderPage()
+    await screen.findByText('OS2026-000001')
+
+    await userEvent.click(screen.getAllByRole('button', { name: '寄送前預覽' })[0])
+    expect(await screen.findByText('預覽完成：待寄 3 封。')).toBeTruthy()
+    expect(post.mock.calls.filter(([p]) => String(p).includes('/closing-mail/'))).toHaveLength(0)
+
+    await userEvent.click(screen.getByRole('button', { name: '確認寄出 3 封' }))
+
+    expect(await screen.findByText(/今天的寄信額度用完了，已寄 2 封，還有 1 封明天再按/)).toBeTruthy()
+    expect(post).toHaveBeenCalledWith('/api/admin/campaigns/c1/closing-mail/receipts/send', undefined)
+    expect(sends).toBe(2)
+  })
+
   it('全部下載失敗：顯示原因', async () => {
     post.mockRejectedValue(new Error('這個檔期還沒有有效的收據，沒有可匯出的內容'))
     renderPage()
