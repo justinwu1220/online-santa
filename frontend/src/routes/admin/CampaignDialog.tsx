@@ -6,7 +6,7 @@ import { useSaveCampaign } from './closingQueries'
 
 const EMPTY: CampaignRequest = {
   name: '', activityNo: '', permitNo: '', approvedName: '',
-  collectionStart: '', collectionEnd: '', useStart: '', useEnd: '', cutoffDate: '',
+  collectionStart: '', collectionEnd: '', useStart: '', useEnd: '', wishListStart: '', wishListEnd: '',
   receiptPrefix: '', firstReceiptSeq: undefined,
 }
 
@@ -14,15 +14,15 @@ function fromCampaign(c: CampaignView): CampaignRequest {
   return {
     name: c.name, activityNo: c.activityNo ?? '', permitNo: c.permitNo ?? '', approvedName: c.approvedName ?? '',
     collectionStart: c.collectionStart, collectionEnd: c.collectionEnd, useStart: c.useStart, useEnd: c.useEnd,
-    cutoffDate: c.cutoffDate ?? '', receiptPrefix: c.receiptPrefix, firstReceiptSeq: undefined, status: c.status,
+    wishListStart: c.wishListStart, wishListEnd: c.wishListEnd, receiptPrefix: c.receiptPrefix, firstReceiptSeq: undefined, status: c.status,
   }
 }
 
 /**
  * 新增或修改活動檔期。
  *
- * 勸募許可文號核准前可以留空：留空時願望完成仍會開立收據（配號、存資料），但不會產生 PDF；
- * 填入後在收據頁按「補產 PDF」。已開立過收據後，收據前綴與起始號碼不能再改（編號要穩定）。
+ * 勸募許可文號必填（收據開立後會立即自動產生 PDF，文號印在收據上）。願望上架期間是機構可以新增願望的期間，
+ * 結束上架日必須早於勸募結束日。已開立過收據後，收據前綴與起始號碼不能再改（編號要穩定）。
  */
 export function CampaignDialog({ campaign, onClose }: {
   /** null＝關閉；'new'＝新增；檔期物件＝修改 */
@@ -54,13 +54,19 @@ export function CampaignDialog({ campaign, onClose }: {
 
   async function submit() {
     if (!form.name.trim()) { setError('請填寫檔期名稱'); return }
+    if (!(form.permitNo ?? '').trim()) { setError('請填寫勸募許可文號'); return }
     if (!form.collectionStart || !form.collectionEnd || !form.useStart || !form.useEnd) {
       setError('請填寫勸募期間與財物使用期間'); return
+    }
+    if (!form.wishListStart || !form.wishListEnd) { setError('請填寫願望上架期間'); return }
+    if (form.wishListEnd < form.wishListStart) { setError('願望結束上架日不能早於開始上架日'); return }
+    if (form.wishListEnd >= form.collectionEnd) {
+      setError('願望結束上架日必須早於勸募結束日（上架結束後還要留時間認領、寄送與確認收到）'); return
     }
     const request: CampaignRequest = {
       ...form,
       name: form.name.trim(),
-      cutoffDate: form.cutoffDate || undefined,
+      permitNo: form.permitNo?.trim(),
       receiptPrefix: form.receiptPrefix?.trim() || undefined,
       firstReceiptSeq: numberingLocked ? undefined : form.firstReceiptSeq || undefined,
     }
@@ -82,7 +88,7 @@ export function CampaignDialog({ campaign, onClose }: {
         <FormField label="活動編號" optional span={3} hint="主管機關系統的活動編號">
           <Input value={form.activityNo ?? ''} maxLength={30} onChange={(e) => set('activityNo', e.target.value)} />
         </FormField>
-        <FormField label="勸募許可文號" optional span={3} hint="核准前可留空；留空時收據不產生 PDF">
+        <FormField label="勸募許可文號" required span={3} hint="印在收據上">
           <Input value={form.permitNo ?? ''} maxLength={100} onChange={(e) => set('permitNo', e.target.value)} />
         </FormField>
         <FormField label="核准的活動全名" optional span={6} hint="印在收據上；沒填就用檔期名稱">
@@ -100,8 +106,12 @@ export function CampaignDialog({ campaign, onClose }: {
         <FormField label="財物使用結束日" required span={3}>
           <Input type="date" value={form.useEnd} onChange={(e) => set('useEnd', e.target.value)} />
         </FormField>
-        <FormField label="統計截止日" optional span={3} hint="沒填就以勸募結束日為截止">
-          <Input type="date" value={form.cutoffDate ?? ''} onChange={(e) => set('cutoffDate', e.target.value)} />
+        <FormField label="願望開始上架日" required span={3} hint="機構只能在上架期間內新增願望">
+          <Input type="date" value={form.wishListStart} onChange={(e) => set('wishListStart', e.target.value)} />
+        </FormField>
+        <FormField label="願望結束上架日" required span={3} hint="必須早於勸募結束日">
+          <Input type="date" value={form.wishListEnd} max={form.collectionEnd || undefined}
+            onChange={(e) => set('wishListEnd', e.target.value)} />
         </FormField>
         <FormField label="收據編號前綴" optional span={3}
           hint={numberingLocked ? '已開立收據，不能再改' : '大寫英數字，例如 OS2026；沒填用 OS＋年度'}>

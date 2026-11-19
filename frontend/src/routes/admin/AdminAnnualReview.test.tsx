@@ -8,8 +8,9 @@ import type { CampaignView, PageResponse, PeriodList, PlatformPeriodStats, Recei
 import { AdminAnnualReview } from './AdminAnnualReview'
 
 const campaign: CampaignView = {
-  id: 'c1', name: '線上聖誕老人 2026', activityNo: '115000877', permitNo: undefined,
+  id: 'c1', name: '線上聖誕老人 2026', activityNo: '115000877', permitNo: '衛部救字第1150000號',
   collectionStart: '2026-11-25', collectionEnd: '2027-01-25', useStart: '2026-11-25', useEnd: '2027-01-25',
+  wishListStart: '2026-11-25', wishListEnd: '2027-01-10',
   receiptPrefix: 'OS2026', nextReceiptNo: 'OS2026-000003', receiptsIssued: 2, status: 'ACTIVE',
   createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z',
 }
@@ -78,7 +79,7 @@ beforeEach(() => {
     if (path.startsWith('/api/admin/receipts?')) {
       return page([
         receipt({}),
-        receipt({ id: 'r2', receiptNo: 'OS2026-000002', donorName: '善心人士', receiptRequested: false, pdfStatus: 'PENDING_INFO' }),
+        receipt({ id: 'r2', receiptNo: 'OS2026-000002', donorName: '善心人士', receiptRequested: false, pdfStatus: 'PENDING' }),
         receipt({ id: 'r3', receiptNo: 'OS2026-000003', status: 'VOIDED', voidReason: '姓名填錯' }),
       ])
     }
@@ -93,8 +94,9 @@ describe('年度營運頁', () => {
 
     expect(await screen.findByText('線上聖誕老人 2026')).toBeTruthy()
     expect(screen.getByText(/已開立 2 張，下一張 OS2026-000003/)).toBeTruthy()
-    expect(screen.getByText('尚未填寫')).toBeTruthy()
-    expect(screen.getByText(/尚未填寫勸募許可文號.*不會產生 PDF/)).toBeTruthy()
+    expect(screen.getByText('衛部救字第1150000號')).toBeTruthy()
+    expect(screen.getByText('願望上架期間')).toBeTruthy()
+    expect(screen.queryByText('統計截止日')).toBeNull()
   })
 
   it('收據清單：列出編號、捐贈者與狀態；作廢的收據不能下載或再作廢', async () => {
@@ -104,7 +106,7 @@ describe('年度營運頁', () => {
     expect(within(row1).getByText('要收據')).toBeTruthy()
     expect(within(row1).getByText('已產生')).toBeTruthy()
     const row2 = screen.getByText('OS2026-000002').closest('tr')!
-    expect(within(row2).getByText('待補許可文號')).toBeTruthy()
+    expect(within(row2).getByText('待產生')).toBeTruthy()
     const row3 = screen.getByText('OS2026-000003').closest('tr')!
     expect(within(row3).getByText('已作廢')).toBeTruthy()
     expect(within(row3).getByRole('button', { name: '預覽白聯' }).hasAttribute('disabled')).toBe(true)
@@ -209,26 +211,22 @@ describe('年度營運頁', () => {
     expect(await screen.findByText(/已作廢 OS2026-000001，重開為 OS2026-000004/)).toBeTruthy()
   })
 
-  it('補開收據與補產 PDF：顯示結果', async () => {
-    post.mockImplementation(async (path: string) =>
-      path.includes('issue-missing') ? { done: 3, pending: 0 } : { done: 2, pending: 1 })
+  it('沒有「補開收據」與「補產 PDF」：收據開立後自動產生 PDF', async () => {
     renderPage()
     await screen.findByText('OS2026-000001')
 
-    await userEvent.click(screen.getByRole('button', { name: '補開收據' }))
-    expect(await screen.findByText(/已補開 3 張收據/)).toBeTruthy()
-
-    await userEvent.click(screen.getByRole('button', { name: '補產 PDF' }))
-    expect(await screen.findByText(/已產生 2 張收據 PDF，仍有 1 張待補或失敗/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '補開收據' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '補產 PDF' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: '待補許可文號' })).toBeNull()
   })
 
   it('收據檢查：按下才執行，列出需處理與提醒的項目', async () => {
     const result = {
       campaignId: 'c1', campaignName: '線上聖誕老人 2026', checkedAt: '2026-12-30T00:00:00Z',
       completedWishes: 3, validReceipts: 2, voidedReceipts: 1, totalValue: 3600,
-      pdfReady: 1, pdfPending: 0, pdfPendingInfo: 1, pdfFailed: 0,
+      pdfReady: 1, pdfPending: 0, pdfFailed: 0,
       issues: [
-        { severity: 'ERROR', code: 'MISSING_RECEIPT', message: '已完成的願望「積木」沒有有效收據：尚未開立，可按「補開收據」' },
+        { severity: 'ERROR', code: 'MISSING_RECEIPT', message: '已完成的願望「積木」沒有有效收據：開立失敗，請聯絡系統管理員檢查' },
         { severity: 'WARNING', code: 'NO_EVIDENCE', receiptNo: 'OS2026-000002', message: '沒有上傳發票佐證（時價 1200 元）' },
       ],
     }
@@ -281,7 +279,7 @@ describe('年度營運頁', () => {
 
     await userEvent.selectOptions(screen.getByLabelText('檔期'), 'unassigned')
 
-    expect(await screen.findByText(/這段時間還沒有對應的活動檔期/)).toBeTruthy()
+    expect(await screen.findByText(/還沒有活動檔期/)).toBeTruthy()
     expect(screen.queryByRole('tab', { name: '檔期設定' })).toBeNull()
     expect(screen.queryByRole('tab', { name: '收據' })).toBeNull()
   })
@@ -308,7 +306,7 @@ describe('年度營運頁', () => {
     })
     renderPage('/admin/annual')
 
-    expect(await screen.findByText(/這段時間還沒有對應的活動檔期/)).toBeTruthy()
+    expect(await screen.findByText(/還沒有活動檔期/)).toBeTruthy()
     expect(screen.getByRole('button', { name: '新增活動檔期' })).toBeTruthy()
   })
 })

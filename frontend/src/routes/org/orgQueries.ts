@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, withQuery } from '../../lib/api'
 import type {
-  OrganizationStageCounts, OrganizationView, PageResponse, WishOrgDetail, WishOrgView, WishStatus,
+  OrganizationStageCounts, OrganizationView, PageResponse, WishListing, WishOrgDetail, WishOrgView, WishStatus,
 } from '../../lib/types'
 
 /**
@@ -60,4 +60,12 @@ export function useInvalidateOrg() {
     queryClient.invalidateQueries({ queryKey: ['org-conversation'] }),
     queryClient.invalidateQueries({ queryKey: ['claim'] }),
   ])
+}
+
+/** 現在能不能新增願望（要有進行中檔期且今天在它的上架期間內）。 */
+export function useWishListing() {
+  return useQuery({
+    queryKey: ['organization', 'wish-listing'],
+    queryFn: () => api.get<WishListing>('/api/organizations/me/wish-listing'),
+  })
 }

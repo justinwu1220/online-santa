@@ -2,6 +2,7 @@ import { ChevronRight, MessageCircle, Plus } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { pageTitle } from '../../lib/brand'
+import { formatPlainDate } from '../../lib/format'
 import { reducedMotion, rise } from '../../lib/motion'
 import type { OrganizationStageCounts, WishOrgView } from '../../lib/types'
 import { chipLabelOf, compareByStage, FILTERS, STAGE_INFO, type FilterKey } from '../../lib/wishFlow'
@@ -10,7 +11,7 @@ import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { useOrgContext } from './orgContext'
 import { OrgWishDrawer } from './OrgWishDrawer'
 import { OrgWishFormDrawer } from './OrgWishFormDrawer'
-import { useOrgWishes, useStageCounts } from './orgQueries'
+import { useOrgWishes, useStageCounts, useWishListing } from './orgQueries'
 
 /** 篩選列各項的數量。後端給的是各狀態與「已認領」的合計，這裡對應到設計稿的六個篩選。 */
 function countFor(key: FilterKey, counts?: OrganizationStageCounts): number {
@@ -36,6 +37,9 @@ export function OrgWishes() {
   const filter = (FILTERS.find((item) => item.key === params.get('filter'))?.key ?? 'all') as FilterKey
   const status = FILTERS.find((item) => item.key === filter)?.status
   const counts = useStageCounts()
+  const listing = useWishListing()
+  // 還沒查回來時先不擋（後端才是最後一道關卡）；查回來且不開放就停用按鈕並說明
+  const listingClosed = listing.data !== undefined && !listing.data.open
   const wishes = useOrgWishes(status)
 
   const [openId, setOpenId] = useState<string | null>(null)
@@ -66,13 +70,25 @@ export function OrgWishes() {
       <div className="org-head">
         <h1 id="orgWishTitle">願望管理</h1>
         <button type="button" className="btn btn--primary org-head__new"
-          disabled={!organization.canDraftWishes}
-          title={organization.canDraftWishes ? undefined : '機構已停權，無法建立新願望'}
+          disabled={!organization.canDraftWishes || listingClosed}
+          title={!organization.canDraftWishes ? '機構已停權，無法建立新願望'
+            : listingClosed ? '目前不在願望上架期間，無法新增願望' : undefined}
           onClick={() => setForm({ open: true, wish: null })}>
           <Plus className="icon" aria-hidden />
           新增願望
         </button>
       </div>
+
+      {listingClosed && (
+        <div className="callout callout--warn" role="status">
+          <p>
+            目前不在願望上架期間，無法新增願望（既有願望仍可修改與提交審核）。
+            {listing.data?.windowStart && listing.data.windowEnd
+              ? `下一次上架期間：${formatPlainDate(listing.data.windowStart)} 至 ${formatPlainDate(listing.data.windowEnd)}。`
+              : '目前沒有進行中的檔期，檔期由管理員設定。'}
+          </p>
+        </div>
+      )}
 
       <div className="org-filters" role="tablist" aria-label="依狀態篩選">
         {FILTERS.map((item) => (
@@ -91,7 +107,7 @@ export function OrgWishes() {
           {rows.length === 0 ? (
             counts.data && counts.data.all > 0
               ? <p className="org-empty">這個分類目前沒有願望。</p>
-              : <div className="org-empty"><p>還沒有任何願望。按右上角「新增願望」，把孩子的願望放上來吧。</p></div>
+              : <div className="org-empty"><p>{listingClosed ? '還沒有任何願望。目前不在上架期間，開放後就能新增願望。' : '還沒有任何願望。按右上角「新增願望」，把孩子的願望放上來吧。'}</p></div>
           ) : rows.map((wish) => <WishRow key={wish.id} wish={wish} onOpen={() => setOpenId(wish.id)} />)}
         </div>
       )}

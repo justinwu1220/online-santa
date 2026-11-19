@@ -5,7 +5,7 @@ import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { formatPlainDate } from '../../lib/format'
 import type { CampaignView, PdfStatus, ReceiptCheck, ReceiptStatus, ReceiptView } from '../../lib/types'
 import {
-  downloadAllReceipts, openReceipt, useGenerateReceiptPdfs, useIssueMissingReceipts, useReceiptCheck, useReceipts, useVoidReceipt,
+  downloadAllReceipts, openReceipt, useReceiptCheck, useReceipts, useVoidReceipt,
   type ReceiptFilter,
 } from './closingQueries'
 
@@ -13,7 +13,7 @@ import {
  * 年度營運頁的「檔期設定」與「收據」分頁。
  *
  * 願望完成時系統會自動開立收據（配號、存資料）並產生三聯單 PDF；這裡讓管理員設定檔期、
- * 查看收據、作廢重開，以及在檔期晚於願望完成、或許可文號晚於收據開立時補開、補產。
+ * 查看與預覽收據、作廢重開、執行收據檢查與全部下載。
  */
 
 function period(start: string, end: string) {
@@ -41,18 +41,10 @@ export function CampaignPanel({ campaign, onEdit }: {
         <dt>勸募許可文號</dt><dd>{campaign.permitNo ?? '尚未填寫'}</dd>
         <dt>勸募期間</dt><dd>{period(campaign.collectionStart, campaign.collectionEnd)}</dd>
         <dt>財物使用期間</dt><dd>{period(campaign.useStart, campaign.useEnd)}</dd>
-        <dt>統計截止日</dt><dd>{campaign.cutoffDate ? formatPlainDate(campaign.cutoffDate) : '勸募結束日'}</dd>
+        <dt>願望上架期間</dt><dd>{period(campaign.wishListStart, campaign.wishListEnd)}</dd>
         <dt>收據編號</dt>
         <dd>已開立 {campaign.receiptsIssued} 張，下一張 {campaign.nextReceiptNo}</dd>
       </dl>
-      {!campaign.permitNo && (
-        <div className="callout callout--warn" role="status">
-          <p>
-            尚未填寫勸募許可文號：願望完成時仍會開立收據（配號、存資料），但不會產生 PDF。
-            取得文號後按「修改」填入，再到下方按「補產 PDF」。
-          </p>
-        </div>
-      )}
     </section>
   )
 }
@@ -63,12 +55,11 @@ const CHIPS: Chip[] = [
   { key: 'all', label: '全部' },
   { key: 'issued', label: '有效', status: 'ISSUED' },
   { key: 'voided', label: '已作廢', status: 'VOIDED' },
-  { key: 'info', label: '待補許可文號', status: 'ISSUED', pdfStatus: 'PENDING_INFO' },
   { key: 'failed', label: 'PDF 失敗', status: 'ISSUED', pdfStatus: 'FAILED' },
 ]
 
 const PDF_LABEL: Record<PdfStatus, string> = {
-  PENDING: '待產生', PENDING_INFO: '待補許可文號', READY: '已產生', FAILED: 'PDF 失敗',
+  PENDING: '待產生', READY: '已產生', FAILED: 'PDF 失敗',
 }
 
 export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
@@ -83,8 +74,6 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
   const filter: ReceiptFilter = { status: selected.status, pdfStatus: selected.pdfStatus, q, page }
   const receipts = useReceipts(campaign.id, filter)
   const voidReceipt = useVoidReceipt()
-  const issueMissing = useIssueMissingReceipts()
-  const generate = useGenerateReceiptPdfs()
 
   const [exportProgress, setExportProgress] = useState<string>()
   const [checking, setChecking] = useState(false)
@@ -120,23 +109,6 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
     }
   }
 
-  async function runIssue() {
-    const result = await issueMissing.mutateAsync(campaign.id)
-    setNotice({
-      tone: 'ok',
-      text: result.done === 0 ? '沒有需要補開的收據。' : `已補開 ${result.done} 張收據，PDF 稍後自動產生。`,
-    })
-  }
-
-  async function runGenerate() {
-    const result = await generate.mutateAsync(campaign.id)
-    setNotice({
-      tone: result.pending > 0 ? 'warn' : 'ok',
-      text: `已產生 ${result.done} 張收據 PDF`
-        + (result.pending > 0 ? `，仍有 ${result.pending} 張待補或失敗（請看狀態欄）。` : '。'),
-    })
-  }
-
   return (
     <section className="panel set-sec" aria-label="收據">
       <div className="panel__head" style={{ marginBottom: 0 }}>
@@ -150,21 +122,13 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
             onClick={() => void runExport()}>
             {exportProgress ?? '全部下載'}
           </button>
-          <button type="button" className="btn btn--sm" disabled={issueMissing.isPending}
-            onClick={() => void runIssue()}>
-            {issueMissing.isPending ? '補開中…' : '補開收據'}
-          </button>
-          <button type="button" className="btn btn--sm" disabled={generate.isPending}
-            onClick={() => void runGenerate()}>
-            {generate.isPending ? '產生中…' : '補產 PDF'}
-          </button>
         </div>
       </div>
       <p className="set-sec__desc" style={{ margin: 0 }}>
-        「補開收據」為已完成、寄出日落在勸募期間、卻還沒有收據的願望開立（依完成順序配號）；
-        「補產 PDF」為還沒有 PDF 的收據補產，填入許可文號後按這個。點「白聯」「黃紅聯」在新分頁預覽；「全部下載」把有效收據的白聯與黃紅聯打包成一個壓縮檔。收據 PDF 含捐贈者證號，每次開啟或下載都會寫入稽核。
+        願望完成時系統會自動開立收據並產生 PDF，收據的捐贈日期是機構確認的實際收到日。
+        點「白聯」「黃紅聯」在新分頁預覽；「全部下載」把有效收據的白聯與黃紅聯打包成一個壓縮檔；
+        「收據檢查」列出有問題的收據。收據 PDF 含捐贈者證號，每次開啟或下載都會寫入稽核。
       </p>
-      {(issueMissing.isError || generate.isError) && <ErrorNotice error={issueMissing.error ?? generate.error} />}
       {notice && <div className={`callout callout--${notice.tone}`} role="status"><p>{notice.text}</p></div>}
       {check.isError && <ErrorNotice error={check.error} onRetry={() => void check.refetch()} />}
       {check.data && <ReceiptCheckResult check={check.data} onClose={() => setChecking(false)} />}
@@ -244,7 +208,7 @@ function ReceiptRow({ receipt, onOpen, onVoid }: {
         {receipt.giftDescription}
         <br />
         <span style={{ color: 'var(--fg-muted)' }}>
-          {receipt.giftQuantity} {receipt.giftUnit}，{receipt.giftValue.toLocaleString('zh-TW')} 元，捐贈日 {formatPlainDate(receipt.donatedOn)}
+          {receipt.giftQuantity} {receipt.giftUnit}，{receipt.giftValue.toLocaleString('zh-TW')} 元，收到日 {formatPlainDate(receipt.donatedOn)}
         </span>
       </td>
       <td style={{ whiteSpace: 'normal' }}>{receipt.organizationName}</td>
@@ -290,7 +254,7 @@ function ReceiptCheckResult({ check, onClose }: { check: ReceiptCheck; onClose: 
       <p>
         已完成的願望 {check.completedWishes} 筆、有效收據 {check.validReceipts} 張（作廢 {check.voidedReceipts} 張），
         時價合計 {check.totalValue.toLocaleString('zh-TW')} 元。
-        PDF：已產生 {check.pdfReady}、待產生 {check.pdfPending}、待補許可文號 {check.pdfPendingInfo}、失敗 {check.pdfFailed}。
+        PDF：已產生 {check.pdfReady}、待產生 {check.pdfPending}、失敗 {check.pdfFailed}。
         全部下載的壓縮檔裡，白聯與黃紅聯資料夾各 {check.pdfReady} 檔。
       </p>
       {check.issues.length > 0 && (

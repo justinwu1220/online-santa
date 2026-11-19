@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, withQuery } from '../../lib/api'
 import type {
-  BatchResult, CampaignRequest, CampaignView, ExportView, PageResponse, PdfKind, PdfStatus, ReceiptCheck,
+  CampaignRequest, CampaignView, ExportView, PageResponse, PdfKind, PdfStatus, ReceiptCheck,
   ReceiptDownload, ReceiptStatus, ReceiptView,
 } from '../../lib/types'
 
@@ -70,24 +70,6 @@ export function useVoidReceipt() {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       api.post<ReceiptView>(`/api/admin/receipts/${id}/void`, { reason }),
-    onSuccess: refresh,
-  })
-}
-
-export function useIssueMissingReceipts() {
-  const refresh = useRefreshClosing()
-  return useMutation({
-    mutationFn: (campaignId: string) =>
-      api.post<BatchResult>(`/api/admin/campaigns/${campaignId}/issue-missing-receipts`),
-    onSuccess: refresh,
-  })
-}
-
-export function useGenerateReceiptPdfs() {
-  const refresh = useRefreshClosing()
-  return useMutation({
-    mutationFn: (campaignId: string) =>
-      api.post<BatchResult>(`/api/admin/campaigns/${campaignId}/generate-receipt-pdfs`),
     onSuccess: refresh,
   })
 }

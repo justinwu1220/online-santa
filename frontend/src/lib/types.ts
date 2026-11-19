@@ -889,7 +889,7 @@ export interface AdminTeamThread {
 
 export type CampaignStatus = 'ACTIVE' | 'CLOSED'
 export type ReceiptStatus = 'ISSUED' | 'VOIDED'
-export type PdfStatus = 'PENDING' | 'PENDING_INFO' | 'READY' | 'FAILED'
+export type PdfStatus = 'PENDING' | 'READY' | 'FAILED'
 export type PdfKind = 'WHITE' | 'YELLOW_RED'
 
 export interface CampaignView {
@@ -902,7 +902,9 @@ export interface CampaignView {
   collectionEnd: string
   useStart: string
   useEnd: string
-  cutoffDate?: string
+  /** 願望上架期間：機構只能在期間內新增願望；結束日早於勸募結束日 */
+  wishListStart: string
+  wishListEnd: string
   receiptPrefix: string
   nextReceiptNo: string
   receiptsIssued: number
@@ -921,7 +923,8 @@ export interface CampaignRequest {
   collectionEnd: string
   useStart: string
   useEnd: string
-  cutoffDate?: string
+  wishListStart: string
+  wishListEnd: string
   receiptPrefix?: string
   firstReceiptSeq?: number
   associationOrgId?: string
@@ -955,11 +958,6 @@ export interface ReceiptView {
 export interface ReceiptDownload {
   url: string
   expiresAt: string
-}
-
-export interface BatchResult {
-  done: number
-  pending: number
 }
 
 export type ExportStatus = 'PREPARING' | 'READY' | 'FAILED' | 'EXPIRED'
@@ -996,7 +994,14 @@ export interface ReceiptCheck {
   totalValue: number
   pdfReady: number
   pdfPending: number
-  pdfPendingInfo: number
   pdfFailed: number
   issues: ReceiptCheckIssue[]
+}
+
+/** 機構現在能不能新增願望，見 GET /api/organizations/me/wish-listing。 */
+export interface WishListing {
+  open: boolean
+  /** 開放時是目前上架期間，未開放時是下一次上架期間（沒有則不存在） */
+  windowStart?: string
+  windowEnd?: string
 }
