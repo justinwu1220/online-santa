@@ -79,7 +79,7 @@ class ClosingMaintenanceIT extends ApiIntegrationTest {
     private Campaign campaign(String permit) {
         return campaignService.create(new CampaignRequest("維護檔期", "115000877", permit,
                 "線上聖誕老人2026聖誕禮物勸募活動", TODAY.minusDays(5), TODAY.plusDays(60),
-                TODAY.minusDays(5), TODAY.plusDays(60), null, "OSM", null, null, null));
+                TODAY.minusDays(5), TODAY.plusDays(60), TODAY.minusDays(5), TODAY.plusDays(59), "OSM", null, null, null));
     }
 
     private UUID completedClaim(String title, boolean withProof) throws Exception {
@@ -148,19 +148,19 @@ class ClosingMaintenanceIT extends ApiIntegrationTest {
         assertThat(view.validReceipts()).isZero();
         assertThat(view.passed()).isFalse();
         assertThat(view.issues()).anyMatch(i -> i.code().equals("MISSING_RECEIPT")
-                && i.message().contains("檔期前就完成") && i.message().contains("補開收據"));
+                && i.message().contains("檔期前就完成") && i.message().contains("開立失敗"));
     }
 
     @Test
-    @DisplayName("沒有許可文號與 PDF 失敗：都列為需處理，附原因")
+    @DisplayName("舊資料沒有許可文號與版面失敗：都列為需處理，附原因")
     void pdfProblemsAreReported() throws Exception {
         Campaign campaign = campaign(null);
         UUID claimId = completedClaim("缺文號", true);
         receiptService.generatePdf(receipts.findValidByClaimId(claimId).orElseThrow().getId());
 
         ReceiptCheckView noPermit = check.check(campaign.getId());
-        assertThat(has(noPermit, "PDF_PENDING_INFO")).isTrue();
-        assertThat(noPermit.pdfPendingInfo()).isEqualTo(1);
+        assertThat(noPermit.pdfFailed()).isEqualTo(1);
+        assertThat(noPermit.issues()).anyMatch(i -> i.code().equals("PDF_FAILED") && i.message().contains("許可文號"));
 
         UUID id = receipts.findValidByClaimId(claimId).orElseThrow().getId();
         sql("UPDATE campaigns SET permit_no = ? WHERE id = ?", "衛部救字第1150000號", campaign.getId());

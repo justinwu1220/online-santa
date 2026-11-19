@@ -100,7 +100,7 @@ class ClosingExportIT extends ApiIntegrationTest {
         users.save(User.newDonor(DONOR, "熱心民眾"));
         campaign = campaignService.create(new CampaignRequest("匯出檔期", "115000877", "衛部救字第1150000號",
                 "線上聖誕老人2026聖誕禮物勸募活動", TODAY.minusDays(5), TODAY.plusDays(60),
-                TODAY.minusDays(5), TODAY.plusDays(60), null, "OSE", null, null, null));
+                TODAY.minusDays(5), TODAY.plusDays(60), TODAY.minusDays(5), TODAY.plusDays(59), "OSE", null, null, null));
     }
 
     private UUID completedClaim(String title) throws Exception {

@@ -94,8 +94,8 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
     List<Claim> findNeedingOverdueNotice(@Param("now") Instant now);
 
     /**
-     * 已完成、寄出日在 [from, to]、卻還沒有有效收據的認領（檔期建立或補上之後補開收據用），
-     * 依完成時間排序，讓補開的流水號與完成的先後一致。
+     * 已完成、實際收到日在 [from, toExclusive)、卻還沒有有效收據的認領（收據檢查用），
+     * 依完成時間排序。範圍就是檔期的統計與收據歸屬範圍。
      */
     @org.springframework.data.jpa.repository.Query("""
             select c from Claim c
@@ -103,13 +103,14 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
             join fetch w.organization
             join fetch c.donor
             where c.status = com.onlinesanta.claim.ClaimStatus.COMPLETED
-              and c.shippedOn between :from and :to
+              and c.receivedOn >= :from and c.receivedOn < :toExclusive
               and not exists (
                   select 1 from DonationReceipt r
                   where r.claimId = c.id and r.status = com.onlinesanta.closing.ReceiptStatus.ISSUED)
             order by c.completedAt asc, c.id asc
             """)
-    List<Claim> findCompletedMissingReceipt(@Param("from") java.time.LocalDate from, @Param("to") java.time.LocalDate to);
+    List<Claim> findCompletedWithoutReceipt(@Param("from") java.time.LocalDate from,
+                                            @Param("toExclusive") java.time.LocalDate toExclusive);
 
     /** 這位認領者進行中的認領（停權連動凍結與管理員處置用）。 */
     @EntityGraph(attributePaths = {"wish", "wish.organization", "donor"})

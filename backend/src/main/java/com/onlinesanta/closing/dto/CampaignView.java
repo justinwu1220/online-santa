@@ -18,7 +18,8 @@ public record CampaignView(
         LocalDate collectionEnd,
         LocalDate useStart,
         LocalDate useEnd,
-        LocalDate cutoffDate,
+        LocalDate wishListStart,
+        LocalDate wishListEnd,
         String receiptPrefix,
         String nextReceiptNo,
         int receiptsIssued,
@@ -29,7 +30,8 @@ public record CampaignView(
 
     public static CampaignView from(Campaign c) {
         return new CampaignView(c.getId(), c.getName(), c.getActivityNo(), c.getPermitNo(), c.getApprovedName(),
-                c.getCollectionStart(), c.getCollectionEnd(), c.getUseStart(), c.getUseEnd(), c.getCutoffDate(),
+                c.getCollectionStart(), c.getCollectionEnd(), c.getUseStart(), c.getUseEnd(), c.getWishListStart(),
+                c.getWishListEnd(),
                 c.getReceiptPrefix(), "%s-%06d".formatted(c.getReceiptPrefix(), c.getNextReceiptSeq()),
                 c.getReceiptsIssued(), c.getAssociationOrgId(), c.getStatus(), c.getCreatedAt(), c.getUpdatedAt());
     }

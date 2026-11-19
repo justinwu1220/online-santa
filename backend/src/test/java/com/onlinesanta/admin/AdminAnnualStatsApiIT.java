@@ -110,7 +110,7 @@ class AdminAnnualStatsApiIT extends ApiIntegrationTest {
 
     private Campaign campaign(String name, LocalDate start, LocalDate end, String prefix) {
         return campaignService.create(new CampaignRequest(name, null, null, null, start, end, start, end,
-                null, prefix, null, null, null));
+                start, end.minusDays(1), prefix, null, null, null));
     }
 
     private static Instant taipei(int year, int month, int day, int hour, int minute) {
@@ -231,62 +231,69 @@ class AdminAnnualStatsApiIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("營運週期：從上一個檔期結束的隔天算起，每筆資料剛好屬於一個期間，月份依時間排序且不疊加跨年")
+    @DisplayName("統計期間：[本檔期勸募開始日, 下個檔期勸募開始日)，每筆資料剛好屬於一個期間，月份依時間排序且不疊加跨年")
     void everyDayBelongsToExactlyOnePeriod() throws Exception {
         Campaign first = campaign("2025 檔期", LocalDate.of(2025, 11, 25), LocalDate.of(2026, 1, 25), "T25");
         Campaign second = campaign("2026 檔期", LocalDate.of(2026, 11, 25), LocalDate.of(2027, 1, 25), "T26");
-        // 一月 25 日 23:30 屬於第一個檔期，一月 26 日 00:00 起就是第二個檔期的週期
+        // 11/24 23:30 屬於第一個檔期，11/25 00:00 起是第二個檔期
         backdateClaim(claimAs(publishedWish(organizationA, "十二月"), DONOR), taipei(2025, 12, 10, 12, 0));
-        backdateClaim(claimAs(publishedWish(organizationA, "結束前一刻"), DONOR), taipei(2026, 1, 25, 23, 30));
-        backdateClaim(claimAs(publishedWish(organizationA, "結束後一刻"), DONOR), taipei(2026, 1, 26, 0, 0));
+        backdateClaim(claimAs(publishedWish(organizationA, "開始前一刻"), DONOR), taipei(2026, 11, 24, 23, 30));
+        backdateClaim(claimAs(publishedWish(organizationA, "開始當刻"), DONOR), taipei(2026, 11, 25, 0, 0));
         // 同一位捐贈者同時進行中的認領有上限，第四筆換另一位
         users.save(User.newDonor(OTHER_DONOR, "另一位民眾"));
-        backdateClaim(claimAs(publishedWish(organizationB, "三月"), OTHER_DONOR), taipei(2026, 3, 1, 12, 0));
+        backdateClaim(claimAs(publishedWish(organizationB, "隔年一月"), OTHER_DONOR), taipei(2027, 1, 10, 12, 0));
 
         mvc.perform(as(get("/api/admin/stats/period").param("period", first.getId().toString()), ADMIN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.claimed").value(2))
                 .andExpect(jsonPath("$.period.name").value("2025 檔期"))
-                .andExpect(jsonPath("$.monthlyClaims.length()").value(3))
+                .andExpect(jsonPath("$.period.start").value("2025-11-25"))
+                .andExpect(jsonPath("$.period.end").value("2026-11-24"))
+                .andExpect(jsonPath("$.monthlyClaims.length()").value(13))
                 .andExpect(jsonPath("$.monthlyClaims[0].year").value(2025))
                 .andExpect(jsonPath("$.monthlyClaims[0].month").value(11))
                 .andExpect(jsonPath("$.monthlyClaims[1].month").value(12))
                 .andExpect(jsonPath("$.monthlyClaims[1].count").value(1))
-                .andExpect(jsonPath("$.monthlyClaims[2].year").value(2026))
-                .andExpect(jsonPath("$.monthlyClaims[2].month").value(1))
-                .andExpect(jsonPath("$.monthlyClaims[2].count").value(1));
+                .andExpect(jsonPath("$.monthlyClaims[12].year").value(2026))
+                .andExpect(jsonPath("$.monthlyClaims[12].month").value(11))
+                .andExpect(jsonPath("$.monthlyClaims[12].count").value(1));
 
         mvc.perform(as(get("/api/admin/stats/period").param("period", second.getId().toString()), ADMIN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.claimed").value(2))
-                .andExpect(jsonPath("$.period.start").value("2026-01-26"))
+                .andExpect(jsonPath("$.period.start").value("2026-11-25"))
                 .andExpect(jsonPath("$.period.end").value("2027-01-25"))
-                .andExpect(jsonPath("$.monthlyClaims.length()").value(13))
+                .andExpect(jsonPath("$.monthlyClaims.length()").value(3))
                 .andExpect(jsonPath("$.monthlyClaims[0].year").value(2026))
-                .andExpect(jsonPath("$.monthlyClaims[0].month").value(1))
+                .andExpect(jsonPath("$.monthlyClaims[0].month").value(11))
                 .andExpect(jsonPath("$.monthlyClaims[0].count").value(1))
-                .andExpect(jsonPath("$.monthlyClaims[12].year").value(2027))
-                .andExpect(jsonPath("$.monthlyClaims[12].month").value(1));
+                .andExpect(jsonPath("$.monthlyClaims[2].year").value(2027))
+                .andExpect(jsonPath("$.monthlyClaims[2].month").value(1))
+                .andExpect(jsonPath("$.monthlyClaims[2].count").value(1));
     }
 
     @Test
-    @DisplayName("第一個檔期之前的資料也算進第一個檔期的週期，不會漏掉")
-    void dataBeforeTheFirstCampaignBelongsToIt() throws Exception {
+    @DisplayName("兩個檔期之間的空檔歸前一個檔期；第一個檔期之前的資料也算進第一個檔期，不會漏掉")
+    void gapsBelongToTheEarlierCampaignAndEarlierDataToTheFirst() throws Exception {
         Campaign only = campaign("2025 檔期", LocalDate.of(2025, 11, 25), LocalDate.of(2026, 1, 25), "T25");
+        Campaign next = campaign("2026 檔期", LocalDate.of(2026, 11, 25), LocalDate.of(2027, 1, 25), "T26");
         backdateClaim(claimAs(publishedWish(organizationA, "更早的認領"), DONOR), taipei(2024, 6, 1, 9, 0));
+        backdateClaim(claimAs(publishedWish(organizationA, "空檔的認領"), DONOR), taipei(2026, 6, 1, 9, 0));
 
         mvc.perform(as(get("/api/admin/stats/period").param("period", only.getId().toString()), ADMIN))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.claimed").value(1))
+                .andExpect(jsonPath("$.claimed").value(2))
                 .andExpect(jsonPath("$.period.start").value("2024-06-01"))
                 .andExpect(jsonPath("$.monthlyClaims[0].year").value(2024))
                 .andExpect(jsonPath("$.monthlyClaims[0].month").value(6))
                 .andExpect(jsonPath("$.monthlyClaims[0].count").value(1));
+        mvc.perform(as(get("/api/admin/stats/period").param("period", next.getId().toString()), ADMIN))
+                .andExpect(jsonPath("$.claimed").value(0));
     }
 
     @Test
-    @DisplayName("最後一個檔期結束之後的資料屬於「尚未建立檔期」，預設選項是最近結束的檔期")
-    void dataAfterTheLastCampaignIsUnassigned() throws Exception {
+    @DisplayName("最後一個檔期往後一路到今天，沒有另外的「尚未建立檔期」；預設選項是它")
+    void theLastCampaignExtendsToToday() throws Exception {
         LocalDate today = LocalDate.now(TaiwanYear.ZONE);
         Campaign ended = campaign("已結束檔期", today.minusDays(100), today.minusDays(40), "TEND");
         claimAs(publishedWish(organizationA, "今天的認領"), DONOR);
@@ -294,17 +301,13 @@ class AdminAnnualStatsApiIT extends ApiIntegrationTest {
         mvc.perform(as(get("/api/admin/stats/periods"), ADMIN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.defaultKey").value(ended.getId().toString()))
-                .andExpect(jsonPath("$.periods.length()").value(2))
-                .andExpect(jsonPath("$.periods[0].key").value("unassigned"))
-                .andExpect(jsonPath("$.periods[0].start").value(today.minusDays(39).toString()))
-                .andExpect(jsonPath("$.periods[1].name").value("已結束檔期"));
+                .andExpect(jsonPath("$.periods.length()").value(1))
+                .andExpect(jsonPath("$.periods[0].unassigned").value(false))
+                .andExpect(jsonPath("$.periods[0].end").value(today.toString()));
 
-        mvc.perform(as(get("/api/admin/stats/period").param("period", "unassigned"), ADMIN))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.claimed").value(1));
         mvc.perform(as(get("/api/admin/stats/period").param("period", ended.getId().toString()), ADMIN))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.claimed").value(0));
+                .andExpect(jsonPath("$.claimed").value(1));
     }
 
     @Test

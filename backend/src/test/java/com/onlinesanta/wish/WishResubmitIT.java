@@ -57,6 +57,7 @@ class WishResubmitIT extends ApiIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        givenOpenWishListing();
         organization = Organization.register("重審測試機構", "王承辦", "contact@example.org", null, "0912-345-678", "台中市測試路 1 號");
         organization.approve(null, "測試資料");
         organizations.save(organization);

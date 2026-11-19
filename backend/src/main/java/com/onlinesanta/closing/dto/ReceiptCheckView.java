@@ -9,7 +9,7 @@ import java.util.UUID;
  *
  * <p>不含捐贈者姓名與證號：這份報告會放進匯出壓縮檔，也會顯示在管理頁。
  *
- * @param completedWishes   歸屬這個檔期（寄出日在勸募期間內）的已完成認領數
+ * @param completedWishes   歸屬這個檔期（實際收到日在本檔期勸募開始日到下個檔期開始日之前）的已完成認領數
  * @param validReceipts     有效收據張數（壓縮檔兩個資料夾各應有這麼多檔，頁數分別 1 與 2）
  * @param totalValue        有效收據的時價合計（元）
  * @param pdfReady          有效收據中 PDF 已就緒的張數
@@ -24,7 +24,6 @@ public record ReceiptCheckView(
         long totalValue,
         int pdfReady,
         int pdfPending,
-        int pdfPendingInfo,
         int pdfFailed,
         List<Issue> issues) {
 
@@ -50,7 +49,7 @@ public record ReceiptCheckView(
         sb.append("有效收據：").append(validReceipts).append(" 張（作廢 ").append(voidedReceipts).append(" 張）\n");
         sb.append("有效收據時價合計：").append(totalValue).append(" 元\n");
         sb.append("PDF：已就緒 ").append(pdfReady).append("、待產生 ").append(pdfPending)
-                .append("、待補許可文號 ").append(pdfPendingInfo).append("、失敗 ").append(pdfFailed).append('\n');
+                .append("、失敗 ").append(pdfFailed).append('\n');
         sb.append("壓縮檔預期：白聯、黃紅聯資料夾各 ").append(pdfReady).append(" 檔；")
                 .append("頁數分別為 1 頁與 2 頁\n\n");
         if (issues.isEmpty()) {

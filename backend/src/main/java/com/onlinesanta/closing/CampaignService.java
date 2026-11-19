@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.onlinesanta.closing.dto.CampaignRequest;
+import com.onlinesanta.closing.dto.WishListingView;
 import com.onlinesanta.common.exception.BusinessRuleException;
 import com.onlinesanta.common.exception.ResourceNotFoundException;
 import com.onlinesanta.organization.OrganizationRepository;
@@ -17,7 +18,7 @@ import com.onlinesanta.organization.OrganizationRepository;
 /**
  * 活動檔期的管理與收據配號。
  *
- * <p>檔期的勸募期間不可重疊（含已結束的）：收據以捐贈日歸屬檔期、營運統計以週期歸屬檔期，
+ * <p>檔期的勸募期間不可重疊（含已結束的）：收據以實際收到日歸屬檔期、營運統計以週期歸屬檔期，
  * 重疊會讓同一天的資料不知道該歸誰。
  */
 @Service
@@ -53,11 +54,11 @@ public class CampaignService {
         requireAssociationOrg(request.associationOrgId());
 
         Campaign campaign = new Campaign(request.name().strip(), request.collectionStart(), request.collectionEnd(),
-                request.useStart(), request.useEnd(), prefix,
+                request.useStart(), request.useEnd(), request.wishListStart(), request.wishListEnd(), prefix,
                 request.firstReceiptSeq() == null ? 1 : request.firstReceiptSeq());
         campaign.update(request.name().strip(), request.activityNo(), request.permitNo(), request.approvedName(),
                 request.collectionStart(), request.collectionEnd(), request.useStart(), request.useEnd(),
-                request.cutoffDate(), prefix, request.firstReceiptSeq(), request.associationOrgId(),
+                request.wishListStart(), request.wishListEnd(), prefix, request.firstReceiptSeq(), request.associationOrgId(),
                 CampaignStatus.ACTIVE);
         return save(campaign);
     }
@@ -78,17 +79,45 @@ public class CampaignService {
 
         campaign.update(request.name().strip(), request.activityNo(), request.permitNo(), request.approvedName(),
                 request.collectionStart(), request.collectionEnd(), request.useStart(), request.useEnd(),
-                request.cutoffDate(), prefix, request.firstReceiptSeq(), request.associationOrgId(), status);
+                request.wishListStart(), request.wishListEnd(), prefix, request.firstReceiptSeq(), request.associationOrgId(), status);
         return save(campaign);
     }
 
     /**
-     * 為指定捐贈日找到該歸屬的進行中檔期。沒有就回 empty（該筆捐贈不開收據，列入檢查報告的待補）。
+     * 收據歸屬的檔期：勸募開始日在實際收到日（含）之前、開始日最晚的那一個，範圍是
+     * {@code [本檔期勸募開始日, 下個檔期勸募開始日)}，與營運統計同一個定義。
+     * 該檔期已結束時仍回傳它（由呼叫端決定能不能配號）。
      */
     @Transactional(readOnly = true)
-    public Optional<Campaign> findForDonation(LocalDate donatedOn) {
-        List<Campaign> covering = campaigns.findActiveCovering(donatedOn);
-        return covering.isEmpty() ? Optional.empty() : Optional.of(covering.get(0));
+    public Optional<Campaign> campaignForReceivedOn(LocalDate receivedOn) {
+        return campaigns.findFirstByCollectionStartLessThanEqualOrderByCollectionStartDesc(receivedOn);
+    }
+
+    /** 這個勸募開始日之後的下一個檔期的開始日；沒有下一個檔期就是 empty（範圍一路到今天）。 */
+    @Transactional(readOnly = true)
+    public Optional<LocalDate> nextCollectionStartAfter(LocalDate start) {
+        return campaigns.findFirstByCollectionStartGreaterThanOrderByCollectionStartAsc(start)
+                .map(Campaign::getCollectionStart);
+    }
+
+    /** 機構新增願望的關卡：今天不在任何進行中檔期的上架期間內就擋下。修改與審核不呼叫這個。 */
+    @Transactional(readOnly = true)
+    public void requireWishListingOpen(LocalDate today) {
+        if (campaigns.findListingOpen(today).isEmpty()) {
+            throw new BusinessRuleException("WISH_LISTING_CLOSED",
+                    "目前不在願望上架期間，無法新增願望。上架期間由管理員在活動檔期設定。");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public WishListingView wishListing(LocalDate today) {
+        List<Campaign> open = campaigns.findListingOpen(today);
+        if (!open.isEmpty()) {
+            return new WishListingView(true, open.get(0).getWishListStart(), open.get(0).getWishListEnd());
+        }
+        return campaigns.findFirstByStatusAndWishListStartAfterOrderByWishListStartAsc(CampaignStatus.ACTIVE, today)
+                .map(c -> new WishListingView(false, c.getWishListStart(), c.getWishListEnd()))
+                .orElse(new WishListingView(false, null, null));
     }
 
     /**

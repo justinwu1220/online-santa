@@ -15,7 +15,9 @@ import jakarta.validation.constraints.Size;
 /**
  * 新增或修改活動檔期。
  *
- * @param permitNo         勸募許可文號；核准前可留空，留空時收據只存資料、不產生正式 PDF
+ * @param permitNo         勸募許可文號（必填）：收據開立後立即自動產生 PDF，印在收據上
+ * @param wishListStart    願望開始上架日；機構只能在上架期間內新增願望
+ * @param wishListEnd      願望結束上架日；必須早於勸募結束日
  * @param receiptPrefix    收據編號前綴（大寫英數字），例如 OS2026；空白時新增會用 OS＋勸募開始年度
  * @param firstReceiptSeq  第一張收據的流水號；已開立過收據後不能再改
  * @param status           新增時忽略（一律進行中）；修改時可設為 CLOSED 結束檔期
@@ -28,6 +30,7 @@ public record CampaignRequest(
         @Size(max = 30, message = "活動編號不可超過 30 字")
         String activityNo,
 
+        @NotBlank(message = "請填寫勸募許可文號")
         @Size(max = 100, message = "許可文號不可超過 100 字")
         String permitNo,
 
@@ -38,7 +41,8 @@ public record CampaignRequest(
         @NotNull(message = "請填寫勸募結束日") LocalDate collectionEnd,
         @NotNull(message = "請填寫財物使用開始日") LocalDate useStart,
         @NotNull(message = "請填寫財物使用結束日") LocalDate useEnd,
-        LocalDate cutoffDate,
+        @NotNull(message = "請填寫願望開始上架日") LocalDate wishListStart,
+        @NotNull(message = "請填寫願望結束上架日") LocalDate wishListEnd,
 
         @Pattern(regexp = "^$|^[A-Z0-9]{2,20}$", message = "收據前綴只能是 2 到 20 個大寫英文字母或數字")
         String receiptPrefix,

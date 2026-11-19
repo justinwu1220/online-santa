@@ -166,12 +166,6 @@ public class DonationReceipt extends BaseEntity {
 
     // ------------------------------------------------------------ PDF 狀態
 
-    /** 檔期還沒有許可文號：先不產生正式 PDF，補上文號後再一鍵補產。 */
-    public void markPdfPendingInfo() {
-        this.pdfStatus = PdfStatus.PENDING_INFO;
-        this.pdfError = null;
-    }
-
     /**
      * 第一次產生 PDF 時凍結檔期資訊；已凍結過就保持不變（之後重新產生內容一致）。
      */

@@ -92,6 +92,7 @@ class AdminReviewIT extends ApiIntegrationTest {
     @Test
     @DisplayName("核准後機構才能上架願望；核准前只能存草稿")
     void approvalUnlocksWishPublishing() throws Exception {
+        givenOpenWishListing();
         UUID orgId = registerOrganization("待核准之家", ORG_USER);
 
         // 核准前：草稿可以建立——讓機構在等待期間先準備內容

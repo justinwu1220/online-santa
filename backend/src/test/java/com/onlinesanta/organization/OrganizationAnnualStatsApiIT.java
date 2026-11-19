@@ -116,7 +116,7 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
 
     private Campaign campaign(String name, LocalDate start, LocalDate end, String prefix) {
         return campaignService.create(new CampaignRequest(name, null, null, null, start, end, start, end,
-                null, prefix, null, null, null));
+                start, end.minusDays(1), prefix, null, null, null));
     }
 
     private static Instant taipei(int year, int month, int day, int hour, int minute) {
@@ -177,7 +177,7 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
     // ------------------------------------------------------------ cohort 與期間結束後完成
 
     @Test
-    @DisplayName("期間結束後才完成：該檔期認領、之後才完成的筆數會被量化")
+    @DisplayName("期間結束後才完成：該檔期認領、下個檔期開始之後才完成的筆數會被量化")
     void completionsAfterThePeriodAreCounted() throws Exception {
         Campaign first = campaign("2025 檔期", LocalDate.of(2025, 11, 25), LocalDate.of(2026, 1, 25), "T25");
         Campaign second = campaign("2026 檔期", LocalDate.of(2026, 11, 25), LocalDate.of(2027, 1, 25), "T26");
@@ -188,7 +188,7 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
                         ShipRequests.of("郵局", "R1")), DONOR)).andExpect(status().isOk());
         completeFully(claimId, ORG_A);
 
-        backdateClaim(claimId, taipei(2026, 1, 20, 10, 0), taipei(2026, 2, 5, 10, 0));
+        backdateClaim(claimId, taipei(2026, 11, 20, 10, 0), taipei(2026, 11, 26, 10, 0));
 
         mvc.perform(as(get("/api/organizations/me/stats/period").param("period", first.getId().toString()), ORG_A))
                 .andExpect(status().isOk())
@@ -229,6 +229,7 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
     @DisplayName("每月認領分布涵蓋期間的每個月份（含年份、依時間排序），沒有資料的月份補零")
     void monthlyClaimsAreZeroFilledForEveryMonthOfThePeriod() throws Exception {
         Campaign campaign = campaign("2025 檔期", LocalDate.of(2025, 11, 25), LocalDate.of(2026, 1, 25), "T25");
+        campaign("下一檔期", LocalDate.of(2026, 2, 1), LocalDate.of(2026, 3, 31), "T26");     // 讓第一個檔期的範圍到 1/31 為止
         UUID claimId = claimAs(publishedWish(organizationA, "十二月的認領"), DONOR);
         backdateClaim(claimId, taipei(2025, 12, 15, 10, 0), null);
 
@@ -258,11 +259,12 @@ class OrganizationAnnualStatsApiIT extends ApiIntegrationTest {
 
         mvc.perform(as(get("/api/organizations/me/stats/periods"), ORG_A))
                 .andExpect(jsonPath("$.defaultKey").value(current.getId().toString()))
-                // 兩個檔期之間的空檔算進後一個檔期的週期；進行中的檔期尚未結束，沒有「尚未建立檔期」
+                // 範圍是 [本檔期勸募開始日, 下個檔期勸募開始日)：兩個檔期之間的空檔歸前一個檔期，沒有「尚未建立檔期」
                 .andExpect(jsonPath("$.periods.length()").value(2))
                 .andExpect(jsonPath("$.periods[0].name").value("今年檔期"))
-                .andExpect(jsonPath("$.periods[0].start").value(today.minusDays(339).toString()))
-                .andExpect(jsonPath("$.periods[1].key").value(past.getId().toString()));
+                .andExpect(jsonPath("$.periods[0].start").value(today.minusDays(5).toString()))
+                .andExpect(jsonPath("$.periods[1].key").value(past.getId().toString()))
+                .andExpect(jsonPath("$.periods[1].end").value(today.minusDays(6).toString()));
         // 機構看不到許可文號等檔期設定
         mvc.perform(as(get("/api/organizations/me/stats/periods"), ORG_A))
                 .andExpect(jsonPath("$.periods[0].permitNo").doesNotExist());

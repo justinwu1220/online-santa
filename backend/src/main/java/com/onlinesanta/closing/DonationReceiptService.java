@@ -76,23 +76,25 @@ public class DonationReceiptService {
     /**
      * 為完成的認領開立收據。必須在願望完成的交易內呼叫。
      *
-     * <p>以下情況不開立（回 empty，不丟例外——例外會讓願望完成不了）：已有有效收據、沒有寄出日或禮物資料、
-     * 沒有涵蓋捐贈日的進行中檔期。這些都會列入收據檢查的「待補」，補好檔期後可再補開。
+     * <p>以下情況不開立（回 empty，不丟例外——例外會讓願望完成不了）：已有有效收據、沒有實際收到日或禮物資料、
+     * 歸屬的檔期已結束（不再配號）。因為願望只能在檔期的上架期間內建立，正常情況一定有檔期；
+     * 不開立的異常情況會列入收據檢查。
      */
     @Transactional
     public Optional<DonationReceipt> issueFor(Claim claim) {
         if (receipts.findValidByClaimId(claim.getId()).isPresent()) {
             return Optional.empty();
         }
-        LocalDate donatedOn = claim.getShippedOn();
+        LocalDate donatedOn = donationDateOf(claim);
         if (donatedOn == null || claim.getGiftDescription() == null || claim.getGiftQuantity() == null
                 || claim.getGiftPrice() == null) {
-            log.warn("認領 {} 缺少寄出日或禮物資料，不開立收據", claim.getId());
+            log.warn("認領 {} 缺少實際收到日或禮物資料，不開立收據", claim.getId());
             return Optional.empty();
         }
-        Optional<Campaign> campaign = campaignService.findForDonation(donatedOn);
+        // 歸屬依實際收到日：落在 [本檔期勸募開始日, 下個檔期勸募開始日) 就屬於本檔期
+        Optional<Campaign> campaign = campaignService.campaignForReceivedOn(donatedOn);
         if (campaign.isEmpty()) {
-            log.warn("認領 {} 的捐贈日 {} 沒有涵蓋它的進行中檔期，不開立收據", claim.getId(), donatedOn);
+            log.warn("認領 {} 的收到日 {} 之前沒有任何檔期，不開立收據", claim.getId(), donatedOn);
             return Optional.empty();
         }
         Optional<String> number = campaignService.tryAllocateReceiptNo(campaign.get().getId());
@@ -107,6 +109,20 @@ public class DonationReceiptService {
         return Optional.of(receipt);
     }
 
+    /**
+     * 收據的捐贈日期＝機構確認的實際收到日。舊資料沒有 receivedOn 時，退回收到時間（receivedAt）的台北日期，
+     * 再沒有就用完成時間的台北日期。
+     */
+    static LocalDate donationDateOf(Claim claim) {
+        if (claim.getReceivedOn() != null) {
+            return claim.getReceivedOn();
+        }
+        if (claim.getReceivedAt() != null) {
+            return LocalDate.ofInstant(claim.getReceivedAt(), TaiwanYear.ZONE);
+        }
+        return claim.getCompletedAt() == null ? null : LocalDate.ofInstant(claim.getCompletedAt(), TaiwanYear.ZONE);
+    }
+
     private DonationReceipt.Snapshot snapshotOf(Claim claim) {
         Optional<ClaimReceipt> requested = claim.isReceiptRequested()
                 ? claimReceipts.findByClaimId(claim.getId()) : Optional.empty();
@@ -117,7 +133,7 @@ public class DonationReceiptService {
                 name,
                 requested.map(ClaimReceipt::getIdNumberEncrypted).orElse(null),
                 requested.map(ClaimReceipt::getEmail).orElse(null),
-                claim.getShippedOn(),
+                donationDateOf(claim),
                 claim.getReceivedOn(),
                 claim.getGiftDescription(),
                 claim.getGiftQuantity(),
@@ -132,25 +148,6 @@ public class DonationReceiptService {
     private static String realNameOrKind(Claim claim) {
         String real = claim.getDonor().getName();
         return real == null || real.isBlank() ? KIND_NAME : real.strip();
-    }
-
-    /**
-     * 補開收據：檔期建立或補上之後，為「已完成、寄出日落在勸募期間、卻還沒有有效收據」的認領開立，
-     * 依完成時間排序，讓流水號與完成的先後一致。PDF 在提交後產生。
-     *
-     * @return 這次開立的張數
-     */
-    @Transactional
-    public int issueMissing(UUID campaignId) {
-        Campaign campaign = campaigns.findById(campaignId)
-                .orElseThrow(() -> ResourceNotFoundException.of("活動檔期", campaignId));
-        int issued = 0;
-        for (Claim claim : claims.findCompletedMissingReceipt(campaign.getCollectionStart(), campaign.getCollectionEnd())) {
-            if (issueFor(claim).isPresent()) {
-                issued++;
-            }
-        }
-        return issued;
     }
 
     // ------------------------------------------------------------ 作廢重開
@@ -182,7 +179,7 @@ public class DonationReceiptService {
 
     /**
      * 產生（或重新產生）收據 PDF 並暫存到私有 bucket。呼叫端不應在願望完成的交易內呼叫。
-     * 檔期還沒有許可文號 → 標待補；版面放不下 → 標失敗並記原因；兩者都不丟例外。
+     * 版面放不下、缺字、證號解不開、檔期沒有許可文號 → 標失敗並記原因，不丟例外。
      */
     @Transactional
     public DonationReceipt generatePdf(UUID receiptId) {
@@ -196,7 +193,8 @@ public class DonationReceiptService {
 
         String permit = r.hasFrozenCampaignInfo() ? r.getPermitNoUsed() : campaign.getPermitNo();
         if (permit == null || permit.isBlank()) {
-            r.markPdfPendingInfo();
+            // 檔期現在必填許可文號，只有舊資料才會遇到；填入文號後預覽或匯出時會自動重新產生
+            r.markPdfFailed("檔期沒有勸募許可文號，請到檔期設定填入後再預覽或匯出");
             return receipts.save(r);
         }
         r.freezeCampaignInfo(permit,
@@ -266,26 +264,6 @@ public class DonationReceiptService {
         return r.getWhiteObject() == null || r.getYellowRedObject() == null
                 || storage.find(StorageBucket.PRIVATE, r.getWhiteObject()).isEmpty()
                 || storage.find(StorageBucket.PRIVATE, r.getYellowRedObject()).isEmpty();
-    }
-
-    /**
-     * 為檔期內所有「PDF 還不是 READY」的有效收據補產（待產生、待補許可文號、失敗）。
-     * 管理員填入許可文號後一鍵補產用。回傳 {成功, 仍待補或失敗}。
-     */
-    @Transactional
-    public int[] generateMissing(UUID campaignId) {
-        int ready = 0;
-        int stillPending = 0;
-        List<DonationReceipt> todo = receipts.findNeedingPdf(campaignId);
-        for (DonationReceipt r : todo) {
-            DonationReceipt result = generatePdf(r.getId());
-            if (result.getPdfStatus() == PdfStatus.READY) {
-                ready++;
-            } else {
-                stillPending++;
-            }
-        }
-        return new int[] {ready, stillPending};
     }
 
     private ReceiptData renderData(DonationReceipt r) {

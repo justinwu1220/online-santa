@@ -46,8 +46,12 @@ public class Campaign extends BaseEntity {
     @Column(name = "use_end", nullable = false)
     private LocalDate useEnd;
 
-    @Column(name = "cutoff_date")
-    private LocalDate cutoffDate;
+    /** 願望上架期間：機構只能在這段期間內新增願望（修改、審核不受限）。結束日必須早於勸募結束日。 */
+    @Column(name = "wish_list_start", nullable = false)
+    private LocalDate wishListStart;
+
+    @Column(name = "wish_list_end", nullable = false)
+    private LocalDate wishListEnd;
 
     @Column(name = "receipt_prefix", nullable = false, length = 20)
     private String receiptPrefix;
@@ -69,12 +73,15 @@ public class Campaign extends BaseEntity {
     }
 
     public Campaign(String name, LocalDate collectionStart, LocalDate collectionEnd,
-                    LocalDate useStart, LocalDate useEnd, String receiptPrefix, int firstReceiptSeq) {
+                    LocalDate useStart, LocalDate useEnd, LocalDate wishListStart, LocalDate wishListEnd,
+                    String receiptPrefix, int firstReceiptSeq) {
         this.name = name;
         this.collectionStart = collectionStart;
         this.collectionEnd = collectionEnd;
         this.useStart = useStart;
         this.useEnd = useEnd;
+        this.wishListStart = wishListStart;
+        this.wishListEnd = wishListEnd;
         this.receiptPrefix = receiptPrefix;
         this.nextReceiptSeq = firstReceiptSeq;
         this.status = CampaignStatus.ACTIVE;
@@ -84,7 +91,7 @@ public class Campaign extends BaseEntity {
     /** 修改設定。收據前綴與起始流水號在已配出任何收據之後不能再改（編號要穩定）。 */
     public void update(String name, String activityNo, String permitNo, String approvedName,
                        LocalDate collectionStart, LocalDate collectionEnd,
-                       LocalDate useStart, LocalDate useEnd, LocalDate cutoffDate,
+                       LocalDate useStart, LocalDate useEnd, LocalDate wishListStart, LocalDate wishListEnd,
                        String receiptPrefix, Integer firstReceiptSeq,
                        UUID associationOrgId, CampaignStatus status) {
         boolean numberingChanged = !this.receiptPrefix.equals(receiptPrefix)
@@ -101,7 +108,8 @@ public class Campaign extends BaseEntity {
         this.collectionEnd = collectionEnd;
         this.useStart = useStart;
         this.useEnd = useEnd;
-        this.cutoffDate = cutoffDate;
+        this.wishListStart = wishListStart;
+        this.wishListEnd = wishListEnd;
         this.receiptPrefix = receiptPrefix;
         if (receiptsIssued == 0 && firstReceiptSeq != null) {
             this.nextReceiptSeq = firstReceiptSeq;
@@ -118,6 +126,13 @@ public class Campaign extends BaseEntity {
         if (useEnd.isBefore(useStart)) {
             throw new BusinessRuleException("INVALID_CAMPAIGN_PERIOD", "財物使用結束日不能早於開始日");
         }
+        if (wishListEnd.isBefore(wishListStart)) {
+            throw new BusinessRuleException("INVALID_WISH_LISTING_PERIOD", "願望結束上架日不能早於開始上架日");
+        }
+        if (!wishListEnd.isBefore(collectionEnd)) {
+            throw new BusinessRuleException("INVALID_WISH_LISTING_PERIOD",
+                    "願望結束上架日必須早於勸募結束日（上架結束後還要留時間認領、寄送與確認收到）");
+        }
     }
 
     /**
@@ -131,9 +146,9 @@ public class Campaign extends BaseEntity {
         return no;
     }
 
-    /** 這個日期是否落在勸募期間內（收據以捐贈日歸屬檔期）。 */
-    public boolean collects(LocalDate date) {
-        return !date.isBefore(collectionStart) && !date.isAfter(collectionEnd);
+    /** 這一天是否開放機構新增願望：進行中、且落在上架期間內。 */
+    public boolean listingOpenOn(LocalDate date) {
+        return isActive() && !date.isBefore(wishListStart) && !date.isAfter(wishListEnd);
     }
 
     public boolean isActive() {
@@ -176,8 +191,12 @@ public class Campaign extends BaseEntity {
         return useEnd;
     }
 
-    public LocalDate getCutoffDate() {
-        return cutoffDate;
+    public LocalDate getWishListStart() {
+        return wishListStart;
+    }
+
+    public LocalDate getWishListEnd() {
+        return wishListEnd;
     }
 
     public String getReceiptPrefix() {

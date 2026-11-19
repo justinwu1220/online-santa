@@ -87,7 +87,7 @@ class DonationReceiptIT extends ApiIntegrationTest {
     private Campaign campaign(String permit) {
         return campaignService.create(new CampaignRequest("收據測試檔期", "115000877", permit,
                 "線上聖誕老人2026聖誕禮物勸募活動", TODAY.minusDays(5), TODAY.plusDays(60),
-                TODAY.minusDays(5), TODAY.plusDays(60), null, "OST", null, null, null));
+                TODAY.minusDays(5), TODAY.plusDays(60), TODAY.minusDays(5), TODAY.plusDays(59), "OST", null, null, null));
     }
 
     private UUID shippedClaim(String title, boolean withReceipt) throws Exception {
@@ -185,7 +185,7 @@ class DonationReceiptIT extends ApiIntegrationTest {
     void closedCampaignDoesNotIssue() throws Exception {
         Campaign c = campaign("衛部救字第1150000號");
         c.update(c.getName(), null, "衛部救字第1150000號", null, c.getCollectionStart(), c.getCollectionEnd(),
-                c.getUseStart(), c.getUseEnd(), null, c.getReceiptPrefix(), null, null, CampaignStatus.CLOSED);
+                c.getUseStart(), c.getUseEnd(), c.getWishListStart(), c.getWishListEnd(), c.getReceiptPrefix(), null, null, CampaignStatus.CLOSED);
         campaigns.saveAndFlush(c);
         UUID claimId = shippedClaim("檔期已結束", false);
 
@@ -233,25 +233,59 @@ class DonationReceiptIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("檔期尚缺許可文號：標待補、不產 PDF；填入後一鍵補產")
-    void missingPermitIsPendingUntilFilled() throws Exception {
+    @DisplayName("舊資料檔期沒有許可文號：標失敗並說明原因、不產 PDF；填入後預覽時自動重新產生")
+    void missingPermitFailsUntilFilledThenRegenerates() throws Exception {
         Campaign c = campaign(null);
-        UUID claimId = shippedClaim("文號未核准", false);
+        UUID claimId = shippedClaim("文號未填", false);
         complete(claimId);
         UUID receiptId = validReceiptOf(claimId).getId();
 
-        assertThat(receiptService.generatePdf(receiptId).getPdfStatus()).isEqualTo(PdfStatus.PENDING_INFO);
+        DonationReceipt failed = receiptService.generatePdf(receiptId);
+        assertThat(failed.getPdfStatus()).isEqualTo(PdfStatus.FAILED);
+        assertThat(failed.getPdfError()).contains("許可文號");
         assertThat(receiptService.readPdf(receiptId, PdfKind.WHITE)).isEmpty();
 
         c = campaigns.findById(c.getId()).orElseThrow();
         c.update(c.getName(), null, "衛部救字第1150000號", null, c.getCollectionStart(), c.getCollectionEnd(),
-                c.getUseStart(), c.getUseEnd(), null, c.getReceiptPrefix(), null, null, CampaignStatus.ACTIVE);
+                c.getUseStart(), c.getUseEnd(), c.getWishListStart(), c.getWishListEnd(), c.getReceiptPrefix(), null, null, CampaignStatus.ACTIVE);
         campaigns.saveAndFlush(c);
 
-        int[] result = receiptService.generateMissing(c.getId());
-
-        assertThat(result).containsExactly(1, 0);
         assertThat(receiptService.readPdf(receiptId, PdfKind.WHITE)).isPresent();
+        assertThat(receipts.findById(receiptId).orElseThrow().getPdfStatus()).isEqualTo(PdfStatus.READY);
+    }
+
+    @Test
+    @DisplayName("捐贈日期是機構確認的實際收到日，不是寄出日")
+    void donationDateIsTheReceivedDate() throws Exception {
+        campaign("衛部救字第1150000號");
+        UUID claimId = shippedClaim("收到日不同", false);
+        entityManager().flush();
+        jdbc().update("UPDATE claims SET shipped_on = ? WHERE id = ?", java.sql.Date.valueOf(TODAY.minusDays(4)), claimId);
+        entityManager().clear();
+        uploadConfirmedAttachment(AttachmentPurpose.ORG_FEEDBACK, claimId, ORG_USER);
+        mvc.perform(as(withBody(post("/api/organizations/me/claims/{id}/complete", claimId),
+                        Map.of("inspected", true, "receivedOn", TODAY.minusDays(1).toString())), ORG_USER))
+                .andExpect(status().isOk());
+
+        DonationReceipt r = validReceiptOf(claimId);
+
+        assertThat(r.getDonatedOn()).isEqualTo(TODAY.minusDays(1));
+    }
+
+    @Test
+    @DisplayName("舊資料沒有實際收到日：重開時退回收到時間的台北日期")
+    void donationDateFallsBackToReceivedAt() throws Exception {
+        campaign("衛部救字第1150000號");
+        UUID claimId = shippedClaim("舊資料", false);
+        complete(claimId);
+        entityManager().flush();
+        jdbc().update("UPDATE claims SET received_on = NULL, received_at = ? WHERE id = ?",
+                java.sql.Timestamp.from(TODAY.minusDays(2).atTime(10, 0).atZone(TaiwanYear.ZONE).toInstant()), claimId);
+        entityManager().clear();
+
+        DonationReceipt replacement = receiptService.voidAndReissue(validReceiptOf(claimId).getId(), "重開測試");
+
+        assertThat(replacement.getDonatedOn()).isEqualTo(TODAY.minusDays(2));
     }
 
     @Test
@@ -267,7 +301,7 @@ class DonationReceiptIT extends ApiIntegrationTest {
         // 之後檔期的文號被改了，已產生過的收據不受影響
         c = campaigns.findById(c.getId()).orElseThrow();
         c.update(c.getName(), null, "另一個文號", null, c.getCollectionStart(), c.getCollectionEnd(),
-                c.getUseStart(), c.getUseEnd(), null, c.getReceiptPrefix(), null, null, CampaignStatus.ACTIVE);
+                c.getUseStart(), c.getUseEnd(), c.getWishListStart(), c.getWishListEnd(), c.getReceiptPrefix(), null, null, CampaignStatus.ACTIVE);
         campaigns.saveAndFlush(c);
         // 暫存到期被清除
         storage.delete(StorageBucket.PRIVATE, "closing/receipts/OST-000001/white.pdf");
@@ -355,7 +389,7 @@ class DonationReceiptIT extends ApiIntegrationTest {
 
         c = campaigns.findById(c.getId()).orElseThrow();
         c.update(c.getName(), null, "衛部救字第1150000號", null, c.getCollectionStart(), c.getCollectionEnd(),
-                c.getUseStart(), c.getUseEnd(), null, c.getReceiptPrefix(), null, null, CampaignStatus.CLOSED);
+                c.getUseStart(), c.getUseEnd(), c.getWishListStart(), c.getWishListEnd(), c.getReceiptPrefix(), null, null, CampaignStatus.CLOSED);
         campaigns.saveAndFlush(c);
         assertThatThrownBy(() -> receiptService.voidAndReissue(old.getId(), "想重開"))
                 .isInstanceOf(BusinessRuleException.class).hasMessageContaining("無法重開");

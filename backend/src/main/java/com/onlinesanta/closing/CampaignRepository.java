@@ -25,13 +25,24 @@ public interface CampaignRepository extends JpaRepository<Campaign, UUID> {
     @Query("select c from Campaign c where c.id = :id")
     Optional<Campaign> findByIdForUpdate(@Param("id") UUID id);
 
-    /** 勸募期間涵蓋這一天、還在進行中的檔期（正常情況最多一個，由新增與修改時的重疊檢查保證）。 */
+    /** 這一天開放新增願望的檔期：進行中、且落在上架期間內（期間可重疊時回多個，正常最多一個）。 */
     @Query("""
             select c from Campaign c
             where c.status = com.onlinesanta.closing.CampaignStatus.ACTIVE
-              and c.collectionStart <= :day and c.collectionEnd >= :day
+              and c.wishListStart <= :day and c.wishListEnd >= :day
+            order by c.wishListStart
             """)
-    List<Campaign> findActiveCovering(@Param("day") LocalDate day);
+    List<Campaign> findListingOpen(@Param("day") LocalDate day);
+
+    /** 下一個還沒開始上架的進行中檔期（顯示「下一次上架期間」用）。 */
+    Optional<Campaign> findFirstByStatusAndWishListStartAfterOrderByWishListStartAsc(
+            CampaignStatus status, LocalDate day);
+
+    /** 收據歸屬：勸募開始日在這一天（含）之前、開始日最晚的檔期，不論是否進行中。 */
+    Optional<Campaign> findFirstByCollectionStartLessThanEqualOrderByCollectionStartDesc(LocalDate day);
+
+    /** 下一個檔期的勸募開始日，決定這個檔期的統計與收據歸屬範圍何時結束。 */
+    Optional<Campaign> findFirstByCollectionStartGreaterThanOrderByCollectionStartAsc(LocalDate day);
 
     /**
      * 與指定勸募期間重疊的其他檔期數（含已結束的；{@code excludeId} 為 null 代表新增）。

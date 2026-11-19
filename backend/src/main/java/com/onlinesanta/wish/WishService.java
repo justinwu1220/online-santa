@@ -1,6 +1,7 @@
 package com.onlinesanta.wish;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,13 +38,16 @@ public class WishService {
     private final AttachmentService attachments;
     private final WishEventService history;
     private final SystemMessageService systemMessages;
+    private final com.onlinesanta.closing.CampaignService campaigns;
 
     public WishService(WishRepository wishes,
                        OrganizationService organizations,
                        CurrentUserService currentUser,
                        AttachmentService attachments,
                        WishEventService history,
-                       SystemMessageService systemMessages) {
+                       SystemMessageService systemMessages,
+                       com.onlinesanta.closing.CampaignService campaigns) {
+        this.campaigns = campaigns;
         this.wishes = wishes;
         this.organizations = organizations;
         this.currentUser = currentUser;
@@ -88,6 +92,8 @@ public class WishService {
     @Transactional
     public Wish create(WishRequest request) {
         Organization organization = organizations.getById(currentUser.requireOrganizationId());
+        // 只有「新增」受上架期間限制；修改、重新提交、審核、凍結都不經過這裡
+        campaigns.requireWishListingOpen(LocalDate.now(TaiwanYear.ZONE));
         return wishes.save(Wish.draft(
                 organization,
                 request.childAlias(),

@@ -33,7 +33,7 @@ import com.onlinesanta.wish.Wish;
 import com.onlinesanta.wish.WishCategory;
 import com.onlinesanta.wish.WishRepository;
 
-@DisplayName("後台收據 API：清單、下載、作廢重開、補開、補產")
+@DisplayName("後台收據 API：清單、預覽與下載、作廢重開")
 class AdminReceiptApiIT extends ApiIntegrationTest {
 
     private static final String ADMIN = "platform-admin@example.com";
@@ -78,7 +78,7 @@ class AdminReceiptApiIT extends ApiIntegrationTest {
     private Campaign campaign(String permit) {
         return campaignService.create(new CampaignRequest("API 檔期", "115000877", permit,
                 "線上聖誕老人2026聖誕禮物勸募活動", TODAY.minusDays(5), TODAY.plusDays(60),
-                TODAY.minusDays(5), TODAY.plusDays(60), null, "OSA", null, null, null));
+                TODAY.minusDays(5), TODAY.plusDays(60), TODAY.minusDays(5), TODAY.plusDays(59), "OSA", null, null, null));
     }
 
     private UUID completedClaim(String title) throws Exception {
@@ -149,26 +149,26 @@ class AdminReceiptApiIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("檔期缺許可文號：下載回 409 並說明；補上文號後一鍵補產")
-    void pendingPermitBlocksDownloadUntilGenerated() throws Exception {
+    @DisplayName("舊資料檔期缺許可文號：預覽回 409 並說明；補上文號後再預覽會自動重新產生")
+    void missingPermitBlocksDownloadUntilFilled() throws Exception {
         Campaign c = campaign(null);
         UUID claimId = completedClaim("缺文號");
         UUID receiptId = receipts.findValidByClaimId(claimId).orElseThrow().getId();
 
         mvc.perform(as(get("/api/admin/receipts/{id}/download-url", receiptId).param("kind", "WHITE"), ADMIN))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.errorCode").value("RECEIPT_PDF_NOT_READY"));
+                .andExpect(jsonPath("$.errorCode").value("RECEIPT_PDF_NOT_READY"))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("許可文號")));
 
         Campaign loaded = campaigns.findById(c.getId()).orElseThrow();
         loaded.update(loaded.getName(), null, "衛部救字第1150000號", null, loaded.getCollectionStart(),
-                loaded.getCollectionEnd(), loaded.getUseStart(), loaded.getUseEnd(), null, loaded.getReceiptPrefix(),
+                loaded.getCollectionEnd(), loaded.getUseStart(), loaded.getUseEnd(), loaded.getWishListStart(), loaded.getWishListEnd(), loaded.getReceiptPrefix(),
                 null, null, CampaignStatus.ACTIVE);
         campaigns.saveAndFlush(loaded);
 
-        mvc.perform(as(post("/api/admin/campaigns/{id}/generate-receipt-pdfs", c.getId()), ADMIN))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.done").value(1))
-                .andExpect(jsonPath("$.pending").value(0));
+        mvc.perform(as(get("/api/admin/receipts/{id}/download-url", receiptId).param("kind", "WHITE"), ADMIN))
+                .andExpect(status().isOk());
+        assertThat(receipts.findById(receiptId).orElseThrow().getPdfStatus()).isEqualTo(PdfStatus.READY);
     }
 
     @Test
@@ -192,23 +192,5 @@ class AdminReceiptApiIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.content[0].voidReason").value("捐贈者資料填錯"));
         assertThat(auditLogs.findAll()).anySatisfy(log ->
                 assertThat(log.getAction()).isEqualTo(AdminAuditAction.VOID_RECEIPT));
-    }
-
-    @Test
-    @DisplayName("補開：檔期晚於願望完成才建立時，為已完成的認領依完成順序補開，重複補開不會多開")
-    void issueMissingBackfillsInCompletionOrder() throws Exception {
-        UUID first = completedClaim("先完成");      // 當時還沒有檔期，不開收據
-        UUID second = completedClaim("後完成");
-        assertThat(receipts.findValidByClaimId(first)).isEmpty();
-        Campaign c = campaign("衛部救字第1150000號");
-
-        mvc.perform(as(post("/api/admin/campaigns/{id}/issue-missing-receipts", c.getId()), ADMIN))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.done").value(2));
-
-        assertThat(receipts.findValidByClaimId(first).orElseThrow().getReceiptNo()).isEqualTo("OSA-000001");
-        assertThat(receipts.findValidByClaimId(second).orElseThrow().getReceiptNo()).isEqualTo("OSA-000002");
-        mvc.perform(as(post("/api/admin/campaigns/{id}/issue-missing-receipts", c.getId()), ADMIN))
-                .andExpect(jsonPath("$.done").value(0));
     }
 }

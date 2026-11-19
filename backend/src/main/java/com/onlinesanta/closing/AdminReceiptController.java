@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.onlinesanta.admin.AdminAuditAction;
 import com.onlinesanta.admin.AdminAuditService;
-import com.onlinesanta.closing.dto.BatchResult;
 import com.onlinesanta.closing.dto.ReceiptCheckView;
 import com.onlinesanta.closing.dto.ReceiptDownloadView;
 import com.onlinesanta.closing.dto.ReceiptView;
@@ -32,7 +31,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
-/** 管理員處理捐贈收據：清單、下載、作廢重開、補開與補產。 */
+/** 管理員處理捐贈收據：清單、預覽與下載、作廢重開、收據檢查。 */
 @RestController
 @RequestMapping("/api/admin")
 @PreAuthorize("hasRole('ADMIN')")
@@ -78,15 +77,14 @@ public class AdminReceiptController {
     @Operation(summary = "取得收據 PDF 的短效網址（在瀏覽器分頁預覽，可另存）",
             description = "kind＝WHITE（白聯）或 YELLOW_RED（黃紅聯）；mode＝PREVIEW（分頁預覽，預設）或 DOWNLOAD（直接存檔）。"
                     + "PDF 含捐贈者證號，每次開啟都寫稽核。"
-                    + "暫存過期會先重新產生；檔期尚缺許可文號或版面放不下時回 409")
+                    + "暫存過期會先重新產生；版面放不下或證號解不開等無法產生時回 409")
     public ReceiptDownloadView downloadUrl(@PathVariable UUID id, @RequestParam PdfKind kind,
                                            @RequestParam(defaultValue = "PREVIEW") ReceiptOpenMode mode) {
         DonationReceipt receipt = receipts.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.of("收據", id));
         String object = receiptService.ensurePdfObject(id, kind).orElseThrow(() -> new BusinessRuleException(
-                "RECEIPT_PDF_NOT_READY", receipt.getPdfStatus() == PdfStatus.PENDING_INFO
-                        ? "檔期尚未填寫勸募許可文號，補上後才能產生收據 PDF"
-                        : "這張收據的 PDF 無法產生：" + (receipt.getPdfError() == null ? "請查看收據狀態" : receipt.getPdfError())));
+                "RECEIPT_PDF_NOT_READY",
+                "這張收據的 PDF 無法產生：" + (receipt.getPdfError() == null ? "請查看收據狀態" : receipt.getPdfError())));
         audit.record(AdminAuditAction.VIEW_RECEIPT_DOCUMENT, receipt.getClaimId(),
                 "%s收據 %s（%s）".formatted(mode == ReceiptOpenMode.PREVIEW ? "預覽" : "下載", receipt.getReceiptNo(),
                         kind == PdfKind.WHITE ? "白聯" : "黃紅聯"));
@@ -114,26 +112,5 @@ public class AdminReceiptController {
             description = "完成的願望是否都有有效收據、編號是否連續、PDF 是否都能產生、證號與發票佐證是否齊全。只列差異，不改資料")
     public ReceiptCheckView receiptCheck(@PathVariable UUID campaignId) {
         return receiptCheck.check(campaignId);
-    }
-
-    @PostMapping("/campaigns/{campaignId}/issue-missing-receipts")
-    @Operation(summary = "補開收據",
-            description = "為已完成、寄出日落在勸募期間、卻還沒有有效收據的認領開立（依完成時間排序）。PDF 稍後產生")
-    public BatchResult issueMissing(@PathVariable UUID campaignId) {
-        int issued = receiptService.issueMissing(campaignId);
-        audit.record(AdminAuditAction.SAVE_CAMPAIGN, campaignId, "補開收據 %d 張".formatted(issued));
-        return new BatchResult(issued, 0);
-    }
-
-    @PostMapping("/campaigns/{campaignId}/generate-receipt-pdfs")
-    @Operation(summary = "補產收據 PDF",
-            description = "為檔期內 PDF 還不是「已產生」的有效收據補產（待產生、待補許可文號、失敗）。"
-                    + "填入許可文號後用這個一鍵補產")
-    public BatchResult generatePdfs(@PathVariable UUID campaignId) {
-        campaignService.get(campaignId);
-        int[] result = receiptService.generateMissing(campaignId);
-        audit.record(AdminAuditAction.SAVE_CAMPAIGN, campaignId,
-                "補產收據 PDF：成功 %d 張，仍待補或失敗 %d 張".formatted(result[0], result[1]));
-        return new BatchResult(result[0], result[1]);
     }
 }

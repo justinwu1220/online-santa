@@ -135,9 +135,9 @@ public class ClosingExportService {
         return true;
     }
 
-    /** 這張收據在本次匯出開始之後已經試過產生、仍然不行（缺許可文號或版面放不下）。 */
+    /** 這張收據在本次匯出開始之後已經試過產生、仍然不行（版面放不下、缺字、證號解不開等）。 */
     private static boolean attemptedDuring(ClosingExport export, DonationReceipt r) {
-        return (r.getPdfStatus() == PdfStatus.PENDING_INFO || r.getPdfStatus() == PdfStatus.FAILED)
+        return r.getPdfStatus() == PdfStatus.FAILED
                 && r.getUpdatedAt() != null && r.getUpdatedAt().isAfter(export.getCreatedAt());
     }
 
@@ -256,7 +256,6 @@ public class ClosingExportService {
         for (DonationReceipt r : skipped) {
             sb.append(r.getReceiptNo()).append("：");
             switch (r.getPdfStatus()) {
-                case PENDING_INFO -> sb.append("檔期尚未填寫勸募許可文號");
                 case FAILED -> sb.append(r.getPdfError() == null ? "版面放不下" : r.getPdfError());
                 default -> sb.append("尚未產生");
             }

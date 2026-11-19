@@ -49,6 +49,7 @@ class WishApiIT extends ApiIntegrationTest {
     @BeforeEach
     void setUpApprovedOrganizations() {
         // 機構審核端點要到 M3 才有，這裡直接以核准狀態建立測試資料
+        givenOpenWishListing();
         orgId = createApprovedOrganization("已核准之家", ORG_USER);
         otherOrgId = createApprovedOrganization("另一家機構", OTHER_ORG_USER);
     }

@@ -21,7 +21,7 @@ public interface DonationReceiptRepository
 
     List<DonationReceipt> findAllByCampaignIdOrderByReceiptNoAsc(UUID campaignId);
 
-    /** 檔期內有效、PDF 還不是 READY 的收據（待產生、待補許可文號、失敗）。 */
+    /** 檔期內有效、PDF 還不是 READY 的收據（待產生、失敗）。 */
     @Query("""
             select r from DonationReceipt r
             where r.campaignId = :campaignId

@@ -26,6 +26,7 @@ import com.onlinesanta.closing.dto.ReceiptCheckView.Severity;
 
 /**
  * 檔期的收據檢查：完成的認領是否都有有效收據、編號是否連續、PDF 是否都能產生、證號與發票佐證是否齊全。
+ * 範圍是 {@code [本檔期勸募開始日, 下個檔期勸募開始日)} 內實際收到的認領。
  *
  * <p>只列出差異，不修改任何資料。「無佐證」（沒有發票）只是提醒，不擋匯出。
  */
@@ -58,7 +59,10 @@ public class ReceiptCheckService {
         List<Issue> issues = new ArrayList<>();
 
         // 完成了卻沒有有效收據
-        List<Claim> missing = claims.findCompletedMissingReceipt(campaign.getCollectionStart(), campaign.getCollectionEnd());
+        // 範圍同統計與收據歸屬：[本檔期勸募開始日, 下個檔期勸募開始日)
+        java.time.LocalDate toExclusive = campaigns.nextCollectionStartAfter(campaign.getCollectionStart())
+                .orElse(java.time.LocalDate.of(9999, 12, 31));
+        List<Claim> missing = claims.findCompletedWithoutReceipt(campaign.getCollectionStart(), toExclusive);
         for (Claim claim : missing) {
             issues.add(new Issue(Severity.ERROR, "MISSING_RECEIPT", null,
                     "已完成的願望「%s」（認領 %s）沒有有效收據：%s".formatted(
@@ -70,7 +74,6 @@ public class ReceiptCheckService {
         // PDF 狀態與證號
         int ready = 0;
         int pending = 0;
-        int pendingInfo = 0;
         int failed = 0;
         long total = 0;
         for (DonationReceipt r : valid) {
@@ -78,11 +81,6 @@ public class ReceiptCheckService {
             switch (r.getPdfStatus()) {
                 case READY -> ready++;
                 case PENDING -> pending++;
-                case PENDING_INFO -> {
-                    pendingInfo++;
-                    issues.add(new Issue(Severity.ERROR, "PDF_PENDING_INFO", r.getReceiptNo(),
-                            "檔期尚未填寫勸募許可文號，不會產生 PDF；填入後按「補產 PDF」"));
-                }
                 case FAILED -> {
                     failed++;
                     issues.add(new Issue(Severity.ERROR, "PDF_FAILED", r.getReceiptNo(),
@@ -103,7 +101,7 @@ public class ReceiptCheckService {
 
         return new ReceiptCheckView(campaignId, campaign.getName(), Instant.now(),
                 valid.size() + missing.size(), valid.size(), voided, total,
-                ready, pending, pendingInfo, failed, issues);
+                ready, pending, failed, issues);
     }
 
     /** 編號中間有缺：作廢的號碼仍留在資料裡，所以缺號代表資料被刪過或配號異常。 */
@@ -153,9 +151,9 @@ public class ReceiptCheckService {
             return "缺少禮物資料（品項、數量或金額），無法開立";
         }
         if (!campaign.isActive()) {
-            return "檔期已結束，不能再配發收據編號";
+            return "檔期已結案，不再配發收據編號";
         }
-        return "尚未開立，可按「補開收據」";
+        return "開立失敗，請聯絡系統管理員檢查";
     }
 
     private static String shortId(UUID id) {

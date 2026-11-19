@@ -31,11 +31,14 @@ public class OrganizationController {
     private final AttachmentService attachments;
     private final CurrentUserService currentUser;
     private final com.onlinesanta.suspension.OrganizationSuspensionService suspensions;
+    private final com.onlinesanta.closing.CampaignService campaigns;
 
     public OrganizationController(OrganizationService organizations,
                                   AttachmentService attachments,
                                   CurrentUserService currentUser,
-                                  com.onlinesanta.suspension.OrganizationSuspensionService suspensions) {
+                                  com.onlinesanta.suspension.OrganizationSuspensionService suspensions,
+                                  com.onlinesanta.closing.CampaignService campaigns) {
+        this.campaigns = campaigns;
         this.organizations = organizations;
         this.attachments = attachments;
         this.currentUser = currentUser;
@@ -48,6 +51,15 @@ public class OrganizationController {
     public OrganizationView register(@Valid @RequestBody OrganizationRegistrationRequest request) {
         Organization created = organizations.register(request);
         return OrganizationView.from(created, attachments.organizationPhotoUrl(created.getId()));
+    }
+
+    @GetMapping("/me/wish-listing")
+    @Operation(summary = "現在能不能新增願望",
+            description = "願望只能在進行中檔期的上架期間內新增（修改與審核不受限）。"
+                    + "open 為 false 時，windowStart／windowEnd 是下一次上架期間（沒有則為 null）")
+    public com.onlinesanta.closing.dto.WishListingView wishListing() {
+        currentUser.requireOrganizationId();
+        return campaigns.wishListing(java.time.LocalDate.now(com.onlinesanta.common.TaiwanYear.ZONE));
     }
 
     @GetMapping("/me")

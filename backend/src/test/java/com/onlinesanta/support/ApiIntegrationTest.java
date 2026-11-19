@@ -48,6 +48,24 @@ public abstract class ApiIntegrationTest extends PostgresIntegrationTest {
     @Autowired
     private UserRepository authUsers;
 
+    @Autowired
+    private com.onlinesanta.closing.CampaignService wishListingCampaigns;
+
+    /**
+     * 讓機構現在可以新增願望：建立一個涵蓋今天的進行中檔期（上架期間也涵蓋今天）。
+     * 會透過 API 建立願望的測試要先呼叫，因為沒有開放上架的檔期時 {@code POST /api/wishes} 會回 409。
+     * 收據前綴隨機，免得與測試自己建立的檔期衝突。
+     */
+    protected com.onlinesanta.closing.Campaign givenOpenWishListing() {
+        java.time.LocalDate today = java.time.LocalDate.now(com.onlinesanta.common.TaiwanYear.ZONE);
+        String prefix = "WL" + Long.toString(System.nanoTime(), 36).toUpperCase().replaceAll("[^A-Z0-9]", "");
+        return wishListingCampaigns.create(new com.onlinesanta.closing.dto.CampaignRequest(
+                "上架測試檔期", null, "衛部救字第1150000號", null,
+                today.minusDays(30), today.plusDays(60), today.minusDays(30), today.plusDays(60),
+                today.minusDays(30), today.plusDays(30), prefix.substring(0, Math.min(prefix.length(), 12)),
+                null, null, null));
+    }
+
     /**
      * 直接寫入一份已確認的機構證明文件。給沒有機構成員、無法走上傳流程的測試機構用
      * （核准前要求至少有一份文件）。
