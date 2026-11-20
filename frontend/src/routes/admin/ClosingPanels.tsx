@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ReasonDialog } from '../../components/console/ReasonDialog'
 import { Pager } from '../../components/ui/Pager'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
@@ -129,8 +129,10 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
         點「紅聯」（給捐贈人）「白黃聯」（協會留存）在新分頁預覽；「全部下載」把有效收據的紅聯與白黃聯打包成一個壓縮檔；
         「收據檢查」列出有問題的收據。收據 PDF 含捐贈者證號，每次開啟或下載都會寫入稽核。
       </p>
-      <ClosingPackageSection campaignId={campaign.id} />
-      <ClosingMailSection campaignId={campaign.id} />
+      <div className="closing-actions">
+        <ClosingPackageSection campaignId={campaign.id} />
+        <ClosingMailSection campaignId={campaign.id} />
+      </div>
       {notice && <div className={`callout callout--${notice.tone}`} role="status"><p>{notice.text}</p></div>}
       {check.isError && <ErrorNotice error={check.error} onRetry={() => void check.refetch()} />}
       {check.data && <ReceiptCheckResult check={check.data} onClose={() => setChecking(false)} />}
@@ -285,25 +287,25 @@ function ReceiptCheckResult({ check, onClose }: { check: ReceiptCheck; onClose: 
 function ClosingMailSection({ campaignId }: { campaignId: string }) {
   const [stage, setStage] = useState<ClosingStage>('CD')
   return (
-    <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
-      <h3 style={{ margin: 0, fontSize: 16 }}>寄送</h3>
+    <>
       <MailBlock campaignId={campaignId} kind="receipts" stage={stage} title="紅聯收據寄給捐贈人"
         hint="只寄給填了「要收據」且有信箱的捐贈人，附紅聯 PDF；白聯與黃聯由協會留存，不寄。" />
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span className="muted">機構確認表依哪個結案階段計算：</span>
-        <select className="input" aria-label="機構確認表階段" value={stage} style={{ width: 'auto' }}
-          onChange={(event) => setStage(event.target.value as ClosingStage)}>
-          {STAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-        </select>
-      </div>
       <MailBlock campaignId={campaignId} kind="org-forms" stage={stage} title="機構確認表（05A＋05B）寄給受贈機構"
-        hint="每個受贈機構一封，附 05A、05B；康乃心自己的 05C 不寄。05B 內沒有任何個人資料。" />
-    </div>
+        hint="每個受贈機構一封，附 05A、05B；康乃心自己的 05C 不寄。05B 內沒有任何個人資料。">
+        <label className="closing-card__field">
+          <span>依哪個結案階段計算</span>
+          <select className="input" aria-label="機構確認表階段" value={stage}
+            onChange={(event) => setStage(event.target.value as ClosingStage)}>
+            {STAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
+        </label>
+      </MailBlock>
+    </>
   )
 }
 
-function MailBlock({ campaignId, kind, stage, title, hint }: {
-  campaignId: string; kind: MailKind; stage: ClosingStage; title: string; hint: string
+function MailBlock({ campaignId, kind, stage, title, hint, children }: {
+  campaignId: string; kind: MailKind; stage: ClosingStage; title: string; hint: string; children?: ReactNode
 }) {
   const [progress, setProgress] = useState<MailProgress>()
   const [busy, setBusy] = useState(false)
@@ -336,10 +338,11 @@ function MailBlock({ campaignId, kind, stage, title, hint }: {
   }
 
   return (
-    <div className="card" style={{ padding: 12, display: 'grid', gap: 8 }}>
-      <strong>{title}</strong>
-      <p className="muted" style={{ margin: 0 }}>{hint}</p>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+    <div className="closing-card">
+      <h3 className="closing-card__title">{title}</h3>
+      <p className="closing-card__hint">{hint}</p>
+      {children}
+      <div className="closing-card__btns">
         <button type="button" className="btn btn--sm" disabled={busy}
           onClick={() => void run(() => previewMail(campaignId, kind, stage), (p) => `預覽完成：待寄 ${p.pending} 封。`)}>
           寄送前預覽
@@ -358,7 +361,7 @@ function MailBlock({ campaignId, kind, stage, title, hint }: {
         )}
       </div>
       {progress && (
-        <p style={{ margin: 0 }}>
+        <p className="closing-card__stats">
           應寄 {progress.total}　已寄 {progress.sent}　待寄 {progress.pending}　失敗 {progress.failed}
           {progress.notReady > 0 && `　PDF 尚未備妥 ${progress.notReady}`}
           {progress.noEmail > 0 && `　沒有信箱 ${progress.noEmail}`}
@@ -366,7 +369,7 @@ function MailBlock({ campaignId, kind, stage, title, hint }: {
         </p>
       )}
       {progress?.targets.map((t) => (
-        <div key={t.id} className="muted">{t.name}：{t.recipient ?? '—'}　{statusText(t)}</div>
+        <div key={t.id} className="closing-card__hint">{t.name}：{t.recipient ?? '—'}　{statusText(t)}</div>
       ))}
       {message && <div className={`callout callout--${message.tone}`} role="status"><p>{message.text}</p></div>}
     </div>
@@ -384,12 +387,13 @@ const STAGES: { value: ClosingStage; label: string }[] = [
  * 沒有的資料（現金、利息、簽章、用印…）文件上寫「待補」，清單在壓縮檔的 05_留存備份/待補資料.md。
  */
 function ClosingPackageSection({ campaignId }: { campaignId: string }) {
-  const [stage, setStage] = useState<ClosingStage>('C')
+  const [running, setRunning] = useState<ClosingStage>()
   const [progress, setProgress] = useState<string>()
   const [result, setResult] = useState<{ tone: 'ok' | 'warn'; text: string }>()
 
-  async function run() {
+  async function run(stage: ClosingStage) {
     setResult(undefined)
+    setRunning(stage)
     setProgress('準備中…')
     try {
       const view = await downloadClosingPackage(campaignId, stage, (v) => {
@@ -404,18 +408,22 @@ function ClosingPackageSection({ campaignId }: { campaignId: string }) {
       setResult({ tone: 'warn', text: e instanceof Error ? e.message : '產生失敗，請稍後再試' })
     } finally {
       setProgress(undefined)
+      setRunning(undefined)
     }
   }
 
   return (
-    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-      <select className="input" aria-label="結案階段" value={stage} style={{ width: 'auto' }}
-        onChange={(event) => setStage(event.target.value as ClosingStage)}>
-        {STAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-      </select>
-      <button type="button" className="btn btn--sm" disabled={progress !== undefined} onClick={() => void run()}>
-        {progress ?? '產生結案文件包'}
-      </button>
+    <div className="closing-card">
+      <h3 className="closing-card__title">產生結案文件</h3>
+      <p className="closing-card__hint">按下要送的階段，產生官方 Excel、核章 PDF、成果報告、05 表單、收據與待補資料，打包成一個壓縮檔下載。</p>
+      <div className="closing-card__btns">
+        {STAGES.map((item) => (
+          <button key={item.value} type="button" className="btn btn--sm" disabled={running !== undefined}
+            onClick={() => void run(item.value)}>
+            {running === item.value ? progress : item.label}
+          </button>
+        ))}
+      </div>
       {result && <div className={`callout callout--${result.tone}`} role="status" style={{ flexBasis: '100%' }}><p>{result.text}</p></div>}
     </div>
   )

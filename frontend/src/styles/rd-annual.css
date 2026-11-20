@@ -119,3 +119,14 @@
 .wh-timeline__time{font-size:12px;color:var(--fg-muted)}
 .wh-timeline strong{font-size:14px;color:var(--fg)}
 .wh-timeline__note{font-size:13px;color:var(--fg-3)}
+
+/* 結案文件：產生與寄送的三張卡片（年度營運 → 收據） */
+.closing-actions{display:flex;flex-direction:column;gap:14px}
+.closing-card{display:flex;flex-direction:column;gap:10px;min-width:0;padding:16px 18px;border:1px solid var(--line-soft);border-radius:14px;background:rgba(255,255,255,.03)}
+.closing-card__title{margin:0;font-size:15px;font-weight:800;color:var(--fg)}
+.closing-card__hint{margin:0;font-size:13px;line-height:1.7;color:var(--fg-4)}
+.closing-card__btns{display:flex;flex-wrap:wrap;gap:8px}
+.closing-card__stats{margin:0;font-size:13px;line-height:1.7;color:var(--fg-2)}
+.closing-card__field{display:grid;gap:4px;font-size:13px;color:var(--fg-3)}
+.closing-card .callout{margin:0}
+.closing-card .btn--primary.btn--sm{height:36px;padding:0 14px;font-size:13px;font-weight:800;letter-spacing:.02em}

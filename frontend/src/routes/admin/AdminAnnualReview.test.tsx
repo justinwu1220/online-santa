@@ -172,7 +172,7 @@ describe('年度營運頁', () => {
     click.mockRestore()
   })
 
-  it('結案文件包：選階段、建立匯出、推進到完成後下載，提醒先看待補資料', async () => {
+  it('產生結案文件：按下 D 按鈕就建立匯出、推進到完成後下載，提醒先看待補資料', async () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     const base = {
       id: 'p1', campaignId: 'c1', kind: 'CLOSING_PACKAGE' as const, stage: 'D' as const, total: 2, prepared: 0, skipped: 0,
@@ -187,8 +187,8 @@ describe('年度營運頁', () => {
     renderPage()
     await screen.findByText('OS2026-000001')
 
-    await userEvent.selectOptions(screen.getByLabelText('結案階段'), 'D')
-    await userEvent.click(screen.getByRole('button', { name: '產生結案文件包' }))
+    expect(screen.getByRole('heading', { name: '產生結案文件' })).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'D 結案備查（使用完竣）' }))
 
     expect(await screen.findByText(/已下載結案文件包。請先看壓縮檔裡 05_留存備份\/待補資料.md/)).toBeTruthy()
     expect(post).toHaveBeenCalledWith('/api/admin/campaigns/c1/closing-packages?stage=D', undefined)
