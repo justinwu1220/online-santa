@@ -121,14 +121,13 @@ public class ReportPdfWriter {
     }
 
     private List<List<String>> incomeRows(ClosingDataset d) {
-        ClosingDataset.FinanceSummary fin = d.finance();
         List<List<String>> rows = new ArrayList<>();
         rows.add(List.of("物資所得（時價）", ClosingNarrative.money(d.totals().value()), "收到日在勸募開始日至截止日之間的有效收據合計"));
-        rows.add(List.of("現金捐款", ClosingNarrative.money(fin.cashIncome()), "手動填寫；未核實不寫 0"));
-        rows.add(List.of("利息收入（另列）", ClosingNarrative.money(fin.interest()), "手動填寫；不與所得混算"));
+        rows.add(List.of("現金捐款", "0", "本活動沒有現金捐款"));
+        rows.add(List.of("利息收入（另列）", "0", "不與所得混算"));
         rows.add(List.of("募得財物支用（轉贈）", ClosingNarrative.money(d.totals().value()), "物資直送機構，所得即支用"));
-        rows.add(List.of("募得款實支（現金）", ClosingNarrative.money(fin.cashExpense()), "手動填寫"));
-        rows.add(List.of("本會自籌（另列）", ClosingNarrative.money(fin.selfFundedAmount()), "自籌不從募得物資扣除"));
+        rows.add(List.of("募得款實支（現金）", "0", "本活動沒有現金支出"));
+        rows.add(List.of("本會自籌（另列）", "0", "自籌不從募得物資扣除"));
         rows.add(List.of("賸餘財物（物資）", "0", "受贈＝轉贈；若有退回或調整須追溯，不強填"));
         return rows;
     }

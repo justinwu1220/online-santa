@@ -33,18 +33,18 @@ public final class ClosingNarrative {
             case C -> {
                 paragraphs.add("本活動透過線上願望認領募集身心障礙服務對象所需禮物，由捐贈者直送指定機構，本會統籌受贈與轉贈紀錄。"
                         + "勸募期間為" + collection + "，截至" + cutoff + "實收禮物" + d.totals().quantity() + "份、物資時價"
-                        + money(d.totals().value()) + "元，現金捐款" + money(d.finance().cashIncome()) + "元，勸募活動期間利息收入"
-                        + money(d.finance().interest()) + "元。");
+                        + money(d.totals().value()) + "元，現金捐款" + "0" + "元，勸募活動期間利息收入"
+                        + "0" + "元。");
                 paragraphs.add(transfers + "募得財物支用" + money(d.totals().value()) + "元，本會自籌支應"
-                        + money(d.finance().selfFundedAmount()) + "元，賸餘財物0元。個人實際領受合計" + PENDING + "人、" + PENDING
+                        + "0" + "元，賸餘財物0元。個人實際領受合計" + PENDING + "人、" + PENDING
                         + "份；未發放、退回或其他差異：" + PENDING + "。");
                 paragraphs.add("公開徵信辦理情形：" + PENDING + "。所得、使用及捐贈明細詳本表與對應清冊。");
             }
             case D -> {
                 paragraphs.add("本活動財物使用期間為" + usage + "，實際執行完竣日為" + PENDING + "。截至" + cutoff + "，實收禮物"
                         + d.totals().quantity() + "份、物資時價" + money(d.totals().value()) + "元，現金捐款"
-                        + money(d.finance().cashIncome()) + "元，總利息收入" + money(d.finance().interest()) + "元；募得財物支用"
-                        + money(d.totals().value()) + "元，本會自籌支應" + money(d.finance().selfFundedAmount())
+                        + "0" + "元，總利息收入" + "0" + "元；募得財物支用"
+                        + money(d.totals().value()) + "元，本會自籌支應" + "0"
                         + "元，賸餘財物0元。");
                 paragraphs.add("實際轉贈外部機構" + externalCount(d) + "間、" + externalQuantity(d) + "份，本會直接發放" + directQuantity(d)
                         + "份；個人實際領受共" + PENDING + "人、" + PENDING + "份。未發放、退回或其他差異及處理結果：" + PENDING
@@ -55,8 +55,8 @@ public final class ClosingNarrative {
                 paragraphs.add("本活動透過線上願望認領募集身心障礙服務對象所需禮物。勸募期間為" + collection + "，財物使用期間為" + usage
                         + "，實際執行完竣日為" + PENDING + "；本次辦理成果結案備查併報。");
                 paragraphs.add("截至" + cutoff + "，實收禮物" + d.totals().quantity() + "份、物資時價" + money(d.totals().value())
-                        + "元，現金捐款" + money(d.finance().cashIncome()) + "元，總利息收入" + money(d.finance().interest())
-                        + "元；募得財物支用" + money(d.totals().value()) + "元，本會自籌支應" + money(d.finance().selfFundedAmount())
+                        + "元，現金捐款" + "0" + "元，總利息收入" + "0"
+                        + "元；募得財物支用" + money(d.totals().value()) + "元，本會自籌支應" + "0"
                         + "元，賸餘財物0元。已轉贈外部機構" + externalCount(d) + "間、" + externalQuantity(d) + "份，本會直接發放"
                         + directQuantity(d) + "份；個人實際領受" + PENDING + "人、" + PENDING + "份。未發放、退回或其他差異及處理結果："
                         + PENDING + "。");

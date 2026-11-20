@@ -100,23 +100,18 @@ public class FacebookPackageBuilder {
                 files.add(new PackageFile(dir + "02_徵信圖片/%03d.jpg".formatted(p * imagesPerPost + i + 1), slice.get(i)));
             }
         }
-        boolean pending = firstPostText.contains(PENDING) || publicPending(d);
+        boolean pending = firstPostText.contains(PENDING);
         files.add(new PackageFile(root + "00_發文說明.html", guide(d, firstPostText, images.size(), posts, !pending)));
 
         todo.add(new TodoItem("Facebook 實際上傳功能一則可放幾張圖片（目前以每則 %d 張分則）".formatted(imagesPerPost),
                 "協會（發文時確認）", root, "圖片張數與則數已列在發文說明頁；超過上限請告訴工程端調整"));
         if (pending) {
-            todo.add(new TodoItem("公開徵信圖片或貼文含尚未核實的項目（現金、利息、議決等）", "協會財務、協會",
-                    "Facebook 公開徵信包", "核實並補齊財務資料後重新產生，再發布；未備妥前發文說明頁的複製按鈕停用"));
+            todo.add(new TodoItem("貼文含尚未確認的項目（議決情形等）", "協會",
+                    "Facebook 公開徵信包", "確認後重新產生，再發布；未備妥前發文說明頁的複製按鈕停用"));
         }
         todo.add(new TodoItem("公開徵信的真實發布日期、平台、網址與公開內容範圍", "協會（發布後填入照表操作頁的網址欄）",
                 "成果報告、照表操作頁", "未發布即寫待發布，不虛構網址或截圖"));
         return new Built(files, todo);
-    }
-
-    /** 圖片或貼文是否還有尚未核實的項目：現金、利息還沒填。 */
-    private static boolean publicPending(ClosingDataset d) {
-        return d.finance().cashIncome() == null || d.finance().interest() == null;
     }
 
     // ------------------------------------------------------------ 圖片
@@ -136,18 +131,17 @@ public class FacebookPackageBuilder {
             f.field("資料截止日", RocDate.full(d.cutoff()), 100, 15);
             f.space(12);
             f.heading("所得及收支", 20);
-            var fin = d.finance();
             f.table(List.of(new Col("項目", 3f, Align.LEFT), new Col("金額（元）", 2f, Align.RIGHT)),
                     List.of(List.of("實收禮物份數", String.valueOf(d.totals().quantity())),
                             List.of("物資所得（時價）", ClosingNarrative.money(d.totals().value())),
-                            List.of("現金捐款", moneyOrVerifying(fin.cashIncome())),
-                            List.of("利息收入", moneyOrVerifying(fin.interest())),
+                            List.of("現金捐款", "0"),
+                            List.of("利息收入", "0"),
                             List.of("募得財物支用（轉贈機構）", ClosingNarrative.money(d.totals().value())),
-                            List.of("募得款實支（現金）", moneyOrVerifying(fin.cashExpense())),
-                            List.of("本會自籌支應", moneyOrVerifying(fin.selfFundedAmount())),
+                            List.of("募得款實支（現金）", "0"),
+                            List.of("本會自籌支應", "0"),
                             List.of("受贈機構數", String.valueOf(d.totals().organizationCount()))), 16, 30);
             f.space(8);
-            f.paragraph("感謝每一位捐贈者。完整捐贈明細見後續圖片；「待核實」的項目核實後會補充公告。", 14, 22);
+            f.paragraph("感謝每一位捐贈者。完整捐贈明細見後續圖片。", 14, 22);
 
             // 捐贈明細（公開名稱、日期、物資、數量、時價）
             f.newPage();
@@ -195,10 +189,6 @@ public class FacebookPackageBuilder {
         }
     }
 
-    private static String moneyOrVerifying(Long value) {
-        return value == null ? "待核實" : String.format("%,d", value);
-    }
-
     /** PDF 每頁轉成 2160px 寬的 JPG。 */
     private List<byte[]> toJpegs(byte[] pdf) {
         List<byte[]> images = new ArrayList<>();
@@ -233,7 +223,6 @@ public class FacebookPackageBuilder {
 
     String postText(ClosingDataset d, int post, int posts, int imagesInPost, int totalImages) {
         Campaign c = d.campaign();
-        var fin = d.finance();
         StringBuilder sb = new StringBuilder();
         String name = c.getApprovedName() != null ? c.getApprovedName() : c.getName();
         sb.append("【").append(name).append("　公開徵信（").append(d.stage().label()).append("）】");
@@ -247,8 +236,8 @@ public class FacebookPackageBuilder {
                 .append("。感謝每一位捐贈者的愛心！\n\n");
         sb.append("截至").append(RocDate.full(d.cutoff())).append("：\n");
         sb.append("．實收禮物").append(d.totals().quantity()).append("份、物資時價").append(ClosingNarrative.money(d.totals().value())).append("元\n");
-        sb.append("．現金捐款").append(ClosingNarrative.money(fin.cashIncome())).append("元\n");
-        sb.append("．利息收入").append(ClosingNarrative.money(fin.interest())).append("元\n");
+        sb.append("．現金捐款").append("0").append("元\n");
+        sb.append("．利息收入").append("0").append("元\n");
         sb.append("．已轉贈").append(d.totals().organizationCount()).append("間受贈機構\n");
         if (d.stage().includesExpenses()) {
             sb.append("．本案理事會議決情形：").append(PENDING).append("\n");

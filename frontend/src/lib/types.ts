@@ -1030,19 +1030,3 @@ export interface WishListing {
   windowStart?: string
   windowEnd?: string
 }
-
-/** 檔期財務資料（手動填寫）。金額空白＝待補，0＝已核實沒有發生，見 GET /api/admin/campaigns/{id}/finance。 */
-export interface FinanceMonth {
-  year: number
-  month: number
-  cashIncome?: number | null
-  interest?: number | null
-  cashExpense?: number | null
-  note?: string | null
-}
-
-export interface FinanceData {
-  months: FinanceMonth[]
-  selfFundedAmount?: number | null
-  selfFundedNote?: string | null
-}

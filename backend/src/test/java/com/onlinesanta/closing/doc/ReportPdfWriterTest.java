@@ -22,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import com.onlinesanta.closing.Campaign;
 import com.onlinesanta.closing.CampaignStatus;
 import com.onlinesanta.closing.ClosingProperties;
-import com.onlinesanta.closing.doc.ClosingDataset.FinanceSummary;
 import com.onlinesanta.closing.doc.ClosingDataset.GiftRow;
 import com.onlinesanta.closing.doc.ClosingDataset.OrgGroup;
 import com.onlinesanta.closing.doc.ClosingDataset.Totals;
@@ -54,8 +53,7 @@ class ReportPdfWriterTest {
             value += 1200;
         }
         return new ClosingDataset(c, stage, c.getCollectionStart(), stage.cutoff(c), List.of(), orgs, List.of(),
-                new Totals(orgCount, qty, value, orgCount), new FinanceSummary(null, null, null, null, null, List.of()),
-                List.of(), List.of());
+                new Totals(orgCount, qty, value, orgCount), List.of(), List.of());
     }
 
     private static void preview(String name, byte[] pdf) throws IOException {

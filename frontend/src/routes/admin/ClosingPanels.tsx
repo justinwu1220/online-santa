@@ -3,9 +3,10 @@ import { ReasonDialog } from '../../components/console/ReasonDialog'
 import { Pager } from '../../components/ui/Pager'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { formatPlainDate } from '../../lib/format'
-import type { CampaignView, ClosingStage, MailProgress, MailTarget, PdfStatus, ReceiptCheck, ReceiptStatus, ReceiptView } from '../../lib/types'
+import type { CampaignView, ClosingStage, MailProgress, MailTarget, PdfStatus, ReceiptStatus, ReceiptView } from '../../lib/types'
+import { useCheckGate } from './CheckGate'
 import {
-  downloadAllReceipts, downloadClosingPackage, openReceipt, previewMail, sendMail, useReceiptCheck, useReceipts, useVoidReceipt,
+  downloadAllReceipts, downloadClosingPackage, openReceipt, previewMail, sendMail, useReceipts, useVoidReceipt,
   type MailKind, type ReceiptFilter,
 } from './closingQueries'
 
@@ -13,7 +14,7 @@ import {
  * 年度營運頁的「檔期設定」與「收據」分頁。
  *
  * 願望完成時系統會自動開立收據（配號、存資料）並產生三聯單 PDF；這裡讓管理員設定檔期、
- * 查看與預覽收據、作廢重開、執行收據檢查與全部下載。
+ * 查看與預覽收據、作廢重開與全部下載；下載、產生結案文件與寄信前會先跳出收據檢查彈窗。
  */
 
 function period(start: string, end: string) {
@@ -76,8 +77,7 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
   const voidReceipt = useVoidReceipt()
 
   const [exportProgress, setExportProgress] = useState<string>()
-  const [checking, setChecking] = useState(false)
-  const check = useReceiptCheck(campaign.id, checking)
+  const checkGate = useCheckGate(campaign.id)
 
   async function open(receipt: ReceiptView, kind: 'RED' | 'WHITE_YELLOW') {
     setDownloadError(undefined)
@@ -113,29 +113,20 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
     <section className="panel set-sec" aria-label="收據">
       <div className="panel__head" style={{ marginBottom: 0 }}>
         <h2 className="panel__title">收據</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" className="btn btn--sm" disabled={check.isFetching}
-            onClick={() => { if (checking) void check.refetch(); else setChecking(true) }}>
-            {check.isFetching ? '檢查中…' : '收據檢查'}
-          </button>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <button type="button" className="link-btn" onClick={checkGate.view}>檢視收據檢查</button>
           <button type="button" className="btn btn--sm" disabled={exportProgress !== undefined}
-            onClick={() => void runExport()}>
+            onClick={() => checkGate.gate('下載', () => void runExport())}>
             {exportProgress ?? '全部下載'}
           </button>
         </div>
       </div>
-      <p className="set-sec__desc" style={{ margin: 0 }}>
-        願望完成時系統會自動開立收據並產生 PDF，收據的捐贈日期是機構確認的實際收到日。
-        點「紅聯」（給捐贈人）「白黃聯」（協會留存）在新分頁預覽；「全部下載」把有效收據的紅聯與白黃聯打包成一個壓縮檔；
-        「收據檢查」列出有問題的收據。收據 PDF 含捐贈者證號，每次開啟或下載都會寫入稽核。
-      </p>
       <div className="closing-actions">
-        <ClosingPackageSection campaignId={campaign.id} />
-        <ClosingMailSection campaignId={campaign.id} />
+        <MailBlock campaignId={campaign.id} kind="receipts" stage="CD" title="紅聯收據寄給捐贈人"
+          hint="只寄給填了「要收據」且有信箱的捐贈人" />
       </div>
+      {checkGate.dialog}
       {notice && <div className={`callout callout--${notice.tone}`} role="status"><p>{notice.text}</p></div>}
-      {check.isError && <ErrorNotice error={check.error} onRetry={() => void check.refetch()} />}
-      {check.data && <ReceiptCheckResult check={check.data} onClose={() => setChecking(false)} />}
       {downloadError && <div className="callout callout--warn" role="alert"><p>{downloadError}</p></div>}
 
       <div className="org-filters" role="tablist" aria-label="依收據狀態篩選">
@@ -246,61 +237,35 @@ function ReceiptRow({ receipt, onOpen, onVoid }: {
   )
 }
 
-function ReceiptCheckResult({ check, onClose }: { check: ReceiptCheck; onClose: () => void }) {
-  const errors = check.issues.filter((item) => item.severity === 'ERROR')
-  const warnings = check.issues.filter((item) => item.severity === 'WARNING')
-  return (
-    <div className={`callout callout--${errors.length > 0 ? 'warn' : 'ok'}`} role="status" aria-label="收據檢查結果">
-      <p>
-        <strong>{errors.length > 0 ? `收據檢查：有 ${errors.length} 項需處理` : '收據檢查：沒有需處理的項目'}</strong>
-        {warnings.length > 0 && `，另有 ${warnings.length} 項提醒`}
-      </p>
-      <p>
-        已完成的願望 {check.completedWishes} 筆、有效收據 {check.validReceipts} 張（作廢 {check.voidedReceipts} 張），
-        時價合計 {check.totalValue.toLocaleString('zh-TW')} 元。
-        PDF：已產生 {check.pdfReady}、待產生 {check.pdfPending}、失敗 {check.pdfFailed}。
-        全部下載的壓縮檔裡，紅聯與白黃聯資料夾各 {check.pdfReady} 檔。
-      </p>
-      {check.issues.length > 0 && (
-        <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-          {check.issues.map((item, index) => (
-            <li key={index}>
-              <span className="st-chip" data-s={item.severity === 'ERROR' ? 'returned' : 'draft'} style={{ marginRight: 6 }}>
-                {item.severity === 'ERROR' ? '需處理' : '提醒'}
-              </span>
-              {item.receiptNo && <strong>{item.receiptNo}：</strong>}{item.message}
-            </li>
-          ))}
-        </ul>
-      )}
-      <p style={{ marginTop: 8 }}>
-        <button type="button" className="btn btn--sm btn--ghost" onClick={onClose}>收起</button>
-      </p>
-    </div>
-  )
-}
-
 /**
- * 結案寄信：紅聯收據寄給勾選要收據的捐贈人、05A＋05B 寄給受贈機構。
- * 先「預覽」（不寄信）看將寄幾封，再按「確認寄出」；已寄的不會重寄，失敗的可另按「重寄失敗」。
+ * 結案文件分頁：產生結案文件包（C／D／併報），以及把 05A＋05B 寄給受贈機構。
+ * 寄信先「預覽」（不寄信）看將寄幾封，再按「確認寄出」；已寄的不會重寄，失敗的可另按「重寄失敗」。
  */
-function ClosingMailSection({ campaignId }: { campaignId: string }) {
+export function ClosingDocsPanel({ campaign }: { campaign: CampaignView }) {
   const [stage, setStage] = useState<ClosingStage>('CD')
   return (
-    <>
-      <MailBlock campaignId={campaignId} kind="receipts" stage={stage} title="紅聯收據寄給捐贈人"
-        hint="只寄給填了「要收據」且有信箱的捐贈人，附紅聯 PDF；白聯與黃聯由協會留存，不寄。" />
-      <MailBlock campaignId={campaignId} kind="org-forms" stage={stage} title="機構確認表（05A＋05B）寄給受贈機構"
-        hint="每個受贈機構一封，附 05A、05B；康乃心自己的 05C 不寄。05B 內沒有任何個人資料。">
-        <label className="closing-card__field">
-          <span>依哪個結案階段計算</span>
-          <select className="input" aria-label="機構確認表階段" value={stage}
-            onChange={(event) => setStage(event.target.value as ClosingStage)}>
-            {STAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-          </select>
-        </label>
-      </MailBlock>
-    </>
+    <section className="panel set-sec" aria-label="結案文件">
+      <div className="panel__head" style={{ marginBottom: 0 }}>
+        <h2 className="panel__title">結案文件</h2>
+      </div>
+      <p className="set-sec__desc" style={{ margin: 0 }}>
+        依階段產生官方 Excel、核章 PDF、成果報告、05 表單、收據與待補資料；產生完成後可把 05A＋05B 寄給受贈機構。
+        收據的預覽、下載與寄給捐贈人的紅聯在「收據」分頁。
+      </p>
+      <div className="closing-actions">
+        <ClosingPackageSection campaignId={campaign.id} />
+        <MailBlock campaignId={campaign.id} kind="org-forms" stage={stage} title="機構確認表（05A＋05B）寄給受贈機構"
+          hint="每個受贈機構一封，附 05A、05B；康乃心自己的 05C 不寄。05B 內沒有任何個人資料。">
+          <label className="closing-card__field">
+            <span>依哪個結案階段計算</span>
+            <select className="input" aria-label="機構確認表階段" value={stage}
+              onChange={(event) => setStage(event.target.value as ClosingStage)}>
+              {STAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            </select>
+          </label>
+        </MailBlock>
+      </div>
+    </section>
   )
 }
 
@@ -310,6 +275,7 @@ function MailBlock({ campaignId, kind, stage, title, hint, children }: {
   const [progress, setProgress] = useState<MailProgress>()
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ tone: 'ok' | 'warn'; text: string }>()
+  const checkGate = useCheckGate(campaignId)
 
   async function run(action: () => Promise<MailProgress>, done: (p: MailProgress) => string) {
     setBusy(true)
@@ -349,7 +315,7 @@ function MailBlock({ campaignId, kind, stage, title, hint, children }: {
         </button>
         {progress && progress.pending > 0 && (
           <button type="button" className="btn btn--sm btn--primary" disabled={busy}
-            onClick={() => void run(() => sendMail(campaignId, kind, stage, false, setProgress), sendText)}>
+            onClick={() => checkGate.gate('寄出', () => void run(() => sendMail(campaignId, kind, stage, false, setProgress), sendText))}>
             {busy ? '寄送中…' : `確認寄出 ${progress.pending} 封`}
           </button>
         )}
@@ -372,9 +338,12 @@ function MailBlock({ campaignId, kind, stage, title, hint, children }: {
         <div key={t.id} className="closing-card__hint">{t.name}：{t.recipient ?? '—'}　{statusText(t)}</div>
       ))}
       {message && <div className={`callout callout--${message.tone}`} role="status"><p>{message.text}</p></div>}
+      {checkGate.dialog}
     </div>
   )
 }
+
+const STAGE_SHORT: Record<ClosingStage, string> = { C: 'C 成果備查', D: 'D 結案備查', CD: '成果結案併報' }
 
 const STAGES: { value: ClosingStage; label: string }[] = [
   { value: 'C', label: 'C 成果備查（勸募期滿）' },
@@ -388,6 +357,7 @@ const STAGES: { value: ClosingStage; label: string }[] = [
  */
 function ClosingPackageSection({ campaignId }: { campaignId: string }) {
   const [running, setRunning] = useState<ClosingStage>()
+  const checkGate = useCheckGate(campaignId)
   const [progress, setProgress] = useState<string>()
   const [result, setResult] = useState<{ tone: 'ok' | 'warn'; text: string }>()
 
@@ -419,12 +389,13 @@ function ClosingPackageSection({ campaignId }: { campaignId: string }) {
       <div className="closing-card__btns">
         {STAGES.map((item) => (
           <button key={item.value} type="button" className="btn btn--sm" disabled={running !== undefined}
-            onClick={() => void run(item.value)}>
+            onClick={() => checkGate.gate(`產生 ${STAGE_SHORT[item.value]}`, () => void run(item.value))}>
             {running === item.value ? progress : item.label}
           </button>
         ))}
       </div>
       {result && <div className={`callout callout--${result.tone}`} role="status" style={{ flexBasis: '100%' }}><p>{result.text}</p></div>}
+      {checkGate.dialog}
     </div>
   )
 }

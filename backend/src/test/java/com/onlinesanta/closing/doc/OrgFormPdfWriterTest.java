@@ -22,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import com.onlinesanta.closing.Campaign;
 import com.onlinesanta.closing.CampaignStatus;
 import com.onlinesanta.closing.ClosingProperties;
-import com.onlinesanta.closing.doc.ClosingDataset.FinanceSummary;
 import com.onlinesanta.closing.doc.ClosingDataset.GiftRow;
 import com.onlinesanta.closing.doc.ClosingDataset.OrgGroup;
 import com.onlinesanta.closing.doc.ClosingDataset.Totals;
@@ -53,8 +52,7 @@ class OrgFormPdfWriterTest {
                 c.getCollectionEnd(), c.getUseStart(), c.getUseEnd(), c.getWishListStart(), c.getWishListEnd(), "OS2026",
                 null, associationId, CampaignStatus.ACTIVE);
         return new ClosingDataset(c, ClosingStage.C, c.getCollectionStart(), c.getCollectionEnd(), List.of(), orgs, List.of(),
-                new Totals(0, 0, 0, orgs.size()), new FinanceSummary(null, null, null, null, null, List.of()),
-                List.of(), List.of());
+                new Totals(0, 0, 0, orgs.size()), List.of(), List.of());
     }
 
     private static int pages(byte[] pdf) throws IOException {

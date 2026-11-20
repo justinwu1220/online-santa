@@ -4,7 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CampaignView, FinanceData, PageResponse, PeriodList, PlatformPeriodStats, ReceiptView } from '../../lib/types'
+import type { CampaignView, PageResponse, PeriodList, PlatformPeriodStats, ReceiptView } from '../../lib/types'
 import { AdminAnnualReview } from './AdminAnnualReview'
 
 const campaign: CampaignView = {
@@ -22,14 +22,6 @@ const periodList: PeriodList = {
     { key: 'c1', campaignId: 'c1', name: '線上聖誕老人 2026', start: '2026-01-26', end: '2027-01-25', unassigned: false },
     { key: 'c0', campaignId: 'c0', name: '線上聖誕老人 2025', start: '2025-01-01', end: '2026-01-25', unassigned: false },
   ],
-}
-
-const finance: FinanceData = {
-  months: [
-    { year: 2026, month: 11, cashIncome: 0, interest: null, cashExpense: null },
-    { year: 2026, month: 12, cashIncome: null, interest: null, cashExpense: null },
-  ],
-  selfFundedAmount: null,
 }
 
 const stats: PlatformPeriodStats = {
@@ -53,6 +45,12 @@ const receipt = (overrides: Partial<ReceiptView>): ReceiptView => ({
 const page = (content: ReceiptView[]): PageResponse<ReceiptView> => ({
   content, page: 0, size: 20, totalElements: content.length, totalPages: 1, hasNext: false,
 })
+
+const cleanCheck = {
+  campaignId: 'c1', campaignName: '線上聖誕老人 2026', checkedAt: '2026-12-30T00:00:00Z',
+  completedWishes: 3, validReceipts: 3, voidedReceipts: 0, totalValue: 3600,
+  pdfReady: 3, pdfPending: 0, pdfFailed: 0, issues: [],
+}
 
 const get = vi.fn()
 const post = vi.fn()
@@ -83,7 +81,7 @@ beforeEach(() => {
   get.mockImplementation(async (path: string) => {
     if (path === '/api/admin/stats/periods') return periodList
     if (path.startsWith('/api/admin/stats/period?')) return stats
-    if (path.endsWith('/finance')) return finance
+    if (path.endsWith('/receipt-check')) return cleanCheck
     if (path.startsWith('/api/admin/campaigns')) return [campaign, { ...campaign, id: 'c0', name: '線上聖誕老人 2025', receiptPrefix: 'OS2025' }]
     if (path.startsWith('/api/admin/receipts?')) {
       return page([
@@ -156,6 +154,7 @@ describe('年度營運頁', () => {
     get.mockImplementation(async (path: string) => {
       if (path === '/api/admin/stats/periods') return periodList
       if (path.startsWith('/api/admin/stats/period?')) return stats
+      if (path.endsWith('/receipt-check')) return cleanCheck
       if (path.startsWith('/api/admin/campaigns')) return [campaign]
       if (path.includes('/closing-exports/e1/download-url')) return { url: 'https://storage.test/all.zip', expiresAt: '2026-12-30T01:00:00Z' }
       return page([receipt({})])
@@ -164,6 +163,7 @@ describe('年度營運頁', () => {
     await screen.findByText('OS2026-000001')
 
     await userEvent.click(screen.getByRole('button', { name: '全部下載' }))
+    await userEvent.click(await screen.findByRole('button', { name: '繼續下載' }))
 
     expect(await screen.findByText(/已下載壓縮檔（2 張收據）；另有 1 張因 PDF 無法產生/)).toBeTruthy()
     expect(post).toHaveBeenCalledWith('/api/admin/campaigns/c1/receipt-exports', undefined)
@@ -187,8 +187,10 @@ describe('年度營運頁', () => {
     renderPage()
     await screen.findByText('OS2026-000001')
 
+    await userEvent.click(screen.getByRole('tab', { name: '結案文件' }))
     expect(screen.getByRole('heading', { name: '產生結案文件' })).toBeTruthy()
     await userEvent.click(screen.getByRole('button', { name: 'D 結案備查（使用完竣）' }))
+    await userEvent.click(await screen.findByRole('button', { name: '繼續產生 D 結案備查' }))
 
     expect(await screen.findByText(/已下載結案文件包。請先看壓縮檔裡 05_留存備份\/待補資料.md/)).toBeTruthy()
     expect(post).toHaveBeenCalledWith('/api/admin/campaigns/c1/closing-packages?stage=D', undefined)
@@ -204,6 +206,7 @@ describe('年度營運頁', () => {
       if (path === '/api/admin/stats/periods') return periodList
       if (path.startsWith('/api/admin/stats/period?')) return stats
       if (path.includes('/closing-mail/receipts')) return progress({})
+      if (path.endsWith('/receipt-check')) return cleanCheck
       if (path.startsWith('/api/admin/campaigns')) return [campaign]
       return page([receipt({})])
     })
@@ -221,10 +224,39 @@ describe('年度營運頁', () => {
     expect(post.mock.calls.filter(([p]) => String(p).includes('/closing-mail/'))).toHaveLength(0)
 
     await userEvent.click(screen.getByRole('button', { name: '確認寄出 3 封' }))
+    await userEvent.click(await screen.findByRole('button', { name: '繼續寄出' }))
 
     expect(await screen.findByText(/今天的寄信額度用完了，已寄 2 封，還有 1 封明天再按/)).toBeTruthy()
     expect(post).toHaveBeenCalledWith('/api/admin/campaigns/c1/closing-mail/receipts/send', undefined)
     expect(sends).toBe(2)
+  })
+
+  it('結案文件分頁：有產生結案文件與機構確認表寄送；收據分頁只留紅聯寄送', async () => {
+    get.mockImplementation(async (path: string) => {
+      if (path === '/api/admin/stats/periods') return periodList
+      if (path.startsWith('/api/admin/stats/period?')) return stats
+      if (path.includes('/closing-mail/org-forms')) {
+        return { total: 1, sent: 0, failed: 0, pending: 1, notReady: 0, noEmail: 0, dailyLimit: 0, stopped: null,
+          targets: [{ id: 'o1', name: '快樂兒童之家', recipient: 'a@example.org', status: 'PENDING', error: null }] }
+      }
+      if (path.startsWith('/api/admin/campaigns')) return [campaign]
+      return page([receipt({})])
+    })
+    renderPage()
+    await screen.findByText('OS2026-000001')
+
+    // 收據分頁：只有紅聯收據寄送，沒有結案文件包與機構確認表
+    expect(screen.getByText('紅聯收據寄給捐贈人')).toBeTruthy()
+    expect(screen.queryByText('機構確認表（05A＋05B）寄給受贈機構')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'D 結案備查（使用完竣）' })).toBeNull()
+
+    await userEvent.click(screen.getByRole('tab', { name: '結案文件' }))
+
+    expect(screen.getByRole('heading', { name: '產生結案文件' })).toBeTruthy()
+    expect(screen.getByText('機構確認表（05A＋05B）寄給受贈機構')).toBeTruthy()
+    expect(screen.queryByText('紅聯收據寄給捐贈人')).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: '寄送前預覽' }))
+    expect(await screen.findByText(/快樂兒童之家：a@example.org/)).toBeTruthy()
   })
 
   it('全部下載失敗：顯示原因', async () => {
@@ -233,6 +265,7 @@ describe('年度營運頁', () => {
     await screen.findByText('OS2026-000001')
 
     await userEvent.click(screen.getByRole('button', { name: '全部下載' }))
+    await userEvent.click(await screen.findByRole('button', { name: '繼續下載' }))
 
     expect(await screen.findByText(/還沒有有效的收據/)).toBeTruthy()
   })
@@ -284,29 +317,98 @@ describe('年度營運頁', () => {
     expect(screen.queryByRole('tab', { name: '待補許可文號' })).toBeNull()
   })
 
-  it('收據檢查：按下才執行，列出需處理與提醒的項目', async () => {
-    const result = {
-      campaignId: 'c1', campaignName: '線上聖誕老人 2026', checkedAt: '2026-12-30T00:00:00Z',
-      completedWishes: 3, validReceipts: 2, voidedReceipts: 1, totalValue: 3600,
-      pdfReady: 1, pdfPending: 0, pdfFailed: 0,
-      issues: [
-        { severity: 'ERROR', code: 'MISSING_RECEIPT', message: '已完成的願望「積木」沒有有效收據：開立失敗，請聯絡系統管理員檢查' },
-        { severity: 'WARNING', code: 'NO_EVIDENCE', receiptNo: 'OS2026-000002', message: '沒有上傳發票佐證（時價 1200 元）' },
-      ],
-    }
+  const failing = {
+    ...cleanCheck, validReceipts: 2, voidedReceipts: 1, pdfReady: 1, pdfFailed: 1,
+    issues: [
+      { severity: 'ERROR', code: 'MISSING_RECEIPT', message: '已完成的願望「積木」沒有有效收據：開立失敗，請聯絡系統管理員檢查' },
+      { severity: 'WARNING', code: 'NO_EVIDENCE', receiptNo: 'OS2026-000002', message: '沒有上傳發票佐證（時價 1200 元）' },
+    ],
+  }
+
+  function mockCheck(result: unknown) {
     const base = get.getMockImplementation()!
-    get.mockImplementation(async (path: string) =>
-      path.endsWith('/receipt-check') ? result : base(path))
+    get.mockImplementation(async (path: string) => {
+      if (path.endsWith('/receipt-check')) {
+        if (result instanceof Error) throw result
+        return result
+      }
+      return base(path)
+    })
+  }
+
+  it('檢視收據檢查：開彈窗列出需處理與提醒的項目，只有關閉鈕，不會觸發任何動作', async () => {
+    mockCheck(failing)
     renderPage()
     await screen.findByText('OS2026-000001')
     expect(get).not.toHaveBeenCalledWith('/api/admin/campaigns/c1/receipt-check')
 
-    await userEvent.click(screen.getByRole('button', { name: '收據檢查' }))
+    await userEvent.click(screen.getByRole('button', { name: '檢視收據檢查' }))
 
     expect(await screen.findByText('收據檢查：有 1 項需處理')).toBeTruthy()
     expect(screen.getByText(/時價合計 3,600 元/)).toBeTruthy()
     expect(screen.getByText(/已完成的願望「積木」沒有有效收據/)).toBeTruthy()
     expect(screen.getByText('OS2026-000002：')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /繼續|仍要/ })).toBeNull()
+    expect(post).not.toHaveBeenCalled()
+  })
+
+  it('動作前檢查：有需處理的錯誤時，繼續鈕改為「仍要繼續（N 項需處理）」；取消不會執行動作', async () => {
+    mockCheck(failing)
+    renderPage()
+    await screen.findByText('OS2026-000001')
+
+    await userEvent.click(screen.getByRole('button', { name: '全部下載' }))
+
+    expect(await screen.findByRole('button', { name: '仍要繼續下載（1 項需處理）' })).toBeTruthy()
+    expect(screen.getByText('收據檢查：有 1 項需處理')).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(post).not.toHaveBeenCalled()
+  })
+
+  it('動作前檢查：只有提醒時是一般的「繼續」；通過時也要在彈窗內確認才會執行', async () => {
+    mockCheck({ ...cleanCheck, issues: [{ severity: 'WARNING', code: 'NO_EVIDENCE', receiptNo: 'OS2026-000002', message: '沒有上傳發票佐證' }] })
+    renderPage()
+    await screen.findByText('OS2026-000001')
+
+    await userEvent.click(screen.getByRole('button', { name: '全部下載' }))
+
+    expect(await screen.findByRole('button', { name: '繼續下載' })).toBeTruthy()
+    expect(screen.getByText('收據檢查：沒有需處理的項目')).toBeTruthy()
+    expect(screen.getByText(/另有 1 項提醒/)).toBeTruthy()
+    expect(post).not.toHaveBeenCalled()
+  })
+
+  it('動作前檢查：檢查失敗時顯示原因與重試，仍可略過檢查繼續', async () => {
+    mockCheck(new Error('檢查服務暫時無法使用'))
+    renderPage()
+    await screen.findByText('OS2026-000001')
+
+    await userEvent.click(screen.getByRole('button', { name: '全部下載' }))
+
+    expect(await screen.findByText('檢查服務暫時無法使用')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '重試' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '略過檢查，仍要繼續下載' })).toBeTruthy()
+  })
+
+  it('預覽與重寄失敗不會跳出收據檢查', async () => {
+    get.mockImplementation(async (path: string) => {
+      if (path === '/api/admin/stats/periods') return periodList
+      if (path.startsWith('/api/admin/stats/period?')) return stats
+      if (path.includes('/closing-mail/receipts')) {
+        return { total: 2, sent: 0, failed: 1, pending: 0, notReady: 0, noEmail: 0, dailyLimit: 0, stopped: null, targets: [] }
+      }
+      if (path.startsWith('/api/admin/campaigns')) return [campaign]
+      return page([receipt({})])
+    })
+    post.mockResolvedValue({ total: 2, sent: 1, failed: 0, pending: 0, notReady: 0, noEmail: 0, dailyLimit: 0, stopped: null, targets: [] })
+    renderPage()
+    await screen.findByText('OS2026-000001')
+
+    await userEvent.click(screen.getAllByRole('button', { name: '寄送前預覽' })[0])
+    await userEvent.click(await screen.findByRole('button', { name: '重寄失敗（1 封）' }))
+
+    await waitFor(() => expect(post).toHaveBeenCalled())
+    expect(get.mock.calls.some(([path]) => String(path).endsWith('/receipt-check'))).toBe(false)
   })
 
   it('預設顯示涵蓋今天的檔期的營運統計，期間選單列出各檔期與「尚未建立檔期」', async () => {
@@ -357,28 +459,6 @@ describe('年度營運頁', () => {
 
     await userEvent.click(screen.getByRole('tab', { name: '收據' }))
     expect(await screen.findByText('OS2026-000001')).toBeTruthy()
-  })
-
-  it('財務資料：空白是待補、0 是已核實沒有；只送出有改的資料，儲存後清掉未儲存狀態', async () => {
-    put.mockResolvedValue({ ...finance, months: [
-      { year: 2026, month: 11, cashIncome: 0, interest: 5, cashExpense: null },
-      { year: 2026, month: 12, cashIncome: null, interest: null, cashExpense: null },
-    ] })
-    renderPage('/admin/annual?tab=campaign')
-    const interest = (await screen.findByLabelText('2026/11 利息')) as HTMLInputElement
-    expect((screen.getByLabelText('2026/11 現金實募') as HTMLInputElement).value).toBe('0')   // 0 顯示 0
-    expect(interest.value).toBe('')                                                          // null 顯示空白（待補）
-    expect(interest.placeholder).toBe('待補')
-    expect((screen.getByRole('button', { name: '儲存' }) as HTMLButtonElement).disabled).toBe(true)
-
-    await userEvent.type(interest, '5')
-    await userEvent.click(screen.getByRole('button', { name: '儲存' }))
-
-    await waitFor(() => expect(put).toHaveBeenCalled())
-    const [path, body] = put.mock.calls[0]
-    expect(path).toBe('/api/admin/campaigns/c1/finance')
-    expect(body.months[0]).toMatchObject({ cashIncome: 0, interest: 5, cashExpense: null })
-    expect(await screen.findByText('已儲存。')).toBeTruthy()
   })
 
   it('沒有任何檔期時只有「尚未建立檔期」，仍能新增檔期', async () => {

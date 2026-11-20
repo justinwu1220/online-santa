@@ -15,8 +15,6 @@ import org.junit.jupiter.api.Test;
 
 import com.onlinesanta.closing.Campaign;
 import com.onlinesanta.closing.CampaignStatus;
-import com.onlinesanta.closing.doc.ClosingDataset.FinanceMonth;
-import com.onlinesanta.closing.doc.ClosingDataset.FinanceSummary;
 import com.onlinesanta.closing.doc.ClosingDataset.GiftRow;
 import com.onlinesanta.closing.doc.ClosingDataset.MonthRow;
 import com.onlinesanta.closing.doc.ClosingDataset.OrgGroup;
@@ -48,26 +46,12 @@ class OperationPageFillerTest {
         return new OrgGroup(id, name, "12345678", null, null, null, null, null, false, rows, gifts * 2, gifts * 1200L);
     }
 
-    private static ClosingDataset dataset(ClosingStage stage, FinanceSummary finance) {
+    private static ClosingDataset dataset(ClosingStage stage) {
         List<OrgGroup> orgs = List.of(org("快樂之家", 2, 1), org("光明學校", 1, 3));
         Campaign c = campaign();
         return new ClosingDataset(c, stage, c.getCollectionStart(), stage.cutoff(c),
                 orgs.stream().flatMap(o -> o.gifts().stream()).toList(), orgs,
-                List.of(new MonthRow(2026, 12, 3, 3600)), new Totals(3, 6, 3600, 2), finance, List.of(), List.of());
-    }
-
-    private static FinanceSummary unknown() {
-        return new FinanceSummary(null, null, null, null, null, List.of());
-    }
-
-    private static FinanceSummary allZero(ClosingStage stage) {
-        List<FinanceMonth> months = new ArrayList<>();
-        int count = stage == ClosingStage.C ? 3 : 3;
-        for (int i = 0; i < count; i++) {
-            int m = (10 + i) % 12 + 1;
-            months.add(new FinanceMonth(m >= 11 ? 2026 : 2027, m, 0L, 0L, 0L, null));
-        }
-        return new FinanceSummary(0L, 0L, 0L, 0L, null, months);
+                List.of(new MonthRow(2026, 12, 3, 3600)), new Totals(3, 6, 3600, 2), List.of(), List.of());
     }
 
     private static Document parse(OperationPageFiller.Filled filled) {
@@ -75,9 +59,9 @@ class OperationPageFillerTest {
     }
 
     @Test
-    @DisplayName("C：財物使用情形每個機構一列（編號改成 .N.），金額填入；現金與利息沒填就維持待確認、複製停用")
-    void unknownFinanceStaysPending() {
-        OperationPageFiller.Filled filled = FILLER.fill(dataset(ClosingStage.C, unknown()));
+    @DisplayName("C：財物使用情形每個機構一列（編號改成 .N.），金額填入；現金、利息、自籌固定 0 且備妥；只有說明還待確認")
+    void cashFieldsAreZeroAndReady() {
+        OperationPageFiller.Filled filled = FILLER.fill(dataset(ClosingStage.C));
         Document doc = parse(filled);
 
         // 兩個機構 → 兩列，欄位編號、複製按鈕目標一起改
@@ -89,20 +73,22 @@ class OperationPageFillerTest {
         assertThat(doc.getElementById("c.items.0.detail").text()).contains("2件禮物").contains("OS2026-000001、OS2026-000002");
         assertThat(doc.getElementById("c.items_total.funded").attr("value")).isEqualTo("3600");
 
-        // 沒核實的：待確認、不備妥（頁面的複製按鈕依 data-ready 與內容停用）
-        for (String id : List.of("c.income", "c.interest", "c.totals.income", "c.totals.expense", "c.totals.balance", "c.totals.self")) {
-            assertThat(doc.getElementById(id).attr("value")).as(id).isEqualTo("【待確認】");
-            assertThat(doc.getElementById(id).attr("data-ready")).as(id).isEqualTo("false");
+        // 本活動沒有現金：所得與支出是物資時價，利息、自籌、賸餘是 0，全部備妥（複製按鈕啟用）
+        for (var e : java.util.Map.of("c.income", "3600", "c.interest", "0", "c.totals.income", "3600", "c.totals.interest", "0",
+                "c.totals.expense", "3600", "c.totals.balance", "0", "c.totals.self", "0").entrySet()) {
+            assertThat(doc.getElementById(e.getKey()).attr("value")).as(e.getKey()).isEqualTo(e.getValue());
+            assertThat(doc.getElementById(e.getKey()).attr("data-ready")).as(e.getKey()).isEqualTo("true");
         }
+        // 說明含個人領受、議決等尚待確認的事實，不備妥
         assertThat(doc.getElementById("c.description").attr("data-ready")).isEqualTo("false");
-        assertThat(doc.getElementById("c.description").text()).contains("實收禮物6份、物資時價3,600元");
-        assertThat(filled.pendingFields()).isPositive();
+        assertThat(doc.getElementById("c.description").text()).contains("實收禮物6份、物資時價3,600元").contains("現金捐款0元");
+        assertThat(filled.pendingFields()).isEqualTo(1);                       // 只剩 c.description
     }
 
     @Test
-    @DisplayName("每月列：勸募期間每個月一列；有實物捐贈的月份填入備註，沒填的現金與利息待確認")
+    @DisplayName("每月列：勸募期間每個月一列；所得與支出是該月物資時價，利息 0，備註說明捐贈件數")
     void monthlyRows() {
-        Document doc = parse(FILLER.fill(dataset(ClosingStage.C, unknown())));
+        Document doc = parse(FILLER.fill(dataset(ClosingStage.C)));
 
         // 2026/11、2026/12、2027/1 三個月
         assertThat(doc.select("input[data-field^=c.monthly.][data-field$=.month]")).hasSize(3);
@@ -110,13 +96,17 @@ class OperationPageFillerTest {
         assertThat(doc.getElementById("c.monthly.0.month").attr("value")).isEqualTo("11");
         assertThat(doc.getElementById("c.monthly.1.note").text()).isEqualTo("實物捐贈3件（時價3,600元）");
         assertThat(doc.getElementById("c.monthly.0.note").text()).isEqualTo("本月無實物捐贈");
-        assertThat(doc.getElementById("c.monthly.1.income").attr("data-ready")).isEqualTo("false");
+        assertThat(doc.getElementById("c.monthly.1.income").attr("value")).isEqualTo("3600");
+        assertThat(doc.getElementById("c.monthly.0.income").attr("value")).isEqualTo("0");
+        assertThat(doc.getElementById("c.monthly.0.interest").attr("value")).isEqualTo("0");
+        assertThat(doc.getElementById("c.monthly.1.expense").attr("value")).isEqualTo("3600");
+        assertThat(doc.select("[data-field^=c.monthly.][data-ready=false]")).isEmpty();
     }
 
     @Test
-    @DisplayName("財務資料都核實為 0：所得、支出、賸餘備妥；賸餘＝所得＋利息－支出")
-    void knownFinanceIsReady() {
-        Document doc = parse(FILLER.fill(dataset(ClosingStage.C, allZero(ClosingStage.C))));
+    @DisplayName("所得、支出、賸餘備妥；賸餘＝所得＋利息－支出＝0")
+    void totalsAreReady() {
+        Document doc = parse(FILLER.fill(dataset(ClosingStage.C)));
 
         assertThat(doc.getElementById("c.totals.income").attr("value")).isEqualTo("3600");
         assertThat(doc.getElementById("c.totals.expense").attr("value")).isEqualTo("3600");
@@ -131,7 +121,7 @@ class OperationPageFillerTest {
     @Test
     @DisplayName("協會要填的欄位與審核欄位原樣不動；工程端已備妥的目的、活動編號保留")
     void associationFieldsAreUntouched() {
-        Document doc = parse(FILLER.fill(dataset(ClosingStage.C, unknown())));
+        Document doc = parse(FILLER.fill(dataset(ClosingStage.C)));
 
         assertThat(doc.getElementById("c.public_url").attr("value")).isEmpty();
         assertThat(doc.getElementById("c.public_url").attr("data-editable")).isEqualTo("true");
@@ -143,13 +133,13 @@ class OperationPageFillerTest {
     @Test
     @DisplayName("D 與併報用各自的欄位前綴（d.／cd.）；併報頁的審閱欄位維持素材原樣（d.review.*）")
     void stagePrefixes() {
-        Document d = parse(FILLER.fill(dataset(ClosingStage.D, allZero(ClosingStage.D))));
+        Document d = parse(FILLER.fill(dataset(ClosingStage.D)));
         assertThat(d.getElementById("d.totals.income")).isNotNull();
         assertThat(d.getElementById("d.items.1.name").text()).isEqualTo("轉贈物資：光明學校");
         assertThat(d.getElementById("d.purpose_rows.0.funded").attr("value")).isEqualTo("3600");
         assertThat(d.getElementById("d.board_term").attr("data-editable")).isEqualTo("true");
 
-        Document cd = parse(FILLER.fill(dataset(ClosingStage.CD, allZero(ClosingStage.CD))));
+        Document cd = parse(FILLER.fill(dataset(ClosingStage.CD)));
         assertThat(cd.getElementById("cd.totals.income").attr("value")).isEqualTo("3600");
         assertThat(cd.getElementById("cd.items.1.name")).isNotNull();
         assertThat(cd.getElementById("d.review.letter").attr("value")).isEqualTo("由主管機關填列");
@@ -159,7 +149,7 @@ class OperationPageFillerTest {
     @DisplayName("許可文號、起迄日期、期間、實募金額等頁面文字依檔期填入；預募金額系統不知道，維持待確認")
     void staticPageTextIsFilled() {
         for (ClosingStage stage : ClosingStage.values()) {
-            String html = new String(FILLER.fill(dataset(stage, allZero(stage))).html(), StandardCharsets.UTF_8);
+            String html = new String(FILLER.fill(dataset(stage)).html(), StandardCharsets.UTF_8);
             Document doc = Jsoup.parse(html);
             String text = doc.body().text();
 
@@ -179,7 +169,7 @@ class OperationPageFillerTest {
     @DisplayName("所得與利息欄位前的截止日標示依階段填入（C＝勸募結束日，D／併報＝財物使用結束日）")
     void cutoffLabelsAreFilled() {
         for (ClosingStage stage : ClosingStage.values()) {
-            Document doc = parse(FILLER.fill(dataset(stage, allZero(stage))));
+            Document doc = parse(FILLER.fill(dataset(stage)));
             LocalDate cutoff = stage.cutoff(campaign());
 
             assertThat(doc.select("span.cutoff")).as(stage.name()).isNotEmpty()
@@ -190,7 +180,7 @@ class OperationPageFillerTest {
     @Test
     @DisplayName("匯入筆數與合計、清冊預覽表與上傳的 Excel 一致；沒有資料就不動")
     void importNotesAndPreviewTables() {
-        Document c = parse(FILLER.fill(dataset(ClosingStage.C, allZero(ClosingStage.C))));
+        Document c = parse(FILLER.fill(dataset(ClosingStage.C)));
 
         assertThat(c.select("p.field-note").text()).contains("匯入後應為：3筆；合計：3,600元。")
                 .doesNotContain("匯入後應為：【待確認】");
@@ -198,7 +188,7 @@ class OperationPageFillerTest {
         assertThat(rows).hasSize(3);
         assertThat(rows.get(0).select("td").eachText()).startsWith("OS2026-000001", "115/12/25", "王小明", "積木（單位：份）", "2", "1,200");
 
-        Document d = parse(FILLER.fill(dataset(ClosingStage.D, allZero(ClosingStage.D))));
+        Document d = parse(FILLER.fill(dataset(ClosingStage.D)));
         assertThat(d.select("p.field-note").text()).contains("匯入後應為：3筆；支用合計：3,600元。");
         var expense = d.select("th:matchesOwn(^支出類別$)").first().parents().select("table").first().select("tbody tr");
         assertThat(expense.get(0).select("td").eachText()).startsWith("財物支出", "積木", "115/12/25", "OS2026-000001");
@@ -209,13 +199,32 @@ class OperationPageFillerTest {
     @DisplayName("頁籤：本包沒有的階段不能點（避免連到空白頁），本階段本身留在原頁")
     void tabsToMissingStagesAreDisabled() {
         for (ClosingStage stage : ClosingStage.values()) {
-            Document doc = parse(FILLER.fill(dataset(stage, unknown())));
+            Document doc = parse(FILLER.fill(dataset(stage)));
             for (var a : doc.select("nav.tabs a")) {
                 assertThat(a.attr("href")).as(stage.name()).isEqualTo("#main");
             }
             if (stage != ClosingStage.CD) {
                 String other = stage == ClosingStage.C ? "D.結案備查" : "C.成果備查";
                 assertThat(doc.select("nav.tabs span.inactive").eachText()).contains(other);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("現金捐款的處理方式寫明純物資活動、現金 0 元；D 與併報的財物所得用途第 1 列與合計也有值")
+    void cashDonorNoteAndPurposeRows() {
+        for (ClosingStage stage : ClosingStage.values()) {
+            Document doc = parse(FILLER.fill(dataset(stage)));
+            if (stage != ClosingStage.D) {
+                assertThat(doc.select("p.field-note").text()).as(stage.name())
+                        .contains("本案為純物資活動，現金捐款0元，無捐款人資料").doesNotContain("待核實後在這裡直接寫出");
+            }
+            if (stage.includesExpenses()) {
+                String p = OperationPageFiller.prefix(stage);
+                for (String id : List.of(p + ".purpose_rows.0.self", p + ".purpose_total.self")) {
+                    assertThat(doc.getElementById(id).attr("value")).as(id).isEqualTo("0");
+                }
+                assertThat(doc.getElementById(p + ".purpose_total.total").attr("value")).isEqualTo("3600");
             }
         }
     }

@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Test;
 import com.onlinesanta.closing.Campaign;
 import com.onlinesanta.closing.CampaignStatus;
 import com.onlinesanta.closing.ClosingProperties;
-import com.onlinesanta.closing.doc.ClosingDataset.FinanceSummary;
 import com.onlinesanta.closing.doc.ClosingDataset.GiftRow;
 import com.onlinesanta.closing.doc.ClosingDataset.OrgGroup;
 import com.onlinesanta.closing.doc.ClosingDataset.Totals;
@@ -33,7 +32,7 @@ class FacebookPackageBuilderTest {
     private static final GlyphOutlines GLYPHS = new GlyphOutlines();
     private static final ClosingProperties PROPS = new ClosingProperties(30, "本活動服務對象之個人聖誕禮物", "社團法人彰化縣康乃心關懷協會");
 
-    private static ClosingDataset dataset(ClosingStage stage, int gifts, FinanceSummary finance) {
+    private static ClosingDataset dataset(ClosingStage stage, int gifts) {
         Campaign c = new Campaign("線上聖誕老人 2026", LocalDate.of(2026, 11, 25), LocalDate.of(2027, 1, 25),
                 LocalDate.of(2026, 11, 25), LocalDate.of(2027, 1, 25), LocalDate.of(2026, 11, 25),
                 LocalDate.of(2027, 1, 20), "OS2026", 1);
@@ -50,11 +49,7 @@ class FacebookPackageBuilderTest {
         OrgGroup group = new OrgGroup(org, "快樂兒童之家", "12345678", "秘密地址", "李主任", "王承辦", "0912345678",
                 "secret@example.org", false, rows, gifts, gifts * 1200L);
         return new ClosingDataset(c, stage, c.getCollectionStart(), stage.cutoff(c), rows, List.of(group), List.of(),
-                new Totals(gifts, gifts, gifts * 1200L, 1), finance, List.of(), List.of());
-    }
-
-    private static FinanceSummary unknown() {
-        return new FinanceSummary(null, null, null, null, null, List.of());
+                new Totals(gifts, gifts, gifts * 1200L, 1), List.of(), List.of());
     }
 
     private static String text(List<PackageFile> files, String suffix) {
@@ -67,8 +62,8 @@ class FacebookPackageBuilderTest {
     void imagesAreWideJpegs() throws Exception {
         FacebookPackageBuilder builder = new FacebookPackageBuilder(GLYPHS, PROPS);
 
-        var c = builder.build(dataset(ClosingStage.C, 60, unknown()));
-        var d = builder.build(dataset(ClosingStage.D, 60, unknown()));
+        var c = builder.build(dataset(ClosingStage.C, 60));
+        var d = builder.build(dataset(ClosingStage.D, 60));
 
         List<PackageFile> imagesC = c.files().stream().filter(f -> f.path().endsWith(".jpg")).toList();
         List<PackageFile> imagesD = d.files().stream().filter(f -> f.path().endsWith(".jpg")).toList();
@@ -88,7 +83,7 @@ class FacebookPackageBuilderTest {
     @Test
     @DisplayName("公開包不含證號、地址、電話、信箱、收據編號、孩子暱稱與願望標題（文字與檔名）")
     void noPrivateData() {
-        var built = new FacebookPackageBuilder(GLYPHS, PROPS).build(dataset(ClosingStage.CD, 12, unknown()));
+        var built = new FacebookPackageBuilder(GLYPHS, PROPS).build(dataset(ClosingStage.CD, 12));
 
         for (PackageFile f : built.files()) {
             assertThat(f.path()).doesNotContain("王小明").doesNotContain("OS2026-0");
@@ -102,29 +97,35 @@ class FacebookPackageBuilderTest {
     }
 
     @Test
-    @DisplayName("貼文文字：數字填入；現金、利息沒核實就待確認，發文說明頁的複製停用")
+    @DisplayName("貼文文字：數字填入，現金與利息固定 0；沒有現金待確認，也沒有「待核實」")
     void postTextAndGuide() {
-        var unknown = new FacebookPackageBuilder(GLYPHS, PROPS).build(dataset(ClosingStage.C, 6, unknown()));
+        var built = new FacebookPackageBuilder(GLYPHS, PROPS).build(dataset(ClosingStage.C, 6));
 
-        String post = text(unknown.files(), "01_貼文文字.txt");
-        assertThat(post).contains("實收禮物6份、物資時價7,200元").contains("現金捐款【待確認】元").contains("利息收入【待確認】元");
-        String guide = text(unknown.files(), "00_發文說明.html");
+        String post = text(built.files(), "01_貼文文字.txt");
+        assertThat(post).contains("實收禮物6份、物資時價7,200元").contains("現金捐款0元").contains("利息收入0元")
+                .doesNotContain("【待確認】").doesNotContain("待核實");
+        String guide = text(built.files(), "00_發文說明.html");
         assertThat(guide).contains("本次圖片：");
         org.jsoup.nodes.Document doc = org.jsoup.Jsoup.parse(guide);
-        assertThat(doc.getElementById("fb.post_text").attr("data-ready")).isEqualTo("false");
-        assertThat(unknown.todo()).anyMatch(t -> t.missing().contains("尚未核實"));
+        assertThat(doc.getElementById("fb.post_text").attr("data-ready")).isEqualTo("true");
+        assertThat(built.todo()).noneMatch(t -> t.missing().contains("尚未核實"));
+    }
 
-        var known = new FacebookPackageBuilder(GLYPHS, PROPS).build(dataset(ClosingStage.C, 6,
-                new FinanceSummary(0L, 0L, 0L, 0L, null, List.of())));
-        assertThat(text(known.files(), "01_貼文文字.txt")).doesNotContain("【待確認】");
-        assertThat(org.jsoup.Jsoup.parse(text(known.files(), "00_發文說明.html")).getElementById("fb.post_text")
-                .attr("data-ready")).isEqualTo("true");
+    @Test
+    @DisplayName("議決情形仍待確認：D 的貼文含待確認，發文說明頁複製停用並列入待補")
+    void boardResolutionStillPending() {
+        var built = new FacebookPackageBuilder(GLYPHS, PROPS).build(dataset(ClosingStage.D, 6));
+
+        assertThat(text(built.files(), "01_貼文文字.txt")).contains("【待確認】");
+        assertThat(org.jsoup.Jsoup.parse(text(built.files(), "00_發文說明.html")).getElementById("fb.post_text")
+                .attr("data-ready")).isEqualTo("false");
+        assertThat(built.todo()).anyMatch(t -> t.missing().contains("議決情形"));
     }
 
     @Test
     @DisplayName("圖片太多一則放不下：分成「第01則」「第02則」各含貼文文字與圖片，圖片編號連續")
     void splitsIntoSeveralPosts() {
-        var built = new FacebookPackageBuilder(GLYPHS, PROPS, 2).build(dataset(ClosingStage.C, 60, unknown()));
+        var built = new FacebookPackageBuilder(GLYPHS, PROPS, 2).build(dataset(ClosingStage.C, 60));
 
         List<String> paths = built.files().stream().map(PackageFile::path).toList();
         assertThat(paths).anyMatch(p -> p.contains("/第01則/01_貼文文字.txt"));

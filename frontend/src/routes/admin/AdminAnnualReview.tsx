@@ -9,26 +9,26 @@ import { api, withQuery } from '../../lib/api'
 import { pageTitle } from '../../lib/brand'
 import type { CampaignView, PlatformMonthlyStats, PlatformPeriodStats } from '../../lib/types'
 import { CampaignDialog } from './CampaignDialog'
-import { CampaignPanel, ReceiptsPanel } from './ClosingPanels'
-import { FinancePanel } from './FinancePanel'
+import { CampaignPanel, ClosingDocsPanel, ReceiptsPanel } from './ClosingPanels'
 import { useCampaigns } from './closingQueries'
 
 const fetchDaily = (year: number, month: number) =>
   api.get<PlatformMonthlyStats>(withQuery('/api/admin/stats/monthly', { year, month }))
 
-type TabKey = 'stats' | 'campaign' | 'receipts'
+type TabKey = 'stats' | 'campaign' | 'receipts' | 'closing'
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'stats', label: '營運統計' },
   { key: 'campaign', label: '檔期設定' },
   { key: 'receipts', label: '收據' },
+  { key: 'closing', label: '結案文件' },
 ]
 
 /**
  * 年度營運：一年一次的活動檔期是統計與結案文件的共同單位。
  *
  * 上方選檔期（統計期間與收據歸屬同一定義：本檔期勸募開始日到下個檔期勸募開始日之前，最後一個檔期往後到今天；
- * 完全沒有檔期時才是「尚未建立檔期」），下方三個分頁：營運統計、檔期設定、收據。後兩者只在選了真正的檔期時出現。
+ * 完全沒有檔期時才是「尚未建立檔期」），下方四個分頁：營運統計、檔期設定、收據、結案文件。後三者只在選了真正的檔期時出現。
  * 機構完成排行僅在這裡出現——機構彼此看不到對方的數字。分頁記在網址的 `?tab=`，舊的結案文件網址
  * 轉到 `?tab=receipts`。
  */
@@ -52,7 +52,7 @@ export function AdminAnnualReview() {
   const stats = usePeriodStats<PlatformPeriodStats>('admin', key)
 
   const requested = params.get('tab')
-  const tab: TabKey = campaign && (requested === 'campaign' || requested === 'receipts') ? requested : 'stats'
+  const tab: TabKey = campaign && (requested === 'campaign' || requested === 'receipts' || requested === 'closing') ? requested : 'stats'
   const visibleTabs = campaign ? TABS : TABS.slice(0, 1)
 
   function selectTab(next: TabKey) {
@@ -133,10 +133,10 @@ export function AdminAnnualReview() {
       {tab === 'campaign' && campaign && (
         <>
           <CampaignPanel campaign={campaign} onEdit={() => setEditing(campaign)} />
-          <FinancePanel key={campaign.id} campaignId={campaign.id} />
         </>
       )}
       {tab === 'receipts' && campaign && <ReceiptsPanel campaign={campaign} />}
+      {tab === 'closing' && campaign && <ClosingDocsPanel campaign={campaign} />}
 
       <CampaignDialog campaign={editing} onClose={() => setEditing(null)} />
     </section>

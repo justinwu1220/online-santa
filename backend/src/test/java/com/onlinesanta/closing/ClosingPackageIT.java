@@ -140,25 +140,29 @@ class ClosingPackageIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("財務資料填了的欄位不再列為待補；沒填的仍然列出，且不當作 0")
-    void filledFinanceIsNotPending() throws Exception {
+    @DisplayName("本活動沒有現金：不需要輸入財務資料，三個階段的現金、利息、自籌都是 0，待補資料沒有現金類項目")
+    void cashIsAlwaysZero() throws Exception {
         completedClaim("第一個");
-        var months = new java.util.ArrayList<com.onlinesanta.closing.dto.FinanceView.Month>();
-        for (java.time.YearMonth m = java.time.YearMonth.from(campaign.getCollectionStart());
-             !m.isAfter(java.time.YearMonth.from(campaign.getCollectionEnd())); m = m.plusMonths(1)) {
-            months.add(new com.onlinesanta.closing.dto.FinanceView.Month(m.getYear(), m.getMonthValue(), 0L, null, null, null));
+
+        for (ClosingStage stage : ClosingStage.values()) {
+            Map<String, byte[]> zip = buildPackage(stage);
+
+            String todo = new String(zip.get("05_留存備份/待補資料.md"), StandardCharsets.UTF_8);
+            assertThat(todo).as(stage.name()).doesNotContain("現金").doesNotContain("利息").doesNotContain("自籌")
+                    .doesNotContain("募得款實支");
+            String cash = new String(unzipEntry(zip.get("05_留存備份/結案登記簿.xlsx"), "xl/worksheets/sheet3.xml"), StandardCharsets.UTF_8);
+            assertThat(cash).as(stage.name()).doesNotContain("待補").contains("本活動沒有現金捐款");
+
+            String page = new String(zip.entrySet().stream().filter(e -> e.getKey().endsWith("00_照表操作.html"))
+                    .findFirst().orElseThrow().getValue(), StandardCharsets.UTF_8);
+            org.jsoup.nodes.Document doc = org.jsoup.Jsoup.parse(page);
+            String p = stage == ClosingStage.CD ? "cd" : stage.name().toLowerCase();
+            for (String id : java.util.List.of(p + ".interest", p + ".totals.interest", p + ".totals.balance", p + ".totals.self")) {
+                assertThat(doc.getElementById(id).attr("value")).as(id).isEqualTo("0");
+                assertThat(doc.getElementById(id).attr("data-ready")).as(id).isEqualTo("true");
+            }
+            assertThat(doc.getElementById(p + ".income").attr("data-ready")).isEqualTo("true");
         }
-        mvc.perform(as(withBody(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                        .put("/api/admin/campaigns/{id}/finance", campaign.getId()),
-                        new com.onlinesanta.closing.dto.FinanceView(months, 0L, "沒有自籌")), ADMIN)).andExpect(status().isOk());
-
-        Map<String, byte[]> zip = buildPackage(ClosingStage.C);
-
-        String todo = new String(zip.get("05_留存備份/待補資料.md"), StandardCharsets.UTF_8);
-        assertThat(todo).doesNotContain("現金實募（每月").doesNotContain("本會自籌支應金額");   // 已核實為 0
-        assertThat(todo).contains("利息收入（每月");                                           // 還沒填
-        String cash = new String(unzipEntry(zip.get("05_留存備份/結案登記簿.xlsx"), "xl/worksheets/sheet3.xml"), StandardCharsets.UTF_8);
-        assertThat(cash).contains("待補").contains("沒有自籌");
     }
 
     private static int pages(byte[] pdf) throws Exception {
@@ -201,7 +205,7 @@ class ClosingPackageIT extends ApiIntegrationTest {
         assertThat(pages(zip.get("03_收據/白黃聯（協會留存）/OSK-000001.pdf"))).isEqualTo(2);
 
         String todo = new String(zip.get("05_留存備份/待補資料.md"), StandardCharsets.UTF_8);
-        assertThat(todo).contains("現金捐款").contains("| 缺什麼 |");
+        assertThat(todo).contains("| 缺什麼 |");
         // 證號、身分資料不會出現在任何文字檔與 Excel 裡
         for (Map.Entry<String, byte[]> e : zip.entrySet()) {
             if (!e.getKey().endsWith(".pdf")) {

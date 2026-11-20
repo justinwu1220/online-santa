@@ -18,7 +18,6 @@ import org.springframework.stereotype.Component;
 
 import com.onlinesanta.closing.Campaign;
 import com.onlinesanta.closing.ClosingProperties;
-import com.onlinesanta.closing.doc.ClosingDataset.FinanceMonth;
 import com.onlinesanta.closing.doc.ClosingDataset.GiftRow;
 import com.onlinesanta.closing.doc.ClosingDataset.MonthRow;
 import com.onlinesanta.closing.doc.ClosingDataset.OrgGroup;
@@ -80,35 +79,31 @@ public class OperationPageFiller {
         List<OrgGroup> orgs = d.organizations();
         repeat(doc, "expense_items", orgs.size(), (i, row) -> {
             OrgGroup g = orgs.get(i);
-            Long self = d.finance().selfFundedAmount() != null && d.finance().selfFundedAmount() == 0 ? Long.valueOf(0) : null;
             setIn(row, p + ".items." + i + ".name", "轉贈物資：" + g.name() + (g.association() ? "（本會自身服務對象）" : ""), true);
             setIn(row, p + ".items." + i + ".detail", itemDetail(g), true);
             setIn(row, p + ".items." + i + ".funded", String.valueOf(g.value()), true);
-            setIn(row, p + ".items." + i + ".self", n(self));
-            setIn(row, p + ".items." + i + ".total", self == null ? null : String.valueOf(g.value() + self), self != null);
+            setIn(row, p + ".items." + i + ".self", "0");
+            setIn(row, p + ".items." + i + ".total", String.valueOf(g.value()), true);
         });
         set(doc, p + ".items_total.funded", String.valueOf(d.totals().value()), !orgs.isEmpty());
-        Long selfTotal = d.finance().selfFundedAmount() != null && d.finance().selfFundedAmount() == 0 ? Long.valueOf(0) : null;
-        set(doc, p + ".items_total.self", n(selfTotal));
-        set(doc, p + ".items_total.total", selfTotal == null ? null : String.valueOf(d.totals().value() + selfTotal), selfTotal != null);
+        set(doc, p + ".items_total.self", "0");
+        set(doc, p + ".items_total.total", String.valueOf(d.totals().value()), !orgs.isEmpty());
 
         // 合計
         set(doc, p + ".totals.income", n.income);
         set(doc, p + ".totals.interest", n.interest);
         set(doc, p + ".totals.expense", n.expense);
         set(doc, p + ".totals.balance", n.balance);
-        set(doc, p + ".totals.self", n(d.finance().selfFundedAmount()));
+        set(doc, p + ".totals.self", "0");
 
         // D 與併報：財物所得用途（社會福利事業一列；其他類別是否填 0 或「不適用」待承辦確認，維持待確認）
         if (d.stage().includesExpenses()) {
             set(doc, p + ".purpose_rows.0.funded", n.expense);
-            set(doc, p + ".purpose_rows.0.self", n(d.finance().selfFundedAmount()));
-            set(doc, p + ".purpose_rows.0.total", n.expense != null && d.finance().selfFundedAmount() != null
-                    ? String.valueOf(Long.parseLong(n.expense) + d.finance().selfFundedAmount()) : null);
+            set(doc, p + ".purpose_rows.0.self", "0");
+            set(doc, p + ".purpose_rows.0.total", n.expense);
             set(doc, p + ".purpose_total.funded", n.expense);
-            set(doc, p + ".purpose_total.self", n(d.finance().selfFundedAmount()));
-            set(doc, p + ".purpose_total.total", n.expense != null && d.finance().selfFundedAmount() != null
-                    ? String.valueOf(Long.parseLong(n.expense) + d.finance().selfFundedAmount()) : null);
+            set(doc, p + ".purpose_total.self", "0");
+            set(doc, p + ".purpose_total.total", n.expense);
         }
 
         fillStatic(doc, d, n);
@@ -159,6 +154,13 @@ public class OperationPageFiller {
             String text = note.text();
             if (text.contains("匯入後應為：") && text.contains(PENDING)) {
                 note.text(text.replace(PENDING + "筆", count + "筆").replaceFirst("(合計：)" + java.util.regex.Pattern.quote(PENDING) + "元", "$1" + total + "元"));
+            }
+        }
+
+        // 本活動沒有現金捐款：捐款人資料不適用
+        for (Element note : doc.select("p.field-note")) {
+            if (note.text().startsWith("現金捐款及0元資料的本案處理方式：")) {
+                note.text("現金捐款及0元資料的本案處理方式：本案為純物資活動，現金捐款0元，無捐款人資料，不另上傳捐款人資料。");
             }
         }
 
@@ -242,13 +244,10 @@ public class OperationPageFiller {
     private record MonthLine(int year, int month, Long income, Long interest, Long expense, String note) {
     }
 
+    /** 本活動沒有現金捐款、利息與自籌：所得與支出都是物資時價，利息、賸餘為 0。 */
     private Numbers numbers(ClosingDataset d) {
-        long goods = d.totals().value();
-        var f = d.finance();
-        Long income = f.cashIncome() == null ? null : goods + f.cashIncome();
-        Long expense = f.cashExpense() == null ? null : goods + f.cashExpense();
-        Long balance = income != null && f.interest() != null && expense != null ? income + f.interest() - expense : null;
-        return new Numbers(n(income), n(f.interest()), n(expense), n(balance));
+        String goods = String.valueOf(d.totals().value());
+        return new Numbers(goods, "0", goods, "0");
     }
 
     private static List<MonthLine> monthLines(ClosingDataset d) {
@@ -258,15 +257,9 @@ public class OperationPageFiller {
             final YearMonth key = m;
             MonthRow goods = d.months().stream().filter(r -> r.year() == key.getYear() && r.month() == key.getMonthValue())
                     .findFirst().orElse(null);
-            FinanceMonth fin = d.finance().months().stream().filter(r -> r.year() == key.getYear() && r.month() == key.getMonthValue())
-                    .findFirst().orElse(null);
             long goodsValue = goods == null ? 0 : goods.value();
-            Long cash = fin == null ? null : fin.cashIncome();
-            Long cashExpense = fin == null ? null : fin.cashExpense();
-            String note = fin != null && fin.note() != null ? fin.note()
-                    : goods == null ? "本月無實物捐贈" : "實物捐贈%d件（時價%,d元）".formatted(goods.giftCount(), goods.value());
-            lines.add(new MonthLine(m.getYear(), m.getMonthValue(), cash == null ? null : goodsValue + cash,
-                    fin == null ? null : fin.interest(), cashExpense == null ? null : goodsValue + cashExpense, note));
+            String note = goods == null ? "本月無實物捐贈" : "實物捐贈%d件（時價%,d元）".formatted(goods.giftCount(), goods.value());
+            lines.add(new MonthLine(m.getYear(), m.getMonthValue(), goodsValue, 0L, goodsValue, note));
         }
         return lines;
     }

@@ -7,7 +7,6 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import com.onlinesanta.closing.Campaign;
-import com.onlinesanta.closing.doc.ClosingDataset.FinanceMonth;
 import com.onlinesanta.closing.doc.ClosingDataset.GiftRow;
 import com.onlinesanta.closing.doc.ClosingDataset.ReceiptLogRow;
 import com.onlinesanta.closing.doc.SimpleXlsxWriter.Sheet;
@@ -54,14 +53,13 @@ public class RegistryWorkbook {
                 List.of(22f, 10f, 14f, 16f, 12f, 30f, 22f), rows);
     }
 
-    /** 現金與自籌：空白＝待補，0＝已核實沒有。 */
+    /** 現金與自籌：本活動沒有現金捐款、利息與自籌，每個月固定 0。 */
     private Sheet cash(ClosingDataset d) {
         List<List<Object>> rows = new ArrayList<>();
-        for (FinanceMonth m : d.finance().months()) {
-            rows.add(row("%d/%02d".formatted(m.year() - 1911, m.month()), orPending(m.cashIncome()), orPending(m.interest()),
-                    orPending(m.cashExpense()), m.note()));
+        for (java.time.YearMonth m = java.time.YearMonth.from(d.from()); !m.isAfter(java.time.YearMonth.from(d.cutoff())); m = m.plusMonths(1)) {
+            rows.add(row("%d/%02d".formatted(m.getYear() - 1911, m.getMonthValue()), 0, 0, 0, "本活動沒有現金捐款"));
         }
-        rows.add(row("自籌（整個檔期）", orPending(d.finance().selfFundedAmount()), null, null, d.finance().selfFundedNote()));
+        rows.add(row("自籌（整個檔期）", 0, null, null, "本活動沒有自籌支應"));
         return new Sheet("現金與自籌", List.of("年月（民國）", "現金實募（元）／自籌金額", "利息（元）", "募得款實支（元）", "備註"),
                 List.of(18f, 22f, 14f, 18f, 40f), rows);
     }
@@ -74,8 +72,8 @@ public class RegistryWorkbook {
         rows.add(row("轉贈（物資時價合計）", gifts, "物資由捐贈者直送機構，受贈＝轉贈"));
         rows.add(row("剩餘", 0, "沒有留在協會的物資；若有退回或調整，須追溯，不強填"));
         rows.add(row("受贈 − 轉贈 − 剩餘", 0, "必須為 0"));
-        rows.add(row("現金實募", orPending(d.finance().cashIncome()), "未填寫的月份不當作 0"));
-        rows.add(row("利息", orPending(d.finance().interest()), "另列，不併入所得"));
+        rows.add(row("現金實募", 0, "本活動沒有現金捐款"));
+        rows.add(row("利息", 0, "另列，不併入所得"));
         rows.add(row("本階段範圍外的有效收據", d.outOfRange().size(), String.join("、", d.outOfRange())));
         return new Sheet("勾稽", List.of("項目", "數值", "說明"), List.of(30f, 18f, 60f), rows);
     }

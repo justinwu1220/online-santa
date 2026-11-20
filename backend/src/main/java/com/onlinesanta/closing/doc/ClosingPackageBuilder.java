@@ -64,8 +64,6 @@ public class ClosingPackageBuilder {
             PdfTableWriter.Result pdf = tables.render(donationSpec(data));
             files.add(new PackageFile(dir + "02_捐物人資料.pdf", pdf.pdf()));
             charsTodo(todo, pdf, "02_捐物人資料.pdf");
-            todo.add(new TodoItem("經核實的現金捐款（有或無）與捐款人資料", "協會財務",
-                    "01_捐款人資料.pdf、成果報告的所得", "只有純物資：現金欄維持「待補」，經核實為 0 才填 0"));
         }
         if (stage.includesExpenses()) {
             ReportPdfWriter.Result reportPdf = report.write(data);
@@ -143,23 +141,8 @@ public class ClosingPackageBuilder {
         return s == null ? "" : s.replace("|", "／").replace("\n", " ");
     }
 
-    /** 系統沒有的資料：現金、利息、募得款實支、自籌，以及個人實際領受、議決、公開徵信。 */
+    /** 系統沒有的資料：個人實際領受、議決、公開徵信（本活動沒有現金，現金、利息、自籌固定為 0，不列待補）。 */
     private static void financeTodo(List<TodoItem> todo, ClosingDataset d) {
-        var f = d.finance();
-        if (f.interest() == null) {
-            todo.add(new TodoItem("利息收入（每月；沒有也要核實後填 0）", "協會財務", "成果報告、照表操作頁的利息欄",
-                    "文件上寫待補，不當作 0"));
-        }
-        if (f.cashIncome() == null) {
-            todo.add(new TodoItem("現金實募（每月；純物資也要核實後填 0）", "協會財務", "成果報告所得、照表操作頁",
-                    "文件上寫待補，不當作 0"));
-        }
-        if (d.stage().includesExpenses() && f.cashExpense() == null) {
-            todo.add(new TodoItem("募得款實支（現金）", "協會財務", "成果報告、支出明細", "文件上寫待補"));
-        }
-        if (f.selfFundedAmount() == null) {
-            todo.add(new TodoItem("本會自籌支應金額與說明（沒有也要核實後填 0）", "協會財務", "成果報告、照表操作頁", "文件上寫待補"));
-        }
         todo.add(new TodoItem("個人實際領受（去重人數與份數）、未發放與差異", "各機構（05A 回傳）、協會（05C）",
                 "成果報告統計、照表操作頁說明", "機構領受數已有；個人領受寫待補"));
         todo.add(new TodoItem("理事會議決情形（日期、第幾屆第幾次、結果）與公開徵信辦理情形", "協會",

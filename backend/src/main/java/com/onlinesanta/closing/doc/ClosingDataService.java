@@ -41,12 +41,9 @@ public class ClosingDataService {
     private final DonationReceiptRepository receipts;
     private final ClaimRepository claims;
     private final OrganizationRepository organizations;
-    private final com.onlinesanta.closing.CampaignFinanceService financeService;
 
     public ClosingDataService(CampaignService campaigns, DonationReceiptRepository receipts, ClaimRepository claims,
-                              OrganizationRepository organizations,
-                              com.onlinesanta.closing.CampaignFinanceService financeService) {
-        this.financeService = financeService;
+                              OrganizationRepository organizations) {
         this.campaigns = campaigns;
         this.receipts = receipts;
         this.claims = claims;
@@ -84,7 +81,7 @@ public class ClosingDataService {
         }).toList();
 
         return new ClosingDataset(campaign, stage, from, cutoff, gifts, groups(campaign, gifts), months(gifts),
-                totals(gifts), finance(campaignId, from, cutoff), receiptLog(campaignId), outOfRange);
+                totals(gifts), receiptLog(campaignId), outOfRange);
     }
 
     private List<ClosingDataset.ReceiptLogRow> receiptLog(UUID campaignId) {
@@ -93,33 +90,6 @@ public class ClosingDataService {
         return all.stream().map(r -> new ClosingDataset.ReceiptLogRow(r.getReceiptNo(),
                 r.getStatus() == ReceiptStatus.ISSUED ? "有效" : "已作廢", r.getIssuedOn(), r.getDonatedOn(), r.getGiftValue(),
                 r.getVoidReason(), r.getReplacedById() == null ? null : numberById.get(r.getReplacedById()))).toList();
-    }
-
-    /** 範圍內每個月都有填的欄位才加總；有一個月沒填就是待補（null）。 */
-    private ClosingDataset.FinanceSummary finance(UUID campaignId, LocalDate from, LocalDate cutoff) {
-        var view = financeService.get(campaignId);
-        YearMonth first = YearMonth.from(from);
-        YearMonth last = YearMonth.from(cutoff);
-        List<ClosingDataset.FinanceMonth> months = view.months().stream()
-                .filter(m -> !YearMonth.of(m.year(), m.month()).isBefore(first) && !YearMonth.of(m.year(), m.month()).isAfter(last))
-                .map(m -> new ClosingDataset.FinanceMonth(m.year(), m.month(), m.cashIncome(), m.interest(), m.cashExpense(), m.note()))
-                .toList();
-        return new ClosingDataset.FinanceSummary(
-                sumAll(months, ClosingDataset.FinanceMonth::cashIncome), sumAll(months, ClosingDataset.FinanceMonth::interest),
-                sumAll(months, ClosingDataset.FinanceMonth::cashExpense), view.selfFundedAmount(), view.selfFundedNote(), months);
-    }
-
-    private static Long sumAll(List<ClosingDataset.FinanceMonth> months,
-                               java.util.function.Function<ClosingDataset.FinanceMonth, Long> field) {
-        long total = 0;
-        for (ClosingDataset.FinanceMonth m : months) {
-            Long v = field.apply(m);
-            if (v == null) {
-                return null;
-            }
-            total += v;
-        }
-        return months.isEmpty() ? null : total;
     }
 
     private List<OrgGroup> groups(Campaign campaign, List<GiftRow> gifts) {

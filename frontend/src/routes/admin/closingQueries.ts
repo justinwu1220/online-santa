@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, withQuery } from '../../lib/api'
 import type {
-  CampaignRequest, CampaignView, ClosingStage, ExportView, FinanceData, MailProgress, PageResponse, PdfKind, PdfStatus,
+  CampaignRequest, CampaignView, ClosingStage, ExportView, MailProgress, PageResponse, PdfKind, PdfStatus,
   ReceiptCheck, ReceiptDownload, ReceiptStatus, ReceiptView,
 } from '../../lib/types'
 
@@ -31,30 +31,14 @@ export function useReceipts(campaignId: string | undefined, filter: ReceiptFilte
   })
 }
 
-export function useFinance(campaignId: string) {
-  return useQuery({
-    queryKey: ['closing-finance', campaignId],
-    queryFn: () => api.get<FinanceData>(`/api/admin/campaigns/${campaignId}/finance`),
-  })
-}
-
-export function useSaveFinance(campaignId: string) {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (data: FinanceData) => api.put<FinanceData>(`/api/admin/campaigns/${campaignId}/finance`, data),
-    onSuccess: (saved) => {
-      queryClient.setQueryData(['closing-finance', campaignId], saved)
-      void queryClient.invalidateQueries({ queryKey: ['audit-logs'] })
-    },
-  })
-}
-
 /** 收據檢查：按「執行檢查」才查（要掃整個檔期），不自動重抓，避免看到半新半舊的結果。 */
 export function useReceiptCheck(campaignId: string, enabled: boolean) {
   return useQuery({
     queryKey: ['closing-receipt-check', campaignId],
     enabled,
-    staleTime: Infinity,
+    // 每次開啟彈窗都重新檢查（結果會隨作廢重開、PDF 產生而變），視窗切換回來不用自動重查
+    staleTime: 0,
+    refetchOnWindowFocus: false,
     gcTime: 0,
     queryFn: () => api.get<ReceiptCheck>(`/api/admin/campaigns/${campaignId}/receipt-check`),
   })

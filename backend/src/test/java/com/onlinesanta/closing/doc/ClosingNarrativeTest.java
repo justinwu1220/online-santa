@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 
 import com.onlinesanta.closing.Campaign;
 import com.onlinesanta.closing.CampaignStatus;
-import com.onlinesanta.closing.doc.ClosingDataset.FinanceSummary;
 import com.onlinesanta.closing.doc.ClosingDataset.GiftRow;
 import com.onlinesanta.closing.doc.ClosingDataset.OrgGroup;
 import com.onlinesanta.closing.doc.ClosingDataset.Totals;
@@ -33,11 +32,11 @@ class ClosingNarrativeTest {
                 org, orgName, "小星", "積木");
     }
 
-    private static ClosingDataset dataset(ClosingStage stage, Campaign c, FinanceSummary finance, List<OrgGroup> orgs) {
+    private static ClosingDataset dataset(ClosingStage stage, Campaign c, List<OrgGroup> orgs) {
         int qty = orgs.stream().mapToInt(OrgGroup::quantity).sum();
         long value = orgs.stream().mapToLong(OrgGroup::value).sum();
         return new ClosingDataset(c, stage, c.getCollectionStart(), stage.cutoff(c), List.of(), orgs, List.of(),
-                new Totals(orgs.size(), qty, value, orgs.size()), finance, List.of(), List.of());
+                new Totals(orgs.size(), qty, value, orgs.size()), List.of(), List.of());
     }
 
     private static OrgGroup org(UUID id, String name, boolean association, int qty, long value) {
@@ -46,36 +45,38 @@ class ClosingNarrativeTest {
     }
 
     @Test
-    @DisplayName("C：數字填入；現金、利息、自籌沒填就是待確認（不是 0）；個人領受、差異、公開徵信待確認")
-    void unknownFinanceIsPendingNotZero() {
+    @DisplayName("C：數字填入；現金、利息、自籌固定寫 0（本活動沒有現金）；個人領受、差異、公開徵信待確認")
+    void cashIsAlwaysZero() {
         UUID org = UUID.randomUUID();
-        ClosingDataset d = dataset(ClosingStage.C, campaign("衛部救字第1150000號", null),
-                new FinanceSummary(null, null, null, null, null, List.of()), List.of(org(org, "快樂之家", false, 12, 14400)));
+        ClosingDataset d = dataset(ClosingStage.C, campaign("衛部救字第1150000號", null), List.of(org(org, "快樂之家", false, 12, 14400)));
 
         List<String> text = ClosingNarrative.explain(d);
 
         String all = String.join("\n", text);
         assertThat(all).contains("實收禮物12份、物資時價14,400元");
-        assertThat(all).contains("現金捐款【待確認】元").contains("利息收入【待確認】元").contains("本會自籌支應【待確認】元");
+        assertThat(all).contains("現金捐款0元").contains("利息收入0元").contains("本會自籌支應0元");
         assertThat(all).contains("已轉贈外部機構1間、12份").contains("募得財物支用14,400元").contains("賸餘財物0元");
         assertThat(all).contains("個人實際領受合計【待確認】人");
+        assertThat(all).doesNotContain("現金捐款【待確認】");
         assertThat(ClosingNarrative.hasPending(text)).isTrue();
     }
 
     @Test
-    @DisplayName("核實為 0 的欄位寫 0；沒有指定協會自身服務對象時，本會直接發放份數待確認")
-    void verifiedZeroIsWrittenAsZero() {
+    @DisplayName("D、併報也寫 0；沒有指定協會自身服務對象時，本會直接發放份數待確認")
+    void zeroInAllStages() {
         UUID org = UUID.randomUUID();
-        FinanceSummary finance = new FinanceSummary(0L, 0L, 0L, 0L, null, List.of());
 
-        ClosingDataset noAssociation = dataset(ClosingStage.CD, campaign("衛部救字第1150000號", null), finance,
+        ClosingDataset noAssociation = dataset(ClosingStage.CD, campaign("衛部救字第1150000號", null),
                 List.of(org(org, "快樂之家", false, 5, 5000)));
         String text = String.join("\n", ClosingNarrative.explain(noAssociation));
         assertThat(text).contains("現金捐款0元").contains("總利息收入0元").contains("本會自籌支應0元");
         assertThat(text).contains("本會直接發放【待確認】份");
+        assertThat(String.join("\n", ClosingNarrative.explain(
+                dataset(ClosingStage.D, campaign("衛部救字第1150000號", null), List.of(org(org, "快樂之家", false, 5, 5000))))))
+                .contains("現金捐款0元").contains("總利息收入0元");
 
         UUID assoc = UUID.randomUUID();
-        ClosingDataset withAssociation = dataset(ClosingStage.CD, campaign("衛部救字第1150000號", assoc), finance,
+        ClosingDataset withAssociation = dataset(ClosingStage.CD, campaign("衛部救字第1150000號", assoc),
                 List.of(org(org, "快樂之家", false, 5, 5000), org(assoc, "康乃心服務對象", true, 3, 3000)));
         String text2 = String.join("\n", ClosingNarrative.explain(withAssociation));
         assertThat(text2).contains("已轉贈外部機構1間、5份").contains("本會直接發放3份");
@@ -84,8 +85,7 @@ class ClosingNarrativeTest {
     @Test
     @DisplayName("沒有許可文號時，期間寫待確認（申請的期間不能當成核准的期間）")
     void periodsAreNotApprovedWithoutAPermit() {
-        ClosingDataset d = dataset(ClosingStage.D, campaign(null, null),
-                new FinanceSummary(null, null, null, null, null, List.of()), List.of());
+        ClosingDataset d = dataset(ClosingStage.D, campaign(null, null), List.of());
 
         String text = String.join("\n", ClosingNarrative.explain(d));
 
