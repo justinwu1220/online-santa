@@ -71,6 +71,8 @@ public class DevStorageController {
     public ResponseEntity<Resource> download(@PathVariable String bucket,
                                              @RequestParam(required = false) Long expires,
                                              @RequestParam(required = false) String signature,
+                                             @RequestParam(required = false) String filename,
+                                             @RequestParam(required = false, defaultValue = "false") boolean inline,
                                              jakarta.servlet.http.HttpServletRequest request)
             throws IOException {
         StorageBucket target = parseBucket(bucket);
@@ -92,9 +94,13 @@ public class DevStorageController {
                 .map(StoredObject::contentType)
                 .orElse(MediaType.APPLICATION_OCTET_STREAM_VALUE);
 
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
-                .body(new FileSystemResource(file));
+        var response = ResponseEntity.ok().contentType(MediaType.parseMediaType(contentType));
+        if (filename != null && !filename.isBlank()) {
+            response = response.header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                    org.springframework.http.ContentDisposition.builder(inline ? "inline" : "attachment")
+                            .filename(filename, java.nio.charset.StandardCharsets.UTF_8).build().toString());
+        }
+        return response.body(new FileSystemResource(file));
     }
 
     private StorageBucket parseBucket(String bucket) {

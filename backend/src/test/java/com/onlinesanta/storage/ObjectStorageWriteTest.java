@@ -60,6 +60,20 @@ class ObjectStorageWriteTest {
     }
 
     @Test
+    @DisplayName("本機下載網址帶指定檔名與開啟方式（和 GCS 一致，瀏覽器才不會用 UUID 路徑猜出奇怪的檔名）")
+    void localDownloadUrlCarriesFileName(@TempDir Path dir) {
+        LocalObjectStorage storage = new LocalObjectStorage(propertiesIn(dir));
+
+        String url = storage.createDownloadUrl(StorageBucket.PRIVATE, "closing/exports/x.zip", Duration.ofMinutes(5),
+                "closing-OS2026-CD-2026-11-20.zip", false);
+
+        assertThat(url).contains("/dev-storage/private/closing/exports/x.zip?expires=")
+                .contains("&filename=closing-OS2026-CD-2026-11-20.zip").endsWith("&inline=false");
+        assertThat(storage.createDownloadUrl(StorageBucket.PRIVATE, "closing/exports/x.zip", Duration.ofMinutes(5)))
+                .doesNotContain("filename=");
+    }
+
+    @Test
     @DisplayName("本機儲存擋掉路徑穿越")
     void localStorageRejectsTraversal(@TempDir Path dir) {
         LocalObjectStorage storage = new LocalObjectStorage(propertiesIn(dir));

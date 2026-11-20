@@ -81,6 +81,22 @@ public class LocalObjectStorage implements ObjectStorage {
         return signedUrl("GET", bucket, objectName, "", Instant.now().plus(ttl));
     }
 
+    /**
+     * 本機版也帶指定檔名與開啟方式，行為跟 GCS 一致：沒有檔名時瀏覽器只能從網址猜（路徑是 UUID，
+     * 猜不出副檔名，可能存成沒有副檔名的檔案或 .txt）。檔名與開啟方式不進簽章（只影響回應標頭，
+     * 不影響能讀到什麼），所以用額外的查詢參數附在後面。
+     */
+    @Override
+    public String createDownloadUrl(StorageBucket bucket, String objectName, Duration ttl,
+                                    String downloadFileName, boolean inline) {
+        String url = createDownloadUrl(bucket, objectName, ttl);
+        if (downloadFileName == null || downloadFileName.isBlank()) {
+            return url;
+        }
+        return url + "&filename=" + java.net.URLEncoder.encode(downloadFileName, StandardCharsets.UTF_8)
+                + "&inline=" + inline;
+    }
+
     @Override
     public String publicUrl(String objectName) {
         return "http://localhost:8080/dev-storage/public/" + encodePath(objectName);
