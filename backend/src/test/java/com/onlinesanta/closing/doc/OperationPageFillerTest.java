@@ -25,7 +25,8 @@ import com.onlinesanta.closing.doc.ClosingDataset.Totals;
 @DisplayName("照表操作 HTML 預填")
 class OperationPageFillerTest {
 
-    private static final OperationPageFiller FILLER = new OperationPageFiller();
+    private static final OperationPageFiller FILLER = new OperationPageFiller(
+            new com.onlinesanta.closing.ClosingProperties(30, "本活動服務對象之個人聖誕禮物", "社團法人彰化縣康乃心關懷協會"));
 
     private static Campaign campaign() {
         Campaign c = new Campaign("線上聖誕老人 2026", LocalDate.of(2026, 11, 25), LocalDate.of(2027, 1, 25),
@@ -50,7 +51,8 @@ class OperationPageFillerTest {
     private static ClosingDataset dataset(ClosingStage stage, FinanceSummary finance) {
         List<OrgGroup> orgs = List.of(org("快樂之家", 2, 1), org("光明學校", 1, 3));
         Campaign c = campaign();
-        return new ClosingDataset(c, stage, c.getCollectionStart(), stage.cutoff(c), List.of(), orgs,
+        return new ClosingDataset(c, stage, c.getCollectionStart(), stage.cutoff(c),
+                orgs.stream().flatMap(o -> o.gifts().stream()).toList(), orgs,
                 List.of(new MonthRow(2026, 12, 3, 3600)), new Totals(3, 6, 3600, 2), finance, List.of(), List.of());
     }
 
@@ -151,6 +153,71 @@ class OperationPageFillerTest {
         assertThat(cd.getElementById("cd.totals.income").attr("value")).isEqualTo("3600");
         assertThat(cd.getElementById("cd.items.1.name")).isNotNull();
         assertThat(cd.getElementById("d.review.letter").attr("value")).isEqualTo("由主管機關填列");
+    }
+
+    @Test
+    @DisplayName("許可文號、起迄日期、期間、實募金額等頁面文字依檔期填入；預募金額系統不知道，維持待確認")
+    void staticPageTextIsFilled() {
+        for (ClosingStage stage : ClosingStage.values()) {
+            String html = new String(FILLER.fill(dataset(stage, allZero(stage))).html(), StandardCharsets.UTF_8);
+            Document doc = Jsoup.parse(html);
+            String text = doc.body().text();
+
+            assertThat(text).as(stage.name()).contains("勸募許可文號衛部救字第1150000號")
+                    .contains("勸募活動起迄日期115/11/25 至 116/01/25")
+                    .contains("預定經費使用期限116/01/25")
+                    .contains("勸募活動期間：115/11/25 至 116/01/25")
+                    .contains("財物使用期間：115/11/25 至 116/01/25")
+                    .contains("預募金額【待確認】");
+            // 許可文號列（「期間」下面那一列）
+            assertThat(doc.select("div.label:matchesOwn(^許可文號$)").first().parent().select(".static").text())
+                    .isEqualTo("衛部救字第1150000號");
+        }
+    }
+
+    @Test
+    @DisplayName("所得與利息欄位前的截止日標示依階段填入（C＝勸募結束日，D／併報＝財物使用結束日）")
+    void cutoffLabelsAreFilled() {
+        for (ClosingStage stage : ClosingStage.values()) {
+            Document doc = parse(FILLER.fill(dataset(stage, allZero(stage))));
+            LocalDate cutoff = stage.cutoff(campaign());
+
+            assertThat(doc.select("span.cutoff")).as(stage.name()).isNotEmpty()
+                    .allSatisfy(e -> assertThat(e.text()).isEqualTo("截至" + RocDate.slash(cutoff)));
+        }
+    }
+
+    @Test
+    @DisplayName("匯入筆數與合計、清冊預覽表與上傳的 Excel 一致；沒有資料就不動")
+    void importNotesAndPreviewTables() {
+        Document c = parse(FILLER.fill(dataset(ClosingStage.C, allZero(ClosingStage.C))));
+
+        assertThat(c.select("p.field-note").text()).contains("匯入後應為：3筆；合計：3,600元。")
+                .doesNotContain("匯入後應為：【待確認】");
+        var rows = c.select("th:matchesOwn(^捐贈物資名稱$)").first().parents().select("table").first().select("tbody tr");
+        assertThat(rows).hasSize(3);
+        assertThat(rows.get(0).select("td").eachText()).startsWith("OS2026-000001", "115/12/25", "王小明", "積木（單位：份）", "2", "1,200");
+
+        Document d = parse(FILLER.fill(dataset(ClosingStage.D, allZero(ClosingStage.D))));
+        assertThat(d.select("p.field-note").text()).contains("匯入後應為：3筆；支用合計：3,600元。");
+        var expense = d.select("th:matchesOwn(^支出類別$)").first().parents().select("table").first().select("tbody tr");
+        assertThat(expense.get(0).select("td").eachText()).startsWith("財物支出", "積木", "115/12/25", "OS2026-000001");
+        assertThat(expense.get(0).select("td").get(4).text()).isEqualTo("積木 2份，轉贈快樂之家");
+    }
+
+    @Test
+    @DisplayName("頁籤：本包沒有的階段不能點（避免連到空白頁），本階段本身留在原頁")
+    void tabsToMissingStagesAreDisabled() {
+        for (ClosingStage stage : ClosingStage.values()) {
+            Document doc = parse(FILLER.fill(dataset(stage, unknown())));
+            for (var a : doc.select("nav.tabs a")) {
+                assertThat(a.attr("href")).as(stage.name()).isEqualTo("#main");
+            }
+            if (stage != ClosingStage.CD) {
+                String other = stage == ClosingStage.C ? "D.結案備查" : "C.成果備查";
+                assertThat(doc.select("nav.tabs span.inactive").eachText()).contains(other);
+            }
+        }
     }
 
     @Test
