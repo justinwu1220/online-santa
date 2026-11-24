@@ -50,13 +50,13 @@ describe('EnvironmentBanner（非正式環境的醒目提示）', () => {
 describe('pageTitle（分頁標題的環境前綴）', () => {
   it('正式站：維持原本的標題', () => {
     vi.stubEnv('VITE_ENV_LABEL', '')
-    expect(pageTitle()).toBe('線上聖誕老人')
+    expect(pageTitle()).toBe('線上聖誕老人 × 社團法人彰化縣康乃心關懷協會 2026')
     expect(pageTitle('登入')).toBe('登入 — 線上聖誕老人')
   })
 
   it('測試站：每一頁的標題最前面都加上 [測試站]', () => {
     vi.stubEnv('VITE_ENV_LABEL', '測試站')
-    expect(pageTitle()).toBe('[測試站] 線上聖誕老人')
+    expect(pageTitle()).toBe('[測試站] 線上聖誕老人 × 社團法人彰化縣康乃心關懷協會 2026')
     expect(pageTitle('登入')).toBe('[測試站] 登入 — 線上聖誕老人')
   })
 })

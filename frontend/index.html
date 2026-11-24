@@ -2,7 +2,6 @@
 <html lang="zh-Hant">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark" />
     <style>html{background:#020617}</style>
@@ -20,18 +19,32 @@
 
       沒有 og:image：專案裡沒有接近 1200×630 的素材。因此 twitter:card 用 summary，
       不是 summary_large_image（後者沒有圖會顯示成空白卡片）。
+
+      標題、描述與網站圖示是《Google 搜尋上線與排名改善指南》（2026-11-13）的定稿，
+      改文案要跟活動團隊確認。搜尋結果小圖旁的網站名稱來自最後那段 WebSite 結構化資料。
     -->
-    <title>線上聖誕老人</title>
-    <meta name="description" content="線上聖誕老人媒合社福機構的孩子與想幫忙的你。瀏覽孩子的聖誕願望，認領一份，親手把禮物寄到他手上。" />
+    <title>線上聖誕老人 × 社團法人彰化縣康乃心關懷協會 2026</title>
+    <meta name="description" content="一份聖誕禮物，從一個願望開始。認識 2026 線上聖誕老人活動，了解如何認領身心障礙兒童、少年及成人的聖誕願望，親自準備禮物並寄到合作機構。" />
     <link rel="canonical" href="https://onlinesanta.org/" />
+    <link rel="icon" type="image/png" sizes="128x128" href="/favicon.png" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="線上聖誕老人" />
     <meta property="og:locale" content="zh_TW" />
     <meta property="og:url" content="https://onlinesanta.org/" />
-    <meta property="og:title" content="線上聖誕老人" />
-    <meta property="og:description" content="媒合社福機構的孩子與想幫忙的你。瀏覽孩子的聖誕願望，認領一份，親手把禮物寄到他手上。" />
+    <meta property="og:title" content="線上聖誕老人 × 社團法人彰化縣康乃心關懷協會 2026" />
+    <meta property="og:description" content="一份聖誕禮物，從一個願望開始。認識 2026 線上聖誕老人活動，了解如何認領身心障礙兒童、少年及成人的聖誕願望，親自準備禮物並寄到合作機構。" />
     <meta name="twitter:card" content="summary" />
+
+    <!-- 搜尋結果小圖旁顯示的網站名稱 -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "線上聖誕老人",
+        "url": "https://onlinesanta.org/"
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
