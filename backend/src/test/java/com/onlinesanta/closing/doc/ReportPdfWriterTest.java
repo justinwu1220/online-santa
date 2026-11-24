@@ -31,9 +31,9 @@ import com.onlinesanta.closing.pdf.GlyphOutlines;
 class ReportPdfWriterTest {
 
     private static final ReportPdfWriter WRITER = new ReportPdfWriter(new GlyphOutlines(),
-            new ClosingProperties(30, "本活動服務對象之個人聖誕禮物", "社團法人彰化縣康乃心關懷協會"));
+            new ClosingProperties(30, "本活動服務對象之個人聖誕禮物", "社團法人彰化縣康乃心關懷協會", 500_000));
 
-    private static ClosingDataset dataset(ClosingStage stage, int orgCount) {
+    private static ClosingDataset dataset(int orgCount) {
         Campaign c = new Campaign("線上聖誕老人 2026", LocalDate.of(2026, 11, 25), LocalDate.of(2027, 1, 25),
                 LocalDate.of(2026, 11, 25), LocalDate.of(2027, 1, 25), LocalDate.of(2026, 11, 25),
                 LocalDate.of(2027, 1, 20), "OS2026", 1);
@@ -52,7 +52,7 @@ class ReportPdfWriterTest {
             qty += 2;
             value += 1200;
         }
-        return new ClosingDataset(c, stage, c.getCollectionStart(), stage.cutoff(c), List.of(), orgs, List.of(),
+        return new ClosingDataset(c, c.getCollectionStart(), c.getUseEnd(), List.of(), orgs, List.of(),
                 new Totals(orgCount, qty, value, orgCount), List.of(), List.of());
     }
 
@@ -70,24 +70,24 @@ class ReportPdfWriterTest {
     }
 
     @Test
-    @DisplayName("D 成果報告：A4 直式，各段落齊全，簽章在最後")
-    void stageDReport() throws Exception {
-        ReportPdfWriter.Result result = WRITER.write(dataset(ClosingStage.D, 3));
+    @DisplayName("成果報告：A4 直式，各段落齊全，簽章在最後")
+    void report() throws Exception {
+        ReportPdfWriter.Result result = WRITER.write(dataset(3));
 
         assertThat(result.pages()).isGreaterThanOrEqualTo(1);
         assertThat(result.replacedChars()).isEmpty();
         try (PDDocument doc = Loader.loadPDF(result.pdf())) {
             assertThat(doc.getPage(0).getMediaBox().getHeight()).isGreaterThan(doc.getPage(0).getMediaBox().getWidth());
         }
-        preview("report-d", result.pdf());
+        preview("report", result.pdf());
     }
 
     @Test
     @DisplayName("機構很多時自動換頁，表格欄名每頁重畫")
     void manyOrganizationsSpanPages() throws Exception {
-        ReportPdfWriter.Result result = WRITER.write(dataset(ClosingStage.CD, 60));
+        ReportPdfWriter.Result result = WRITER.write(dataset(60));
 
         assertThat(result.pages()).isGreaterThan(1);
-        preview("report-cd-long", result.pdf());
+        preview("report-long", result.pdf());
     }
 }

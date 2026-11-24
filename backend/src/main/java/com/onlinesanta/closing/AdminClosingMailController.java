@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.onlinesanta.admin.AdminAuditAction;
 import com.onlinesanta.admin.AdminAuditService;
 import com.onlinesanta.closing.ClosingMailService.MailProgress;
-import com.onlinesanta.closing.doc.ClosingStage;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,7 +35,8 @@ public class AdminClosingMailController {
     }
 
     @GetMapping("/receipts")
-    @Operation(summary = "紅聯收據寄送預覽（不寄信）")
+    @Operation(summary = "紅聯收據寄送前檢查（不寄信）",
+            description = "targets 是勾了「要收據」的每一張與其狀態（最多 500 列）")
     public MailProgress previewReceipts(@PathVariable UUID campaignId) {
         return mail.previewReceipts(campaignId);
     }
@@ -51,16 +51,16 @@ public class AdminClosingMailController {
     }
 
     @GetMapping("/org-forms")
-    @Operation(summary = "機構確認表（05A＋05B）寄送預覽（不寄信）")
-    public MailProgress previewOrgForms(@PathVariable UUID campaignId, @RequestParam ClosingStage stage) {
-        return mail.previewOrgForms(campaignId, stage);
+    @Operation(summary = "機構確認表（05A＋05B）寄送前檢查（不寄信）")
+    public MailProgress previewOrgForms(@PathVariable UUID campaignId) {
+        return mail.previewOrgForms(campaignId);
     }
 
     @PostMapping("/org-forms/send")
     @Operation(summary = "寄出機構確認表（分段）")
-    public MailProgress sendOrgForms(@PathVariable UUID campaignId, @RequestParam ClosingStage stage,
+    public MailProgress sendOrgForms(@PathVariable UUID campaignId,
                                      @RequestParam(defaultValue = "false") boolean retryFailed) {
-        MailProgress p = mail.sendOrgForms(campaignId, stage, retryFailed);
+        MailProgress p = mail.sendOrgForms(campaignId, retryFailed);
         audit.record(AdminAuditAction.SEND_ORG_FORM_EMAILS, campaignId,
                 "已寄 %d、失敗 %d、待寄 %d".formatted(p.sent(), p.failed(), p.pending()));
         return p;

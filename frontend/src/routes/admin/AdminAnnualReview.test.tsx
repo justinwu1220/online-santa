@@ -172,10 +172,10 @@ describe('年度營運頁', () => {
     click.mockRestore()
   })
 
-  it('產生結案文件：按下 D 按鈕就建立匯出、推進到完成後下載，提醒先看待補資料', async () => {
+  it('產生結案文件：按一顆按鈕就建立併報匯出、推進到完成後下載，提醒先看待補資料', async () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     const base = {
-      id: 'p1', campaignId: 'c1', kind: 'CLOSING_PACKAGE' as const, stage: 'D' as const, total: 2, prepared: 0, skipped: 0,
+      id: 'p1', campaignId: 'c1', kind: 'CLOSING_PACKAGE' as const, total: 2, prepared: 0, skipped: 0,
       createdAt: '2026-12-30T00:00:00Z',
     }
     post.mockImplementation(async (path: string) =>
@@ -189,11 +189,11 @@ describe('年度營運頁', () => {
 
     await userEvent.click(screen.getByRole('tab', { name: '結案文件' }))
     expect(screen.getByRole('heading', { name: '產生結案文件' })).toBeTruthy()
-    await userEvent.click(screen.getByRole('button', { name: 'D 結案備查（使用完竣）' }))
-    await userEvent.click(await screen.findByRole('button', { name: '繼續產生 D 結案備查' }))
+    await userEvent.click(screen.getByRole('button', { name: '產生結案文件包' }))
+    await userEvent.click(await screen.findByRole('button', { name: '繼續產生結案文件包' }))
 
     expect(await screen.findByText(/已下載結案文件包。請先看壓縮檔裡 05_留存備份\/待補資料.md/)).toBeTruthy()
-    expect(post).toHaveBeenCalledWith('/api/admin/campaigns/c1/closing-packages?stage=D', undefined)
+    expect(post).toHaveBeenCalledWith('/api/admin/campaigns/c1/closing-packages', undefined)
     expect(click).toHaveBeenCalled()
     click.mockRestore()
   })
@@ -219,8 +219,8 @@ describe('年度營運頁', () => {
     renderPage()
     await screen.findByText('OS2026-000001')
 
-    await userEvent.click(screen.getAllByRole('button', { name: '寄送前預覽' })[0])
-    expect(await screen.findByText('預覽完成：待寄 3 封。')).toBeTruthy()
+    await userEvent.click(screen.getAllByRole('button', { name: '寄送前檢查' })[0])
+    expect(await screen.findByText('檢查完成：待寄 3 封。')).toBeTruthy()
     expect(post.mock.calls.filter(([p]) => String(p).includes('/closing-mail/'))).toHaveLength(0)
 
     await userEvent.click(screen.getByRole('button', { name: '確認寄出 3 封' }))
@@ -237,7 +237,7 @@ describe('年度營運頁', () => {
       if (path.startsWith('/api/admin/stats/period?')) return stats
       if (path.includes('/closing-mail/org-forms')) {
         return { total: 1, sent: 0, failed: 0, pending: 1, notReady: 0, noEmail: 0, dailyLimit: 0, stopped: null,
-          targets: [{ id: 'o1', name: '快樂兒童之家', recipient: 'a@example.org', status: 'PENDING', error: null }] }
+          targets: [{ id: 'o1', name: '快樂兒童之家', recipient: 'a@example.org', status: 'PENDING', error: null, reference: null }] }
       }
       if (path.startsWith('/api/admin/campaigns')) return [campaign]
       return page([receipt({})])
@@ -255,8 +255,11 @@ describe('年度營運頁', () => {
     expect(screen.getByRole('heading', { name: '產生結案文件' })).toBeTruthy()
     expect(screen.getByText('機構確認表（05A＋05B）寄給受贈機構')).toBeTruthy()
     expect(screen.queryByText('紅聯收據寄給捐贈人')).toBeNull()
-    await userEvent.click(screen.getByRole('button', { name: '寄送前預覽' }))
-    expect(await screen.findByText(/快樂兒童之家：a@example.org/)).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: '寄送前檢查' }))
+    // 預覽名單：一個機構一列，列出寄到哪個信箱與狀況
+    const target = (await screen.findByRole('cell', { name: '快樂兒童之家' })).closest('tr') as HTMLElement
+    expect(within(target).getByText('a@example.org')).toBeTruthy()
+    expect(within(target).getByText('待寄')).toBeTruthy()
   })
 
   it('全部下載失敗：顯示原因', async () => {
@@ -404,7 +407,7 @@ describe('年度營運頁', () => {
     renderPage()
     await screen.findByText('OS2026-000001')
 
-    await userEvent.click(screen.getAllByRole('button', { name: '寄送前預覽' })[0])
+    await userEvent.click(screen.getAllByRole('button', { name: '寄送前檢查' })[0])
     await userEvent.click(await screen.findByRole('button', { name: '重寄失敗（1 封）' }))
 
     await waitFor(() => expect(post).toHaveBeenCalled())

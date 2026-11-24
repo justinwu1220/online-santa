@@ -29,7 +29,10 @@ import com.onlinesanta.closing.pdf.GlyphOutlines;
 @Component
 public class OrgFormPdfWriter {
 
-    private static final String REVISION = "2026-11-06 修訂";
+    /** 表單頁尾標的是這份 PDF 的產生日期（每次重新產生都會更新）。 */
+    private static String issuedOn() {
+        return RocDate.slash(java.time.LocalDate.now(com.onlinesanta.common.TaiwanYear.ZONE));
+    }
 
     private final GlyphOutlines glyphs;
     private final ClosingProperties properties;
@@ -86,7 +89,7 @@ public class OrgFormPdfWriter {
     private Form form05A(ClosingDataset d, OrgGroup g, int seq, String path) {
         Campaign c = d.campaign();
         try (PdfFlow f = new PdfFlow(glyphs, new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth()), 40f,
-                "結案 05A　" + REVISION)) {
+                "結案 05A　產生日期 " + issuedOn())) {
             f.centered("受贈機構出具", 10);
             f.centered("機構物資領受暨發放確認表", 18);
             f.centered(activityName(c), 12);
@@ -137,7 +140,7 @@ public class OrgFormPdfWriter {
     private Form personalForms(ClosingDataset d, OrgGroup g, String path, String code, String top, String title,
                                String intro, List<String> unitLines) {
         Campaign c = d.campaign();
-        try (PdfFlow f = new PdfFlow(glyphs, PDRectangle.A4, 42f, "結案 " + code + "　" + REVISION)) {
+        try (PdfFlow f = new PdfFlow(glyphs, PDRectangle.A4, 42f, "結案 " + code + "　產生日期 " + issuedOn())) {
             boolean first = true;
             for (GiftRow gift : g.gifts()) {
                 if (!first) {
@@ -153,7 +156,6 @@ public class OrgFormPdfWriter {
                     f.paragraph(line, 10.5f, 14);
                 }
                 f.paragraph("勸募許可文號：" + orPending(c.getPermitNo()), 10.5f, 14);
-                f.paragraph("個資告知文件名稱／版本或適用免告知依據：" + PENDING, 10.5f, 14);
                 f.paragraph("對應願望：" + (gift.childAlias() == null ? "" : gift.childAlias() + "　")
                         + (gift.wishTitle() == null ? "" : gift.wishTitle()), 10.5f, 14);
                 f.space(4);

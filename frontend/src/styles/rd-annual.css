@@ -130,3 +130,13 @@
 .closing-card__field{display:grid;gap:4px;font-size:13px;color:var(--fg-3)}
 .closing-card .callout{margin:0}
 .closing-card .btn--primary.btn--sm{height:36px;padding:0 14px;font-size:13px;font-weight:800;letter-spacing:.02em}
+
+/* 收據檢查彈窗裡的明細名單：表頭固定，整張表自己捲，彈窗不會被拉到螢幕外 */
+.ck-roster__head{margin:14px 0 0;font-size:13px;line-height:1.7;color:var(--fg-muted)}
+.ck-roster{max-height:38vh;overflow:auto;margin-top:8px}
+.ck-roster table{font-size:13px}
+.ck-roster thead th{position:sticky;top:0;z-index:1;background:#101a33}
+
+/* 寄送前預覽的名單：卡片裡的表格，長了自己捲 */
+.mail-targets{max-height:300px;overflow:auto;margin-top:4px}
+.mail-targets table{font-size:13px}

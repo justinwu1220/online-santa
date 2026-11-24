@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Dialog } from '../../components/ui/Dialog'
 import { FormField, Input, SelectBox } from '../../components/ui/Fields'
 import type { CampaignRequest, CampaignStatus, CampaignView } from '../../lib/types'
+import { useAdminOrganizations } from './adminQueries'
 import { useSaveCampaign } from './closingQueries'
 
 const EMPTY: CampaignRequest = {
@@ -14,15 +15,19 @@ function fromCampaign(c: CampaignView): CampaignRequest {
   return {
     name: c.name, activityNo: c.activityNo ?? '', permitNo: c.permitNo ?? '', approvedName: c.approvedName ?? '',
     collectionStart: c.collectionStart, collectionEnd: c.collectionEnd, useStart: c.useStart, useEnd: c.useEnd,
-    wishListStart: c.wishListStart, wishListEnd: c.wishListEnd, receiptPrefix: c.receiptPrefix, firstReceiptSeq: undefined, status: c.status,
+    wishListStart: c.wishListStart, wishListEnd: c.wishListEnd, receiptPrefix: c.receiptPrefix, firstReceiptSeq: undefined,
+    associationOrgId: c.associationOrgId, status: c.status,
   }
 }
 
 /**
  * 新增或修改活動檔期。
  *
- * 勸募許可文號必填（收據開立後會立即自動產生 PDF，文號印在收據上）。願望上架期間是機構可以新增願望的期間，
- * 結束上架日必須早於勸募結束日。已開立過收據後，收據前綴與起始號碼不能再改（編號要穩定）。
+ * 活動編號與勸募許可文號必填（收據開立後會立即自動產生 PDF，文號印在收據上；活動編號要照抄到官網）。
+ * 願望上架期間是機構可以新增願望的期間，結束上架日必須早於勸募結束日。
+ * 已開立過收據後，收據前綴與起始號碼不能再改（編號要穩定）。
+ * 「合作機構」是本次活動的法人機構帳號（協助申請勸募許可文號的那一個）：指定後才會產生 05C，
+ * 成果報告的「本會直接發放份數」也才有數字。每個檔期只會有一個。
  */
 export function CampaignDialog({ campaign, onClose }: {
   /** null＝關閉；'new'＝新增；檔期物件＝修改 */
@@ -33,6 +38,8 @@ export function CampaignDialog({ campaign, onClose }: {
   const [form, setForm] = useState<CampaignRequest>(EMPTY)
   const [error, setError] = useState('')
   const save = useSaveCampaign()
+  const organizations = useAdminOrganizations()
+  const approved = (organizations.data?.content ?? []).filter((o) => o.status === 'APPROVED')
 
   // 每次開啟時載入對應內容（render 期間依 props 變化調整，不用 effect）
   const [lastKey, setLastKey] = useState<string | null>(null)
@@ -54,6 +61,7 @@ export function CampaignDialog({ campaign, onClose }: {
 
   async function submit() {
     if (!form.name.trim()) { setError('請填寫檔期名稱'); return }
+    if (!(form.activityNo ?? '').trim()) { setError('請填寫活動編號'); return }
     if (!(form.permitNo ?? '').trim()) { setError('請填寫勸募許可文號'); return }
     if (!form.collectionStart || !form.collectionEnd || !form.useStart || !form.useEnd) {
       setError('請填寫勸募期間與財物使用期間'); return
@@ -66,7 +74,9 @@ export function CampaignDialog({ campaign, onClose }: {
     const request: CampaignRequest = {
       ...form,
       name: form.name.trim(),
+      activityNo: form.activityNo?.trim(),
       permitNo: form.permitNo?.trim(),
+      associationOrgId: form.associationOrgId || undefined,
       receiptPrefix: form.receiptPrefix?.trim() || undefined,
       firstReceiptSeq: numberingLocked ? undefined : form.firstReceiptSeq || undefined,
     }
@@ -79,13 +89,14 @@ export function CampaignDialog({ campaign, onClose }: {
   }
 
   return (
-    <Dialog open={campaign !== null} onClose={onClose} dismissible={!save.isPending} labelledBy="campaign-title">
+    <Dialog open={campaign !== null} onClose={onClose} dismissible={!save.isPending} labelledBy="campaign-title"
+      className="dialog dialog--wide">
       <h2 id="campaign-title">{editing ? '修改活動檔期' : '新增活動檔期'}</h2>
       <div className="form-grid" style={{ marginTop: 12 }}>
         <FormField label="檔期名稱" required span={6}>
           <Input value={form.name} maxLength={100} onChange={(e) => set('name', e.target.value)} />
         </FormField>
-        <FormField label="活動編號" optional span={3} hint="主管機關系統的活動編號">
+        <FormField label="活動編號" required span={3} hint="主管機關系統的活動編號；照表操作頁與成果報告都會印">
           <Input value={form.activityNo ?? ''} maxLength={30} onChange={(e) => set('activityNo', e.target.value)} />
         </FormField>
         <FormField label="勸募許可文號" required span={3} hint="印在收據上">
@@ -124,6 +135,14 @@ export function CampaignDialog({ campaign, onClose }: {
               onChange={(e) => set('firstReceiptSeq', e.target.value ? Number(e.target.value) : undefined)} />
           </FormField>
         )}
+        <FormField label="合作機構" optional span={6}
+          hint="本次活動的法人機構帳號（協助申請勸募許可文號的那一個）；它自己服務對象收到的禮物會出 05C，成果報告的「本會直接發放份數」也才有數字">
+          <SelectBox value={form.associationOrgId ?? ''} aria-label="合作機構"
+            onChange={(e) => set('associationOrgId', e.target.value || undefined)}>
+            <option value="">（不指定）</option>
+            {approved.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+          </SelectBox>
+        </FormField>
         {editing && (
           <FormField label="狀態" span={3} hint="結束的檔期不再開立新收據">
             <SelectBox value={form.status ?? 'ACTIVE'} onChange={(e) => set('status', e.target.value as CampaignStatus)}>

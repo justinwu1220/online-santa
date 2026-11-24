@@ -51,10 +51,11 @@ public class ClosingDataService {
     }
 
     @Transactional(readOnly = true)
-    public ClosingDataset load(UUID campaignId, ClosingStage stage) {
+    public ClosingDataset load(UUID campaignId) {
         Campaign campaign = campaigns.get(campaignId);
         LocalDate from = campaign.getCollectionStart();
-        LocalDate cutoff = stage.cutoff(campaign);
+        // 併報的資料截止日固定是財物使用結束日
+        LocalDate cutoff = campaign.getUseEnd();
 
         List<DonationReceipt> valid = receipts.findAllByCampaignIdOrderByReceiptNoAsc(campaignId).stream()
                 .filter(r -> r.getStatus() == ReceiptStatus.ISSUED)
@@ -80,7 +81,7 @@ public class ClosingDataService {
                     claim == null ? null : claim.getWish().getTitle());
         }).toList();
 
-        return new ClosingDataset(campaign, stage, from, cutoff, gifts, groups(campaign, gifts), months(gifts),
+        return new ClosingDataset(campaign, from, cutoff, gifts, groups(campaign, gifts), months(gifts),
                 totals(gifts), receiptLog(campaignId), outOfRange);
     }
 

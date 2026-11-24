@@ -3,7 +3,7 @@ import { ReasonDialog } from '../../components/console/ReasonDialog'
 import { Pager } from '../../components/ui/Pager'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
 import { formatPlainDate } from '../../lib/format'
-import type { CampaignView, ClosingStage, MailProgress, MailTarget, PdfStatus, ReceiptStatus, ReceiptView } from '../../lib/types'
+import type { CampaignView, MailProgress, MailTarget, PdfStatus, ReceiptStatus, ReceiptView } from '../../lib/types'
 import { useCheckGate } from './CheckGate'
 import {
   downloadAllReceipts, downloadClosingPackage, openReceipt, previewMail, sendMail, useReceipts, useVoidReceipt,
@@ -122,7 +122,7 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
         </div>
       </div>
       <div className="closing-actions">
-        <MailBlock campaignId={campaign.id} kind="receipts" stage="CD" title="紅聯收據寄給捐贈人"
+        <MailBlock campaignId={campaign.id} kind="receipts" title="紅聯收據寄給捐贈人"
           hint="只寄給填了「要收據」且有信箱的捐贈人" />
       </div>
       {checkGate.dialog}
@@ -171,7 +171,7 @@ export function ReceiptsPanel({ campaign }: { campaign: CampaignView }) {
         </>
       )}
 
-      <ReasonDialog open={voiding !== null} title="作廢並重開收據"
+      <ReasonDialog open={voiding !== null} wide title="作廢並重開收據"
         body={voiding ? `收據 ${voiding.receiptNo} 會作廢（號碼保留、不再配給別人），並用目前的認領資料重開一張新號碼的收據。` : ''}
         label="作廢原因" hint="會留在舊收據上，例如：捐贈者姓名填錯" minLength={2} tooShort="請至少寫 2 個字"
         okText="作廢並重開"
@@ -238,39 +238,30 @@ function ReceiptRow({ receipt, onOpen, onVoid }: {
 }
 
 /**
- * 結案文件分頁：產生結案文件包（C／D／併報），以及把 05A＋05B 寄給受贈機構。
- * 寄信先「預覽」（不寄信）看將寄幾封，再按「確認寄出」；已寄的不會重寄，失敗的可另按「重寄失敗」。
+ * 結案文件分頁：產生結案文件包（成果備查與結案備查併報），以及把 05A＋05B 寄給受贈機構。
+ * 寄信先「寄送前檢查」（不寄信）看會寄給誰、幾封，再按「確認寄出」；已寄的不會重寄，失敗的可另按「重寄失敗」。
  */
 export function ClosingDocsPanel({ campaign }: { campaign: CampaignView }) {
-  const [stage, setStage] = useState<ClosingStage>('CD')
   return (
     <section className="panel set-sec" aria-label="結案文件">
       <div className="panel__head" style={{ marginBottom: 0 }}>
         <h2 className="panel__title">結案文件</h2>
       </div>
       <p className="set-sec__desc" style={{ margin: 0 }}>
-        依階段產生官方 Excel、核章 PDF、成果報告、05 表單、收據與待補資料；產生完成後可把 05A＋05B 寄給受贈機構。
+        一次產生官方 Excel、核章 PDF、成果報告、05 表單、照表操作頁、收據與待補資料；產生完成後可把 05A＋05B 寄給受贈機構。
         收據的預覽、下載與寄給捐贈人的紅聯在「收據」分頁。
       </p>
       <div className="closing-actions">
         <ClosingPackageSection campaignId={campaign.id} />
-        <MailBlock campaignId={campaign.id} kind="org-forms" stage={stage} title="機構確認表（05A＋05B）寄給受贈機構"
-          hint="每個受贈機構一封，附 05A、05B；康乃心自己的 05C 不寄。05B 內沒有任何個人資料。">
-          <label className="closing-card__field">
-            <span>依哪個結案階段計算</span>
-            <select className="input" aria-label="機構確認表階段" value={stage}
-              onChange={(event) => setStage(event.target.value as ClosingStage)}>
-              {STAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
-          </label>
-        </MailBlock>
+        <MailBlock campaignId={campaign.id} kind="org-forms" title="機構確認表（05A＋05B）寄給受贈機構"
+          hint="每個受贈機構一封，附 05A、05B；康乃心自己的 05C 不寄。05B 內沒有任何個人資料。" />
       </div>
     </section>
   )
 }
 
-function MailBlock({ campaignId, kind, stage, title, hint, children }: {
-  campaignId: string; kind: MailKind; stage: ClosingStage; title: string; hint: string; children?: ReactNode
+function MailBlock({ campaignId, kind, title, hint, children }: {
+  campaignId: string; kind: MailKind; title: string; hint: string; children?: ReactNode
 }) {
   const [progress, setProgress] = useState<MailProgress>()
   const [busy, setBusy] = useState(false)
@@ -297,11 +288,6 @@ function MailBlock({ campaignId, kind, stage, title, hint, children }: {
     return `已寄出 ${p.sent} 封${p.failed > 0 ? `，${p.failed} 封失敗（可按「重寄失敗」）` : ''}。`
   }
 
-  const statusText = (t: MailTarget) => {
-    if (t.status === 'SENT') return '已寄'
-    if (t.status === 'FAILED') return `失敗（${t.error ?? ''}）`
-    return t.status === 'NO_EMAIL' ? '沒有信箱' : '待寄'
-  }
 
   return (
     <div className="closing-card">
@@ -310,18 +296,18 @@ function MailBlock({ campaignId, kind, stage, title, hint, children }: {
       {children}
       <div className="closing-card__btns">
         <button type="button" className="btn btn--sm" disabled={busy}
-          onClick={() => void run(() => previewMail(campaignId, kind, stage), (p) => `預覽完成：待寄 ${p.pending} 封。`)}>
-          寄送前預覽
+          onClick={() => void run(() => previewMail(campaignId, kind), (p) => `檢查完成：待寄 ${p.pending} 封。`)}>
+          寄送前檢查
         </button>
         {progress && progress.pending > 0 && (
           <button type="button" className="btn btn--sm btn--primary" disabled={busy}
-            onClick={() => checkGate.gate('寄出', () => void run(() => sendMail(campaignId, kind, stage, false, setProgress), sendText))}>
+            onClick={() => checkGate.gate('寄出', () => void run(() => sendMail(campaignId, kind, false, setProgress), sendText))}>
             {busy ? '寄送中…' : `確認寄出 ${progress.pending} 封`}
           </button>
         )}
         {progress && progress.failed > 0 && (
           <button type="button" className="btn btn--sm" disabled={busy}
-            onClick={() => void run(() => sendMail(campaignId, kind, stage, true, setProgress), sendText)}>
+            onClick={() => void run(() => sendMail(campaignId, kind, true, setProgress), sendText)}>
             重寄失敗（{progress.failed} 封）
           </button>
         )}
@@ -334,39 +320,82 @@ function MailBlock({ campaignId, kind, stage, title, hint, children }: {
           {progress.dailyLimit > 0 && `　（每日寄信上限 ${progress.dailyLimit} 封）`}
         </p>
       )}
-      {progress?.targets.map((t) => (
-        <div key={t.id} className="closing-card__hint">{t.name}：{t.recipient ?? '—'}　{statusText(t)}</div>
-      ))}
+      {progress && progress.targets.length > 0 && (
+        <MailTargetTable kind={kind} targets={progress.targets} total={progress.total} />
+      )}
       {message && <div className={`callout callout--${message.tone}`} role="status"><p>{message.text}</p></div>}
       {checkGate.dialog}
     </div>
   )
 }
 
-const STAGE_SHORT: Record<ClosingStage, string> = { C: 'C 成果備查', D: 'D 結案備查', CD: '成果結案併報' }
-
-const STAGES: { value: ClosingStage; label: string }[] = [
-  { value: 'C', label: 'C 成果備查（勸募期滿）' },
-  { value: 'D', label: 'D 結案備查（使用完竣）' },
-  { value: 'CD', label: '成果結案併報' },
-]
+const MAIL_STATUS: Record<MailTarget['status'], { label: string; tone: string }> = {
+  SENT: { label: '已寄', tone: 'open' },
+  PENDING: { label: '待寄', tone: 'pending' },
+  FAILED: { label: '寄送失敗', tone: 'late' },
+  NO_EMAIL: { label: '沒有信箱', tone: 'returned' },
+  NOT_READY: { label: 'PDF 尚未備妥', tone: 'draft' },
+}
 
 /**
- * 結案文件包：依階段產生官方 Excel、核章 PDF、成果報告、05 表單、收據與待補資料，打包成一個壓縮檔。
- * 沒有的資料（現金、利息、簽章、用印…）文件上寫「待補」，清單在壓縮檔的 05_留存備份/待補資料.md。
+ * 寄送前檢查的明細名單：這次會寄給誰、寄到哪個信箱、到哪一步了。
+ * 紅聯是一張收據一列（只列勾了「要收據」的），機構確認表是一個受贈機構一列。
+ * 寄送中也是同一份名單，所以每寄完一段就看得到狀態往前走。
+ */
+function MailTargetTable({ kind, targets, total }: { kind: MailKind; targets: MailTarget[]; total: number }) {
+  const receipts = kind === 'receipts'
+  const more = total - targets.length
+  return (
+    <>
+      {more > 0 && (
+        <p className="closing-card__hint">名單只列前 {targets.length} 筆；其餘 {more} 筆的數量以上面那行為準。</p>
+      )}
+      <div className="table-wrap mail-targets">
+        <table className="audit">
+          <thead>
+            <tr>
+              {receipts && <th scope="col">收據編號</th>}
+              <th scope="col">{receipts ? '捐贈者' : '機構'}</th>
+              <th scope="col">寄到</th>
+              <th scope="col">狀況</th>
+            </tr>
+          </thead>
+          <tbody>
+            {targets.map((target) => (
+              <tr key={target.id}>
+                {receipts && <td>{target.reference}</td>}
+                <td style={{ whiteSpace: 'normal' }}>{target.name}</td>
+                <td style={{ whiteSpace: 'normal' }}>{target.recipient ?? '—'}</td>
+                <td style={{ whiteSpace: 'normal' }}>
+                  <span className="st-chip" data-s={MAIL_STATUS[target.status].tone}>{MAIL_STATUS[target.status].label}</span>
+                  {target.error && <><br /><span style={{ color: 'var(--fg-muted)' }}>{target.error}</span></>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
+
+/**
+ * 結案文件包：產生官方 Excel、核章 PDF、成果報告、05 表單、照表操作頁、收據與待補資料，打包成一個壓縮檔。
+ * 成果備查與結案備查一律併報，不分階段。沒有的資料（簽章、用印、個人實際領受…）文件上寫「待補」，
+ * 清單在壓縮檔的 05_留存備份/待補資料.md。
  */
 function ClosingPackageSection({ campaignId }: { campaignId: string }) {
-  const [running, setRunning] = useState<ClosingStage>()
+  const [running, setRunning] = useState(false)
   const checkGate = useCheckGate(campaignId)
   const [progress, setProgress] = useState<string>()
   const [result, setResult] = useState<{ tone: 'ok' | 'warn'; text: string }>()
 
-  async function run(stage: ClosingStage) {
+  async function run() {
     setResult(undefined)
-    setRunning(stage)
+    setRunning(true)
     setProgress('準備中…')
     try {
-      const view = await downloadClosingPackage(campaignId, stage, (v) => {
+      const view = await downloadClosingPackage(campaignId, (v) => {
         setProgress(v.status === 'PREPARING' ? `準備與打包中…（${v.prepared}/${v.total}）` : '準備下載…')
       })
       setResult({
@@ -378,21 +407,22 @@ function ClosingPackageSection({ campaignId }: { campaignId: string }) {
       setResult({ tone: 'warn', text: e instanceof Error ? e.message : '產生失敗，請稍後再試' })
     } finally {
       setProgress(undefined)
-      setRunning(undefined)
+      setRunning(false)
     }
   }
 
   return (
     <div className="closing-card">
       <h3 className="closing-card__title">產生結案文件</h3>
-      <p className="closing-card__hint">按下要送的階段，產生官方 Excel、核章 PDF、成果報告、05 表單、收據與待補資料，打包成一個壓縮檔下載。</p>
+      <p className="closing-card__hint">
+        產生官方 Excel、核章 PDF、成果報告、05 表單、照表操作頁、收據與待補資料，打包成一個壓縮檔下載。
+        成果備查與結案備查一律併報，資料截止日是檔期的財物使用結束日。
+      </p>
       <div className="closing-card__btns">
-        {STAGES.map((item) => (
-          <button key={item.value} type="button" className="btn btn--sm" disabled={running !== undefined}
-            onClick={() => checkGate.gate(`產生 ${STAGE_SHORT[item.value]}`, () => void run(item.value))}>
-            {running === item.value ? progress : item.label}
-          </button>
-        ))}
+        <button type="button" className="btn btn--sm btn--primary" disabled={running}
+          onClick={() => checkGate.gate('產生結案文件包', () => void run())}>
+          {running ? progress : '產生結案文件包'}
+        </button>
       </div>
       {result && <div className={`callout callout--${result.tone}`} role="status" style={{ flexBasis: '100%' }}><p>{result.text}</p></div>}
       {checkGate.dialog}

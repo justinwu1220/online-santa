@@ -7,7 +7,7 @@ import java.util.UUID;
 import com.onlinesanta.closing.Campaign;
 
 /**
- * 一個檔期、一個階段的結案資料：所有文件（Excel、核章 PDF、成果報告、05A／B／C、Facebook 公開包、照表操作頁）
+ * 一個檔期的結案資料：所有文件（Excel、核章 PDF、成果報告、05A／B／C、Facebook 公開包、照表操作頁）
  * 都從這份資料產生，才會對得上同一個截止日與同一組數字。
  *
  * <p>以有效收據的快照為準（作廢的不算），所以與收據、收據檢查一致。
@@ -21,7 +21,6 @@ import com.onlinesanta.closing.Campaign;
  */
 public record ClosingDataset(
         Campaign campaign,
-        ClosingStage stage,
         LocalDate from,
         LocalDate cutoff,
         List<GiftRow> gifts,

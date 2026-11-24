@@ -92,15 +92,15 @@ public class ClosingExportService {
         return exports.save(new ClosingExport(campaignId, ExportKind.RECEIPTS, total, adminUserId));
     }
 
-    /** 建立結案文件包匯出（C 成果備查、D 結案備查、CD 併報）。 */
+    /** 建立結案文件包匯出（成果備查與結案備查併報）。 */
     @Transactional
-    public ClosingExport startPackage(UUID campaignId, com.onlinesanta.closing.doc.ClosingStage stage, UUID adminUserId) {
+    public ClosingExport startPackage(UUID campaignId, UUID adminUserId) {
         campaigns.get(campaignId);
         int total = (int) receipts.countByCampaignIdAndStatus(campaignId, ReceiptStatus.ISSUED);
         if (total == 0) {
             throw new BusinessRuleException("NO_RECEIPTS", "這個檔期還沒有有效的收據，沒有可匯出的內容");
         }
-        return exports.save(new ClosingExport(campaignId, ExportKind.CLOSING_PACKAGE, stage, total, adminUserId));
+        return exports.save(new ClosingExport(campaignId, ExportKind.CLOSING_PACKAGE, total, adminUserId));
     }
 
     @Transactional(readOnly = true)
@@ -193,7 +193,7 @@ public class ClosingExportService {
                 putText(zip, keepRoot + "00_未收進壓縮檔的收據.txt", skippedNote(skipped));
             }
             if (pack) {
-                var dataset = dataService.load(export.getCampaignId(), export.getStage());
+                var dataset = dataService.load(export.getCampaignId());
                 var built = packageBuilder.build(dataset);
                 for (var file : built.files()) {
                     putBytes(zip, file.path(), file.bytes());

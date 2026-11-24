@@ -6,8 +6,9 @@ import { Dialog } from '../ui/Dialog'
  * 原因不夠長時欄位下方顯示紅字，不送出；送出失敗把後端的訊息顯示在原因欄下方。
  *
  * @param tone 主要按鈕：`danger` 紅色實心（退回），`freeze` 藍色實心（凍結、停權）
+ * @param wide 寬版（年度營運的彈窗都是寬版，讓同一頁的彈窗寬度一致）
  */
-export function ReasonDialog({ open, title, body, label, hint, minLength, tooShort, okText, tone = 'danger', rows = 4, onSubmit, onClose }: {
+export function ReasonDialog({ open, title, body, label, hint, minLength, tooShort, okText, tone = 'danger', rows = 4, wide = false, onSubmit, onClose }: {
   open: boolean
   title: string
   body: string
@@ -18,6 +19,7 @@ export function ReasonDialog({ open, title, body, label, hint, minLength, tooSho
   okText: string
   tone?: 'danger' | 'freeze'
   rows?: number
+  wide?: boolean
   onSubmit: (reason: string) => Promise<void>
   onClose: () => void
 }) {
@@ -49,7 +51,8 @@ export function ReasonDialog({ open, title, body, label, hint, minLength, tooSho
   }
 
   return (
-    <Dialog open={open} onClose={onClose} dismissible={!busy} labelledBy="rs-title">
+    <Dialog open={open} onClose={onClose} dismissible={!busy} labelledBy="rs-title"
+      className={wide ? 'dialog dialog--wide' : 'dialog'}>
       <h2 id="rs-title">{title}</h2>
       <p>{body}</p>
       <div className={`field${error ? ' is-invalid' : ''}`} style={{ marginTop: 12 }}>

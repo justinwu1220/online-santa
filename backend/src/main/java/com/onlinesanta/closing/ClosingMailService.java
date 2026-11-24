@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import com.onlinesanta.closing.doc.ClosingDataService;
 import com.onlinesanta.closing.doc.ClosingDataset;
 import com.onlinesanta.closing.doc.ClosingDataset.OrgGroup;
-import com.onlinesanta.closing.doc.ClosingStage;
 import com.onlinesanta.closing.doc.OrgFormPdfWriter;
 import com.onlinesanta.notification.MailAttachment;
 import com.onlinesanta.notification.MailTemplateId;
@@ -29,11 +28,11 @@ import com.onlinesanta.storage.StorageBucket;
 /**
  * 結案寄信：紅聯收據寄給勾選要收據的捐贈人、機構確認表（05A＋05B）寄給受贈機構。
  *
- * <p>流程是「預覽 → 管理員確認 → 分段寄出」：每次呼叫 {@code send*} 在時間預算內逐封<strong>同步</strong>寄
+ * <p>流程是「寄送前檢查 → 管理員確認 → 分段寄出」：每次呼叫 {@code send*} 在時間預算內逐封<strong>同步</strong>寄
  * （不用非同步佇列，才知道每一封的結果），前端反覆呼叫到沒有待寄為止。
  * <ul>
  *   <li>不重寄：已寄出的（紅聯 {@code red_sent_at}、機構 SENT 紀錄）一律略過；</li>
- *   <li>失敗的這一輪不再重試（否則前端會無限迴圈），預覽會列出失敗數，管理員按「重寄失敗」才重來；</li>
+ *   <li>失敗的這一輪不再重試（否則前端會無限迴圈），檢查會列出失敗數，管理員按「重寄失敗」才重來；</li>
  *   <li>每日額度用完或寄信未設定：立刻停止，沒寄的維持待寄，隔天或設定好之後續寄；</li>
  *   <li>康乃心自己（白黃聯、05C）不寄信。</li>
  * </ul>
@@ -43,13 +42,21 @@ public class ClosingMailService {
 
     static final Duration BUDGET = Duration.ofSeconds(15);
 
-    /** 寄信進度／預覽。{@code stopped}：LIMIT（每日額度用完）、NOT_CONFIGURED（寄信未設定）或 null。 */
+    /** 檢查名單一次最多列這麼多列（收據可能幾百張）；計數不受影響。 */
+    static final int MAX_TARGETS = 500;
+
+    /** 寄信進度／寄送前檢查。{@code stopped}：LIMIT（每日額度用完）、NOT_CONFIGURED（寄信未設定）或 null。 */
     public record MailProgress(int total, int sent, int failed, int pending, int notReady, int noEmail,
                                int dailyLimit, String stopped, List<Target> targets) {
     }
 
-    /** 預覽用的一個對象（機構）；收據不逐一列出。 */
-    public record Target(UUID id, String name, String recipient, String status, String error) {
+    /**
+     * 檢查名單的一列：機構確認表是一個機構，紅聯是一張收據。
+     *
+     * @param status    SENT 已寄、PENDING 待寄、FAILED 失敗、NO_EMAIL 沒有信箱、NOT_READY PDF 還沒產生
+     * @param reference 收據編號（機構確認表沒有，為 null）
+     */
+    public record Target(UUID id, String name, String recipient, String status, String error, String reference) {
     }
 
     private final DonationReceiptRepository receipts;
@@ -157,7 +164,30 @@ public class ClosingMailService {
         int notReady = count(mailable, r -> r.getRedSentAt() == null && r.getRedSendError() == null && !ready(r));
         int pending = count(mailable, r -> r.getRedSentAt() == null && r.getRedSendError() == null && ready(r));
         return new MailProgress(wanted.size(), sent, failed, pending, notReady, noEmail,
-                notificationProperties.dailyLimit(), stopped, List.of());
+                notificationProperties.dailyLimit(), stopped, receiptTargets(wanted));
+    }
+
+    /** 紅聯的檢查名單：勾了「要收據」的每一張一列（沒勾的不寄，也不列）。 */
+    private static List<Target> receiptTargets(List<DonationReceipt> wanted) {
+        return wanted.stream().limit(MAX_TARGETS).map(r -> {
+            if (r.getRedSentAt() != null) {
+                return target(r, "SENT", null);
+            }
+            if (r.getRedSendError() != null) {
+                return target(r, "FAILED", r.getRedSendError());
+            }
+            if (!hasEmail(r)) {
+                return target(r, "NO_EMAIL", "捐贈者沒有留信箱");
+            }
+            if (!ready(r)) {
+                return target(r, "NOT_READY", "紅聯 PDF 還沒產生，按一次「全部下載」就會補產");
+            }
+            return target(r, "PENDING", null);
+        }).toList();
+    }
+
+    private static Target target(DonationReceipt r, String status, String error) {
+        return new Target(r.getId(), r.getDonorName(), r.getDonorEmail(), status, error, r.getReceiptNo());
     }
 
     private static <T> int count(List<T> list, Predicate<T> p) {
@@ -166,13 +196,13 @@ public class ClosingMailService {
 
     // ------------------------------------------------------------ 機構確認表
 
-    public MailProgress previewOrgForms(UUID campaignId, ClosingStage stage) {
-        ClosingDataset d = data.load(campaignId, stage);
+    public MailProgress previewOrgForms(UUID campaignId) {
+        ClosingDataset d = data.load(campaignId);
         return orgProgress(campaignId, d, null);
     }
 
-    public MailProgress sendOrgForms(UUID campaignId, ClosingStage stage, boolean retryFailed) {
-        ClosingDataset d = data.load(campaignId, stage);
+    public MailProgress sendOrgForms(UUID campaignId, boolean retryFailed) {
+        ClosingDataset d = data.load(campaignId);
         long deadline = System.nanoTime() + BUDGET.toNanos();
         String stopped = null;
         for (OrgGroup g : d.externalOrganizations()) {
@@ -236,16 +266,16 @@ public class ClosingMailService {
             ClosingMailLog l = byOrg.get(g.organizationId());
             if (g.email() == null || g.email().isBlank()) {
                 noEmail++;
-                targets.add(new Target(g.organizationId(), g.name(), null, "NO_EMAIL", "機構沒有聯絡信箱"));
+                targets.add(new Target(g.organizationId(), g.name(), null, "NO_EMAIL", "機構沒有聯絡信箱", null));
             } else if (l != null && "SENT".equals(l.getStatus())) {
                 sent++;
-                targets.add(new Target(g.organizationId(), g.name(), l.getRecipient(), "SENT", null));
+                targets.add(new Target(g.organizationId(), g.name(), l.getRecipient(), "SENT", null, null));
             } else if (l != null) {
                 failed++;
-                targets.add(new Target(g.organizationId(), g.name(), g.email(), "FAILED", l.getError()));
+                targets.add(new Target(g.organizationId(), g.name(), g.email(), "FAILED", l.getError(), null));
             } else {
                 pending++;
-                targets.add(new Target(g.organizationId(), g.name(), g.email(), "PENDING", null));
+                targets.add(new Target(g.organizationId(), g.name(), g.email(), "PENDING", null, null));
             }
         }
         return new MailProgress(d.externalOrganizations().size(), sent, failed, pending, 0, noEmail,

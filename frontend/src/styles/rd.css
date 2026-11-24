@@ -499,6 +499,8 @@
 
   /* 對話框、提示 */
   .dialog { width: min(480px, calc(100vw - 32px)); padding: 28px; border: 1px solid var(--line); border-radius: 24px; background: #101a33; color: var(--fg); }
+  /* 寬版：管理員彈窗的欄位與清單多，480px 會擠在一起 */
+  .dialog--wide { width: min(760px, calc(100vw - 32px)); }
   .dialog::backdrop { background: rgba(2, 6, 23, .78); }
   .dialog h2 { margin: 0 0 10px; font-size: 22px; font-weight: 900; line-height: 1.4; }
   .dialog p a { color: #a7f3d0; }

@@ -43,10 +43,10 @@ public class ReportPdfWriter {
 
     public Result write(ClosingDataset d) {
         Campaign c = d.campaign();
-        String footer = "%s　%s　資料截止日 %s".formatted(c.getName(), d.stage().label(), RocDate.slash(d.cutoff()));
+        String footer = "%s　%s　資料截止日 %s".formatted(c.getName(), ClosingDocs.LABEL, RocDate.slash(d.cutoff()));
         try (PdfFlow f = new PdfFlow(glyphs, PDRectangle.A4, 50f, footer)) {
             f.centered("執行（服務）成果報告", 20);
-            f.centered("（" + d.stage().label() + "）", 12);
+            f.centered("（" + ClosingDocs.LABEL + "）", 12);
             f.space(8);
 
             f.heading("一、活動與勸募團體", 13);

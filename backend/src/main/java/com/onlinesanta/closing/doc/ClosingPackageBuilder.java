@@ -15,14 +15,17 @@ import com.onlinesanta.closing.doc.PdfTableWriter.Column;
  * 組出結案文件包裡「交給康乃心」那一邊的檔案（官方 Excel、核章 PDF、成果報告、05A／B／C…）。
  * 收據資料夾與收據檢查報告由匯出服務另外串流寫入（檔案大、要並行讀取）。
  *
- * <p>檔名與編號照 SPEC §1、§5：C 成果備查是 {@code 02_捐物人資料}；D 結案備查是 {@code 04_支出明細資料}；
- * 併報是 {@code 02_捐物人資料} 與 {@code 06_支出明細資料}。
+ * <p>成果備查與結案備查一次結案、一起報送，但官網仍是兩張表，所以檔名照各自的編號：
+ * C.成果備查是 {@code 02_捐物人資料}，D.結案備查是 {@code 03_執行(服務)成果報告} 與 {@code 04_支出明細資料}。
  */
 @Component
 public class ClosingPackageBuilder {
 
     public record PackageFile(String path, byte[] bytes) {
     }
+
+    /** 唯一的 HTML：壓縮檔根目錄的照表操作頁。 */
+    public static final String PAGE_NAME = "照表操作.html";
 
     public record Built(List<PackageFile> files, List<TodoItem> todo) {
     }
@@ -50,8 +53,7 @@ public class ClosingPackageBuilder {
     }
 
     public Built build(ClosingDataset data) {
-        ClosingStage stage = data.stage();
-        String dir = "02_交給康乃心/" + stage.folder() + "/";
+        String dir = ClosingDocs.FOLDER;
         List<PackageFile> files = new ArrayList<>();
         List<TodoItem> todo = new ArrayList<>();
         Campaign c = data.campaign();
@@ -59,41 +61,42 @@ public class ClosingPackageBuilder {
         if (c.getPermitNo() == null || c.getPermitNo().isBlank()) {
             todo.add(new TodoItem("勸募許可文號", "管理員（檔期設定）", "所有文件的抬頭、收據", "先以「待確認」產出"));
         }
-        if (stage.includesDonations()) {
-            files.add(new PackageFile(dir + "02_捐物人資料.xlsx", excel.donationList(data)));
-            PdfTableWriter.Result pdf = tables.render(donationSpec(data));
-            files.add(new PackageFile(dir + "02_捐物人資料.pdf", pdf.pdf()));
-            charsTodo(todo, pdf, "02_捐物人資料.pdf");
+
+        // 捐物人資料（成果備查的內容）
+        files.add(new PackageFile(dir + "02_捐物人資料.xlsx", excel.donationList(data)));
+        PdfTableWriter.Result donation = tables.render(donationSpec(data));
+        files.add(new PackageFile(dir + "02_捐物人資料.pdf", donation.pdf()));
+        charsTodo(todo, donation, "02_捐物人資料.pdf");
+
+        // 成果報告與支出明細（結案備查的內容）
+        ReportPdfWriter.Result reportPdf = report.write(data);
+        files.add(new PackageFile(dir + "03_執行(服務)成果報告.pdf", reportPdf.pdf()));
+        if (!reportPdf.replacedChars().isEmpty()) {
+            todo.add(new TodoItem("PDF 字型沒有這些字，已畫成「？」：" + reportPdf.replacedChars(), "工程（補字型）",
+                    "03_執行(服務)成果報告.pdf", "其他文件不受影響"));
         }
-        if (stage.includesExpenses()) {
-            ReportPdfWriter.Result reportPdf = report.write(data);
-            String reportName = stage == ClosingStage.D ? "03_執行(服務)成果報告.pdf" : "05_執行(服務)成果報告.pdf";
-            files.add(new PackageFile(dir + reportName, reportPdf.pdf()));
-            if (!reportPdf.replacedChars().isEmpty()) {
-                todo.add(new TodoItem("PDF 字型沒有這些字，已畫成「？」：" + reportPdf.replacedChars(), "工程（補字型）", reportName,
-                        "其他文件不受影響"));
-            }
-            String name = stage == ClosingStage.D ? "04_支出明細資料" : "06_支出明細資料";
-            files.add(new PackageFile(dir + name + ".xlsx", excel.expenseList(data)));
-            PdfTableWriter.Result pdf = tables.render(expenseSpec(data));
-            files.add(new PackageFile(dir + name + ".pdf", pdf.pdf()));
-            charsTodo(todo, pdf, name + ".pdf");
-            todo.add(new TodoItem("支出明細的傳票號碼與支付方式是否被主管機關承辦接受",
-                    "協會（向承辦確認）", name + ".xlsx／.pdf",
-                    "傳票號碼先用收據編號、支付方式「其他」、其他付款方式「實物轉贈」，待承辦確認"));
-        }
-        // 照表操作頁與入口頁：康乃心照頁面逐欄複製到官網
-        OperationPageFiller.Filled page = operationPages.fill(data);
-        files.add(new PackageFile(dir + "00_照表操作.html", page.html()));
-        files.add(new PackageFile("00_開始這裡.html", OperationPageFiller.startPage(stage)));
-        if (page.pendingFields() > 0) {
-            todo.add(new TodoItem("照表操作頁還有 %d 個欄位是「【待確認】」（複製按鈕停用）".formatted(page.pendingFields()),
-                    "管理員（補財務資料）、協會（確認事實）", dir + "00_照表操作.html",
-                    "補齊財務資料與事實後重新產生文件包；已備妥的欄位可以先複製"));
-        }
+        files.add(new PackageFile(dir + "04_支出明細資料.xlsx", excel.expenseList(data)));
+        PdfTableWriter.Result expense = tables.render(expenseSpec(data));
+        files.add(new PackageFile(dir + "04_支出明細資料.pdf", expense.pdf()));
+        charsTodo(todo, expense, "04_支出明細資料.pdf");
+        todo.add(new TodoItem("支出明細的傳票號碼與支付方式是否被主管機關承辦接受",
+                "協會（向承辦確認）", "04_支出明細資料.xlsx／.pdf",
+                "傳票號碼先用收據編號、支付方式「其他」、其他付款方式「實物轉贈」，待承辦確認"));
+
+        // Facebook 公開徵信包：先產生，照表操作頁的 Facebook 頁籤要用貼文全文與圖片張數
         FacebookPackageBuilder.Built fb = facebook.build(data);
         files.addAll(fb.files());
         todo.addAll(fb.todo());
+
+        // 整個文件包只有這一個 HTML，放在壓縮檔根目錄
+        OperationPageFiller.Filled page = operationPages.fill(data, fb.post());
+        files.add(new PackageFile(PAGE_NAME, page.html()));
+        if (page.pendingFields() > 0) {
+            todo.add(new TodoItem("照表操作頁還有 %d 個欄位是「【待確認】」（複製按鈕停用）".formatted(page.pendingFields()),
+                    "協會（確認事實）", PAGE_NAME,
+                    "補齊待確認的事實後重新產生文件包；已備妥的欄位可以先複製"));
+        }
+
         files.add(new PackageFile("05_留存備份/結案登記簿.xlsx", registry.build(data)));
         for (OrgFormPdfWriter.Form form : orgForms.build(data)) {
             files.add(new PackageFile(form.path(), form.pdf()));
@@ -106,13 +109,13 @@ public class ClosingPackageBuilder {
             todo.add(new TodoItem("協會自身服務對象的機構帳號（檔期的「自身服務對象機構」）", "管理員（檔期設定）", "05C",
                     "沒有指定就不產生 05C；本會直接發放份數寫待確認"));
         }
-        financeTodo(todo, data);
+        missingTodo(todo);
         if (!data.outOfRange().isEmpty()) {
-            todo.add(new TodoItem("有 %d 張有效收據的收到日不在本階段資料範圍（%s 至 %s）內：%s".formatted(
+            todo.add(new TodoItem("有 %d 張有效收據的收到日不在本次資料範圍（%s 至 %s）內：%s".formatted(
                     data.outOfRange().size(), RocDate.slash(data.from()), RocDate.slash(data.cutoff()),
                     String.join("、", data.outOfRange().stream().limit(10).toList())
                             + (data.outOfRange().size() > 10 ? " 等" : "")),
-                    "協會", "本階段所有文件", "這些收據沒有收進本階段文件；之後的階段會收進"));
+                    "協會", "本次所有文件", "這些收據沒有收進文件；收到日晚於財物使用結束日，請確認是否要延長檔期"));
         }
         return new Built(files, todo);
     }
@@ -121,7 +124,7 @@ public class ClosingPackageBuilder {
     public static String todoMarkdown(ClosingDataset d, List<TodoItem> todo) {
         StringBuilder sb = new StringBuilder();
         sb.append("# 待補資料\n\n");
-        sb.append("檔期：").append(d.campaign().getName()).append("　階段：").append(d.stage().label())
+        sb.append("檔期：").append(d.campaign().getName()).append("　報送方式：").append(ClosingDocs.LABEL)
                 .append("　資料截止日：").append(RocDate.slash(d.cutoff())).append("\n\n");
         sb.append("系統沒有、或還需要人確認的資料都列在這裡。文件上這些欄位寫「待補」或「待確認」，簽章與用印一律留白，"
                 + "不填 0、不編造。\n\n");
@@ -142,7 +145,7 @@ public class ClosingPackageBuilder {
     }
 
     /** 系統沒有的資料：個人實際領受、議決、公開徵信（本活動沒有現金，現金、利息、自籌固定為 0，不列待補）。 */
-    private static void financeTodo(List<TodoItem> todo, ClosingDataset d) {
+    private static void missingTodo(List<TodoItem> todo) {
         todo.add(new TodoItem("個人實際領受（去重人數與份數）、未發放與差異", "各機構（05A 回傳）、協會（05C）",
                 "成果報告統計、照表操作頁說明", "機構領受數已有；個人領受寫待補"));
         todo.add(new TodoItem("理事會議決情形（日期、第幾屆第幾次、結果）與公開徵信辦理情形", "協會",
@@ -207,7 +210,7 @@ public class ClosingPackageBuilder {
     }
 
     private String footer(ClosingDataset d) {
-        return "%s　%s　資料截止日 %s".formatted(shortName(d.campaign()), d.stage().label(), RocDate.slash(d.cutoff()));
+        return "%s　%s　資料截止日 %s".formatted(shortName(d.campaign()), ClosingDocs.LABEL, RocDate.slash(d.cutoff()));
     }
 
     static String shortName(Campaign c) {

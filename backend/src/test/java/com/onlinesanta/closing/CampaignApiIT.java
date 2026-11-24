@@ -205,6 +205,16 @@ class CampaignApiIT extends ApiIntegrationTest {
     }
 
     @Test
+    @DisplayName("活動編號必填（照表操作頁與成果報告都要印）")
+    void activityNoIsRequired() throws Exception {
+        CampaignRequest noActivityNo = new CampaignRequest("沒編號", " ", PERMIT, null,
+                LocalDate.of(2026, 11, 25), LocalDate.of(2027, 1, 25), LocalDate.of(2026, 11, 25),
+                LocalDate.of(2027, 1, 25), LocalDate.of(2026, 11, 25), LocalDate.of(2027, 1, 24),
+                "OS2026", null, null, null);
+        mvc.perform(as(withBody(post("/api/admin/campaigns"), noActivityNo), ADMIN)).andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("勸募許可文號必填")
     void permitIsRequired() throws Exception {
         CampaignRequest noPermit = new CampaignRequest("沒文號", "115000877", " ", null,

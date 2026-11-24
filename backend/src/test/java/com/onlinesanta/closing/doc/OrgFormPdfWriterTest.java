@@ -32,7 +32,7 @@ import com.onlinesanta.closing.pdf.GlyphOutlines;
 class OrgFormPdfWriterTest {
 
     private static final OrgFormPdfWriter WRITER = new OrgFormPdfWriter(new GlyphOutlines(),
-            new ClosingProperties(30, "本活動服務對象之個人聖誕禮物", "社團法人彰化縣康乃心關懷協會"));
+            new ClosingProperties(30, "本活動服務對象之個人聖誕禮物", "社團法人彰化縣康乃心關懷協會", 500_000));
 
     private static OrgGroup org(UUID id, String name, boolean association, int gifts) {
         List<GiftRow> rows = new ArrayList<>();
@@ -51,7 +51,7 @@ class OrgFormPdfWriterTest {
         c.update(c.getName(), "115000877", "衛部救字第1150000號", "線上聖誕老人2026聖誕禮物勸募活動", c.getCollectionStart(),
                 c.getCollectionEnd(), c.getUseStart(), c.getUseEnd(), c.getWishListStart(), c.getWishListEnd(), "OS2026",
                 null, associationId, CampaignStatus.ACTIVE);
-        return new ClosingDataset(c, ClosingStage.C, c.getCollectionStart(), c.getCollectionEnd(), List.of(), orgs, List.of(),
+        return new ClosingDataset(c, c.getCollectionStart(), c.getUseEnd(), List.of(), orgs, List.of(),
                 new Totals(0, 0, 0, orgs.size()), List.of(), List.of());
     }
 

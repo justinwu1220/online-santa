@@ -1,8 +1,121 @@
 import { useState, type ReactNode } from 'react'
 import { Dialog } from '../../components/ui/Dialog'
 import { ErrorNotice, Spinner } from '../../components/ui/Spinner'
-import type { ReceiptCheck } from '../../lib/types'
-import { useReceiptCheck } from './closingQueries'
+import type { PdfStatus, ReceiptCheck, ReceiptCheckIssue, ReceiptView } from '../../lib/types'
+import { useReceiptCheck, useReceiptRoster } from './closingQueries'
+
+interface Tag { label: string; tone: string }
+
+const PDF_TAG: Record<PdfStatus, Tag> = {
+  READY: { label: 'PDF 已產生', tone: 'open' },
+  PENDING: { label: 'PDF 待產生', tone: 'pending' },
+  FAILED: { label: 'PDF 無法產生', tone: 'late' },
+}
+
+/** 名單上要標的問題。PDF 狀態自己有標籤，這裡不重複標。 */
+const ISSUE_TAG: Record<string, string> = {
+  MISSING_ID_NUMBER: '缺證號',
+  NO_EVIDENCE: '無發票佐證',
+}
+
+/** 勾了「要收據」的那幾張，紅聯寄到哪一步了。 */
+function redTag(receipt: ReceiptView): Tag | null {
+  if (!receipt.receiptRequested || receipt.status === 'VOIDED') return null
+  if (receipt.redSentAt) return { label: '紅聯已寄', tone: 'open' }
+  if (receipt.redSendError) return { label: '紅聯寄送失敗', tone: 'late' }
+  if (!receipt.donorEmail) return { label: '沒有信箱', tone: 'draft' }
+  return { label: '紅聯待寄', tone: 'pending' }
+}
+
+function tagsFor(receipt: ReceiptView, issues: ReceiptCheckIssue[]): Tag[] {
+  const tags: Tag[] = []
+  if (receipt.status === 'VOIDED') {
+    tags.push({ label: '已作廢', tone: 'draft' })
+  } else {
+    tags.push(PDF_TAG[receipt.pdfStatus])
+    const red = redTag(receipt)
+    if (red) tags.push(red)
+  }
+  for (const issue of issues) {
+    const label = ISSUE_TAG[issue.code]
+    if (label) tags.push({ label, tone: issue.severity === 'ERROR' ? 'returned' : 'draft' })
+  }
+  return tags
+}
+
+/**
+ * 檢查結果下面的明細名單：本檔期每一張收據一列（含作廢），右邊標出這張的狀況與問題——
+ * 問題是用收據編號跟上面的問題清單對起來的，兩邊同一份資料。
+ *
+ * <p>已完成卻沒開立收據的願望沒有列（它沒有收據編號），留在上面的問題清單裡。
+ */
+function ReceiptRoster({ campaignId, issues, open }: {
+  campaignId: string; issues: ReceiptCheckIssue[]; open: boolean
+}) {
+  const roster = useReceiptRoster(campaignId, open)
+
+  const byNo = new Map<string, ReceiptCheckIssue[]>()
+  for (const issue of issues) {
+    if (!issue.receiptNo) continue
+    byNo.set(issue.receiptNo, [...(byNo.get(issue.receiptNo) ?? []), issue])
+  }
+
+  if (roster.isLoading) return <Spinner label="載入收據名單" />
+  if (roster.isError) return <ErrorNotice error={roster.error} onRetry={() => void roster.refetch()} />
+  if (!roster.data) return null
+
+  const rows = roster.data.content
+  const more = roster.data.totalElements - rows.length
+  return (
+    <>
+      <p className="ck-roster__head">
+        收據名單（{roster.data.totalElements} 張，含作廢）
+        {more > 0 && `：這裡只列前 ${rows.length} 張，其餘請看收據分頁的清單`}
+      </p>
+      <div className="table-wrap ck-roster">
+        <table className="audit">
+          <thead>
+            <tr>
+              <th scope="col">編號</th>
+              <th scope="col">捐贈者</th>
+              <th scope="col">物資</th>
+              <th scope="col">機構</th>
+              <th scope="col">狀況</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr><td colSpan={5} style={{ color: 'var(--fg-muted)' }}>這個檔期還沒有收據。</td></tr>
+            ) : rows.map((receipt) => (
+              <tr key={receipt.id}>
+                <td>{receipt.receiptNo}</td>
+                <td style={{ whiteSpace: 'normal' }}>
+                  {receipt.donorName}
+                  {receipt.receiptRequested && <span className="st-chip" data-s="open" style={{ marginLeft: 6 }}>要收據</span>}
+                </td>
+                <td style={{ whiteSpace: 'normal' }}>
+                  {receipt.giftDescription}
+                  <br />
+                  <span style={{ color: 'var(--fg-muted)' }}>
+                    {receipt.giftQuantity} {receipt.giftUnit}，{receipt.giftValue.toLocaleString('zh-TW')} 元
+                  </span>
+                </td>
+                <td style={{ whiteSpace: 'normal' }}>{receipt.organizationName}</td>
+                <td style={{ whiteSpace: 'normal' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {tagsFor(receipt, byNo.get(receipt.receiptNo) ?? []).map((tag) => (
+                      <span key={tag.label} className="st-chip" data-s={tag.tone}>{tag.label}</span>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
 
 /**
  * 收據檢查的結果摘要：已完成的願望、有效收據、PDF 狀態與問題清單。
@@ -12,7 +125,7 @@ export function ReceiptCheckSummary({ check }: { check: ReceiptCheck }) {
   const errors = check.issues.filter((item) => item.severity === 'ERROR')
   const warnings = check.issues.filter((item) => item.severity === 'WARNING')
   return (
-    <div className={`callout callout--${errors.length > 0 ? 'warn' : 'ok'}`} role="status" aria-label="收據檢查結果">
+    <div className={`callout callout--stack callout--${errors.length > 0 ? 'warn' : 'ok'}`} role="status" aria-label="收據檢查結果">
       <p>
         <strong>{errors.length > 0 ? `收據檢查：有 ${errors.length} 項需處理` : '收據檢查：沒有需處理的項目'}</strong>
         {warnings.length > 0 && `，另有 ${warnings.length} 項提醒`}
@@ -63,7 +176,7 @@ function CheckGateDialog({ campaignId, open, mode, actionLabel, onContinue, onCl
   else if (errors > 0) continueText = `仍要繼續${actionLabel}（${errors} 項需處理）`
 
   return (
-    <Dialog open={open} onClose={onClose} labelledBy="ck-title">
+    <Dialog open={open} onClose={onClose} labelledBy="ck-title" className="dialog dialog--wide">
       <h2 id="ck-title">收據檢查</h2>
       {mode === 'gate' && !check.isError && (
         <p>{`${actionLabel}之前先確認收據狀況，沒問題就按「繼續${actionLabel}」。`}</p>
@@ -71,6 +184,7 @@ function CheckGateDialog({ campaignId, open, mode, actionLabel, onContinue, onCl
       {check.isFetching && !check.data && <Spinner label="檢查收據中" />}
       {check.isError && <ErrorNotice error={check.error} onRetry={() => void check.refetch()} />}
       {check.data && !check.isError && <ReceiptCheckSummary check={check.data} />}
+      {check.data && !check.isError && <ReceiptRoster campaignId={campaignId} issues={check.data.issues} open={open} />}
       <div className="dialog__actions">
         <button type="button" className="btn" onClick={onClose}>{mode === 'view' ? '關閉' : '取消'}</button>
         {mode === 'gate' && (

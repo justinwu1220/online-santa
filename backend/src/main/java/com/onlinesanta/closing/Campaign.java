@@ -62,6 +62,10 @@ public class Campaign extends BaseEntity {
     @Column(name = "receipts_issued", nullable = false)
     private int receiptsIssued;
 
+    /**
+     * 本次活動的合作機構（法人機構帳號，協助申請勸募許可文號的那一個）。每個檔期只會有一個。
+     * 它自己服務對象收到的禮物走 05C（不是 05A／05B），也是成果報告「本會直接發放份數」的來源。
+     */
     @Column(name = "association_org_id")
     private UUID associationOrgId;
 

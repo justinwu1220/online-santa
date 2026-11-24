@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, withQuery } from '../../lib/api'
 import type {
-  CampaignRequest, CampaignView, ClosingStage, ExportView, MailProgress, PageResponse, PdfKind, PdfStatus,
+  CampaignRequest, CampaignView, ExportView, MailProgress, PageResponse, PdfKind, PdfStatus,
   ReceiptCheck, ReceiptDownload, ReceiptStatus, ReceiptView,
 } from '../../lib/types'
 
@@ -27,6 +27,25 @@ export function useReceipts(campaignId: string | undefined, filter: ReceiptFilte
     queryFn: () => api.get<PageResponse<ReceiptView>>(withQuery('/api/admin/receipts', {
       campaignId, status: filter.status, pdfStatus: filter.pdfStatus, q: filter.q || undefined,
       page: filter.page, size: 20,
+    })),
+  })
+}
+
+/** 檢查彈窗的名單一次最多拉這么多張；超過的彈窗會說明請用下方清單。 */
+export const ROSTER_SIZE = 500
+
+/**
+ * 收據檢查彈窗裡的明細名單：本檔期全部收據（含作廢），依編號排。
+ * 跟檢查一樣只在彈窗開著時查，每次開啟都重拿（作廢重開、PDF 补產都會改變內容）。
+ */
+export function useReceiptRoster(campaignId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['closing-receipt-roster', campaignId],
+    enabled,
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+    queryFn: () => api.get<PageResponse<ReceiptView>>(withQuery('/api/admin/receipts', {
+      campaignId, page: 0, size: ROSTER_SIZE,
     })),
   })
 }
@@ -98,14 +117,14 @@ export function downloadAllReceipts(
 
 export type MailKind = 'receipts' | 'org-forms'
 
-function mailPath(campaignId: string, kind: MailKind, stage: ClosingStage) {
+function mailPath(campaignId: string, kind: MailKind) {
   const base = `/api/admin/campaigns/${campaignId}/closing-mail/${kind}`
-  return { preview: kind === 'org-forms' ? `${base}?stage=${stage}` : base, send: `${base}/send` }
+  return { preview: base, send: `${base}/send` }
 }
 
-/** 寄送前預覽：只看將寄幾封，不寄信。 */
-export function previewMail(campaignId: string, kind: MailKind, stage: ClosingStage) {
-  return api.get<MailProgress>(mailPath(campaignId, kind, stage).preview)
+/** 寄送前檢查：只看會寄給誰、幾封，不寄信。 */
+export function previewMail(campaignId: string, kind: MailKind) {
+  return api.get<MailProgress>(mailPath(campaignId, kind).preview)
 }
 
 /**
@@ -113,13 +132,13 @@ export function previewMail(campaignId: string, kind: MailKind, stage: ClosingSt
  * 失敗的信不會在同一輪重試（要重試用 retryFailed 另開一輪）。
  */
 export async function sendMail(
-  campaignId: string, kind: MailKind, stage: ClosingStage, retryFailed: boolean, onProgress: (p: MailProgress) => void,
+  campaignId: string, kind: MailKind, retryFailed: boolean, onProgress: (p: MailProgress) => void,
 ): Promise<MailProgress> {
-  const { send } = mailPath(campaignId, kind, stage)
+  const { send } = mailPath(campaignId, kind)
   let retry = retryFailed
   let last: MailProgress | undefined
   for (;;) {
-    const params = [kind === 'org-forms' ? `stage=${stage}` : '', retry ? 'retryFailed=true' : ''].filter(Boolean)
+    const params = [retry ? 'retryFailed=true' : ''].filter(Boolean)
     const p = await api.post<MailProgress>(params.length > 0 ? `${send}?${params.join('&')}` : send)
     onProgress(p)
     retry = false
@@ -131,9 +150,9 @@ export async function sendMail(
 
 /** 結案文件包（官方 Excel、核章 PDF、成果報告、05 表單、收據、待補資料）：流程與全部下載相同。 */
 export function downloadClosingPackage(
-  campaignId: string, stage: ClosingStage, onProgress: (view: ExportView) => void,
+  campaignId: string, onProgress: (view: ExportView) => void,
 ): Promise<ExportView> {
-  return runExportJob(`/api/admin/campaigns/${campaignId}/closing-packages?stage=${stage}`, onProgress)
+  return runExportJob(`/api/admin/campaigns/${campaignId}/closing-packages`, onProgress)
 }
 
 async function runExportJob(createPath: string, onProgress: (view: ExportView) => void): Promise<ExportView> {

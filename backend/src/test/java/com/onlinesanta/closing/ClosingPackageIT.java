@@ -24,7 +24,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.onlinesanta.attachment.AttachmentPurpose;
 import com.onlinesanta.claim.dto.ReceiptRequest;
-import com.onlinesanta.closing.doc.ClosingStage;
 import com.onlinesanta.closing.dto.CampaignRequest;
 import com.onlinesanta.common.TaiwanYear;
 import com.onlinesanta.organization.Organization;
@@ -43,7 +42,7 @@ import com.onlinesanta.wish.WishRepository;
 
 import jakarta.persistence.EntityManager;
 
-@DisplayName("結案文件包（C 成果備查、D 結案備查、併報）")
+@DisplayName("結案文件包（成果結案備查併報）")
 class ClosingPackageIT extends ApiIntegrationTest {
 
     private static final String ADMIN = "platform-admin@example.com";
@@ -97,12 +96,10 @@ class ClosingPackageIT extends ApiIntegrationTest {
         return claimId;
     }
 
-    private Map<String, byte[]> buildPackage(ClosingStage stage) throws Exception {
-        String body = mvc.perform(as(post("/api/admin/campaigns/{id}/closing-packages", campaign.getId())
-                        .param("stage", stage.name()), ADMIN))
+    private Map<String, byte[]> buildPackage() throws Exception {
+        String body = mvc.perform(as(post("/api/admin/campaigns/{id}/closing-packages", campaign.getId()), ADMIN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.kind").value("CLOSING_PACKAGE"))
-                .andExpect(jsonPath("$.stage").value(stage.name()))
                 .andReturn().getResponse().getContentAsString();
         UUID exportId = UUID.fromString(json.readTree(body).get("id").asText());
         ClosingExport done = exportService.advance(exportId);
@@ -140,29 +137,27 @@ class ClosingPackageIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("本活動沒有現金：不需要輸入財務資料，三個階段的現金、利息、自籌都是 0，待補資料沒有現金類項目")
+    @DisplayName("本活動沒有現金：不需要輸入財務資料，現金、利息、自籌都是 0，待補資料沒有現金類項目")
     void cashIsAlwaysZero() throws Exception {
         completedClaim("第一個");
 
-        for (ClosingStage stage : ClosingStage.values()) {
-            Map<String, byte[]> zip = buildPackage(stage);
+        Map<String, byte[]> zip = buildPackage();
 
-            String todo = new String(zip.get("05_留存備份/待補資料.md"), StandardCharsets.UTF_8);
-            assertThat(todo).as(stage.name()).doesNotContain("現金").doesNotContain("利息").doesNotContain("自籌")
-                    .doesNotContain("募得款實支");
-            String cash = new String(unzipEntry(zip.get("05_留存備份/結案登記簿.xlsx"), "xl/worksheets/sheet3.xml"), StandardCharsets.UTF_8);
-            assertThat(cash).as(stage.name()).doesNotContain("待補").contains("本活動沒有現金捐款");
+        String todo = new String(zip.get("05_留存備份/待補資料.md"), StandardCharsets.UTF_8);
+        assertThat(todo).doesNotContain("現金").doesNotContain("利息").doesNotContain("自籌")
+                .doesNotContain("募得款實支");
+        String cash = new String(unzipEntry(zip.get("05_留存備份/結案登記簿.xlsx"), "xl/worksheets/sheet3.xml"), StandardCharsets.UTF_8);
+        assertThat(cash).doesNotContain("待補").contains("本活動沒有現金捐款");
 
-            String page = new String(zip.entrySet().stream().filter(e -> e.getKey().endsWith("00_照表操作.html"))
-                    .findFirst().orElseThrow().getValue(), StandardCharsets.UTF_8);
-            org.jsoup.nodes.Document doc = org.jsoup.Jsoup.parse(page);
-            String p = stage == ClosingStage.CD ? "cd" : stage.name().toLowerCase();
-            for (String id : java.util.List.of(p + ".interest", p + ".totals.interest", p + ".totals.balance", p + ".totals.self")) {
-                assertThat(doc.getElementById(id).attr("value")).as(id).isEqualTo("0");
-                assertThat(doc.getElementById(id).attr("data-ready")).as(id).isEqualTo("true");
-            }
-            assertThat(doc.getElementById(p + ".income").attr("data-ready")).isEqualTo("true");
+        org.jsoup.nodes.Document doc = org.jsoup.Jsoup.parse(
+                new String(zip.get("照表操作.html"), StandardCharsets.UTF_8));
+        for (String id : java.util.List.of("c.interest", "c.totals.interest", "c.totals.balance", "c.totals.self",
+                "d.interest", "d.totals.interest", "d.totals.balance", "d.totals.self")) {
+            assertThat(doc.getElementById(id).attr("value")).as(id).isEqualTo("0");
+            assertThat(doc.getElementById(id).attr("data-ready")).as(id).isEqualTo("true");
         }
+        assertThat(doc.getElementById("c.income").attr("data-ready")).isEqualTo("true");
+        assertThat(doc.getElementById("d.income").attr("data-ready")).isEqualTo("true");
     }
 
     private static int pages(byte[] pdf) throws Exception {
@@ -172,40 +167,54 @@ class ClosingPackageIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("C 成果備查：捐物人資料 Excel 與核章 PDF、收據兩個資料夾、檢查報告與待補資料")
-    void stageC() throws Exception {
+    @DisplayName("一次結案一包：捐物人資料（02）、成果報告（03）、支出明細（04）、收據、05A／05B 與唯一的照表操作頁")
+    void packageContents() throws Exception {
         completedClaim("第一個");
         completedClaim("第二個");
 
-        Map<String, byte[]> zip = buildPackage(ClosingStage.C);
+        Map<String, byte[]> zip = buildPackage();
 
-        String dir = "02_交給康乃心/C.成果備查/";
+        String dir = "02_交給康乃心/";
         assertThat(zip.keySet()).contains(dir + "02_捐物人資料.xlsx", dir + "02_捐物人資料.pdf",
+                dir + "03_執行(服務)成果報告.pdf", dir + "04_支出明細資料.xlsx", dir + "04_支出明細資料.pdf",
                 "03_收據/紅聯（給捐贈人）/OSK-000001.pdf", "03_收據/白黃聯（協會留存）/OSK-000002.pdf",
-                "05_留存備份/00_收據檢查.txt", "05_留存備份/00_收據清單.csv", "05_留存備份/待補資料.md");
-        assertThat(zip.keySet()).noneMatch(n -> n.contains("支出明細"));        // C 沒有支出明細
-        assertThat(zip.keySet()).contains("00_開始這裡.html", dir + "00_照表操作.html",
-                "02_交給康乃心/Facebook公開徵信/00_發文說明.html",
-                "02_交給康乃心/Facebook公開徵信/C_勸募期滿/01_貼文文字.txt",
-                "02_交給康乃心/Facebook公開徵信/C_勸募期滿/02_徵信圖片/001.jpg");
-        String operation = new String(zip.get(dir + "00_照表操作.html"), StandardCharsets.UTF_8);
-        assertThat(operation).contains("c.items.0.name").contains("OSK-000001");
+                "05_留存備份/00_收據檢查.txt", "05_留存備份/00_收據清單.csv", "05_留存備份/待補資料.md",
+                "05_留存備份/結案登記簿.xlsx");
+
+        // 整包只有一個 HTML，在根目錄
+        assertThat(zip.keySet().stream().filter(n -> n.endsWith(".html")).toList()).containsExactly("照表操作.html");
+        assertThat(zip.keySet()).contains("02_交給康乃心/Facebook公開徵信/01_貼文文字.txt",
+                "02_交給康乃心/Facebook公開徵信/02_徵信圖片/001.jpg");
+        String operation = new String(zip.get("照表操作.html"), StandardCharsets.UTF_8);
+        assertThat(operation).contains("c.items.0.name").contains("d.items.0.name").contains("OSK-000001")
+                .contains("Facebook公開徵信/02_徵信圖片/001.jpg");      // 公開徵信畫面指向包裡的圖片
+
         // 每個外部機構一份 05A 與一份 05B（兩份都不含個人資料，可以安全寄給機構）；沒有指定協會自身服務對象就沒有 05C
         assertThat(zip.keySet()).contains("04_機構確認/待簽章/001_快樂兒童之家/05A_機構物資領受暨發放確認表.pdf",
                 "04_機構確認/待簽章/001_快樂兒童之家/05B_個人物資領受證明_機構留存.pdf");
         assertThat(zip.keySet()).noneMatch(n -> n.contains("05C"));
         assertThat(pages(zip.get("04_機構確認/待簽章/001_快樂兒童之家/05B_個人物資領受證明_機構留存.pdf"))).isEqualTo(2);   // 兩個願望兩組頁
 
-        String sheet = sheetOf(zip.get(dir + "02_捐物人資料.xlsx"));
-        assertThat(sheet).doesNotContain("123321").contains("OSK-000001", "OSK-000002", "王大明");
-        assertThat(sheet).contains("t=\"inlineStr\"><is><t xml:space=\"preserve\">" + rocToday() + "</t>");
-        assertThat(sheet).contains("<dimension ref=\"A1:G4\"/>");
+        String donation = sheetOf(zip.get(dir + "02_捐物人資料.xlsx"));
+        assertThat(donation).doesNotContain("123321").contains("OSK-000001", "OSK-000002", "王大明");
+        assertThat(donation).contains("t=\"inlineStr\"><is><t xml:space=\"preserve\">" + rocToday() + "</t>");
+        assertThat(donation).contains("<dimension ref=\"A1:G4\"/>");
         assertThat(pages(zip.get(dir + "02_捐物人資料.pdf"))).isEqualTo(1);
         assertThat(pages(zip.get("03_收據/紅聯（給捐贈人）/OSK-000001.pdf"))).isEqualTo(1);
         assertThat(pages(zip.get("03_收據/白黃聯（協會留存）/OSK-000001.pdf"))).isEqualTo(2);
+        assertThat(pages(zip.get(dir + "03_執行(服務)成果報告.pdf"))).isGreaterThanOrEqualTo(1);
+
+        String expense = sheetOf(zip.get(dir + "04_支出明細資料.xlsx"));
+        assertThat(expense).doesNotContain("123321").contains("財物支出", "OSK-000001", "其他", "實物轉贈")
+                .contains("轉贈快樂兒童之家");
+        assertThat(expense).contains("<dimension ref=\"A1:H3\"/>");
+
+        // 登記簿：五個工作表，含受贈與轉贈、收據、現金與自籌、勾稽、來源索引
+        String workbook = new String(unzipEntry(zip.get("05_留存備份/結案登記簿.xlsx"), "xl/workbook.xml"), StandardCharsets.UTF_8);
+        assertThat(workbook).contains("受贈與轉贈", "收據", "現金與自籌", "勾稽", "來源索引");
 
         String todo = new String(zip.get("05_留存備份/待補資料.md"), StandardCharsets.UTF_8);
-        assertThat(todo).contains("| 缺什麼 |");
+        assertThat(todo).contains("| 缺什麼 |").contains("報送方式：成果結案備查併報");
         // 證號、身分資料不會出現在任何文字檔與 Excel 裡
         for (Map.Entry<String, byte[]> e : zip.entrySet()) {
             if (!e.getKey().endsWith(".pdf")) {
@@ -215,64 +224,51 @@ class ClosingPackageIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("D 結案備查：支出明細 Excel 與核章 PDF（每張收據一列，傳票號碼先用收據編號）")
-    void stageD() throws Exception {
+    @DisplayName("指定合作機構後：它收到的禮物走 05C，不出 05A／05B")
+    void partnerOrganization() throws Exception {
         completedClaim("第一個");
+        campaignService.update(campaign.getId(), new CampaignRequest("套件檔期", "115000877", "衛部救字第1150000號",
+                "線上聖誕老人2026聖誕禮物勸募活動", TODAY.minusDays(5), TODAY.plusDays(60),
+                TODAY.minusDays(5), TODAY.plusDays(90), TODAY.minusDays(5), TODAY.plusDays(59), "OSK", null,
+                organization.getId(), CampaignStatus.ACTIVE));
 
-        Map<String, byte[]> zip = buildPackage(ClosingStage.D);
+        Map<String, byte[]> zip = buildPackage();
 
-        String dir = "02_交給康乃心/D.結案備查/";
-        assertThat(zip.keySet()).contains(dir + "04_支出明細資料.xlsx", dir + "04_支出明細資料.pdf",
-                dir + "03_執行(服務)成果報告.pdf", "05_留存備份/結案登記簿.xlsx");
-        assertThat(zip.keySet()).noneMatch(n -> n.contains("捐物人資料"));
-        assertThat(pages(zip.get(dir + "03_執行(服務)成果報告.pdf"))).isGreaterThanOrEqualTo(1);
-        // 登記簿：五個工作表，含受贈與轉贈、收據、現金與自籌、勾稽、來源索引
-        String workbook = new String(unzipEntry(zip.get("05_留存備份/結案登記簿.xlsx"), "xl/workbook.xml"), StandardCharsets.UTF_8);
-        assertThat(workbook).contains("受贈與轉贈", "收據", "現金與自籌", "勾稽", "來源索引");
-        String sheet = sheetOf(zip.get(dir + "04_支出明細資料.xlsx"));
-        assertThat(sheet).doesNotContain("123321").contains("財物支出", "OSK-000001", "其他", "實物轉貨".replace("貨", "贈"))
-                .contains("轉贈快樂兒童之家");
-        assertThat(sheet).contains("<dimension ref=\"A1:H2\"/>");
+        assertThat(zip.keySet()).contains("04_機構確認/康乃心自身服務對象/05C_康乃心服務對象物資領受確認表.pdf");
+        assertThat(zip.keySet()).noneMatch(n -> n.contains("05A_") || n.contains("05B_"));
+        // 勸募團體全銜一律用設定檔的值，不跟著合作機構變
+        assertThat(new String(zip.get("02_交給康乃心/Facebook公開徵信/01_貼文文字.txt"), StandardCharsets.UTF_8))
+                .contains("社團法人彰化縣康乃心關懷協會辦理「");
+        assertThat(new String(zip.get("05_留存備份/待補資料.md"), StandardCharsets.UTF_8))
+                .doesNotContain("協會自身服務對象的機構帳號");
     }
 
     @Test
-    @DisplayName("併報：捐物人資料（02）與支出明細（06）都有，在「成果結案備查併報」資料夾")
-    void stageCombined() throws Exception {
-        completedClaim("第一個");
-
-        Map<String, byte[]> zip = buildPackage(ClosingStage.CD);
-
-        String dir = "02_交給康乃心/成果結案備查併報/";
-        assertThat(zip.keySet()).contains(dir + "02_捐物人資料.xlsx", dir + "02_捐物人資料.pdf",
-                dir + "06_支出明細資料.xlsx", dir + "06_支出明細資料.pdf");
-    }
-
-    @Test
-    @DisplayName("收到日在截止日之後的收據不收進本階段文件，列在待補資料")
+    @DisplayName("收到日在財物使用結束日之後的收據不收進文件，列在待補資料")
     void receiptsAfterTheCutoffAreListed() throws Exception {
         UUID claim = completedClaim("太晚收到");
         UUID receiptId = receipts.findValidByClaimId(claim).orElseThrow().getId();
         entityManager.flush();
         jdbc.update("UPDATE donation_receipts SET donated_on = ? WHERE id = ?",
-                java.sql.Date.valueOf(campaign.getCollectionEnd().plusDays(3)), receiptId);
+                java.sql.Date.valueOf(campaign.getUseEnd().plusDays(3)), receiptId);
         entityManager.clear();
         completedClaim("準時");
 
-        Map<String, byte[]> zip = buildPackage(ClosingStage.C);
+        Map<String, byte[]> zip = buildPackage();
 
-        String sheet = sheetOf(zip.get("02_交給康乃心/C.成果備查/02_捐物人資料.xlsx"));
+        String sheet = sheetOf(zip.get("02_交給康乃心/02_捐物人資料.xlsx"));
         assertThat(sheet).contains("OSK-000002").doesNotContain("OSK-000001");
         assertThat(new String(zip.get("05_留存備份/待補資料.md"), StandardCharsets.UTF_8))
-                .contains("收到日不在本階段資料範圍").contains("OSK-000001");
+                .contains("收到日不在本次資料範圍").contains("OSK-000001");
     }
 
     @Test
     @DisplayName("沒有收據不能建立；只有管理員能建立")
     void guards() throws Exception {
-        mvc.perform(as(post("/api/admin/campaigns/{id}/closing-packages", campaign.getId()).param("stage", "C"), ADMIN))
+        mvc.perform(as(post("/api/admin/campaigns/{id}/closing-packages", campaign.getId()), ADMIN))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("NO_RECEIPTS"));
-        mvc.perform(as(post("/api/admin/campaigns/{id}/closing-packages", campaign.getId()).param("stage", "C"), DONOR))
+        mvc.perform(as(post("/api/admin/campaigns/{id}/closing-packages", campaign.getId()), DONOR))
                 .andExpect(status().isForbidden());
     }
 

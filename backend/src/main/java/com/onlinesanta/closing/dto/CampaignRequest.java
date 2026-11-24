@@ -15,9 +15,12 @@ import jakarta.validation.constraints.Size;
 /**
  * 新增或修改活動檔期。
  *
+ * @param activityNo       主管機關系統的活動編號（必填）：印在成果報告、核章 PDF 與照表操作頁
  * @param permitNo         勸募許可文號（必填）：收據開立後立即自動產生 PDF，印在收據上
  * @param wishListStart    願望開始上架日；機構只能在上架期間內新增願望
  * @param wishListEnd      願望結束上架日；必須早於勸募結束日
+ * @param associationOrgId 合作機構：本次活動的法人機構帳號（協助申請勸募許可文號的那一個），每個檔期一個；
+ *                         它自己服務對象收到的禮物走 05C
  * @param receiptPrefix    收據編號前綴（大寫英數字），例如 OS2026；空白時新增會用 OS＋勸募開始年度
  * @param firstReceiptSeq  第一張收據的流水號；已開立過收據後不能再改
  * @param status           新增時忽略（一律進行中）；修改時可設為 CLOSED 結束檔期
@@ -27,6 +30,7 @@ public record CampaignRequest(
         @Size(max = 100, message = "檔期名稱不可超過 100 字")
         String name,
 
+        @NotBlank(message = "請填寫活動編號")
         @Size(max = 30, message = "活動編號不可超過 30 字")
         String activityNo,
 

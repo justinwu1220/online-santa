@@ -12,7 +12,6 @@ public record ExportView(
         UUID id,
         UUID campaignId,
         ExportKind kind,
-        com.onlinesanta.closing.doc.ClosingStage stage,
         ExportStatus status,
         int total,
         int prepared,
@@ -23,7 +22,7 @@ public record ExportView(
         Instant createdAt) {
 
     public static ExportView from(ClosingExport e) {
-        return new ExportView(e.getId(), e.getCampaignId(), e.getKind(), e.getStage(), e.getStatus(), e.getTotal(),
+        return new ExportView(e.getId(), e.getCampaignId(), e.getKind(), e.getStatus(), e.getTotal(),
                 e.getPrepared(), e.getSkipped(), e.getSizeBytes(), e.getError(), e.getExpiresAt(), e.getCreatedAt());
     }
 }

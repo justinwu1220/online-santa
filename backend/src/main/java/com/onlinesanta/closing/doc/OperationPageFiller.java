@@ -18,25 +18,35 @@ import org.springframework.stereotype.Component;
 
 import com.onlinesanta.closing.Campaign;
 import com.onlinesanta.closing.ClosingProperties;
-import com.onlinesanta.closing.doc.ClosingDataset.GiftRow;
 import com.onlinesanta.closing.doc.ClosingDataset.MonthRow;
-import com.onlinesanta.closing.doc.ClosingDataset.OrgGroup;
 
 /**
  * 預填「照表操作」HTML：把官網欄位的值寫進素材頁，康乃心照頁面逐欄複製到官網。
+ *
+ * <p>整個結案文件包只有這一個 HTML（壓縮檔根目錄的 {@code 照表操作.html}）。版面照官網：最上面是本案資料
+ * 與每月實募／實支面板（兩張表共用），接著是主頁籤，只有 C.成果備查與 D.結案備查可以按，
+ * 各自顯示自己那張表的內容；Facebook 公開徵信沒有自己的頁籤，從 C 或 D 內容裡的
+ *「開啟 Facebook 公開徵信」按鈕進入。兩張表的數字來自同一次結案。
  *
  * <p>規則（SPEC §5、§12）：
  * <ul>
  *   <li>只動工程端的欄位（{@code data-owner="engineer"}）；協會要填的欄位（公開徵信網址、議決會議）與
  *       審核欄位原樣不動；</li>
- *   <li>系統知道的值寫進去並把 {@code data-ready} 設為 true（頁面的複製按鈕才會啟用）；
- *       不知道的維持「【待確認】」與 {@code data-ready="false"}（複製按鈕停用）——不填 0、不編造；</li>
+ *   <li>活動編號、預募金額這類頁首資訊也一起填（不是輸入框，但官網要照抄）；</li>
+ *   <li>系統知道的值寫進去並把 {@code data-ready} 設為 true；不知道的維持「【待確認】」與
+ *       {@code data-ready="false"}——不填 0、不編造。待確認的欄位仍然可以複製（官網有些欄位必填），
+ *       只是複製鈕是提醒色，按下去會跳出「還有待確認，補齊後記得再複製一次」；空欄位才真的停用；</li>
  *   <li>「說明」文字含任何「【待確認】」就不算備妥；</li>
  *   <li>月份列、財物使用列依資料複製範本列（欄位編號 {@code .0.} 改成 {@code .N.}）。</li>
  * </ul>
  */
 @Component
 public class OperationPageFiller {
+
+    private static final String TEMPLATE = "closing/templates/operation.html";
+
+    /** 兩張官網表單的欄位編號前綴與它們在頁面上的區塊。 */
+    private static final String[][] VIEWS = {{"c", "view-c"}, {"d", "view-d"}};
 
     private final ClosingProperties properties;
 
@@ -48,46 +58,69 @@ public class OperationPageFiller {
     public record Filled(byte[] html, int pendingFields) {
     }
 
-    public Filled fill(ClosingDataset d) {
-        Document doc = Jsoup.parse(template(d.stage()), "", org.jsoup.parser.Parser.htmlParser());
+    public Filled fill(ClosingDataset d, FacebookPost facebook) {
+        Document doc = Jsoup.parse(template(), "", org.jsoup.parser.Parser.htmlParser());
         doc.outputSettings().prettyPrint(false).escapeMode(Entities.EscapeMode.base).charset(StandardCharsets.UTF_8);
 
-        String p = prefix(d.stage());
         Numbers n = numbers(d);
+        List<String> narrative = ClosingNarrative.explain(d);
+
+        // 頁籤上方的每月實募／實支：兩張表共用一份（素材的兩份只差一句說明），欄位沿用 C 的編號
+        List<MonthLine> months = monthLines(d);
+        repeat(doc.body(), "monthly_rows", months.size(), (i, row) -> {
+            MonthLine m = months.get(i);
+            String id = "c.monthly." + i + ".";
+            setIn(row, id + "year", String.valueOf(m.year - 1911), true);
+            setIn(row, id + "month", String.valueOf(m.month), true);
+            setIn(row, id + "income", n(m.income));
+            setIn(row, id + "interest", n(m.interest));
+            setIn(row, id + "expense", n(m.expense));
+            setIn(row, id + "note", m.note, true);
+        });
+
+        // C.成果備查與 D.結案備查兩張表都填：數字相同，來自同一次結案
+        for (String[] view : VIEWS) {
+            String p = view[0];
+            Element panel = doc.getElementById(view[1]);
+            if (panel == null) {
+                continue;
+            }
+            fillView(doc, panel, p, d, n, narrative);
+        }
+
+        fillStatic(doc, d, n);
+        fillFacebook(doc, facebook);
+
+        int pending = doc.select("[data-owner=engineer][data-ready=false]").size();
+        return new Filled(("<!doctype html>\n" + doc.outerHtml().replaceFirst("^<!doctype html>\\s*", ""))
+                .getBytes(StandardCharsets.UTF_8), pending);
+    }
+
+    /** 一張表（C 或 D）的所有工程端欄位。欄位不存在於這張表時 {@link #set} 會自動略過。 */
+    private void fillView(Document doc, Element panel, String p, ClosingDataset d, Numbers n, List<String> narrative) {
+        // 活動編號（檔期設定的必填欄位）
+        set(doc, p + ".activity_id", blankToNull(d.campaign().getActivityNo()));
 
         // 說明
-        List<String> narrative = ClosingNarrative.explain(d);
         set(doc, p + ".description", String.join("\n\n", narrative), !ClosingNarrative.hasPending(narrative));
 
         // 所得與利息
         set(doc, p + ".income", n.income);
         set(doc, p + ".interest", n.interest);
 
-        // 每月
-        List<MonthLine> months = monthLines(d);
-        repeat(doc, "monthly_rows", months.size(), (i, row) -> {
-            MonthLine m = months.get(i);
-            setIn(row, p + ".monthly." + i + ".year", String.valueOf(m.year - 1911), true);
-            setIn(row, p + ".monthly." + i + ".month", String.valueOf(m.month), true);
-            setIn(row, p + ".monthly." + i + ".income", n(m.income));
-            setIn(row, p + ".monthly." + i + ".interest", n(m.interest));
-            setIn(row, p + ".monthly." + i + ".expense", n(m.expense));
-            setIn(row, p + ".monthly." + i + ".note", m.note, true);
-        });
-
-        // 財物使用情形：每個受贈機構一列
-        List<OrgGroup> orgs = d.organizations();
-        repeat(doc, "expense_items", orgs.size(), (i, row) -> {
-            OrgGroup g = orgs.get(i);
-            setIn(row, p + ".items." + i + ".name", "轉贈物資：" + g.name() + (g.association() ? "（本會自身服務對象）" : ""), true);
-            setIn(row, p + ".items." + i + ".detail", itemDetail(g), true);
-            setIn(row, p + ".items." + i + ".funded", String.valueOf(g.value()), true);
+        // 財物使用情形：固定兩列（需求方決定），不按受贈機構拆
+        List<ItemLine> items = itemLines(d);
+        repeat(panel, "expense_items", items.size(), (i, row) -> {
+            ItemLine item = items.get(i);
+            setIn(row, p + ".items." + i + ".name", item.name(), true);
+            setIn(row, p + ".items." + i + ".detail", item.detail(), true);
+            setIn(row, p + ".items." + i + ".funded", item.amount(), true);
             setIn(row, p + ".items." + i + ".self", "0");
-            setIn(row, p + ".items." + i + ".total", String.valueOf(g.value()), true);
+            setIn(row, p + ".items." + i + ".total", item.amount(), true);
         });
-        set(doc, p + ".items_total.funded", String.valueOf(d.totals().value()), !orgs.isEmpty());
+        set(doc, p + ".items_total.funded", String.valueOf(d.totals().value()), true);
         set(doc, p + ".items_total.self", "0");
-        set(doc, p + ".items_total.total", String.valueOf(d.totals().value()), !orgs.isEmpty());
+        set(doc, p + ".items_total.total", String.valueOf(d.totals().value()), true);
 
         // 合計
         set(doc, p + ".totals.income", n.income);
@@ -96,22 +129,23 @@ public class OperationPageFiller {
         set(doc, p + ".totals.balance", n.balance);
         set(doc, p + ".totals.self", "0");
 
-        // D 與併報：財物所得用途（社會福利事業一列；其他類別是否填 0 或「不適用」待承辦確認，維持待確認）
-        if (d.stage().includesExpenses()) {
-            set(doc, p + ".purpose_rows.0.funded", n.expense);
-            set(doc, p + ".purpose_rows.0.self", "0");
-            set(doc, p + ".purpose_rows.0.total", n.expense);
-            set(doc, p + ".purpose_total.funded", n.expense);
-            set(doc, p + ".purpose_total.self", "0");
-            set(doc, p + ".purpose_total.total", n.expense);
+        // 財物所得用途（只有 D.結案備查有這一區）：第 1 列社會福利／社會慈善事業是全部的物資時價，
+        // 其他 9 類本活動沒有支用，依需求方決定一律填 0
+        set(doc, p + ".purpose_rows.0.funded", n.expense);
+        set(doc, p + ".purpose_rows.0.self", "0");
+        set(doc, p + ".purpose_rows.0.total", n.expense);
+        for (int row = 1; row <= 9; row++) {
+            set(doc, p + ".purpose_rows." + row + ".funded", "0");
+            set(doc, p + ".purpose_rows." + row + ".self", "0");
+            set(doc, p + ".purpose_rows." + row + ".total", "0");
         }
+        set(doc, p + ".purpose_total.funded", n.expense);
+        set(doc, p + ".purpose_total.self", "0");
+        set(doc, p + ".purpose_total.total", n.expense);
+    }
 
-        fillStatic(doc, d, n);
-        fillTabs(doc);
-
-        int pending = doc.select("[data-owner=engineer][data-ready=false]").size();
-        return new Filled(("<!doctype html>\n" + doc.outerHtml().replaceFirst("^<!doctype html>\\s*", ""))
-                .getBytes(StandardCharsets.UTF_8), pending);
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.strip();
     }
 
     // ------------------------------------------------------------ 頁面上的固定文字（沒有欄位編號的）
@@ -128,6 +162,8 @@ public class OperationPageFiller {
         // 所得、利息欄位前面的資料截止日標示
         doc.select("span.cutoff").forEach(e -> e.text("截至" + RocDate.slash(d.cutoff())));
 
+        metaAfter(doc, "活動編號", blankToNull(c.getActivityNo()));
+        metaAfter(doc, "預募金額", "%,d".formatted(properties.plannedAmount()));
         metaAfter(doc, "勸募許可文號", permit);
         metaAfter(doc, "勸募活動起迄日期", collection);
         metaAfter(doc, "預定經費使用期限", RocDate.slash(c.getUseEnd()));
@@ -173,6 +209,30 @@ public class OperationPageFiller {
                 "%,d".formatted(g.value()), "其他（實物轉贈）", "")).toList());
     }
 
+    /** Facebook 公開徵信頁籤：貼文全文、圖片張數與則數、圖片在壓縮檔裡的位置。 */
+    private static void fillFacebook(Document doc, FacebookPost fb) {
+        if (fb == null) {
+            return;
+        }
+        Element label = doc.getElementById("fb-notice-label");
+        if (label != null) {
+            label.text(ClosingDocs.LABEL);
+        }
+        Element text = doc.getElementById("fb.post_text");
+        if (text != null) {
+            write(text, fb.text(), !fb.text().contains(PENDING));
+        }
+        Element path = doc.getElementById("fb-image-path");
+        if (path != null) {
+            path.text(fb.firstImagePath());
+        }
+        Element count = doc.getElementById("fb-image-count");
+        if (count != null) {
+            count.text("本次圖片：%d張；貼文：%d則。若需多則，系統已經先分包，不用自己拆圖。"
+                    .formatted(fb.imageCount(), fb.posts()));
+        }
+    }
+
     /** 「強調」標籤後面的值（{@code <strong>標籤</strong><span>值</span>}）；值是 null 就不動。 */
     private static void metaAfter(Document doc, String label, String value) {
         if (value == null) {
@@ -211,30 +271,6 @@ public class OperationPageFiller {
         }
     }
 
-    /**
-     * 頁籤：只有「這個文件包有的階段」可以點。其他階段的資料夾不在本包內，連過去會是空白頁，
-     * 改成停用的文字並說明要另外產生。
-     */
-    private static void fillTabs(Document doc) {
-        for (Element a : doc.select("nav.tabs a")) {
-            if (a.hasClass("active")) {
-                a.attr("href", "#main");
-                continue;
-            }
-            a.replaceWith(new Element("span").addClass("inactive").attr("aria-disabled", "true")
-                    .attr("title", "本文件包不含這個階段；請回系統按對應階段的按鈕另外產生").text(a.text()));
-        }
-    }
-
-    /** 根目錄的入口頁：直接轉到這個階段的照表操作頁。 */
-    public static byte[] startPage(ClosingStage stage) {
-        String target = "02_交給康乃心/" + stage.folder() + "/00_照表操作.html";
-        return ("<!doctype html>\n<html lang=\"zh-Hant\"><head><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"0;url="
-                + target + "\"><title>" + stage.folder() + "</title><script>location.replace(\"" + target
-                + "\");</script></head><body><a href=\"" + target + "\">開啟 " + stage.folder() + "</a></body></html>\n")
-                .getBytes(StandardCharsets.UTF_8);
-    }
-
     // ------------------------------------------------------------ 數字
 
     /** 頁面用的合計（字串；null＝待確認）。 */
@@ -242,6 +278,20 @@ public class OperationPageFiller {
     }
 
     private record MonthLine(int year, int month, Long income, Long interest, Long expense, String note) {
+    }
+
+    /** 財物使用情形的一列。 */
+    private record ItemLine(String name, String detail, String amount) {
+    }
+
+    /**
+     * 財物使用情形固定兩列：募得的物資全部算「聖誕禮物」（外部機構與康乃心自己的服務對象都在裡面，
+     * 同一份物資只計一次），另外列一筆「活動必要支出」，本活動全部是 0。
+     */
+    private static List<ItemLine> itemLines(ClosingDataset d) {
+        return List.of(
+                new ItemLine("聖誕禮物", "外部機構領受及康乃心個人領受；同一物資僅計一次", String.valueOf(d.totals().value())),
+                new ItemLine("活動必要支出", "本會自籌郵資及結案列印費", "0"));
     }
 
     /** 本活動沒有現金捐款、利息與自籌：所得與支出都是物資時價，利息、賸餘為 0。 */
@@ -262,12 +312,6 @@ public class OperationPageFiller {
             lines.add(new MonthLine(m.getYear(), m.getMonthValue(), goodsValue, 0L, goodsValue, note));
         }
         return lines;
-    }
-
-    private static String itemDetail(OrgGroup g) {
-        List<String> numbers = g.gifts().stream().map(GiftRow::receiptNo).toList();
-        String range = numbers.size() <= 3 ? String.join("、", numbers) : numbers.get(0) + " 至 " + numbers.get(numbers.size() - 1);
-        return "實物轉贈%d件禮物、共%d份，收據編號%s".formatted(g.gifts().size(), g.quantity(), range);
     }
 
     private static String n(Long value) {
@@ -301,10 +345,10 @@ public class OperationPageFiller {
     private static void write(Element el, String value, boolean ready) {
         String text = value == null ? PENDING : value;
         boolean isReady = ready && value != null && !text.contains(PENDING);
-        if (el.tagName().equals("textarea")) {
-            el.text(text);
-        } else {
+        if (el.tagName().equals("input")) {
             el.attr("value", text);
+        } else {
+            el.text(text);                      // textarea 與範本裡的 span（活動編號、檔名）
         }
         el.attr("data-ready", String.valueOf(isReady));
         if (isReady) {
@@ -318,8 +362,8 @@ public class OperationPageFiller {
     }
 
     /** 把範本列（欄位編號 .0.）複製成 count 列並逐列填寫；沒有資料就保留範本列（維持待確認）。 */
-    private static void repeat(Document doc, String name, int count, java.util.function.BiConsumer<Integer, Element> filler) {
-        Element body = doc.selectFirst("tbody[data-repeat=" + name + "]");
+    private static void repeat(Element panel, String name, int count, java.util.function.BiConsumer<Integer, Element> filler) {
+        Element body = panel.selectFirst("tbody[data-repeat=" + name + "]");
         if (body == null || count == 0) {
             return;
         }
@@ -343,19 +387,10 @@ public class OperationPageFiller {
         }
     }
 
-    static String prefix(ClosingStage stage) {
-        return switch (stage) {
-            case C -> "c";
-            case D -> "d";
-            case CD -> "cd";
-        };
-    }
-
-    private static String template(ClosingStage stage) {
-        String name = "closing/templates/operation-" + prefix(stage) + ".html";
-        try (InputStream in = OperationPageFiller.class.getClassLoader().getResourceAsStream(name)) {
+    private static String template() {
+        try (InputStream in = OperationPageFiller.class.getClassLoader().getResourceAsStream(TEMPLATE)) {
             if (in == null) {
-                throw new IllegalStateException("找不到照表操作範本：" + name);
+                throw new IllegalStateException("找不到照表操作範本：" + TEMPLATE);
             }
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {

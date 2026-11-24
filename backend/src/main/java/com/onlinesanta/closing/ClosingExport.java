@@ -23,11 +23,6 @@ public class ClosingExport extends BaseEntity {
     @Column(nullable = false, updatable = false, length = 20)
     private ExportKind kind;
 
-    /** 結案文件包的階段（C／D／CD）；收據匯出沒有。 */
-    @Enumerated(EnumType.STRING)
-    @Column(length = 4)
-    private com.onlinesanta.closing.doc.ClosingStage stage;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ExportStatus status;
@@ -65,12 +60,6 @@ public class ClosingExport extends BaseEntity {
         this.status = ExportStatus.PREPARING;
         this.total = total;
         this.createdBy = createdBy;
-    }
-
-    public ClosingExport(UUID campaignId, ExportKind kind, com.onlinesanta.closing.doc.ClosingStage stage, int total,
-                         UUID createdBy) {
-        this(campaignId, kind, total, createdBy);
-        this.stage = stage;
     }
 
     public void progress(int prepared) {
@@ -131,10 +120,6 @@ public class ClosingExport extends BaseEntity {
 
     public String getError() {
         return error;
-    }
-
-    public com.onlinesanta.closing.doc.ClosingStage getStage() {
-        return stage;
     }
 
     public Instant getExpiresAt() {

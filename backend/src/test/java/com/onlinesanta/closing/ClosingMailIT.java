@@ -119,7 +119,7 @@ class ClosingMailIT extends ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("紅聯：PDF 還沒產生不寄；產生後寄出並附紅聯 PDF；已寄的不重寄；預覽不寄信")
+    @DisplayName("紅聯：PDF 還沒產生不寄；產生後寄出並附紅聯 PDF；已寄的不重寄；預覽不寄信，並列出每一張的狀態")
     void redCopiesAreSentOnceWithAttachment() throws Exception {
         completedClaim("第一個");
         completedClaim("第二個");
@@ -127,13 +127,19 @@ class ClosingMailIT extends ApiIntegrationTest {
 
         mvc.perform(as(get(base + "/receipts"), ADMIN)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(2)).andExpect(jsonPath("$.notReady").value(2))
-                .andExpect(jsonPath("$.pending").value(0));
+                .andExpect(jsonPath("$.pending").value(0))
+                // 預覽名單：一張收據一列，帶編號、收件信箱與狀態
+                .andExpect(jsonPath("$.targets.length()").value(2))
+                .andExpect(jsonPath("$.targets[0].reference").value("OSM-000001"))
+                .andExpect(jsonPath("$.targets[0].recipient").value("r@example.com"))
+                .andExpect(jsonPath("$.targets[0].status").value("NOT_READY"));
         mvc.perform(as(post(base + "/receipts/send"), ADMIN)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.sent").value(0));
         assertThat(mails.sentMails()).isEmpty();
 
         generateAllPdfs();
-        mvc.perform(as(get(base + "/receipts"), ADMIN)).andExpect(jsonPath("$.pending").value(2));
+        mvc.perform(as(get(base + "/receipts"), ADMIN)).andExpect(jsonPath("$.pending").value(2))
+                .andExpect(jsonPath("$.targets[0].status").value("PENDING"));
         assertThat(mails.sentMails()).isEmpty();                                  // 預覽不寄
 
         mvc.perform(as(post(base + "/receipts/send"), ADMIN)).andExpect(status().isOk())
@@ -141,6 +147,8 @@ class ClosingMailIT extends ApiIntegrationTest {
                 .andExpect(jsonPath("$.failed").value(0));
 
         assertThat(mails.sentMails()).hasSize(2);
+        mvc.perform(as(get(base + "/receipts"), ADMIN))
+                .andExpect(jsonPath("$.targets[0].status").value("SENT"));
         assertThat(mails.sent()).allSatisfy(m -> assertThat(m.getTo()).containsExactly("r@example.com"));
         assertThat(mails.sent().get(0).getSubject()).contains("您的捐贈收據（OSM-000001）".replace("OSM", "OSM"));
         assertThat(attachmentNames(mails.sentMails().get(0))).containsExactly("捐贈收據-OSM-000001.pdf");
@@ -160,12 +168,13 @@ class ClosingMailIT extends ApiIntegrationTest {
         mails.reset();
         String base = "/api/admin/campaigns/" + campaign.getId() + "/closing-mail";
 
-        mvc.perform(as(get(base + "/org-forms").param("stage", "D"), ADMIN)).andExpect(status().isOk())
+        mvc.perform(as(get(base + "/org-forms"), ADMIN)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(1)).andExpect(jsonPath("$.pending").value(1))
-                .andExpect(jsonPath("$.targets[0].name").value("快樂兒童之家"));
+                .andExpect(jsonPath("$.targets[0].name").value("快樂兒童之家"))
+                .andExpect(jsonPath("$.targets[0].reference").doesNotExist());   // 機構確認表沒有收據編號
         assertThat(mails.sentMails()).isEmpty();
 
-        mvc.perform(as(post(base + "/org-forms/send").param("stage", "D"), ADMIN)).andExpect(status().isOk())
+        mvc.perform(as(post(base + "/org-forms/send"), ADMIN)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.sent").value(1)).andExpect(jsonPath("$.pending").value(0));
 
         assertThat(mails.sentMails()).hasSize(1);
@@ -173,7 +182,7 @@ class ClosingMailIT extends ApiIntegrationTest {
         assertThat(attachmentNames(mails.sentMails().get(0)))
                 .containsExactly("05A_機構物資領受暨發放確認表.pdf", "05B_個人物資領受證明.pdf");
 
-        mvc.perform(as(post(base + "/org-forms/send").param("stage", "D"), ADMIN)).andExpect(status().isOk())
+        mvc.perform(as(post(base + "/org-forms/send"), ADMIN)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.sent").value(1));
         assertThat(mails.sentMails()).hasSize(1);
     }

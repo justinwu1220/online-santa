@@ -9,13 +9,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.onlinesanta.admin.AdminAuditAction;
 import com.onlinesanta.admin.AdminAuditService;
 import com.onlinesanta.auth.CurrentUserService;
-import com.onlinesanta.closing.doc.ClosingStage;
+import com.onlinesanta.closing.doc.ClosingDocs;
 import com.onlinesanta.closing.dto.ExportView;
 import com.onlinesanta.closing.dto.ReceiptDownloadView;
 import com.onlinesanta.common.TaiwanYear;
@@ -68,12 +67,12 @@ public class AdminClosingExportController {
 
     @PostMapping("/campaigns/{campaignId}/closing-packages")
     @Operation(summary = "建立結案文件包匯出",
-            description = "stage＝C（成果備查）、D（結案備查）或 CD（併報）。把官方 Excel、核章 PDF、成果報告、05 表單、"
+            description = "成果備查與結案備查一律併報。把官方 Excel、核章 PDF、成果報告、05 表單、照表操作頁、"
                     + "收據（紅聯、白黃聯）與待補資料打包成一個壓縮檔。建立後請反覆呼叫 advance 推進")
-    public ExportView createPackage(@PathVariable UUID campaignId, @RequestParam ClosingStage stage) {
-        ClosingExport export = exports.startPackage(campaignId, stage, currentUser.requireAdmin().userId());
+    public ExportView createPackage(@PathVariable UUID campaignId) {
+        ClosingExport export = exports.startPackage(campaignId, currentUser.requireAdmin().userId());
         audit.record(AdminAuditAction.CREATE_CLOSING_EXPORT, campaignId,
-                "建立結案文件包（%s），收據共 %d 張".formatted(stage.label(), export.getTotal()));
+                "建立結案文件包（%s），收據共 %d 張".formatted(ClosingDocs.LABEL, export.getTotal()));
         return ExportView.from(export);
     }
 
@@ -105,10 +104,10 @@ public class AdminClosingExportController {
         Campaign campaign = campaigns.get(export.getCampaignId());
         audit.record(AdminAuditAction.DOWNLOAD_CLOSING_EXPORT, export.getCampaignId(),
                 (export.getKind() == ExportKind.CLOSING_PACKAGE ? "下載結案文件包（%s，檔期 %s，收據 %d 張）" : "下載收據壓縮檔（%s檔期 %s，%d 張）")
-                        .formatted(export.getKind() == ExportKind.CLOSING_PACKAGE ? export.getStage().label() : "",
+                        .formatted(export.getKind() == ExportKind.CLOSING_PACKAGE ? ClosingDocs.LABEL : "",
                                 campaign.getName(), export.getTotal() - export.getSkipped()));
         String fileName = (export.getKind() == ExportKind.CLOSING_PACKAGE
-                ? "closing-%s-%s-%s.zip".formatted(campaign.getReceiptPrefix(), export.getStage(), LocalDate.now(TaiwanYear.ZONE))
+                ? "closing-%s-%s.zip".formatted(campaign.getReceiptPrefix(), LocalDate.now(TaiwanYear.ZONE))
                 : "receipts-%s-%s.zip".formatted(campaign.getReceiptPrefix(), LocalDate.now(TaiwanYear.ZONE)));
         var ttl = storageProperties.downloadUrlTtl();
         return new ReceiptDownloadView(

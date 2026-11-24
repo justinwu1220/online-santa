@@ -19,6 +19,8 @@
   .apply__intro strong{color:var(--fg);overflow-wrap:anywhere}
   .callout{display:flex;gap:12px;align-items:flex-start;padding:16px 18px;border-radius:18px;font-size:14px;line-height:1.75}
   .callout > .icon{width:20px;height:20px;flex-shrink:0;margin-top:3px}
+  /* 內容是好幾段文字或清單時改成上下排（預設的橫排是給「圖示＋一段字」用的） */
+  .callout--stack{flex-direction:column;gap:6px}
   .callout p{margin:0}
   .callout--warn{border:1px solid rgba(250,204,21,.35);background:rgba(250,204,21,.08);color:#fef3c7}
   .callout--warn > .icon{color:#facc15}

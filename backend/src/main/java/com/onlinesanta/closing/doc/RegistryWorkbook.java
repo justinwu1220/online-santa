@@ -85,7 +85,7 @@ public class RegistryWorkbook {
         rows.add(row("檔期識別", c.getId().toString()));
         rows.add(row("活動編號", c.getActivityNo()));
         rows.add(row("勸募許可文號", c.getPermitNo()));
-        rows.add(row("階段", d.stage().label()));
+        rows.add(row("報送方式", ClosingDocs.LABEL));
         rows.add(row("資料範圍（收到日）", RocDate.slash(d.from()) + " 至 " + RocDate.slash(d.cutoff())));
         rows.add(row("產生時間", Instant.now().toString()));
         rows.add(row("取數條件", "有效收據（作廢者不計）；收到日＝收據的捐贈日期；範圍＝勸募開始日至該階段截止日"));
