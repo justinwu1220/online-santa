@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, withQuery } from '../lib/api'
 import { avatarSrc } from '../lib/avatar'
+import { CAMPAIGN_YEAR, PLATFORM_NAME } from '../lib/brand'
 import { useListEntry } from '../lib/useEntryAnimation'
 import type { PageResponse, WishFilterOptions, WishListView } from '../lib/types'
 import { publicStatusOf, WALL_STATUS_OPTIONS } from '../lib/wishStatus'
@@ -84,6 +85,10 @@ export function WishWall() {
 /**
  * 聯名式大標（SPEC 4）。康乃心 logo 圖檔還在待確認（暫用檔不放進 repo），先只放協會名稱；
  * 勸募許可文號也待確認，確認前不顯示占位文字。
+ *
+ * 年份排在整組標記的最後（線上聖誕老人 × 社團法人彰化縣康乃心關懷協會 2026），與分頁標題和
+ * 搜尋結果的大標題一字一樣（《Google 搜尋上線與排名改善指南》要首頁清楚標示活動名稱、年份與
+ * 主辦單位）。年份字級比協會名小一階，窄螢幕再縮，那一排才塞得下。
  */
 function Hero() {
   return (
@@ -95,7 +100,7 @@ function Hero() {
             <path d="M36 5v8M32 9h8" />
             <circle cx="9" cy="38" r="3" />
           </svg>
-          <h1 className="hero__title grad-text" id="heroTitle">線上聖誕老人</h1>
+          <h1 className="hero__title grad-text" id="heroTitle">{PLATFORM_NAME}</h1>
         </div>
         <span className="hero__x twinkle-slow" aria-label="與">×</span>
         <div className="hero__org">
@@ -105,6 +110,7 @@ function Hero() {
             <strong>康乃心關懷協會</strong>
           </p>
         </div>
+        <span className="hero__year">{CAMPAIGN_YEAR}</span>
       </div>
       <p className="hero__sub">挑選一個孩子的聖誕願望，準備禮物直接寄到合作機構!</p>
     </section>

@@ -35,6 +35,22 @@
 
 html {
   scroll-behavior: smooth;
+
+  /*
+   * 全站字級的唯一旋鈕。
+   *
+   * 大眾平台（rd.css、rd-auth.css）的 font-size 一律用 rem，所以根字級一改，整個版面的字
+   * 按同一個比例縮放，不必一條一條選擇器調。手機螢幕窄，整體縮到 94%（16→15px）。
+   * 表單輸入框刻意留 px（見 rd.css 的 .input、rd-auth.css 的 .code-input__cell）：
+   * 它們是點擊目標，再縮會更難按，iOS 也會在對焦時放大整頁。
+   *
+   * 後台（rd-console.css、rd-annual.css）仍是 px，不受這裡影響——那是桌機工作介面。
+   */
+  font-size: 16px;
+}
+
+@media (max-width: 480px) {
+  html { font-size: 15px; }
 }
 
 body {

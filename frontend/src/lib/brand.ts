@@ -6,6 +6,9 @@
  */
 export const PLATFORM_NAME = '線上聖誕老人'
 
+/** 這一屆的年份：首頁大標與搜尋結果大標題都帶著它。換年份時只改這裡（還有 index.html）。 */
+export const CAMPAIGN_YEAR = '2026'
+
 /**
  * 首頁（也就是搜尋結果大標題）的活動全名。
  *
@@ -13,7 +16,7 @@ export const PLATFORM_NAME = '線上聖誕老人'
  * 一字不差——首頁是 WishWall，它不自己設標題，但其他頁面離開時會用 `pageTitle()` 還原，
  * 兩邊不一致的話，從內頁回到首頁分頁標題就會縮水成平台名稱。改文案兩邊要一起改。
  */
-export const SITE_TITLE = `${PLATFORM_NAME} × 社團法人彰化縣康乃心關懷協會 2026`
+export const SITE_TITLE = `${PLATFORM_NAME} × 社團法人彰化縣康乃心關懷協會 ${CAMPAIGN_YEAR}`
 
 /** 標頭用的品牌字串，帶聖誕樹。 */
 export const BRAND = `🎄 ${PLATFORM_NAME}`

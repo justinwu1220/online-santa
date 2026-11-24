@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { TreePine, User } from 'lucide-react'
+import { Menu, TreePine, User, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { useAuth, usingLocalAuth } from '../../lib/authContext'
@@ -52,8 +53,32 @@ export function PublicLayout() {
   )
 }
 
+/**
+ * 頁首。桌機是一列：標誌、主選單、帳號區。
+ *
+ * 手機（≤520px）放不下那一整列，所以只留標誌與右邊的三條線，其餘收進 `.site-header__menu`
+ * ——同一份 DOM，桌機用 `display: contents` 讓它在版面上消失，nav 與帳號區照舊是頁首的
+ * 直接子元素，不必為兩種版面各寫一份。
+ */
 function SiteHeader() {
   const { email } = useAuth()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const location = useLocation()
+
+  // 換頁就收起來（上一頁、下一頁也算）。render 期間依路徑變化調整，不用 effect
+  const path = location.pathname + location.search
+  const [lastPath, setLastPath] = useState(path)
+  if (path !== lastPath) {
+    setLastPath(path)
+    if (menuOpen) setMenuOpen(false)
+  }
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [menuOpen])
 
   return (
     <header className="site-header">
@@ -63,13 +88,42 @@ function SiteHeader() {
           <span className="brand__text">{PLATFORM_NAME}</span>
         </Link>
 
-        <nav className="nav" aria-label="主選單">
-          <NavLink to="/" end className="nav-link">願望牆</NavLink>
-          {email && <MyClaimsLink />}
-        </nav>
+        <button
+          type="button"
+          className="menu-btn"
+          aria-label={menuOpen ? '關閉選單' : '開啟選單'}
+          aria-expanded={menuOpen}
+          aria-controls="site-menu"
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          {menuOpen ? <X className="icon" aria-hidden /> : <Menu className="icon" aria-hidden />}
+        </button>
 
-        <AuthControls />
+        {/*
+          點到選單裡的任何連結或按鈕就收起來。只靠換頁的 effect 不夠：已經在願望牆時再點
+          一次「願望牆」，路徑沒變，effect 不會跑，選單會留在畫面上。
+        */}
+        <div
+          className="site-header__menu"
+          id="site-menu"
+          data-open={menuOpen || undefined}
+          onClick={(event) => {
+            if ((event.target as HTMLElement).closest('a, button')) setMenuOpen(false)
+          }}
+        >
+          <nav className="nav" aria-label="主選單">
+            <NavLink to="/" end className="nav-link">願望牆</NavLink>
+            {email && <MyClaimsLink />}
+          </nav>
+
+          <AuthControls />
+        </div>
       </div>
+
+      {/* 點選單以外的地方收起來。用按鈕而不是 div，鍵盤與讀螢幕軟體也有一個明確的關閉方式 */}
+      {menuOpen && (
+        <button type="button" className="menu-scrim" aria-label="關閉選單" onClick={() => setMenuOpen(false)} />
+      )}
     </header>
   )
 }
