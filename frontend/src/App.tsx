@@ -24,6 +24,7 @@ import { OrgTeamChat } from './routes/org/OrgTeamChat'
 import { OrgWishes } from './routes/org/OrgWishes'
 import { ResetPassword } from './routes/ResetPassword'
 import { WishDetail } from './routes/WishDetail'
+import { Leaderboard } from './routes/Leaderboard'
 import { WishWall } from './routes/WishWall'
 
 // 年度回顧兩頁用了 Recharts，體積不小又只有機構後台與監控中心用得到，
@@ -64,6 +65,7 @@ export default function App() {
       {/* ---------------------------------------------------------- 主網站 */}
       <Route element={<PublicLayout />}>
         <Route index element={<WishWall />} />
+        <Route path="leaderboard" element={<Leaderboard />} />
         <Route path="wishes/:id" element={<WishDetail />} />
 
         <Route path="me/claims" element={

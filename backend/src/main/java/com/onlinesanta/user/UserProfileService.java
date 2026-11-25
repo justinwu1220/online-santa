@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,12 +30,14 @@ public class UserProfileService {
     private final UserRepository users;
     private final CurrentUserService currentUser;
     private final ProfileChangeLogService changeLog;
+    private final ApplicationEventPublisher events;
 
     public UserProfileService(UserRepository users, CurrentUserService currentUser,
-                              ProfileChangeLogService changeLog) {
+                              ProfileChangeLogService changeLog, ApplicationEventPublisher events) {
         this.users = users;
         this.currentUser = currentUser;
         this.changeLog = changeLog;
+        this.events = events;
     }
 
     @Transactional(readOnly = true)
@@ -55,9 +58,15 @@ public class UserProfileService {
         User user = loadUser(principal.userId());
 
         Map<String, String> before = ProfileSnapshots.of(user);
+        String previousName = user.getDisplayName();
         user.updateProfile(request.displayName(), request.name(), request.phone());
         changeLog.record(ProfileChangeTargetType.USER, user.getId(),
                 before, ProfileSnapshots.of(user), ProfileChangeActor.selfService(principal));
+
+        // 榜上寫的是顯示名稱：公開顯示的人改了名，名單也得重算
+        if (user.isLeaderboardOptIn() && !user.getDisplayName().equals(previousName)) {
+            events.publishEvent(new LeaderboardNameChangedEvent(user.getId()));
+        }
 
         return UserProfileView.from(user, principal.emailVerified());
     }
@@ -68,6 +77,22 @@ public class UserProfileService {
         AppPrincipal principal = currentUser.require();
         User user = loadUser(principal.userId());
         user.markOnboarded(Instant.now());
+        return UserProfileView.from(user, principal.emailVerified());
+    }
+
+    /**
+     * 設定要不要在排行榜公開顯示名字。
+     *
+     * <p>不寫個資異動紀錄：這是使用者自己的顯示偏好，比照 {@code onboardedAt}
+     * （見 {@link ProfileSnapshots}）不收進快照。
+     */
+    @Transactional
+    public UserProfileView setLeaderboardOptInMine(boolean optIn) {
+        AppPrincipal principal = currentUser.require();
+        User user = loadUser(principal.userId());
+        user.setLeaderboardOptIn(optIn, Instant.now());
+        // 名單是整份快取的，不丟掉的話切換之後最多五分鐘榜上還是舊名字
+        events.publishEvent(new LeaderboardNameChangedEvent(user.getId()));
         return UserProfileView.from(user, principal.emailVerified());
     }
 

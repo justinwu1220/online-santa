@@ -78,7 +78,8 @@ async function request<T>(path: string, init: RequestInit = {}, retried = false)
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
+  /** `init` 只在少數地方用得上，例如切換排行榜顯示名字之後用 `cache: 'reload'` 繞過瀏覽器快取。 */
+  get: <T>(path: string, init?: RequestInit) => request<T>(path, init),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) }),
   put: <T>(path: string, body: unknown) =>

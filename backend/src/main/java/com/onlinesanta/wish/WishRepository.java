@@ -106,6 +106,19 @@ public interface WishRepository extends JpaRepository<Wish, UUID> {
     @Query("select count(w) from Wish w where w.frozenAt is not null")
     long countFrozen();
 
+    /**
+     * 排行榜的目標份數：某段上架期間內上架的願望總數。
+     *
+     * <p>通過審核、上過願望牆的全部都算——可認領、已認領、已完成三種狀態；草稿與審核中的
+     * 不算。凍結過的照算，它確實上架過。
+     */
+    @Query("""
+            select count(w) from Wish w
+             where w.status in :statuses and w.publishedAt >= :from and w.publishedAt < :to
+            """)
+    long countListedBetween(@Param("statuses") Collection<WishStatus> statuses,
+                            @Param("from") Instant from, @Param("to") Instant to);
+
     @Query("select count(w) from Wish w where w.frozenAt is not null and w.organization.id = :organizationId")
     long countFrozenByOrganization(@Param("organizationId") UUID organizationId);
 

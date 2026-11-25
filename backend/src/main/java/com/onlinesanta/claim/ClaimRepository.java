@@ -1,6 +1,7 @@
 package com.onlinesanta.claim;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -459,4 +460,33 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID>, JpaSpecific
             """)
     List<Object[]> topOrganizationsByCompletedClaims(@Param("from") Instant from, @Param("to") Instant to,
                                                       Pageable pageable);
+
+    /**
+     * 排行榜用的每位認領者送達份數：{@code [使用者 id, 顯示名稱, 排行榜公開時間, 停權時間, 份數]}，份數多的在前。
+     *
+     * <p>一個完成的認領算一份（不看 giftQuantity），歸期用 {@code receivedOn}——機構填的實際
+     * 收到日，與收據、結案文件同一套規則。凍結只擋新認領，不回溯已完成的，所以這裡不過濾。
+     */
+    @Query("""
+            select c.donor.id, c.donor.displayName, c.donor.leaderboardOptInAt, c.donor.suspendedAt, count(c)
+              from Claim c
+             where c.status = com.onlinesanta.claim.ClaimStatus.COMPLETED
+               and c.receivedOn >= :from and c.receivedOn < :toExclusive
+             group by c.donor.id, c.donor.displayName, c.donor.leaderboardOptInAt, c.donor.suspendedAt
+             order by count(c) desc
+            """)
+    List<Object[]> donorDeliveredCounts(@Param("from") LocalDate from, @Param("toExclusive") LocalDate toExclusive);
+
+    /**
+     * 每位認領者的累計送達份數：{@code [使用者 id, 份數]}，不分檔期。
+     *
+     * <p>排行榜的名次是當期的，稱號則是累計的成就——解鎖之後永久持有，不隨檔期重置。
+     */
+    @Query("""
+            select c.donor.id, count(c)
+              from Claim c
+             where c.status = com.onlinesanta.claim.ClaimStatus.COMPLETED
+             group by c.donor.id
+            """)
+    List<Object[]> donorLifetimeDeliveredCounts();
 }

@@ -100,6 +100,18 @@ public class CampaignService {
                 .map(Campaign::getCollectionStart);
     }
 
+    /**
+     * 這個願望開始上架日之後的下一個檔期的開始上架日；沒有下一個檔期就是 empty（範圍一路到今天）。
+     *
+     * <p>願望歸哪個檔期看「什麼時候上架」，所以範圍的結尾是下一個檔期開始上架的那一天，
+     * 不是勸募開始日——上架期結束後才被管理員核准的願望，仍然算這個檔期的。
+     */
+    @Transactional(readOnly = true)
+    public Optional<LocalDate> nextWishListStartAfter(LocalDate wishListStart) {
+        return campaigns.findFirstByWishListStartGreaterThanOrderByWishListStartAsc(wishListStart)
+                .map(Campaign::getWishListStart);
+    }
+
     /** 機構新增願望的關卡：今天不在任何進行中檔期的上架期間內就擋下。修改與審核不呼叫這個。 */
     @Transactional(readOnly = true)
     public void requireWishListingOpen(LocalDate today) {

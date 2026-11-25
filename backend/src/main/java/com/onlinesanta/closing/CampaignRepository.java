@@ -44,6 +44,9 @@ public interface CampaignRepository extends JpaRepository<Campaign, UUID> {
     /** 下一個檔期的勸募開始日，決定這個檔期的統計與收據歸屬範圍何時結束。 */
     Optional<Campaign> findFirstByCollectionStartGreaterThanOrderByCollectionStartAsc(LocalDate day);
 
+    /** 下一個檔期的願望開始上架日，決定這個檔期的願望歸屬範圍何時結束（排行榜的目標份數用）。 */
+    Optional<Campaign> findFirstByWishListStartGreaterThanOrderByWishListStartAsc(LocalDate day);
+
     /**
      * 與指定勸募期間重疊的其他檔期數（含已結束的；{@code excludeId} 為 null 代表新增）。
      * 營運統計把每個檔期換算成一段不重疊的週期，已結束的檔期也不能重疊。

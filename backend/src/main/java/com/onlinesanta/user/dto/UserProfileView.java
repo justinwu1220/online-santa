@@ -16,11 +16,14 @@ public record UserProfileView(
         String email,
         boolean emailVerified,
         /** 已看完首次登入說明；false 的新帳號在信箱驗證完成後會跳出說明彈窗 */
-        boolean onboarded) {
+        boolean onboarded,
+
+        /** 在排行榜公開顯示名字；預設 false，榜上顯示「匿名的聖誕老人」 */
+        boolean leaderboardOptIn) {
 
     public static UserProfileView from(User user, boolean emailVerified) {
         return new UserProfileView(
                 user.getDisplayName(), user.getName(), user.getPhone(), user.getEmail(), emailVerified,
-                user.isOnboarded());
+                user.isOnboarded(), user.isLeaderboardOptIn());
     }
 }

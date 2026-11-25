@@ -1,0 +1,259 @@
+/* ============================================================
+   聖誕老人排行榜（首頁入口＋排行榜頁）
+   版面與數值見《1031 新增禮物排行榜／SPEC.md》，元件移植自同一份交付的 React 參考實作。
+
+   寫法比照 rd-annual.css：平鋪 `.rd xxx`，不巢狀。class 一律以 lb-、sled-progress、
+   tier-chip 開頭，不會影響其他頁。字級一律 rem——大眾平台的根字級在 index.css，
+   手機（≤480px）會整體縮到 94%，寫死 px 就跟著全站脫節。
+   ============================================================ */
+.rd .lb {
+  --lb-gold: #fde68a;
+  --lb-gold-strong: #facc15;
+  --lb-mint: #6ee7b7;
+  --lb-mint-text: #a7f3d0;
+  --lb-text: #f1f5f9;
+  --lb-sub: #cbd5e1;
+  --lb-muted: #94a3b8;
+  --lb-surface: rgba(255, 255, 255, .05);
+  --lb-line: rgba(255, 255, 255, .1);
+  --lb-line-soft: rgba(255, 255, 255, .06);
+  --lb-ease-out: cubic-bezier(.22, .8, .3, 1);
+  color: #ffffff;
+}
+.rd .lb *, .rd .lb *::before, .rd .lb *::after { box-sizing: border-box; }
+.rd .lb a { color: var(--lb-mint-text); }
+.rd .lb a:hover { color: #d1fae5; }
+.rd .lb-num-mint { color: var(--lb-mint-text); }
+
+/* ---------- 稱號標籤 ---------- */
+.rd .tier-chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+.rd .tier-chip--legend { color: #fde68a; background: rgba(250, 204, 21, .14); }
+.rd .tier-chip--captain { color: #fca5a5; background: rgba(248, 113, 113, .14); }
+.rd .tier-chip--reindeer { color: #6ee7b7; background: rgba(110, 231, 183, .14); }
+.rd .tier-chip--elf { color: #c4b5fd; background: rgba(167, 139, 250, .16); }
+
+/* ---------- 雪橇進度條 ---------- */
+.rd .sled-progress { position: relative; }
+.rd .sled-progress__track { position: absolute; left: 0; right: 0; border-radius: 999px; background: rgba(255, 255, 255, .08); }
+.rd .sled-progress__fill { position: absolute; left: 0; border-radius: 999px; background: var(--lb-mint); }
+.rd .sled-progress__trail { position: absolute; width: 60px; border-radius: 999px; background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, .55)); animation: lbTrail 2.4s ease-in-out infinite; }
+.rd .sled-progress__puff { position: absolute; border-radius: 50%; background: #ffffff; opacity: 0; animation: lbPuff 1.6s ease-out infinite; }
+.rd .sled-progress__sled { position: absolute; color: #ffffff; transform-origin: 50% 85%; animation: lbSled 1.8s ease-in-out infinite; }
+.rd .sled-progress__flag { position: absolute; color: var(--lb-gold); }
+@keyframes lbSled { 0%, 100% { transform: translate(0, 0) rotate(0); } 25% { transform: translate(2px, -1.5px) rotate(-2deg); } 50% { transform: translate(3px, 0) rotate(0); } 75% { transform: translate(1px, -1px) rotate(1.5deg); } }
+@keyframes lbPuff { 0% { opacity: .8; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(-28px, -6px) scale(.35); } }
+@keyframes lbTrail { 0%, 100% { opacity: .55; } 50% { opacity: .9; } }
+
+/* ============================================================
+   首頁入口（G1）：依入口自己的寬度切三種版面，不靠自由換行
+   ============================================================ */
+.rd .lb-wrap { container-type: inline-size; margin: 0 0 24px; }
+.rd .lb-strip {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "top mid cta";
+  align-items: center; column-gap: 24px; row-gap: 14px;
+  padding: 14px 22px; border-radius: 24px; border: 1px solid rgba(253, 230, 138, .22); background: var(--lb-surface);
+}
+.rd .lb-top { grid-area: top; display: flex; align-items: center; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.rd .lb-pill { display: flex; align-items: center; gap: 8px; padding: 4px 14px 4px 4px; border-radius: 999px; background: var(--lb-surface); white-space: nowrap; }
+.rd .lb-pill__medal { flex-shrink: 0; }
+.rd .lb-pill__name { font-size: 0.875rem; font-weight: 700; color: var(--lb-text); }
+.rd .lb-pill__count { font-size: 0.75rem; color: var(--lb-muted); }
+.rd .lb-mid { grid-area: mid; min-width: 0; }
+.rd .lb-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 12px; margin-bottom: 6px; }
+.rd .lb-head__title { margin: 0; font-size: 1rem; font-weight: 900; color: var(--lb-gold); white-space: nowrap; }
+.rd .lb-head__sentence { margin-left: auto; font-size: 0.8125rem; color: var(--lb-sub); }
+.rd .lb-head__sentence strong { color: #ffffff; }
+.rd .lb-head__sentence strong.lb-num-mint { color: var(--lb-mint-text); }
+.rd .lb-mid__bar { margin-right: 14px; }
+.rd .lb-cta { grid-area: cta; justify-self: end; display: flex; align-items: center; gap: 14px; }
+.rd .lb-cta__link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 0.875rem; font-weight: 700; color: var(--lb-gold); white-space: nowrap; text-decoration: none; background: none; border: 0; padding: 0; cursor: pointer; transition: color .2s ease; }
+.rd .lb-cta__link:hover { color: #fef3c7; }
+.rd .lb-cta__link:active { opacity: .8; }
+.rd .lb-cta__link:focus-visible { outline: 2px solid var(--lb-gold); outline-offset: 4px; border-radius: 6px; }
+.rd .lb-cta__arrow { transition: transform .2s ease; }
+.rd .lb-cta__link:hover .lb-cta__arrow { transform: translateX(3px); }
+
+/* 中寬：上列前三名＋看排行榜，下列進度占滿 */
+@container (max-width: 1060px) {
+  .rd .lb-strip { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "top cta" "mid mid"; }
+}
+/*
+ * 手機：第一列是「聖誕老人排行榜｜看排行榜 →」，下面接進度句與進度條，前三名縮成一排
+ * 小膠囊排在最後。
+ *
+ * 原本三段直排（前三名／標題＋進度／看排行榜各一列）在 390px 要 266px 高，首頁的第一張
+ * 願望卡會被推出螢幕外。看排行榜用 `align-self: start` 貼齊 mid 區塊的第一行，和標題同列；
+ * 它 44px 的觸控範圍落在進度條那一塊的空白上，不會把整條撐高。
+ */
+@container (max-width: 600px) {
+  .rd .lb-strip { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "mid cta" "top top"; column-gap: 12px; row-gap: 10px; padding: 10px 14px; }
+  .rd .lb-cta { align-self: start; }
+  /*
+   * 「看排行榜」要跟標題同一條水平線起算。min-height 撐出來的 44px 會把文字推到那一格的
+   * 中間，比標題低半行，所以改用 padding 把觸控範圍撐開、再用等量的負外距收回去：
+   * 文字對齊標題，點得到的範圍仍然是 44px。
+   */
+  .rd .lb-cta__link { min-height: 0; padding: 12px 0; margin: -12px 0; }
+  /*
+   * 膠囊照內容長度排，塞不下就換行：三個人時變成 2＋1，名字不會被壓成一兩個字。
+   * 名字最寬 6 個字（「匿名的聖誕老人」會截成「匿名的聖誕老…」），兩顆才排得進 360px。
+   */
+  .rd .lb-top { flex-wrap: wrap; gap: 6px; }
+  .rd .lb-pill { flex: 0 1 auto; min-width: 0; gap: 6px; padding: 3px 10px 3px 3px; }
+  .rd .lb-pill__medal { width: 26px; height: 26px; }
+  .rd .lb-pill__name { font-size: 0.75rem; max-width: 6em; overflow: hidden; text-overflow: ellipsis; }
+  .rd .lb-pill__count { font-size: 0.6875rem; }
+  .rd .lb-head { gap: 2px 10px; margin-bottom: 6px; }
+  .rd .lb-head__title { font-size: 0.9375rem; }
+  .rd .lb-head__sentence { margin-left: 0; font-size: 0.75rem; }
+}
+/* container query 改不到容器自己的外距（見 rd.css 的同一個坑），所以這條用 @media */
+@media (max-width: 600px) {
+  .rd .lb-wrap { margin-bottom: 16px; }
+}
+
+/* ============================================================
+   排行榜頁。外層寬度與左右留白由網站的 .page 負責，這裡只排內容
+   ============================================================ */
+.rd .lb-page { container-type: inline-size; display: flex; flex-direction: column; gap: 28px; padding: 12px 0 24px; }
+.rd .lb-page__head { display: flex; flex-direction: column; gap: 10px; }
+.rd .lb-back { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; font-size: 0.875rem; text-decoration: none; }
+.rd .lb-page__title { margin: 0; font-size: 2.75rem; font-weight: 900; letter-spacing: .06em; line-height: 1.2; color: var(--lb-gold); }
+.rd .lb-page__lede { margin: 0; font-size: 1rem; line-height: 1.7; color: var(--lb-sub); }
+.rd .lb-card { border-radius: 28px; border: 1px solid var(--lb-line); background: var(--lb-surface); }
+.rd .lb-card__title { margin: 0; font-size: 1.0625rem; font-weight: 900; color: #e2e8f0; }
+
+/* 大家一起送出的禮物 */
+.rd .lb-goal { padding: 24px 28px; }
+.rd .lb-goal__title { margin: 0; font-size: 0.9375rem; font-weight: 700; letter-spacing: .08em; color: var(--lb-sub); }
+.rd .lb-goal__bar { margin-top: 8px; }
+.rd .lb-goal__sentence { margin: 6px 0 0; font-size: 1rem; color: var(--lb-sub); }
+.rd .lb-goal__sentence strong { font-size: 1.25rem; color: #ffffff; }
+.rd .lb-goal__sentence strong.lb-num-mint { color: var(--lb-mint-text); }
+
+/* 頒獎台：任何寬度都維持 2-1-3 三欄 */
+.rd .lb-podium { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr) minmax(0, 1fr); align-items: end; gap: 18px; margin: 0; padding: 0; list-style: none; }
+.rd .lb-pod { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 26px 20px 24px; border-radius: 28px; border: 1px solid; }
+.rd .lb-pod--1 { order: 2; padding-top: 36px; padding-bottom: 28px; }
+.rd .lb-pod--2 { order: 1; }
+.rd .lb-pod--3 { order: 3; }
+.rd .lb-pod--medal-1 { border-color: rgba(250, 204, 21, .5); background: rgba(250, 204, 21, .08); }
+.rd .lb-pod--medal-2 { border-color: rgba(203, 213, 225, .35); background: rgba(255, 255, 255, .05); }
+.rd .lb-pod--medal-3 { border-color: rgba(245, 158, 11, .4); background: rgba(245, 158, 11, .06); }
+.rd .lb-pod__name { margin-top: 14px; font-size: 1.375rem; font-weight: 900; color: #ffffff; overflow-wrap: anywhere; }
+.rd .lb-pod__count { margin-top: 6px; display: flex; align-items: baseline; gap: 6px; }
+.rd .lb-pod__num { font-size: 2.5rem; font-weight: 900; line-height: 1; color: #ffffff; }
+.rd .lb-pod--1 .lb-pod__num { font-size: 3rem; }
+.rd .lb-pod__unit { font-size: 0.9375rem; color: var(--lb-muted); }
+.rd .lb-pod__tier { margin-top: 14px; }
+@container (max-width: 600px) {
+  .rd .lb-podium { gap: 8px; }
+  .rd .lb-pod, .rd .lb-pod--1 { padding: 22px 6px 16px; border-radius: 20px; }
+  .rd .lb-pod__medal { width: 48px; height: 48px; }
+  .rd .lb-pod--1 .lb-pod__medal { width: 60px; height: 60px; }
+  .rd .lb-pod__name { font-size: 0.9375rem; margin-top: 10px; }
+  .rd .lb-pod__num { font-size: 1.75rem; }
+  .rd .lb-pod--1 .lb-pod__num { font-size: 2.125rem; }
+}
+
+/* 兩欄：全部排名｜我的成就＋稱號 */
+.rd .lb-columns { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 24px; }
+.rd .lb-list { flex: 999 1 560px; min-width: 0; overflow: hidden; }
+.rd .lb-list__title { margin: 0; padding: 20px 24px 12px; font-size: 1.0625rem; font-weight: 900; color: #e2e8f0; }
+.rd .lb-list__total { margin-left: 10px; font-size: 0.8125rem; font-weight: 500; color: var(--lb-muted); }
+.rd .lb-list__rows { margin: 0; padding: 0 0 8px; list-style: none; }
+.rd .lb-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 24px; border-top: 1px solid var(--lb-line-soft); transition: background-color .2s ease; }
+.rd .lb-row:hover { background: rgba(255, 255, 255, .06); }
+.rd .lb-row--me { background: rgba(110, 231, 183, .08); box-shadow: inset 3px 0 0 var(--lb-mint); }
+.rd .lb-row__rank { display: grid; place-items: center; font-size: 1rem; font-weight: 700; color: var(--lb-muted); font-variant-numeric: tabular-nums; }
+.rd .lb-row__who { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+.rd .lb-row__name { font-size: 1rem; font-weight: 700; color: var(--lb-text); overflow-wrap: anywhere; }
+.rd .lb-you { padding: 2px 8px; border-radius: 999px; background: rgba(110, 231, 183, .16); color: var(--lb-mint-text); font-size: 0.75rem; font-weight: 700; }
+.rd .lb-row__count { font-size: 1rem; color: #e2e8f0; text-align: right; white-space: nowrap; }
+.rd .lb-row__count strong { font-size: 1.125rem; color: #ffffff; }
+.rd .lb-list__more { display: flex; justify-content: center; padding: 4px 24px 20px; }
+.rd .lb-more { min-height: 44px; padding: 0 22px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .16); background: rgba(255, 255, 255, .06); color: #e2e8f0; font: inherit; font-size: 0.875rem; font-weight: 700; cursor: pointer; transition: background-color .2s ease, border-color .2s ease; }
+.rd .lb-more:hover { background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .28); }
+.rd .lb-more:focus-visible { outline: 2px solid var(--lb-mint); outline-offset: 2px; }
+
+.rd .lb-aside { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+
+/* 我的成就（H1） */
+.rd .lb-me { padding: 22px 24px; border-color: rgba(110, 231, 183, .3); background: rgba(110, 231, 183, .06); display: flex; flex-direction: column; gap: 16px; }
+.rd .lb-me__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.rd .lb-me__rank { font-size: 0.9375rem; font-weight: 700; color: var(--lb-mint-text); }
+.rd .lb-me__count { display: flex; align-items: center; gap: 10px; }
+.rd .lb-me__count strong { font-size: 2.25rem; font-weight: 900; line-height: 1; }
+.rd .lb-me__count > span:not(.tier-chip) { font-size: 0.875rem; color: var(--lb-sub); }
+.rd .lb-me__next { display: flex; flex-direction: column; gap: 6px; font-size: 0.8125rem; color: var(--lb-mint-text); }
+.rd .lb-bar { height: 8px; border-radius: 999px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.rd .lb-bar i { display: block; height: 100%; border-radius: 999px; background: var(--lb-mint); }
+.rd .lb-me__switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .08); }
+.rd .lb-me__switch label { font-size: 0.875rem; color: #e2e8f0; cursor: pointer; }
+.rd .lb-switch { position: relative; flex-shrink: 0; width: 48px; height: 28px; }
+.rd .lb-switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.rd .lb-switch i { position: absolute; inset: 0; border-radius: 999px; background: rgba(255, 255, 255, .16); transition: background-color .2s ease; pointer-events: none; }
+.rd .lb-switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #ffffff; transition: transform .2s ease; }
+.rd .lb-switch input:checked + i { background: #10b981; }
+.rd .lb-switch input:checked + i::after { transform: translateX(20px); }
+.rd .lb-switch input:focus-visible + i { outline: 2px solid var(--lb-mint); outline-offset: 2px; }
+
+/* 稱號怎麼來 */
+.rd .lb-tiers { padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+.rd .lb-tiers__list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.rd .lb-tier { display: flex; align-items: center; gap: 12px; }
+.rd .lb-tier__icon { width: 36px; height: 36px; flex-shrink: 0; border-radius: 12px; display: grid; place-items: center; }
+.rd .lb-tier__text { flex: 1 1 auto; display: flex; flex-direction: column; line-height: 1.4; }
+.rd .lb-tier__name { font-size: 0.9375rem; font-weight: 700; }
+.rd .lb-tier__desc { font-size: 0.8125rem; color: var(--lb-muted); }
+.rd .lb-tier__need { font-size: 0.8125rem; font-weight: 700; color: var(--lb-sub); white-space: nowrap; }
+.rd .lb-tier--legend .lb-tier__icon, .rd .lb-tier--legend .lb-tier__name { color: #fde68a; }
+.rd .lb-tier--legend .lb-tier__icon { background: rgba(250, 204, 21, .14); }
+.rd .lb-tier--captain .lb-tier__icon, .rd .lb-tier--captain .lb-tier__name { color: #fca5a5; }
+.rd .lb-tier--captain .lb-tier__icon { background: rgba(248, 113, 113, .14); }
+.rd .lb-tier--reindeer .lb-tier__icon, .rd .lb-tier--reindeer .lb-tier__name { color: #6ee7b7; }
+.rd .lb-tier--reindeer .lb-tier__icon { background: rgba(110, 231, 183, .14); }
+.rd .lb-tier--elf .lb-tier__icon, .rd .lb-tier--elf .lb-tier__name { color: #c4b5fd; }
+.rd .lb-tier--elf .lb-tier__icon { background: rgba(167, 139, 250, .16); }
+
+/* 歷屆前三名 */
+.rd .lb-past { padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+.rd .lb-past__campaign { display: flex; flex-direction: column; gap: 6px; }
+.rd .lb-past__name { font-size: 0.8125rem; font-weight: 700; letter-spacing: .06em; color: var(--lb-sub); }
+.rd .lb-past__rows { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.rd .lb-past__row { display: flex; align-items: center; gap: 8px; font-size: 0.875rem; color: var(--lb-text); }
+.rd .lb-past__rank { flex-shrink: 0; }
+.rd .lb-past__count { margin-left: auto; font-size: 0.8125rem; color: var(--lb-muted); white-space: nowrap; }
+
+/* ============================================================
+   進場（E6 頒獎台升起）：只有 .lb-page--intro 時播放
+   頒獎台依第 3、2、1 名升起 → 聚光燈打在第 1 名＋小星 → 其餘內容浮上
+   ============================================================ */
+.rd .lb-page--intro .lb-pod { transform-origin: 50% 100%; animation: lbPodRise .62s cubic-bezier(.34, 1.3, .64, 1) both; }
+.rd .lb-page--intro .lb-pod--3 { animation-delay: .10s; }
+.rd .lb-page--intro .lb-pod--2 { animation-delay: .28s; }
+.rd .lb-page--intro .lb-pod--1 { animation-delay: .46s; }
+.rd .lb-page--intro .lb-intro-rise { animation: lbRise .56s var(--lb-ease-out) both; }
+.rd .lb-page--intro .lb-intro-rise--1 { animation-delay: 1.0s; }
+.rd .lb-page--intro .lb-intro-rise--2 { animation-delay: 1.1s; }
+.rd .lb-page--intro .lb-intro-rise--3 { animation-delay: 1.25s; }
+.rd .lb-pod__spot {
+  position: absolute; left: 50%; bottom: 0; z-index: -1; width: 300px; height: calc(100% + 110px); margin-left: -150px; pointer-events: none;
+  background: linear-gradient(180deg, rgba(253, 230, 138, .22), rgba(253, 230, 138, .06) 80%, rgba(253, 230, 138, 0));
+  clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 38%, #000 72%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 38%, #000 72%, transparent 100%);
+  filter: blur(6px); opacity: 0; animation: lbSpot 2.2s ease .72s both;
+}
+.rd .lb-pod__star { position: absolute; left: 50%; top: -34px; margin-left: -11px; color: var(--lb-gold); opacity: 0; animation: lbStar 1.7s ease .95s both; }
+@keyframes lbPodRise { from { opacity: 0; transform: translateY(48px) scaleY(.88); } to { opacity: 1; transform: none; } }
+@keyframes lbRise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+@keyframes lbSpot { 0% { opacity: 0; } 25%, 60% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes lbStar { 0% { opacity: 0; transform: scale(.4); } 20% { opacity: 1; transform: scale(1.2); } 35%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+
+/* 減少動態效果：全部不動（SPEC 第 6.2、7 節） */
+@media (prefers-reduced-motion: reduce) {
+  .rd .lb *, .rd .lb-page--intro .lb-pod, .rd .lb-page--intro .lb-intro-rise { animation: none !important; }
+  .rd .sled-progress__puff { opacity: .5; }
+  .rd .lb-pod__spot, .rd .lb-pod__star { display: none; }
+}

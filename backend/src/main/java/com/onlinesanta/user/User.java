@@ -68,6 +68,15 @@ public class User extends BaseEntity {
     @Column(name = "onboarded_at")
     private Instant onboardedAt;
 
+    /**
+     * 同意在排行榜公開顯示網站顯示名稱的時間；null（預設）表示不公開，榜上顯示「匿名的聖誕老人」。
+     *
+     * <p>預設匿名是刻意的：現行《認領者參與須知》只寫顯示名稱「供合作機構辨識與聯繫」，
+     * 沒有公開展示這個用途，所以要本人自己打開才公開。份數與名次不受這個開關影響。
+     */
+    @Column(name = "leaderboard_opt_in_at")
+    private Instant leaderboardOptInAt;
+
     /** 密碼雜湊（BCrypt）。null 代表還沒設定密碼（例如開發模式建立的帳號）。 */
     @Column(name = "password_hash", length = 100)
     private String passwordHash;
@@ -185,6 +194,15 @@ public class User extends BaseEntity {
 
     public boolean isOnboarded() {
         return onboardedAt != null;
+    }
+
+    /** 設定要不要在排行榜公開顯示名字。關掉就把時間清空，下次打開記的是新的時間。 */
+    public void setLeaderboardOptIn(boolean optIn, Instant at) {
+        this.leaderboardOptInAt = optIn ? (leaderboardOptInAt == null ? at : leaderboardOptInAt) : null;
+    }
+
+    public boolean isLeaderboardOptIn() {
+        return leaderboardOptInAt != null;
     }
 
     public void recordLogin(Instant at) {

@@ -1,3 +1,5 @@
+import type { TierKey } from './tiers'
+
 /**
  * 後端 API 的回應型別。
  *
@@ -29,6 +31,8 @@ export interface UserProfile {
   emailVerified: boolean
   /** 已看完首次登入說明 */
   onboarded: boolean
+  /** 在排行榜公開顯示名字；預設 false，榜上是「匿名的聖誕老人」 */
+  leaderboardOptIn: boolean
 }
 
 export interface PageResponse<T> {
@@ -1028,4 +1032,52 @@ export interface WishListing {
   /** 開放時是目前上架期間，未開放時是下一次上架期間（沒有則不存在） */
   windowStart?: string
   windowEnd?: string
+}
+
+// ---------------------------------------------------------------- 排行榜
+
+/**
+ * 排行榜的一列，見 GET /api/leaderboard。
+ *
+ * 沒有使用者 id：名單是公開資料，後端只回名次、名稱、份數與稱號。也沒有「這一列是我」——
+ * 回應對所有人一樣才快取得住，自己那一列由前端用「我的成就」的名次比對出來。
+ */
+export interface LeaderboardEntry {
+  rank: number
+  /** 沒有公開名字的人是「匿名的聖誕老人」 */
+  name: string
+  delivered: number
+  /** 累計解鎖的稱號；一份都還沒送達不會出現在名單上，所以這裡一定有值 */
+  tier: TierKey | null
+  anonymous: boolean
+}
+
+export interface LeaderboardView {
+  /** 目前檔期名稱；一個檔期都還沒建立時是 null */
+  campaignName: string | null
+  /** 目標份數＝本檔期上架的願望總數 */
+  goal: number
+  delivered: number
+  donorCount: number
+  entries: LeaderboardEntry[]
+}
+
+/** 我的成就，見 GET /api/me/leaderboard。名次是當期的，稱號是累計的。 */
+export interface MyAchievement {
+  ranked: boolean
+  delivered: number
+  rank: number | null
+  lifetimeDelivered: number
+  tier: TierKey | null
+  nextTier: TierKey | null
+  toNextTier: number
+  showName: boolean
+}
+
+/** 歷屆前三名，見 GET /api/leaderboard/podiums。並列時同名次，一屆可能超過三筆。 */
+export interface PodiumHistory {
+  campaigns: {
+    campaignName: string
+    entries: { rank: number; name: string; delivered: number; anonymous: boolean }[]
+  }[]
 }

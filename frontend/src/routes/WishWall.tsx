@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, withQuery } from '../lib/api'
 import { avatarSrc } from '../lib/avatar'
+import { LeaderboardStrip } from '../components/leaderboard/LeaderboardStrip'
 import { CAMPAIGN_YEAR, PLATFORM_NAME } from '../lib/brand'
 import { useListEntry } from '../lib/useEntryAnimation'
 import type { PageResponse, WishFilterOptions, WishListView } from '../lib/types'
@@ -49,6 +50,7 @@ export function WishWall() {
   return (
     <>
       <Hero />
+      <LeaderboardStrip />
 
       <section className="filters" aria-label="篩選願望">
         <FilterSelect label="機構名稱" value={filters.organizationId}

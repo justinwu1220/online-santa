@@ -64,16 +64,19 @@ public class ClosingExportService {
     private final ReceiptCheckService receiptCheck;
     private final com.onlinesanta.closing.doc.ClosingDataService dataService;
     private final com.onlinesanta.closing.doc.ClosingPackageBuilder packageBuilder;
+    private final com.onlinesanta.leaderboard.LeaderboardService leaderboard;
 
     public ClosingExportService(ClosingExportRepository exports, DonationReceiptRepository receipts,
                                 DonationReceiptService receiptService, CampaignService campaigns,
                                 ObjectStorage storage, ClosingProperties properties,
                                 ReceiptCheckService receiptCheck,
                                 com.onlinesanta.closing.doc.ClosingDataService dataService,
-                                com.onlinesanta.closing.doc.ClosingPackageBuilder packageBuilder) {
+                                com.onlinesanta.closing.doc.ClosingPackageBuilder packageBuilder,
+                                com.onlinesanta.leaderboard.LeaderboardService leaderboard) {
         this.receiptCheck = receiptCheck;
         this.dataService = dataService;
         this.packageBuilder = packageBuilder;
+        this.leaderboard = leaderboard;
         this.exports = exports;
         this.receipts = receipts;
         this.receiptService = receiptService;
@@ -100,6 +103,9 @@ public class ClosingExportService {
         if (total == 0) {
             throw new BusinessRuleException("NO_RECEIPTS", "這個檔期還沒有有效的收據，沒有可匯出的內容");
         }
+        // 產生結案文件包就是這一屆的結案動作：順手把排行榜前三名記進榮譽榜。
+        // 重跑只會更新同一列，所以多按幾次不會留下重複或過時的紀錄。
+        leaderboard.recordPodium(campaignId);
         return exports.save(new ClosingExport(campaignId, ExportKind.CLOSING_PACKAGE, total, adminUserId));
     }
 

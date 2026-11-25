@@ -3,6 +3,7 @@ package com.onlinesanta.user;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.onlinesanta.auth.AppPrincipal;
 import com.onlinesanta.auth.CurrentUserService;
 import com.onlinesanta.user.dto.CurrentUserView;
+import com.onlinesanta.user.dto.LeaderboardOptInRequest;
 import com.onlinesanta.user.dto.UserProfileUpdateRequest;
 import com.onlinesanta.user.dto.UserProfileView;
 
@@ -59,5 +61,13 @@ public class MeController {
     @Operation(summary = "更新自己的個人檔案")
     public UserProfileView updateProfile(@Valid @RequestBody UserProfileUpdateRequest request) {
         return profile.updateMine(request);
+    }
+
+    @PutMapping("/leaderboard-opt-in")
+    @Operation(summary = "設定是否在排行榜公開顯示名字",
+            description = "預設不公開，榜上顯示「匿名的聖誕老人」。份數與名次不受影響。"
+                    + "獨立端點而不是併進個人檔案：這是一個開關，不該讓它連帶覆寫姓名、電話")
+    public UserProfileView setLeaderboardOptIn(@Valid @RequestBody LeaderboardOptInRequest request) {
+        return profile.setLeaderboardOptInMine(request.optIn());
     }
 }
