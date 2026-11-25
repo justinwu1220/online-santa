@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { useAuth, usingLocalAuth } from '../../lib/authContext'
-import { PLATFORM_NAME } from '../../lib/brand'
+import { CAMPAIGN_YEAR, PLATFORM_NAME, SUPPORT_EMAIL } from '../../lib/brand'
+import { useCurrentCampaign } from '../../lib/campaign'
 import type { ClaimDonorView, PageResponse } from '../../lib/types'
 import { useMyProfile } from '../../lib/useMyProfile'
 import { effectiveRoleOf, useCurrentUser } from '../../lib/useCurrentUser'
@@ -22,8 +23,9 @@ import { VerifyBar } from '../ui/VerifyBar'
  * 願望牆對所有人公開——人要先看見孩子的願望才會考慮註冊，把牆擋在登入後會直接
  * 殺掉轉換率。認領與查看紀錄才需要登入。
  *
- * 沒有頁尾。機構從頁首的「登入 / 註冊」進入，註冊時選擇機構身分；登入後機構與管理員的
- * 後台按鈕出現在右上角。
+ * 機構從頁首的「登入 / 註冊」進入，註冊時選擇機構身分；登入後機構與管理員的後台按鈕
+ * 出現在右上角。頁尾只有三件法務上該露出的資訊（聯絡信箱、勸募許可文號、著作權），
+ * 不放導覽連結。
  *
  * 頁首與雪花放在路由之外，換頁時不重新產生（SPEC 6.1 防閃爍的條件之一）。
  */
@@ -46,10 +48,36 @@ export function PublicLayout() {
           <main className="page">
             <Outlet />
           </main>
+          <SiteFooter />
         </TransitionProvider>
         </OnboardHost>
       </ToastProvider>
     </div>
+  )
+}
+
+/**
+ * 頁尾。願望牆捲到底才看得到，內容是三件該公開揭露的事：聯絡信箱、勸募許可文號、著作權。
+ *
+ * 信箱<strong>不做成連結</strong>：在手機上點到 mailto 會跳出選擇郵件 App 的系統對話框，
+ * 多數人其實只是想把地址複製走。
+ *
+ * 勸募許可文號由管理員維護在活動檔期裡，還沒有檔期（或抓不到）時整行不顯示——
+ * 不確定的法定文號寧可不寫。
+ */
+function SiteFooter() {
+  const campaign = useCurrentCampaign()
+
+  return (
+    <footer className="site-footer">
+      <div className="site-footer__in">
+        <p className="site-footer__contact">聯絡我們：{SUPPORT_EMAIL}</p>
+        {campaign.data?.permitNo && (
+          <p className="site-footer__permit">勸募許可文號：{campaign.data.permitNo}</p>
+        )}
+        <p className="site-footer__copy">© {CAMPAIGN_YEAR} {PLATFORM_NAME}</p>
+      </div>
+    </footer>
   )
 }
 

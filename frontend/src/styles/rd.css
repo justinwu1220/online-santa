@@ -229,6 +229,21 @@
    */
   @media (max-width: 600px) { .filters { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 12px; margin-bottom: 20px; } .filters label { gap: 4px; font-size: 0.6875rem; } .filters select { height: 38px; padding: 0 8px; } }
 
+  /* ---------- 頁尾 ---------- */
+  /*
+   * .rd 是 min-height:100vh 的直向 flex，.page 吃掉剩下的空間，所以頁尾自然貼在最底下，
+   * 內容不夠長時也不會浮在畫面中間。底色比頁面深一階，捲到底時看得出來是另一塊。
+   */
+  .site-footer { position: relative; z-index: 1; flex-shrink: 0; border-top: 1px solid var(--line); background: rgba(2, 6, 23, .55); }
+  .site-footer__in { max-width: 1152px; margin: 0 auto; padding: 18px 24px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 20px; font-size: 0.8125rem; color: var(--fg-4); }
+  .site-footer__in p { margin: 0; }
+  /* 選擇器要比上面那條 `__in p` 重（它也設了 margin），否則推不到右邊 */
+  .site-footer__in .site-footer__copy { margin-left: auto; }
+  @media (max-width: 600px) {
+    .site-footer__in { flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px 16px 22px; font-size: 0.75rem; }
+    .site-footer__in .site-footer__copy { margin-left: 0; }
+  }
+
   /* ---------- 願望卡片 ---------- */
   .wish-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
   @media (max-width: 420px) { .wish-grid { grid-template-columns: 1fr; } }

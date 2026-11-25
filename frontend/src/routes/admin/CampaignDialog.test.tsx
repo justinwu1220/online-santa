@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CampaignDialog } from './CampaignDialog'
 
 const post = vi.fn()
+const get = vi.fn(async (_path: string, _init?: RequestInit) => organizations)
 
 const organizations = {
   content: [
@@ -17,7 +18,11 @@ const organizations = {
 
 vi.mock('../../lib/api', async (original) => ({
   ...(await original<object>()),
-  api: { get: vi.fn(async () => organizations), post: (path: string, body?: unknown) => post(path, body), put: vi.fn() },
+  api: {
+    get: (path: string, init?: RequestInit) => get(path, init),
+    post: (path: string, body?: unknown) => post(path, body),
+    put: vi.fn(),
+  },
 }))
 
 function renderDialog() {
@@ -47,7 +52,7 @@ async function fillValid() {
   await fill('願望結束上架日', '2027-01-10')
 }
 
-beforeEach(() => { post.mockReset() })
+beforeEach(() => { post.mockReset(); get.mockClear() })
 
 describe('新增活動檔期表單', () => {
   it('活動編號必填', async () => {
@@ -74,6 +79,18 @@ describe('新增活動檔期表單', () => {
 
     await waitFor(() => expect(post).toHaveBeenCalled())
     expect(post.mock.calls[0][1]).toMatchObject({ associationOrgId: 'org-1' })
+  })
+
+  it('儲存成功後重抓頁尾的勸募許可文號，而且繞過瀏覽器快取', async () => {
+    post.mockResolvedValue({})
+    renderDialog()
+    await fillValid()
+
+    await userEvent.click(screen.getByRole('button', { name: '儲存' }))
+
+    // 端點帶著 max-age=300，不強制回源的話頁尾還是舊文號
+    await waitFor(() =>
+      expect(get).toHaveBeenCalledWith('/api/campaigns/current', { cache: 'reload' }))
   })
 
   it('勸募許可文號必填', async () => {

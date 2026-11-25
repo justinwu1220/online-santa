@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -64,6 +65,28 @@ class CampaignApiIT extends ApiIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return UUID.fromString(json.readTree(body).get("id").asText());
+    }
+
+    @Test
+    @DisplayName("頁尾的公開端點：未登入可讀，而且只回勸募許可文號")
+    void publicEndpointExposesOnlyThePermitNo() throws Exception {
+        // 還沒有任何檔期：回 null，頁尾那一行就不顯示
+        mvc.perform(get("/api/campaigns/current"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.permitNo").doesNotExist());
+
+        LocalDate today = LocalDate.now(com.onlinesanta.common.TaiwanYear.ZONE);
+        campaignService.create(request("頁尾檔期", "FOOT2026", today.minusDays(10), today.plusDays(30)));
+
+        String body = mvc.perform(get("/api/campaigns/current"))      // 不帶 token
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.permitNo").value(PERMIT))
+                // 快取五分鐘就好：文號是法定揭露資訊，改了之後全站不該等太久才跟上
+                .andExpect(header().string("Cache-Control", "max-age=300, public"))
+                .andReturn().getResponse().getContentAsString();
+
+        // 檔期的其他欄位不對外：活動編號、檔期名稱、收據前綴都不該出現
+        assertThat(body).doesNotContain("115000877").doesNotContain("頁尾檔期").doesNotContain("FOOT2026");
     }
 
     @Test

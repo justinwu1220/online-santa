@@ -1081,3 +1081,8 @@ export interface PodiumHistory {
     entries: { rank: number; name: string; delivered: number; anonymous: boolean }[]
   }[]
 }
+
+/** 頁尾用的公開檔期資訊。`permitNo` 為 null 代表還沒有檔期，那一行不顯示。 */
+export interface CampaignPublic {
+  permitNo: string | null
+}

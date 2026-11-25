@@ -18,6 +18,12 @@ export const CAMPAIGN_YEAR = '2026'
  */
 export const SITE_TITLE = `${PLATFORM_NAME} × 社團法人彰化縣康乃心關懷協會 ${CAMPAIGN_YEAR}`
 
+/**
+ * 官方信箱。站內好幾個地方都寫著它（須知、首次登入說明、停權提示、收據更正），
+ * 這裡先供頁尾使用；其他地方還是各自寫死的字串，哪天要改信箱要一起搜過一遍。
+ */
+export const SUPPORT_EMAIL = 'onlinesanta2026@gmail.com'
+
 /** 標頭用的品牌字串，帶聖誕樹。 */
 export const BRAND = `🎄 ${PLATFORM_NAME}`
 

@@ -78,6 +78,8 @@ public class SecurityConfig {
                         // 排行榜：首頁入口與排行榜頁訪客也看得到。回應裡沒有任何識別資料，
                         // 帶著 token 來時才會多標出「這一列是我」
                         .requestMatchers(HttpMethod.GET, "/api/leaderboard", "/api/leaderboard/podiums").permitAll()
+                        // 頁尾的勸募許可文號：依法要公開揭露，端點也只回這一個欄位
+                        .requestMatchers(HttpMethod.GET, "/api/campaigns/current").permitAll()
                         // 註冊、登入、換發與重設密碼：還沒有（或已失效）access token 才會用到。
                         // 信箱驗證碼與重寄需要登入身分，不在這份名單裡
                         .requestMatchers(HttpMethod.POST, PUBLIC_AUTH_PATHS).permitAll()

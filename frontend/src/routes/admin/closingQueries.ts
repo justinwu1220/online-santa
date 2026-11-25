@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, withQuery } from '../../lib/api'
+import { refreshCurrentCampaign } from '../../lib/campaign'
 import type {
   CampaignRequest, CampaignView, ExportView, MailProgress, PageResponse, PdfKind, PdfStatus,
   ReceiptCheck, ReceiptDownload, ReceiptStatus, ReceiptView,
@@ -73,6 +74,8 @@ function useRefreshClosing() {
     void queryClient.invalidateQueries({ queryKey: ['closing-receipts'] })
     void queryClient.invalidateQueries({ queryKey: ['closing-receipt-check'] })
     void queryClient.invalidateQueries({ queryKey: ['audit-logs'] })
+    // 網站頁尾的勸募許可文號也來自檔期；它吃 HTTP 快取，要強制回源才看得到新的
+    void refreshCurrentCampaign(queryClient)
   }
 }
 
